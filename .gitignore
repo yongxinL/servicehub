@@ -1,6 +1,84 @@
+## Update identity (in Command line/Terminal):
+# git config --global user.name "Your Name"
+# git config --global user.email "
+
 composer.phar
 /vendor/
 
+# git-deploy status file:
+/.deploy
+
+# Numerous always-ignore extensions
+*.diff
+*.err
+*.orig
+*.log
+*.rej
+*.swo
+*.swp
+*.vi
+*~
+*.sass-cache
+
+# OS or Editor folders
+.DS_Store
+Thumbs.db
+.cache
+.project
+.settings
+.tmproj
+*.esproj
+nbproject
+*.sublime-project
+*.sublime-workspace
+
+# Folders to ignore
+.hg
+.svn
+.CVS
+intermediate
+.idea
+.vscode
+
 # Commit your application's lock file https://getcomposer.org/doc/01-basic-usage.md#commit-your-composer-lock-file-to-version-control
 # You may choose to ignore a library lock file http://getcomposer.org/doc/02-libraries.md#lock-file
-# composer.lock
+composer.lock
+
+# Misc
+.buildpath
+.classpath
+.idea
+.metadata*
+.settings
+/static*
+/tags
+/.htaccess
+/.htpasswd
+.eslintcache
+
+# ignore log files and databases
+*.log
+*.sql
+*.sqlite
+
+# clone to Library
+.storybook
+dev-scripts
+stories
+tests
+.eslintignore
+.eslintrc.json
+.gitreview
+.phpcs
+.stylelintignore
+.stylelintrc.json
+.svgo.yml
+Doxyfile
+jsdoc.json
+tsconfig.json
+
+# ignore everything related to Visual Studio Code
+*.code-workspace
+
+# ignore everything related to private contents
+com.*.jar
