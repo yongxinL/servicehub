@@ -1,0 +1,98 @@
+services:
+    # GitLab: DevSecOps platform
+    bucketserv:
+        build:
+            context: ../shared/gitlab/
+        environment:
+            GITLAB_OMNIBUS_CONFIG: |
+                # Add any other gitlab.rb configuration here, each on its own line
+                external_url 'https://${REPBUK_DOMAIN}'
+                nginx['listen_port'] = 80
+                nginx['listen_https'] = false
+                gitlab_rails['smtp_enable'] = true
+                gitlab_rails['smtp_address'] = "${SMTP_HOST}"
+                gitlab_rails['smtp_port'] = ${SMTP_PORT}
+                gitlab_rails['smtp_user_name'] = "${SMTP_USER}"
+                gitlab_rails['smtp_password'] = "${SMTP_PASS}"
+                gitlab_rails['smtp_domain'] = "${SMTP_HOST}"
+                gitlab_rails['smtp_authentication'] = "login"
+                gitlab_rails['smtp_enable_starttls_auto'] = true
+                gitlab_rails['smtp_tls'] = false
+                gitlab_rails['smtp_openssl_verify_mode'] = 'peer'
+                # Disable prometheus monitoring
+                prometheus_monitoring['enable'] = false
+                sidekiq['metrics_enabled'] = false
+                puma['exporter_enabled'] = false
+                # OmniAuth settings
+                gitlab_rails['omniauth_enabled'] = true
+                #gitlab_rails['omniauth_allow_single_sign_on'] = true
+                gitlab_rails['omniauth_auto_link_user'] = ['openid_connect']
+                gitlab_rails['omniauth_allow_bypass_two_factor'] = ['openid_connect']
+                gitlab_rails['omniauth_sync_profile_from_provider'] = ['openid_connect']
+                gitlab_rails['omniauth_auto_sign_in_with_provider'] = 'openid_connect'
+                gitlab_rails['omniauth_providers'] = [
+                    {
+                        name: 'openid_connect', # do not change this parameter
+                        label: 'oneLijia', # optional label for login button, defaults to 'Openid Connect'
+                        args: {
+                            name: 'openid_connect',
+                            scope: ['openid', 'email', 'profile'],
+                            response_type: 'code',
+                            issuer:  'https://${AUTHEN_DOMAIN}/application/o/repobukt/',
+                            discovery: true,
+                            client_auth_method: 'query',
+                            uid_field: 'email',
+                            gitlab_username_claim: 'email',
+                            pkce: true,
+                            client_options: {
+                                identifier: '${REPBUK_CLIENT}',
+                                secret: '${REPBUK_SECRET}',
+                                redirect_uri: 'https://${REPBUK_DOMAIN}/users/auth/openid_connect/callback',
+                                end_session_endpoint: 'https://${AUTHEN_DOMAIN}/application/o/repobukt/end-session/',
+                                authorization_endpoint: 'https://${AUTHEN_DOMAIN}/application/o/authorize/',
+                                token_endpoint: 'https://${AUTHEN_DOMAIN}/application/o/token/',
+                                userinfo_endpoint: 'https://${AUTHEN_DOMAIN}/application/o/userinfo/',
+                                jwks_uri: 'https://${AUTHEN_DOMAIN}/application/o/repobukt/jwks/'
+                            }
+                        }
+                    }
+                ]
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:80"]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+            start_period: 240s
+        hostname: ${REPBUK_DOMAIN}
+        image: bucketserv
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.gitlab.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.gitlab.rule=Host(`${REPBUK_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.gitlab.service=gitlab"
+            # Define the internal container port for routing
+            - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+            # Enable TLS on this router
+            - "traefik.http.routers.gitlab.tls=true"
+            # Pass the original Host header to the container
+            - "traefik.http.services.gitlab.loadbalancer.passhostheader=true"
+            # Apply a compression middleware
+            - "traefik.http.routers.gitlab.middlewares=gitserv-compress"
+            # Define settings for the compression middleware
+            - "traefik.http.middlewares.gitserv-compress.compress=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.gitlab.tls.certresolver=letsencrypt"
+        networks:
+            - subnet
+        ports:
+            - 8020:80
+        restart: unless-stopped
+        shm_size: "256m"
+        volumes:
+            - ${APPS_DATA}/bucket/config:/etc/gitlab
+            - ${APPS_DATA}/bucket/logs:/var/log/gitlab
+            - ${APPS_DATA}/bucket/data:/var/opt/gitlab

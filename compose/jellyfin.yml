@@ -1,0 +1,18 @@
+services:
+    # Jellyfind: free and open-source media server
+    streamserv:
+        build:
+            context: ../shared/jellyfin/
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=${TIME_ZONE}
+        networks:
+            - subnet
+        ports:
+            - 8096:8096     # for web interface
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/jellyfin/config:/config
+            - ${APPS_DATA}/jellyfin/cache:/cache
+            - /theLiJIA/dataLibrary/media/video:/data/movies

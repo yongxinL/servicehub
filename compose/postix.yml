@@ -1,0 +1,35 @@
+services:
+    # poste.io: free and open-source email server
+    postixserv:
+        build:
+            context: ../shared/poste.io/
+        environment:
+            - TZ=${TIME_ZONE}
+            - HTTPS=OFF
+        hostname: mail.${DOMAIN_NAME}
+        image: postixserv
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.postix.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.postix.rule=Host(`${WEBMAL_DOMAIN}`) || Host(`${POSTIX_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.postix.service=postix"
+            # Define the internal container port for routing
+            - "traefik.http.services.postix.loadbalancer.server.port=80"
+            # Enable TLS on this router
+            - "traefik.http.routers.postix.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+        networks:
+            - subnet
+        ports:
+            - 25:25         # SMTP  (explicit TLS => STARTTLS, Authentication is DISABLED => use port 465/587 instead)
+            - 465:465       # SMTP (implicit TLS)
+            - 587:587       # ESMTP (explicit TLS => STARTTLS)
+            - 993:993       # IMAP4 (implicit TLS))
+            - 8010:80       # WebUI (HTTP)
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/mboxdata:/data

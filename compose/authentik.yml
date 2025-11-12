@@ -1,0 +1,101 @@
+services:
+    # Authentik - open source IdP and SSO
+    # start the initail setup, navigate to http://<server>:9000/if/flow/initial-setup/
+    # integration auth forward: > https://github.com/brokenscripts/authentik_traefik
+    authenserv:
+        build:
+            context: ../shared/authentik/
+        command: server
+        depends_on:
+            - authenwork
+        environment:
+            # authentick settings
+            - PG_PASS=${AUTHEN_PASSWD}
+            - AUTHENTIK_SECRET_KEY=${AUTHEN_SECRET}
+            # disable outbound analytics connections
+            - AUTHENTIK_DISABLE_STARTUP_ANALYTICS=true
+            - AUTHENTIK_DISABLE_UPDATE_CHECK=true
+            - AUTHENTIK_ERROR_REPORTING__ENABLED=false
+            # authentik email settings
+            - AUTHENTIK_EMAIL__HOST=${SMTP_HOST}
+            - AUTHENTIK_EMAIL__PORT=${SMTP_PORT}
+            - AUTHENTIK_EMAIL__USERNAME=${SMTP_USER}
+            - AUTHENTIK_EMAIL__PASSWORD=${SMTP_PASS}
+            - AUTHENTIK_EMAIL__USE_TLS=true
+            - AUTHENTIK_EMAIL__FROM=${SMTP_FROM}
+            # PostgreSQL settings
+            - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
+            - AUTHENTIK_POSTGRESQL__USER=${PGRSQL_USER}
+            - AUTHENTIK_POSTGRESQL__PASSWORD=${PGRSQL_PASS}
+            - AUTHENTIK_POSTGRESQL__NAME=${AUTHEN_DBNAME}
+            # listen settings
+            - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS="127.0.0.0/8, 10.0.0.0/8, 172.0.0.0/8, 192.168.0.0/16, fe80::/10, ::1/128"
+        image: authenserv
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.authkserve.entrypoints=websecure"
+            # Define the internal container port for routing
+            - "traefik.http.services.authkserve.loadbalancer.server.port=9000"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.authkserve.rule=Host(`${AUTHEN_DOMAIN}`)"
+            # Define the internal service for routing
+            - "traefik.http.routers.authkserve.service=authkserve"
+            # Enable TLS on this router
+            - "traefik.http.routers.authkserve.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.authkserve.tls.certresolver=letsencrypt"
+        networks:
+            - subnet
+        ports:
+            - "8000:9000"
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/authentik/media:/media
+            - ${APPS_DATA}/authentik/templates:/templates
+
+    ## Authentik Services - open source IdP and SSO solution
+    # worker for authentik
+    authenwork:
+        command: worker
+        depends_on:
+            servicedbx:
+                condition: service_healthy
+        environment:
+            # authentick settings
+            - PG_PASS=${AUTHEN_PASSWD}
+            - AUTHENTIK_SECRET_KEY=${AUTHEN_SECRET}
+            # disable outbound analytics connections
+            - AUTHENTIK_DISABLE_STARTUP_ANALYTICS=true
+            - AUTHENTIK_DISABLE_UPDATE_CHECK=true
+            - AUTHENTIK_ERROR_REPORTING__ENABLED=false
+            # authentik email settings
+            - AUTHENTIK_EMAIL__HOST=${SMTP_HOST}
+            - AUTHENTIK_EMAIL__PORT=${SMTP_PORT}
+            - AUTHENTIK_EMAIL__USERNAME=${SMTP_USER}
+            - AUTHENTIK_EMAIL__PASSWORD=${SMTP_PASS}
+            - AUTHENTIK_EMAIL__USE_TLS=true
+            - AUTHENTIK_EMAIL__FROM=${SMTP_FROM}
+            # PostgreSQL settings
+            - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
+            - AUTHENTIK_POSTGRESQL__USER=${PGRSQL_USER}
+            - AUTHENTIK_POSTGRESQL__PASSWORD=${PGRSQL_PASS}
+            - AUTHENTIK_POSTGRESQL__NAME=${AUTHEN_DBNAME}
+            # listen settings
+            - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS="127.0.0.0/8, 10.0.0.0/8, 172.0.0.0/8, 192.168.0.0/16, fe80::/10, ::1/128"
+        image: authenserv
+        networks:
+            - subnet
+        restart: unless-stopped
+        # `user: root` and the docker socket volume are optional.
+        # See more for the docker socket integration here:
+        # https://goauthentik.io/docs/outposts/integrations/docker
+        # Removing `user: root` also prevents the worker from fixing the permissions
+        # on the mounted folders, so when removing this make sure the folders have the correct UID/GID
+        # (1000:1000 by default)
+        user: root
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ${APPS_DATA}/authentik/media:/media
+            - ${APPS_DATA}/authentik/templates:/templates

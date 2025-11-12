@@ -1,0 +1,11 @@
+################################################################
+# Dynamic configuration
+# default certificates
+################################################################
+
+tls:
+    stores:
+        default:
+            defaultCertificate:
+                certFile: /letsencrypt/oneLijia.local.pem
+                keyFile: /letsencrypt/oneLijia.local.key

@@ -1,0 +1,43 @@
+services:
+    # open WebUI - self-hosted AI web chatbox
+    chabotserv:
+        build:
+           context: ../shared/openwebui/
+        environment:
+            - OLLAMA_BASE_URL=http://alpacaserv:11434
+            - WEBUI_SECRET_KEY=''
+            - RAG_EMBEDDING_ENGINE=ollama
+            - RAG_EMBEDDING_MODEL=mxbai-embed-large:latest
+        image: chabotserv
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.chabotserv.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.chabotserv.rule=Host(`${WKCHAT_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.chabotserv.service=chabotserv"
+            # Define the internal container port for routing
+            - "traefik.http.services.chabotserv.loadbalancer.server.port=8080"
+            # Enable TLS on this router
+            - "traefik.http.routers.chabotserv.tls=true"
+        networks:
+            - subnet
+        ports:
+            - 8030:8080
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/webapps/chabot:/app/backend/data
+
+    alpacaserv:
+        build:
+            context: ../shared/ollama/
+        image: alpacaserv
+        networks:
+            - subnet
+        ports:
+            - 8031:11434
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/webapps/alpaca:/root/.ollama

@@ -1,0 +1,22 @@
+services:
+    # PostgreSQL: Centralized Database Services
+    servicedbx:
+        build:
+            context: ../shared/postgresql/
+        environment:
+            - POSTGRES_USER=${PGRSQL_USER}
+            - POSTGRES_PASSWORD=${PGRSQL_PASS}
+            - POSTGRES_MULTIPLE_DATABASES=${PGRSQL_DBLIST}
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -d ${AUTHEN_DBNAME} -U dbservice"]
+            start_period: 20s
+            interval: 30s
+            retries: 5
+            timeout: 5s
+        image: servicedbx
+        networks:
+            - subnet
+        restart: unless-stopped
+        shm_size: 128mb
+        volumes:
+            - ${APPS_DATA}/servicedbx:/var/lib/postgresql/data

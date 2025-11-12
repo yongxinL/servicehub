@@ -1,0 +1,76 @@
+services:
+    # Traefik 3 Reverse Proxy Server
+    trafikserv:
+        build:
+            context: ../shared/traefik/
+        command:
+            # Disable sending anonymous usage data to the Traefik maintainers
+            - "--global.sendAnonymousUsage=false"
+            # Check for newer Traefik versions
+            - "--global.checkNewVersion=false"
+            # Enable the built-in API and web-based dashboard
+            - "--api=true"
+            # Enable the /ping endpoint so we can health-check Traefik
+            - "--ping=true"
+            # Define the primary HTTP entry point on port 80
+            - "--entryPoints.web.address=:80"
+            # Define the secure (HTTPS) entry point on port 443
+            - "--entryPoints.websecure.address=:443"
+            # force redirection of incoming from web to websecure
+            - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+            - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+            # Enable the Docker provider to detect containers and their labels
+            - "--providers.docker=true"
+            # Prevent automatic exposure of all containers; only expose containers
+            - "--providers.docker.exposedbydefault=false"
+            # file provider configuration
+            - "--providers.file.directory=/traefik/config/advanced"
+            # Use ACME (Let's Encrypt) to generate/renew certificates via TLS challenge
+            - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+            # The email address used by Let's Encrypt for renewal notices
+            - "--certificatesresolvers.letsencrypt.acme.email=oraclexp@hotmail.com"
+            # The file where ACME certificates are stored inside the container
+            - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+            # activate access logging
+            - "--accesslog=true"
+            # Set the log level (DEBUG, INFO, WARN, ERROR)
+            - "--log.level=INFO"
+            - "--log.filePath=/logs/traefik.log"
+        environment:
+            - TZ=${TIME_ZONE}
+        healthcheck:
+            test: ["CMD", "traefik", "healthcheck", "--ping"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 5s
+        image: trafikserv
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.dashboard.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.dashboard.rule=Host(`${TRAFIK_DOMAIN}`)"
+            # Define the internal service for routing
+            - "traefik.http.routers.dashboard.service=api@internal"
+            # Enable TLS on this router
+            - "traefik.http.routers.dashboard.tls=true"
+            # uncomment for middleware-limiting clients to specific IPs, disabled when Forward-Auth enabled.
+            # - "traefik.http.routers.dashboard.middlewares=dashboard-whitelist"
+            # - "traefik.http.middlewares.dashboard-whitelist.ipallowlist.sourcerange=${ALLOW_IPS}"
+            # uncomment when Domain Level Forward Authentication enabled in Authentik
+            - "traefik.http.routers.dashboard.middlewares=middlewares-authentik@file"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+        networks:
+            - subnet
+        ports:
+            # - 80:80
+            - 443:443
+        privileged: true
+        restart: unless-stopped
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - ../shared/traefik/advanced:/traefik/config/advanced:ro
+            - ../shared/letsencrypt:/letsencrypt

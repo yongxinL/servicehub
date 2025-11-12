@@ -1,0 +1,57 @@
+services:
+    # Confluence: web-base team Workspace for Family Scholar Library | Atlassian
+    kinoraserv:
+        build:
+           context: ../shared/confluence/
+        depends_on:
+            - servicedbx
+            - authenserv
+        environment:
+            - ATL_PROXY_NAME=${WWHOME_DOMAIN}
+            - ATL_PROXY_PORT=443
+            - JVM_MAXIMUM_MEMORY=3072m
+            - JVM_MINIMUM_MEMORY=1024m
+            - ATL_TOMCAT_PORT=8090
+            - ATL_TOMCAT_SCHEME=https
+            - ATL_TOMCAT_MAXTHREADS=48
+            - ATL_TOMCAT_MINSPARETHREAD=6
+            - ATL_TOMCAT_MAXHTTPHEADERSIZE=8192
+            - ATL_DB_POOLMAXSIZE=125
+            - ATL_DB_TYPE=postgresql
+            - ATL_JDBC_URL=jdbc:postgresql://${PGRSQL_HOST}:${PGRSQL_PORT}/${WWHOME_DBNAME}
+            - ATL_JDBC_USER=${PGRSQL_USER}
+            - ATL_JDBC_PASSWORD=${PGRSQL_PASS}
+            - JVM_SUPPORT_RECOMMENDED_ARGS=-Dmail.smtp.ssl.protocols=TLSv1.2 -Dupm.pac.disable=true --Datlassian.upm.signature.check.disabled=true
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8090/"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 90s
+        image: kinoraserv
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.confluence.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.confluence.rule=Host(`${WWHOME_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.confluence.service=confluence"
+            # Define the internal container port for routing
+            - "traefik.http.services.confluence.loadbalancer.server.port=8090"
+            # Enable TLS on this router
+            - "traefik.http.routers.confluence.tls=true"
+            # Apply a compression middleware
+            - "traefik.http.routers.confluence.middlewares=confserv-compress"
+            # Define settings for the compression middleware
+            - "traefik.http.middlewares.confserv-compress.compress=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.confluence.tls.certresolver=letsencrypt"
+        networks:
+            - subnet
+        ports:
+            - 8091:8091
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/kinora:/var/atlassian/application-data/confluence

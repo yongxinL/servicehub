@@ -1,9 +1,6 @@
 ## Update identity (in Command line/Terminal):
-# git config --global user.name "Your Name"
-# git config --global user.email "
-
-composer.phar
-/vendor/
+# git config --global user.name "George.Li"
+# git config --global user.email "yongxinL@outlook.com"
 
 # git-deploy status file:
 /.deploy
@@ -24,6 +21,7 @@ composer.phar
 .DS_Store
 Thumbs.db
 .cache
+.env
 .project
 .settings
 .tmproj
@@ -38,11 +36,11 @@ nbproject
 .CVS
 intermediate
 .idea
+cache
 .vscode
 
-# Commit your application's lock file https://getcomposer.org/doc/01-basic-usage.md#commit-your-composer-lock-file-to-version-control
-# You may choose to ignore a library lock file http://getcomposer.org/doc/02-libraries.md#lock-file
-composer.lock
+# Building & testing
+/composer.lock
 
 # Misc
 .buildpath
@@ -55,6 +53,7 @@ composer.lock
 /.htaccess
 /.htpasswd
 .eslintcache
+acme.json
 
 # ignore log files and databases
 *.log
@@ -81,4 +80,5 @@ tsconfig.json
 *.code-workspace
 
 # ignore everything related to private contents
-com.*.jar
+*.jar
+oneLijia*

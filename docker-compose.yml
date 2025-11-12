@@ -1,0 +1,19 @@
+############### NETWORKS ###############
+networks:
+    subnet:
+        driver: bridge
+
+############### SERVICES ###############
+include:
+    ## Core Services
+    - compose/servicedbx.yml
+    - compose/authentik.yml
+    - compose/postix.yml
+    - compose/trafik.yml
+
+    ## Web Applications
+    - compose/bucket.yml
+    - compose/kinora.yml
+    - compose/chabot.yml
+    - compose/wkflow.yml
+    - compose/jellyfin.yml
