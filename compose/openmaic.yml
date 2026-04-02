@@ -1,0 +1,39 @@
+services:
+    # OpenMAIC: Open multi-agent Interactive classroom
+    # https://github.com/THU-MAIC/OpenMAIC
+    openmaic:
+        build:
+            context: ../shared/openmaic/
+            dockerfile: Dockerfile
+            args:
+                OPENMAIC_ZIP_URL: https://github.com/THU-MAIC/OpenMAIC/archive/refs/heads/main.zip
+        environment:
+            # LLM Providers
+            - OPENAI_API_KEY=${OMAIC_OPENAI_API_KEY}
+            - OPENAI_BASE_URL=${OMAIC_OPENAI_BASE_URL}
+            - OPENAI_MODELS=${OMAIC_OPENAI_MODELS}
+        image: openmaic
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.openmaic.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.openmaic.rule=Host(`${OMAIC_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.openmaic.service=openmaic"
+            # Define the internal container port for routing
+            - "traefik.http.services.openmaic.loadbalancer.server.port=3000"
+            # Enable TLS on this router
+            - "traefik.http.routers.openmaic.tls=true"
+            # uncomment when Domain Level Forward Authentication enabled in Authentik
+            - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.openmaic.tls.certresolver=letsencrypt"
+        networks:
+            - subnet
+        ports:
+            - 3000:3000
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/webapps/openmaic:/app/data
