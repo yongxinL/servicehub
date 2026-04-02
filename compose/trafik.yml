@@ -1,6 +1,6 @@
 services:
     # Traefik 3 Reverse Proxy Server
-    trafikserv:
+    traefik:
         build:
             context: ../shared/traefik/
         command:
@@ -18,7 +18,11 @@ services:
             - "--entryPoints.websecure.address=:443"
             # force redirection of incoming from web to websecure
             - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-            - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+            - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+            - "--entrypoints.web.http.redirections.entryPoint.priority=100"
+            # Set the IPs or CIDR for where Treafik trusts the forwarded headers
+            - "--entryPoints.web.forwardedHeaders.trustedIPs=${TRUSTED_IP}"
+            - "--entryPoints.websecure.forwardedHeaders.trustedIPs=${TRUSTED_IP}"
             # Enable the Docker provider to detect containers and their labels
             - "--providers.docker=true"
             # Prevent automatic exposure of all containers; only expose containers
@@ -28,7 +32,7 @@ services:
             # Use ACME (Let's Encrypt) to generate/renew certificates via TLS challenge
             - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
             # The email address used by Let's Encrypt for renewal notices
-            - "--certificatesresolvers.letsencrypt.acme.email=oraclexp@hotmail.com"
+            - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
             # The file where ACME certificates are stored inside the container
             - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
             # activate access logging
@@ -44,7 +48,7 @@ services:
             timeout: 5s
             retries: 3
             start_period: 5s
-        image: trafikserv
+        image: traefik
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
@@ -56,17 +60,23 @@ services:
             - "traefik.http.routers.dashboard.service=api@internal"
             # Enable TLS on this router
             - "traefik.http.routers.dashboard.tls=true"
+            # uncomment for basicAuth
+            # all dollar signs in the hash need to be double for escaping.
+            # to create a user:password pair, the following command can be used
+            # echo $(htpasswd -nb user "password") | sed -e s/\\$/\\$\\$/g
+            # - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
+            # - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAFIK_BAAUTH}"
             # uncomment for middleware-limiting clients to specific IPs, disabled when Forward-Auth enabled.
             # - "traefik.http.routers.dashboard.middlewares=dashboard-whitelist"
-            # - "traefik.http.middlewares.dashboard-whitelist.ipallowlist.sourcerange=${ALLOW_IPS}"
+            # - "traefik.http.middlewares.dashboard-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
             # uncomment when Domain Level Forward Authentication enabled in Authentik
-            - "traefik.http.routers.dashboard.middlewares=middlewares-authentik@file"
+            - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
         networks:
             - subnet
         ports:
-            # - 80:80
+            - 80:80
             - 443:443
         privileged: true
         restart: unless-stopped
