@@ -1,0 +1,49 @@
+services:
+    # Gitea: self-hosted software development service
+    gitea:
+        build:
+            context: ../shared/gitea/
+        depends_on:
+            pgsqldb:
+                condition: service_healthy
+        environment:
+            # Using MySQL for databases
+            - GITEA__database__DB_TYPE=postgres
+            - GITEA__database__HOST=${PGRSQL_HOST}:${PGRSQL_PORT}
+            - GITEA__database__NAME=${GIT_DBNAME}
+            - GITEA__database__USER=${SQLDB_USER}
+            - GITEA__database__PASSWD=${SQLDB_PASS}
+            # Enable this to force users to log in to view any page or to use API
+            - REQUIRE_SIGNIN_VIEW=true
+            # Disable registration, only admin can create accounts for users.
+            - DISABLE_REGISTRATION=true
+            # Disable authentication in via openID
+            - ENABLE_OPENID_SIGNIN=false
+            # Disable user to sign-in with a passkey
+            - ENABLE_PASSKEY_AUTHENTICATION=false
+            # default Gitea custom folder
+            - GITEA_CUSTOM=/var/lib/custom
+        image: gitea
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.gitea.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.gitea.rule=Host(`${GIT_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.gitea.service=gitea"
+            # Define the internal container port for routing
+            - "traefik.http.services.gitea.loadbalancer.server.port=3000"
+            # Enable TLS on this router
+            - "traefik.http.routers.gitea.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.gitea.tls.certresolver=letsencrypt"
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - /etc/localtime:/etc/localtime:ro
+            - ${APPS_DATA}/webapps/repbuk/data:/var/lib/gitea
+            - ${APPS_DATA}/webapps/repbuk/config:/etc/gitea
+            - ../shared/gitea/custom:/var/lib/custom
