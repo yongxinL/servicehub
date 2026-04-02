@@ -1,0 +1,39 @@
+services:
+    wordpress:
+        build:
+            context: ../shared/wordpress/
+        depends_on:
+            traefik:
+                condition: service_healthy
+            mariadb:
+                condition: service_healthy
+        environment:
+            - WORDPRESS_DB_HOST=${MySQL_HOST}
+            - WORDPRESS_DB_NAME=${WP_DBNAME:-wordpress}
+            - WORDPRESS_DB_USER=${SQLDB_USER}
+            - WORDPRESS_DB_PASSWORD=${SQLDB_PASS}
+        image: wordpress
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.wordpress.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.wordpress.rule=Host(`${WP_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.wordpress.service=wordpress"
+            # Define the internal container port for routing
+            - "traefik.http.services.wordpress.loadbalancer.server.port=80"
+            # Enable TLS on this router
+            - "traefik.http.routers.wordpress.tls=true"
+            # Apply a compression middleware
+            - "traefik.http.routers.wordpress.middlewares=wordpress-compress"
+            # Define settings for the compression middleware
+            - "traefik.http.middlewares.wordpress-compress.compress=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.wordpress.tls.certresolver=letsencrypt"
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/webapps/wwhome:/var/www/html
