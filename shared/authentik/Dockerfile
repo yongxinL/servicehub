@@ -1,6 +1,9 @@
 # https://github.com/goauthentik/authentik
-FROM ghcr.io/goauthentik/server:2025.10
-LABEL maintainer "https://github.com/yongxinL/docker-library"
+
+ARG AUTHK_TAG=2025.12
+
+FROM ghcr.io/goauthentik/server:${AUTHK_TAG}
+LABEL org.opencontainers.image.authors="yongxinL@outlook.com"
 
 # Add your setup here
 # Example: RUN
