@@ -11,3 +11,7 @@ include:
     # --> database services
     - compose/mariadb.yml
     - compose/pgsqldb.yml
+
+    # --> Web applications
+    - compose/authentik.yml
+    - compose/gitea.yml
