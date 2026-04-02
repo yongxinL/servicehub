@@ -7,8 +7,8 @@ function create_user_and_database() {
 	local database=$1
 	echo "  Creating database '$database'"
 	mariadb -u"root" -p"$MARIADB_ROOT_PASSWORD" <<-EOSQL
-	   CREATE DATABASE IF NOT EXISTS "$database";
-	   GRANT ALL ON "$database".* TO '$MARIADB_USER'@'%';
+	   CREATE DATABASE IF NOT EXISTS \`$database\`;
+	   GRANT ALL ON \`$database\`.* TO '$MARIADB_USER'@'%';
 EOSQL
 }
 
