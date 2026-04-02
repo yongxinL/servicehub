@@ -32,8 +32,6 @@ services:
             - "traefik.http.routers.openmaic.tls.certresolver=letsencrypt"
         networks:
             - subnet
-        ports:
-            - 3000:3000
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/webapps/openmaic:/app/data

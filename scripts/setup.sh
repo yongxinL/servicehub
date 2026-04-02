@@ -2,7 +2,7 @@
 
 # This script automates the setup of the .env file for the ServiceHub project.
 # It should be run from the project's root directory.
-# It copies the .env.example file to .env and populates it with generated secrets.
+# It copies the env.example file to .env and populates it with generated secrets.
 
 set -e
 
@@ -16,7 +16,7 @@ if ! command -v openssl &> /dev/null; then
 fi
 
 ENV_FILE=".env"
-ENV_EXAMPLE_FILE=".env.example"
+ENV_EXAMPLE_FILE="env.example"
 
 cd "$PROJECT_ROOT"
 if [ ! -f "$ENV_EXAMPLE_FILE" ]; then

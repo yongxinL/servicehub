@@ -28,17 +28,14 @@ The following ports are exposed by the services. For a PASSWORD setup, these por
 
 | Port | Protocol | Service             | Description                    |
 |------|----------|---------------------|--------------------------------|
-| 25   | TCP      | `postix` (SMTP)     | Mail Submission                |
-| 587  | TCP      | `postix` (SMTPS)    | Secure Mail Submission (STARTTLS) |
-| 993  | TCP      | `postix` (IMAPS)    | Secure Mail Retrieval          |
-| 8000 | TCP      | `authentik`         | Authentik Web Interface        |
-| 8010 | TCP      | `postix`            | Poste.io Webmail & Admin       |
-| 8020 | TCP      | `bucket`            | GitLab Web Interface           |
-| 8030 | TCP      | `chabot`            | Ollama Web UI Interface        |
-| 8031 | TCP      | `chabot` (Ollama)   | Ollama API Interface           |
-| 8050 | TCP      | `wkflow` (n8n)      | n8n Web Interface              |
-| 8051 | TCP      | `wkflow` (Qdrant)   | Qdrant API Interface           |
-| 8090 | TCP      | `kinora`            | Confluence Web Interface       |
+| 80/443 | TCP    | Traefik             | Reverse proxy (HTTP/HTTPS) — routes all web apps |
+| 3306   | TCP    | `mariadb`           | MySQL Database                 |
+| 5432   | TCP    | `pgsqldb`           | PostgreSQL Database             |
+| 9000   | TCP    | `authentik`         | Authentik Web Interface        |
+| Internal ports (accessed via Traefik domains):                          |
+| 3000   | TCP    | `gitea`             | Git service (codex.*)          |
+| 3000   | TCP    | `openmaic`          | Learning platform (learn.*)    |
+| 80     | TCP    | `wordpress`         | CMS (www.*)                    |
 
 ## Project Structure
 
@@ -47,17 +44,22 @@ The repository is organized to keep service configurations modular and easy to m
 ```
 .
 ├── compose/                # Individual docker-compose files for each service
-│   ├── authenserv.yml
-│   ├── repbukserv.yml
-│   ├── maindbserv.yml
-│   ├── postixserv.yml
-│   ├── wkflow.yml
-│   └── ...
+│   ├── traefik.yml         # Reverse proxy with automatic HTTPS
+│   ├── mariadb.yml         # MySQL/MariaDB database
+│   ├── pgsqldb.yml         # PostgreSQL database
+│   ├── authentik.yml       # SSO/Authentication
+│   ├── gitea.yml           # Git repository hosting
+│   ├── wordpress.yml       # CMS/Blog platform
+│   └── openmaic.yml        # Multi-agent learning platform
 ├── shared/                 # Dockerfiles and shared configuration for custom images
-│   ├── authenserv/
-│   ├── repbukserv/
-│   └── ...
-├── .env.example            # Default environment variables for all services
+│   ├── authentik/
+│   ├── gitea/
+│   ├── mariadb/
+│   ├── openmaic/
+│   ├── postgresql/
+│   ├── traefik/
+│   └── wordpress/
+├── env.example             # Default environment variables for all services
 └── docker-compose.yml      # Main compose file to orchestrate all services
 ```
 
@@ -65,36 +67,36 @@ The repository is organized to keep service configurations modular and easy to m
 
 These services form the foundation of the ServiceHub.
 
-### 1. `servicedbx` - PostgreSQL
+### 1. `mariadb` - MariaDB
+- **Description**: A centralized MySQL/MariaDB database server for applications that require it.
+- **Image**: `mariadb:latest`
+
+### 2. `pgsqldb` - PostgreSQL
 - **Description**: A centralized PostgreSQL database server for applications that require it.
 - **Image**: `postgres:latest`
 
-### 2. `authenserv` - Authentik
+### 3. `authentik` - Authentik
 - **Description**: Provides centralized authentication and identity management (SSO) for other applications.
 - **Image**: `ghcr.io/goauthentik/server`
-- **Port**: `9081`
-
-### 3. `postixserv` - Poste.io
-- **Description**: A complete mail server solution.
-- **Image**: `analogic/poste.io`
-- **Ports**: `25`, `587`, `993`, `9080`
+- **Port**: `9000`
 
 ## Web Applications
 
-### 1. `bucketserv` - GitLab
-- **Description**: A complete DevOps platform, used here for Git repository management.
-- **Image**: `gitlab/gitlab-ce:latest`
-- **Port**: `9082`
+### 1. `gitea` - Gitea
+- **Description**: A lightweight GitHub-like self-hosted Git service.
+- **Image**: Custom image based on gitea/gitea
+- **Notes**: Integrated with Authentik for SSO
 
-### 2. `kinoraserv` - Confluence
-- **Description**: A team collaboration and knowledge base tool, serving as the homepage.
-- **Image**: Custom image based on atlassian/confluence-server
-- **Port**: `8090`
+### 2. `wordpress` - WordPress
+- **Description**: A popular CMS for websites and blogs.
+- **Image**: Custom image with nginx and php
+- **Notes**: Database-backed, configurable via environment
 
-### 3. `wkflowserv` - n8n
-- **Description**: A workflow automation tool.
-- **Image**: Custom image based on n8n
-- **Port**: `8050`
+### 3. `openmaic` - OpenMAIC
+- **Description**: Open Multi-Agent Interactive Classroom (THU-MAIC/OpenMAIC).
+- **Image**: Custom multi-stage Node.js build
+- **Internal Port**: `3000`
+- **Notes**: LLM-powered learning platform with OpenAI integration
 
 ## Prerequisites
 
@@ -176,18 +178,28 @@ For automated deployments, secrets from the `.env` file must be managed securely
 
 ## Usage
 
-### Starting All Services
-To build any custom images and start all services in detached mode:
-```bash
-docker-compose up --build -d
-```
-
 ### Starting a Single Service
 To start a specific service (and its dependencies):
 ```bash
 docker-compose up -d <service-name>
 ```
-For example, to start GitLab: `docker-compose up -d repbukserv`
+For example, to start WordPress: `docker-compose up -d wordpress`
+
+### Restarting a Service
+To restart a specific service:
+```bash
+docker-compose restart <service-name>
+```
+To restart a service and also rebuild its image:
+```bash
+docker-compose up -d --build <service-name>
+```
+
+### Starting All Services
+To build any custom images and start all services in detached mode:
+```bash
+docker-compose up --build -d
+```
 
 ### Stopping Services
 To stop all running services:
