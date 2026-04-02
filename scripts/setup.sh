@@ -17,6 +17,7 @@ fi
 
 ENV_FILE=".env"
 ENV_EXAMPLE_FILE=".env.example"
+
 cd "$PROJECT_ROOT"
 if [ ! -f "$ENV_EXAMPLE_FILE" ]; then
     echo "Error: $ENV_EXAMPLE_FILE not found. Please ensure the example file exists."
@@ -38,19 +39,19 @@ cp "$ENV_EXAMPLE_FILE" "$ENV_FILE"
 echo "Generating and injecting secrets into $ENV_FILE..."
 
 # Generate secrets
-AUTHEN_PGPASS=$(openssl rand -base64 36 | tr -d '\n')
-AUTHEN_SECRET=$(openssl rand -base64 60 | tr -d '\n')
 # Generate an 18-character alphanumeric password for the main PostgreSQL user
-PGRSQL_PASS=$(openssl rand -hex 16 | head -c 18)
+SQLDB_PASS=$(openssl rand -hex 16 | head -c 18)
+AUTHK_PASS=$(openssl rand -base64 36 | tr -d '\n')
+AUTHK_SECRET=$(openssl rand -base64 60 | tr -d '\n')
 
 # Use a temporary file for sed compatibility between GNU and BSD (macOS)
 # The sed command replaces placeholders. Using a different delimiter like '|'
 # avoids issues if generated secrets contain the default '/' character.
 
 sed -i.bak \
-    -e "s|<YOUR_STRONG_POSTGRES_PASSWORD>|${PGRSQL_PASS}|g" \
-    -e "s|<GENERATE_A_RANDOM_SECRET_KEY>|${AUTHEN_SECRET}|g" \
-    -e "s|<YOUR_STRONG_AUTHENTIK_ADMIN_PASSWORD>|${AUTHEN_PGPASS}|g" \
+    -e "s|<YOUR_STRONG_SQLDB_PASSWORD>|${SQLDB_PASS}|g" \
+    -e "s|<YOUR_STRONG_AUTHENTIK_PASSWORD>|${AUTHK_PASS}|g" \
+    -e "s|<YOUR_STRONG_AUTHENTIK_SECRETKEY>|${AUTHK_SECRET}|g" \
     "$ENV_FILE" && rm "${ENV_FILE}.bak"
 
 chmod 600 "$ENV_FILE"
