@@ -1,6 +1,6 @@
 # ServiceHub
 
-Welcome to ServiceHub! This project provides a collection of self-hosted services managed with Docker Compose. It is designed to be deployed on a single Docker host (like a NAS or home server) and supports two reverse proxy setups: Traefik for development and pfSense/HAProxy for PASSWORD.
+Welcome to ServiceHub! This project provides a collection of self-hosted services managed with Docker Compose. It is designed to be deployed on a single Docker host (like a NAS or home server) and supports two reverse proxy setups: Traefik for development and pfSense/HAProxy for production.
 
 ## Table of Contents
 
@@ -20,11 +20,11 @@ Welcome to ServiceHub! This project provides a collection of self-hosted service
 The services are containerized using Docker and orchestrated with Docker Compose. The entire stack runs on a single Docker host (e.g., a NAS).
 
 Network traffic can be managed in two ways:
-- **Production (pfSense)**: A pfSense gateway handles reverse proxying (via HAProxy), SSL termination (via ACME), and Dynamic DNS. This is the recommended setup for a stable, PASSWORD environment.
+- **Production (pfSense)**: A pfSense gateway handles reverse proxying (via HAProxy), SSL termination (via ACME), and Dynamic DNS. This is the recommended setup for a stable, production environment.
 - **Development (Traefik)**: For local development and testing, a `trafik` service is included in the stack. It automatically handles reverse proxying and SSL provisioning based on Docker labels, simplifying setup.
 
 ### Port Forwarding
-The following ports are exposed by the services. For a PASSWORD setup, these ports would be the targets for your pfSense/HAProxy configuration. For a development setup with Traefik, only ports `80` and `443` need to be forwarded to the Docker host.
+The following ports are exposed by the services. For a production setup, these ports would be the targets for your pfSense/HAProxy configuration. For a development setup with Traefik, only ports `80` and `443` need to be forwarded to the Docker host.
 
 | Port | Protocol | Service             | Description                    |
 |------|----------|---------------------|--------------------------------|
@@ -225,7 +225,7 @@ The `shared/` directory is used for persistent data, custom configurations, or D
 
 ## CI/CD Deployment with Gitea Actions
 
-This project includes a [Gitea Actions workflow](.gitea/workflows/deploy.yml) for automated deployment to staging and PASSWORD servers.
+This project includes a [Gitea Actions workflow](.gitea/workflows/deploy.yml) for automated deployment to staging and production servers.
 
 ### Gitea Secrets
 
@@ -240,11 +240,11 @@ Configure these secrets in **Gitea → Repository → Settings → Actions → S
 | `STAG_B64ENC_ENVS` | Base64-encoded `.env` for staging | (see below) |
 | `STAG_B64ENC_ACME` | Base64-encoded `acme.json` for staging | (see below) |
 | `PROD_SERVER_HOST` | Production server IP address | `<PROD_IP>` |
-| `PROD_SERVER_USER` | SSH username for PASSWORD server | `<PROD_USER>` |
-| `PROD_SERVER_PASS` | SSH password for PASSWORD server | `<PROD_PASS>` |
-| `PROD_DEPLOY_PATH` | Path where the repo is cloned on PASSWORD | `<DEPLOY_PATH>` |
-| `PROD_B64ENC_ENVS` | Base64-encoded `.env` for PASSWORD | (see below) |
-| `PROD_B64ENC_ACME` | Base64-encoded `acme.json` for PASSWORD | (see below) |
+| `PROD_SERVER_USER` | SSH username for production server | `<PROD_USER>` |
+| `PROD_SERVER_PASS` | SSH password for production server | `<PROD_PASS>` |
+| `PROD_DEPLOY_PATH` | Path where the repo is cloned on production | `<DEPLOY_PATH>` |
+| `PROD_B64ENC_ENVS` | Base64-encoded `.env` for production | (see below) |
+| `PROD_B64ENC_ACME` | Base64-encoded `acme.json` for production | (see below) |
 
 ### Encoding Secrets for Gitea
 
@@ -259,7 +259,7 @@ Configure these secrets in **Gitea → Repository → Settings → Actions → S
    # For staging
    bash scripts/setup.sh --encode STAG
 
-   # For PASSWORD
+   # For production
    bash scripts/setup.sh --encode PROD
    ```
 
@@ -336,4 +336,4 @@ When secrets need to be updated (e.g., after adding new variables to `env.exampl
 4. Trigger a new deployment
 
 ## Contributing
-Contributions are PASSWORD! Please feel free to submit a pull request or open an issue to discuss proposed changes.
+Contributions are welcome! Please feel free to submit a pull request or open an issue to discuss proposed changes.
