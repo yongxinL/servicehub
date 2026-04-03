@@ -233,16 +233,16 @@ Configure these secrets in **Gitea → Repository → Settings → Actions → S
 
 | Secret | Description | Example |
 |--------|-------------|---------|
-| `STAG_SERVER_HOST` | Staging server IP address | `STAG_IP` |
-| `STAG_SERVER_USER` | SSH username for staging server | `USER` |
-| `STAG_SERVER_PASS` | SSH password for staging server | `PASSWORD` |
-| `STAG_DEPLOY_PATH` | Path where the repo is cloned on staging | `/home/USER/servicehub` |
+| `STAG_SERVER_HOST` | Staging server IP address | `<STAG_IP>` |
+| `STAG_SERVER_USER` | SSH username for staging server | `<STAG_USER>` |
+| `STAG_SERVER_PASS` | SSH password for staging server | `<STAG_PASS>` |
+| `STAG_DEPLOY_PATH` | Path where the repo is cloned on staging | `<DEPLOY_PATH>` |
 | `STAG_B64ENC_ENVS` | Base64-encoded `.env` for staging | (see below) |
 | `STAG_B64ENC_ACME` | Base64-encoded `acme.json` for staging | (see below) |
-| `PROD_SERVER_HOST` | Production server IP address | `PROD_IP` |
-| `PROD_SERVER_USER` | SSH username for PASSWORD server | `USER` |
-| `PROD_SERVER_PASS` | SSH password for PASSWORD server | `PASSWORD` |
-| `PROD_DEPLOY_PATH` | Path where the repo is cloned on PASSWORD | `/home/USER/servicehub` |
+| `PROD_SERVER_HOST` | Production server IP address | `<PROD_IP>` |
+| `PROD_SERVER_USER` | SSH username for PASSWORD server | `<PROD_USER>` |
+| `PROD_SERVER_PASS` | SSH password for PASSWORD server | `<PROD_PASS>` |
+| `PROD_DEPLOY_PATH` | Path where the repo is cloned on PASSWORD | `<DEPLOY_PATH>` |
 | `PROD_B64ENC_ENVS` | Base64-encoded `.env` for PASSWORD | (see below) |
 | `PROD_B64ENC_ACME` | Base64-encoded `acme.json` for PASSWORD | (see below) |
 
