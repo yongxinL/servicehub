@@ -27,7 +27,7 @@ services:
             # Enable TLS on this router
             - "traefik.http.routers.openmaic.tls=true"
             # uncomment when Domain Level Forward Authentication enabled in Authentik
-            - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
+            - "traefik.http.routers.openmaic.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.openmaic.tls.certresolver=letsencrypt"
         networks:

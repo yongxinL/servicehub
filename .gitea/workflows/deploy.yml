@@ -1,0 +1,101 @@
+name: Deploy to Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy (or "all")'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - authentik
+          - gitea
+          - wordpress
+          - openmaic
+          - mariadb
+          - pgsqldb
+          - gitrunner
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'stag'
+        type: choice
+        options:
+          - stag
+          - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Resolve environment
+        id: env
+        run: |
+          echo "env=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event.inputs.environment }}" = "stag" ]; then
+            echo "host=${{ secrets.STAG_SERVER_HOST }}" >> $GITHUB_OUTPUT
+            echo "user=${{ secrets.STAG_SERVER_USER }}" >> $GITHUB_OUTPUT
+            echo "password=${{ secrets.STAG_SERVER_PASS }}" >> $GITHUB_OUTPUT
+            echo "path=${{ secrets.STAG_DEPLOY_PATH }}" >> $GITHUB_OUTPUT
+            echo "env_b64=${{ secrets.STAG_B64ENC_ENVS }}" >> $GITHUB_OUTPUT
+            echo "acme_b64=${{ secrets.STAG_B64ENC_ACME }}" >> $GITHUB_OUTPUT
+          else
+            echo "host=${{ secrets.PROD_SERVER_HOST }}" >> $GITHUB_OUTPUT
+            echo "user=${{ secrets.PROD_SERVER_USER }}" >> $GITHUB_OUTPUT
+            echo "password=${{ secrets.PROD_SERVER_PASS }}" >> $GITHUB_OUTPUT
+            echo "path=${{ secrets.PROD_DEPLOY_PATH }}" >> $GITHUB_OUTPUT
+            echo "env_b64=${{ secrets.PROD_B64ENC_ENVS }}" >> $GITHUB_OUTPUT
+            echo "acme_b64=${{ secrets.PROD_B64ENC_ACME }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install sshpass
+        run: apt-get update && apt-get install -y sshpass
+
+      - name: Deploy to Server
+        env:
+          SERVICE: ${{ github.event.inputs.service }}
+          SERVER_HOST: ${{ steps.env.outputs.host }}
+          SERVER_USER: ${{ steps.env.outputs.user }}
+          SERVER_PASSWORD: ${{ steps.env.outputs.password }}
+          DEPLOY_PATH: ${{ steps.env.outputs.path }}
+          ENV_B64: ${{ steps.env.outputs.env_b64 }}
+          ACME_B64: ${{ steps.env.outputs.acme_b64 }}
+        run: |
+          if [ "$SERVICE" = "all" ]; then
+            COMPOSE_CMD="docker-compose up --build -d"
+          else
+            COMPOSE_CMD="docker-compose up -d --build $SERVICE"
+          fi
+
+          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << "END_SSH"
+            set -e
+            cd $DEPLOY_PATH
+
+            # Pull latest code
+            git pull origin main
+
+            # Merge .env: keep existing values, add new variables from env.example
+            if [ -f "scripts/setup.sh" ]; then
+              bash scripts/setup.sh
+            fi
+
+            # Override .env with secret if provided (for secrets not in env.example)
+            if [ -n "$ENV_B64" ]; then
+              echo "$ENV_B64" | base64 -d > .env
+              chmod 600 .env
+            fi
+
+            # Deploy acme.json for SSL certificates if provided
+            if [ -n "$ACME_B64" ]; then
+              echo "$ACME_B64" | base64 -d > shared/letsencrypt/acme.json
+              chmod 600 shared/letsencrypt/acme.json
+            fi
+
+            $COMPOSE_CMD
+            echo "Deployment of $SERVICE to ${{ github.event.inputs.environment }} completed"
+END_SSH
