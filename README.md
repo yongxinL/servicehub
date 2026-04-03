@@ -223,5 +223,117 @@ All service-specific configurations are managed in their respective files within
 
 The `shared/` directory is used for persistent data, custom configurations, or Dockerfiles needed to build custom images. Ensure the paths in your `.env` file and compose files point to the correct locations on your host machine.
 
+## CI/CD Deployment with Gitea Actions
+
+This project includes a [Gitea Actions workflow](.gitea/workflows/deploy.yml) for automated deployment to staging and PASSWORD servers.
+
+### Gitea Secrets
+
+Configure these secrets in **Gitea → Repository → Settings → Actions → Secrets**:
+
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `STAG_SERVER_HOST` | Staging server IP address | `STAG_IP` |
+| `STAG_SERVER_USER` | SSH username for staging server | `USER` |
+| `STAG_SERVER_PASS` | SSH password for staging server | `PASSWORD` |
+| `STAG_DEPLOY_PATH` | Path where the repo is cloned on staging | `/home/USER/servicehub` |
+| `STAG_B64ENC_ENVS` | Base64-encoded `.env` for staging | (see below) |
+| `STAG_B64ENC_ACME` | Base64-encoded `acme.json` for staging | (see below) |
+| `PROD_SERVER_HOST` | Production server IP address | `PROD_IP` |
+| `PROD_SERVER_USER` | SSH username for PASSWORD server | `USER` |
+| `PROD_SERVER_PASS` | SSH password for PASSWORD server | `PASSWORD` |
+| `PROD_DEPLOY_PATH` | Path where the repo is cloned on PASSWORD | `/home/USER/servicehub` |
+| `PROD_B64ENC_ENVS` | Base64-encoded `.env` for PASSWORD | (see below) |
+| `PROD_B64ENC_ACME` | Base64-encoded `acme.json` for PASSWORD | (see below) |
+
+### Encoding Secrets for Gitea
+
+1. Ensure your `.env` file is configured correctly:
+   ```bash
+   cp env.example .env
+   # Edit .env with your values
+   ```
+
+2. Run the encode command for each environment:
+   ```bash
+   # For staging
+   bash scripts/setup.sh --encode STAG
+
+   # For PASSWORD
+   bash scripts/setup.sh --encode PROD
+   ```
+
+   This creates base64-encoded files:
+   - `STAG_B64ENC_ENVS.b64` / `PROD_B64ENC_ENVS.b64` — from `.env`
+   - `STAG_B64ENC_ACME.b64` / `PROD_B64ENC_ACME.b64` — from `shared/letsencrypt/acme.json`
+
+3. Copy the file contents to Gitea secrets:
+   ```bash
+   # Copy to clipboard (Linux)
+   cat STAG_B64ENC_ENVS.b64 | xclip -selection clipboard
+
+   # Or display and copy manually
+   cat STAG_B64ENC_ENVS.b64
+   ```
+
+4. Add the secrets in **Gitea → Repository → Settings → Actions → Secrets**:
+   - `STAG_B64ENC_ENVS` ← content of `STAG_B64ENC_ENVS.b64`
+   - `STAG_B64ENC_ACME` ← content of `STAG_B64ENC_ACME.b64`
+   - `PROD_B64ENC_ENVS` ← content of `PROD_B64ENC_ENVS.b64`
+   - `PROD_B64ENC_ACME` ← content of `PROD_B64ENC_ACME.b64`
+
+### Gitea Runner Setup
+
+The project includes a Gitea runner service (`gitrunner`) defined in [compose/gitea.yml](compose/gitea.yml).
+
+To enable Actions on your Gitea instance:
+
+1. Go to **Gitea → Repository → Settings → Actions → Runners**
+2. Click **New Runner** and copy the token
+3. Add the token to your `.env`:
+   ```
+   GIT_RUNNER_TOKEN=<your-runner-token>
+   ```
+4. Start the runner:
+   ```bash
+   docker-compose up -d gitrunner
+   ```
+
+### Triggering Deployments
+
+Go to **Gitea → Repository → Actions**, select the workflow, and click **Run Workflow**:
+
+- **service**: Choose which service to deploy (or `all`)
+- **environment**: Choose `stag` or `prod`
+
+### How Deployment Works
+
+When a deployment is triggered, the workflow automatically:
+
+1. SSHs into the target server
+2. Pulls the latest code from Gitea
+3. Runs `setup.sh` to merge any new variables from `env.example` into the existing `.env`
+4. Decodes `STAG_B64ENC_ENVS` or `PROD_B64ENC_ENVS` from Gitea secrets → writes to `.env`
+5. Decodes `STAG_B64ENC_ACME` or `PROD_B64ENC_ACME` from Gitea secrets → writes to `shared/letsencrypt/acme.json`
+6. Runs `docker-compose up --build -d [service]`
+
+This means **deployment is fully automated** after initial setup. You only need to update Gitea secrets when:
+- New environment variables are added to `env.example`
+- Server credentials or passwords change
+- SSL certificates are renewed
+
+### Updating Secrets
+
+When secrets need to be updated (e.g., after adding new variables to `env.example`):
+
+1. On your local machine, update your `.env` with new values
+2. Re-encode for each environment:
+   ```bash
+   bash scripts/setup.sh --encode STAG
+   bash scripts/setup.sh --encode PROD
+   ```
+3. Update the secrets in **Gitea → Repository → Settings → Actions → Secrets**
+4. Trigger a new deployment
+
 ## Contributing
 Contributions are PASSWORD! Please feel free to submit a pull request or open an issue to discuss proposed changes.

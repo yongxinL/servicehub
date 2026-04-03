@@ -23,6 +23,12 @@ services:
             - ENABLE_PASSKEY_AUTHENTICATION=false
             # default Gitea custom folder
             - GITEA_CUSTOM=/var/lib/custom
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+            start_period: 20s
+            interval: 30s
+            retries: 5
+            timeout: 5s
         image: gitea
         labels:
             # Enable Traefik for this container
@@ -47,3 +53,25 @@ services:
             - ${APPS_DATA}/webapps/repbuk/data:/var/lib/gitea
             - ${APPS_DATA}/webapps/repbuk/config:/etc/gitea
             - ../shared/gitea/custom:/var/lib/custom
+
+    # Gitea Act Runner - executes CI/CD workflows
+    # https://codeberg.org/gitea/act_runner
+    gitrunner:
+        build:
+            context: ../shared/gitea/runner/
+        depends_on:
+            gitea:
+                condition: service_healthy
+        environment:
+            - GITEA_INSTANCE_URL=http://gitea:3000
+            - GITEA_RUNNER_REGISTRATION_TOKEN=${GIT_RUNNER_TOKEN}
+        image: gitrunner
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - /etc/localtime:/etc/localtime:ro
+            # Mount Docker socket for running docker commands in workflows
+            - /var/run/docker.sock:/var/run/docker.sock
+            # Runner data persistence
+            - ${APPS_DATA}/webapps/repbuk/runner:/data
