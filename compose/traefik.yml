@@ -72,7 +72,7 @@ services:
             # uncomment when Domain Level Forward Authentication enabled in Authentik
             - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+            - "traefik.http.routers.dashboard.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         ports:

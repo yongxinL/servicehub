@@ -44,7 +44,7 @@ services:
             # Enable TLS on this router
             - "traefik.http.routers.gitea.tls=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.gitea.tls.certresolver=letsencrypt"
+            - "traefik.http.routers.gitea.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
@@ -56,7 +56,7 @@ services:
 
     # Gitea Act Runner - executes CI/CD workflows
     # https://codeberg.org/gitea/act_runner
-    gitrunner:
+    runner:
         build:
             context: ../shared/gitea/runner/
         depends_on:

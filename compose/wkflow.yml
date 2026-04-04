@@ -31,11 +31,9 @@ services:
             # uncomment when Domain Level Forward Authentication enabled in Authentik
             - "traefik.http.routers.wkflowserv.middlewares=middlewares-authentik@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.wkflowserv.tls.certresolver=letsencrypt"
+            - "traefik.http.routers.wkflowserv.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
-        ports:
-            - 8050:5678
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/workflow/n8n:/home/node/.n8n

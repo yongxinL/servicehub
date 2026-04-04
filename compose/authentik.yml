@@ -50,7 +50,7 @@ services:
             # Enable TLS on this router
             - "traefik.http.routers.authk.tls=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.authk.tls.certresolver=letsencrypt"
+            - "traefik.http.routers.authk.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped

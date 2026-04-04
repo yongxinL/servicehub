@@ -31,7 +31,7 @@ services:
             # Define settings for the compression middleware
             - "traefik.http.middlewares.wordpress-compress.compress=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.wordpress.tls.certresolver=letsencrypt"
+            - "traefik.http.routers.wordpress.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped

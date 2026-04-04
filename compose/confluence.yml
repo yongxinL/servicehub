@@ -47,11 +47,9 @@ services:
             # Define settings for the compression middleware
             - "traefik.http.middlewares.confserv-compress.compress=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.confluence.tls.certresolver=letsencrypt"
+            - "traefik.http.routers.confluence.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
-        ports:
-            - 8091:8091
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/kinora:/var/atlassian/application-data/confluence

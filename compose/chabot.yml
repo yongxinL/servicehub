@@ -22,10 +22,10 @@ services:
             - "traefik.http.services.chabotserv.loadbalancer.server.port=8080"
             # Enable TLS on this router
             - "traefik.http.routers.chabotserv.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.chabotserv.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
-        ports:
-            - 8030:8080
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/webapps/chabot:/app/backend/data
