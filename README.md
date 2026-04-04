@@ -111,7 +111,7 @@ These services form the foundation of the ServiceHub.
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repository-url>
+    git clone https://github.com/yongxinL/servicehub.git
     cd servicehub
     ```
 
@@ -231,27 +231,36 @@ This project includes a [Gitea Actions workflow](.gitea/workflows/deploy.yml) fo
 
 Configure these secrets in **Gitea → Repository → Settings → Actions → Secrets**:
 
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `STAG_SERVER_HOST` | Staging server IP address | `<STAG_IP>` |
-| `STAG_SERVER_USER` | SSH username for staging server | `<STAG_USER>` |
-| `STAG_SERVER_PASS` | SSH password for staging server | `<STAG_PASS>` |
-| `STAG_DEPLOY_PATH` | Path where the repo is cloned on staging | `<DEPLOY_PATH>` |
-| `STAG_B64ENC_ENVS` | Base64-encoded `.env` for staging | (see below) |
-| `STAG_B64ENC_ACME` | Base64-encoded `acme.json` for staging | (see below) |
-| `PROD_SERVER_HOST` | Production server IP address | `<PROD_IP>` |
-| `PROD_SERVER_USER` | SSH username for production server | `<PROD_USER>` |
-| `PROD_SERVER_PASS` | SSH password for production server | `<PROD_PASS>` |
-| `PROD_DEPLOY_PATH` | Path where the repo is cloned on production | `<DEPLOY_PATH>` |
-| `PROD_B64ENC_ENVS` | Base64-encoded `.env` for production | (see below) |
-| `PROD_B64ENC_ACME` | Base64-encoded `acme.json` for production | (see below) |
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `STAG_SERVER_HOST` | Yes | Staging server IP address |
+| `STAG_SERVER_USER` | Yes | SSH username for staging server |
+| `STAG_SERVER_PASS` | Yes | SSH password for staging server |
+| `STAG_DEPLOY_PATH` | Yes | Path where the repo is cloned on staging |
+| `STAG_B64ENC_ENVS` | Yes | Base64-encoded `.env` for staging (see below) |
+| `STAG_B64ENC_ACME` | Optional | Base64-encoded gzip-compressed `acme.json` for staging. Only needed when migrating active Let's Encrypt certs. Leave unset to use the self-signed certificate defined in `shared/traefik/advanced/certificates.yml`. |
+| `PROD_SERVER_HOST` | Yes | Production server IP address |
+| `PROD_SERVER_USER` | Yes | SSH username for production server |
+| `PROD_SERVER_PASS` | Yes | SSH password for production server |
+| `PROD_DEPLOY_PATH` | Yes | Path where the repo is cloned on production |
+| `PROD_B64ENC_ENVS` | Yes | Base64-encoded `.env` for production (see below) |
+| `PROD_B64ENC_ACME` | Optional | Base64-encoded gzip-compressed `acme.json` for production. Set this to carry over existing Let's Encrypt certificates. If unset, Traefik will request new certificates on first start. |
+
+### TLS Certificate Behaviour by Environment
+
+| Environment | `CERTRESOLVER` in `.env` | `*_B64ENC_ACME` secret | Result |
+|-------------|--------------------------|------------------------|--------|
+| STAG | *(empty)* | Not set | Traefik uses the self-signed cert from `certificates.yml` |
+| STAG | *(empty)* | Set | Traefik uses the restored `acme.json` (no new requests) |
+| PROD | `letsencrypt` | Not set | Traefik requests new Let's Encrypt certs on first start |
+| PROD | `letsencrypt` | Set | Traefik uses the restored `acme.json` (renews as needed) |
 
 ### Encoding Secrets for Gitea
 
-1. Ensure your `.env` file is configured correctly:
+1. Ensure your `.env` file is configured correctly for the target environment:
    ```bash
    cp env.example .env
-   # Edit .env with your values
+   # Edit .env — for STAG set CERTRESOLVER= (empty), for PROD set CERTRESOLVER=letsencrypt
    ```
 
 2. Run the encode command for each environment:
@@ -264,8 +273,8 @@ Configure these secrets in **Gitea → Repository → Settings → Actions → S
    ```
 
    This creates base64-encoded files:
-   - `STAG_B64ENC_ENVS.b64` / `PROD_B64ENC_ENVS.b64` — from `.env`
-   - `STAG_B64ENC_ACME.b64` / `PROD_B64ENC_ACME.b64` — from `shared/letsencrypt/acme.json`
+   - `STAG_B64ENC_ENVS.b64` / `PROD_B64ENC_ENVS.b64` — always created from `.env`
+   - `STAG_B64ENC_ACME.b64` / `PROD_B64ENC_ACME.b64` — only created when `shared/letsencrypt/acme.json` exists and is larger than 1 KB
 
 3. Copy the file contents to Gitea secrets:
    ```bash
@@ -278,9 +287,9 @@ Configure these secrets in **Gitea → Repository → Settings → Actions → S
 
 4. Add the secrets in **Gitea → Repository → Settings → Actions → Secrets**:
    - `STAG_B64ENC_ENVS` ← content of `STAG_B64ENC_ENVS.b64`
-   - `STAG_B64ENC_ACME` ← content of `STAG_B64ENC_ACME.b64`
+   - `STAG_B64ENC_ACME` ← content of `STAG_B64ENC_ACME.b64` *(only if the file was generated)*
    - `PROD_B64ENC_ENVS` ← content of `PROD_B64ENC_ENVS.b64`
-   - `PROD_B64ENC_ACME` ← content of `PROD_B64ENC_ACME.b64`
+   - `PROD_B64ENC_ACME` ← content of `PROD_B64ENC_ACME.b64` *(only if the file was generated)*
 
 ### Gitea Runner Setup
 
@@ -313,14 +322,14 @@ When a deployment is triggered, the workflow automatically:
 1. SSHs into the target server
 2. Pulls the latest code from Gitea
 3. Runs `setup.sh` to merge any new variables from `env.example` into the existing `.env`
-4. Decodes `STAG_B64ENC_ENVS` or `PROD_B64ENC_ENVS` from Gitea secrets → writes to `.env`
-5. Decodes `STAG_B64ENC_ACME` or `PROD_B64ENC_ACME` from Gitea secrets → writes to `shared/letsencrypt/acme.json`
+4. Decodes `STAG_B64ENC_ENVS` or `PROD_B64ENC_ENVS` from Gitea secrets → overwrites `.env`
+5. If `STAG_B64ENC_ACME` or `PROD_B64ENC_ACME` is set, decodes and decompresses it → writes to `shared/letsencrypt/acme.json`. If the secret is unset, the existing `acme.json` on the server is left untouched and Traefik uses the self-signed certificate from `certificates.yml`.
 6. Runs `docker-compose up --build -d [service]`
 
 This means **deployment is fully automated** after initial setup. You only need to update Gitea secrets when:
 - New environment variables are added to `env.example`
 - Server credentials or passwords change
-- SSL certificates are renewed
+- You want to carry over renewed SSL certificates to a fresh server
 
 ### Updating Secrets
 
