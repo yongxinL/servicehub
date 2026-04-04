@@ -97,14 +97,22 @@ encode_secrets() {
     local acme_b64_file="${env}_B64ENC_ACME.b64"
 
     echo "Encoding .env to ${envs_file}..."
-    base64 -w 0 "$ENV_FILE" > "$envs_file"
+    base64 < "$ENV_FILE" | tr -d '\n' > "$envs_file"
 
-    echo "Encoding ${ACME_FILE} to ${acme_b64_file}..."
+    local acme_encoded=false
+    local acme_size=0
     if [ -f "$ACME_FILE" ]; then
-        base64 -w 0 "$ACME_FILE" > "$acme_b64_file"
+        acme_size=$(wc -c < "$ACME_FILE")
+    fi
+
+    if [ "$acme_size" -gt 1024 ]; then
+        echo "Encoding ${ACME_FILE} to ${acme_b64_file} (gzip compressed)..."
+        gzip -c "$ACME_FILE" | base64 | tr -d '\n' > "$acme_b64_file"
+        acme_encoded=true
+    elif [ ! -f "$ACME_FILE" ]; then
+        echo "Note: ${ACME_FILE} not found - skipping ACME encoding"
     else
-        echo "# acme.json not found" > "$acme_b64_file"
-        echo "Note: ${ACME_FILE} not found - file created with placeholder, skip this secret in Gitea if not needed"
+        echo "Note: ${ACME_FILE} is empty or smaller than 1KB - skipping ACME encoding"
     fi
 
     echo ""
@@ -112,12 +120,18 @@ encode_secrets() {
     echo "  Files created:"
     echo "=============================================="
     echo ""
-    echo "  ${envs_file}      -> Gitea secret: ${env}_B64ENC_ENVS"
-    echo "  ${acme_b64_file}  -> Gitea secret: ${env}_B64ENC_ACME"
+    echo "  ${envs_file}  -> Gitea secret: ${env}_B64ENC_ENVS"
+    if [ "$acme_encoded" = true ]; then
+        echo "  ${acme_b64_file}  -> Gitea secret: ${env}_B64ENC_ACME"
+    fi
     echo ""
     echo "To get content for Gitea secrets, run:"
     echo "  cat ${envs_file}      # copy output to ${env}_B64ENC_ENVS"
-    echo "  cat ${acme_b64_file}  # copy output to ${env}_B64ENC_ACME"
+    if [ "$acme_encoded" = true ]; then
+        echo "  cat ${acme_b64_file}  # copy output to ${env}_B64ENC_ACME"
+    else
+        echo "  ${env}_B64ENC_ACME: not required - Traefik will use self-signed certificate"
+    fi
     echo ""
     echo "Or pipe directly:"
     echo "  cat ${envs_file} | xclip -selection clipboard"
