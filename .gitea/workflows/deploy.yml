@@ -30,9 +30,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Resolve environment
         id: env
         run: |
@@ -63,39 +60,48 @@ jobs:
           SERVER_USER: ${{ steps.env.outputs.user }}
           SERVER_PASSWORD: ${{ steps.env.outputs.password }}
           DEPLOY_PATH: ${{ steps.env.outputs.path }}
+          # GITEA_TOKEN is automatically injected by Gitea Actions for the current repo
+          GIT_TOKEN: ${{ secrets.GITEA_TOKEN }}
           ENV_B64: ${{ steps.env.outputs.env_b64 }}
           ACME_B64: ${{ steps.env.outputs.acme_b64 }}
         run: |
-          if [ "$SERVICE" = "all" ]; then
-            COMPOSE_CMD="docker-compose up --build -d"
+          if command -v docker-compose > /dev/null 2>&1; then
+            DC="docker-compose"
           else
-            COMPOSE_CMD="docker-compose up -d --build $SERVICE"
+            DC="docker compose"
           fi
 
-          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << "END_SSH"
-            set -e
-            cd $DEPLOY_PATH
+          if [ "$SERVICE" = "all" ]; then
+            COMPOSE_CMD="$DC up --build -d"
+          else
+            COMPOSE_CMD="$DC up -d --build $SERVICE"
+          fi
 
-            # Pull latest code
-            git pull origin main
+          ssh_exec() {
+            sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" "$@"
+          }
 
-            # Merge .env: keep existing values, add new variables from env.example
-            if [ -f "scripts/setup.sh" ]; then
-              bash scripts/setup.sh
-            fi
+          # Build authenticated repo URL using Gitea's built-in token and context variables.
+          # gitea.server_url and gitea.repository are provided automatically by Gitea Actions.
+          REPO_URL="${{ gitea.server_url }}/${{ gitea.repository }}.git"
+          AUTH_REPO_URL=$(echo "$REPO_URL" | sed "s|://|://oauth2:${GIT_TOKEN}@|")
 
-            # Override .env with secret if provided (for secrets not in env.example)
-            if [ -n "$ENV_B64" ]; then
-              echo "$ENV_B64" | base64 -d > .env
-              chmod 600 .env
-            fi
+          # Clone repo on first deploy, or pull latest code on subsequent deploys.
+          # Remote URL is updated each run to keep the token current.
+          ssh_exec "set -e && if [ -d '$DEPLOY_PATH/.git' ]; then cd '$DEPLOY_PATH' && git remote set-url origin '$AUTH_REPO_URL' && git pull origin main; else mkdir -p '$DEPLOY_PATH' && git clone '$AUTH_REPO_URL' '$DEPLOY_PATH'; fi && cd '$DEPLOY_PATH' && bash scripts/setup.sh"
 
-            # Deploy acme.json for SSL certificates if provided
-            if [ -n "$ACME_B64" ]; then
-              echo "$ACME_B64" | base64 -d > shared/letsencrypt/acme.json
-              chmod 600 shared/letsencrypt/acme.json
-            fi
+          # Override .env with the encoded secret
+          if [ -n "$ENV_B64" ]; then
+            echo "$ENV_B64" | ssh_exec "base64 -d > '$DEPLOY_PATH/.env' && chmod 600 '$DEPLOY_PATH/.env'"
+          fi
 
-            $COMPOSE_CMD
-            echo "Deployment of $SERVICE to ${{ github.event.inputs.environment }} completed"
-END_SSH
+          # Restore acme.json only when the secret contains data.
+          # For STAG with self-signed certs, leave STAG_B64ENC_ACME unset in Gitea
+          # and Traefik will fall back to the certificate defined in certificates.yml.
+          if [ -n "$ACME_B64" ]; then
+            echo "$ACME_B64" | ssh_exec "mkdir -p '$DEPLOY_PATH/shared/letsencrypt' && base64 -d | gunzip > '$DEPLOY_PATH/shared/letsencrypt/acme.json' && chmod 600 '$DEPLOY_PATH/shared/letsencrypt/acme.json'"
+          fi
+
+          # Deploy
+          ssh_exec "cd '$DEPLOY_PATH' && $COMPOSE_CMD"
+          echo "Deployment of $SERVICE to ${{ github.event.inputs.environment }} completed"
