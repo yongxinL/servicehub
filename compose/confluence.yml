@@ -52,4 +52,4 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/kinora:/var/atlassian/application-data/confluence
+            - ${APPS_DATA}/webapps/kinora:/var/atlassian/application-data/confluence
