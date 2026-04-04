@@ -47,6 +47,8 @@ services:
             - "traefik.http.routers.gitea.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
+        ports:
+            - 3000:3000
         restart: unless-stopped
         volumes:
             - /etc/localtime:/etc/localtime:ro
@@ -63,9 +65,9 @@ services:
             gitea:
                 condition: service_healthy
         environment:
-            - GITEA_INSTANCE_URL=http://gitea:3000
+            - GITEA_INSTANCE_URL=https://${GIT_DOMAIN}
             - GITEA_RUNNER_REGISTRATION_TOKEN=${GIT_RUNNER_TOKEN}
-        image: gitrunner
+        image: runner
         networks:
             - subnet
         restart: unless-stopped
