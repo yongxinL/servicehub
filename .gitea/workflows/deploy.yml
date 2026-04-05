@@ -103,12 +103,16 @@ jobs:
             ssh_exec "echo \"$GIT_CRYPT_KEY\" | base64 -d > /tmp/gcrypt.key && (git -C '$DEPLOY_PATH' crypt unlock /tmp/gcrypt.key 2>/dev/null || true); rm -f /tmp/gcrypt.key"
           fi
 
-          ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
-
-          # Override .env with the encoded secret
+          # Restore .env from the encoded secret first, so setup.sh merges
+          # new env.example variables into the correct base rather than the template.
+          # On a new environment with no secret set, setup.sh will create .env from template.
           if [ -n "$ENV_B64" ]; then
             echo "$ENV_B64" | ssh_exec "base64 -d > '$DEPLOY_PATH/.env' && chmod 600 '$DEPLOY_PATH/.env'"
           fi
+
+          # Merge any new variables added to env.example into the existing .env.
+          # Existing values are preserved; only keys absent from .env are added.
+          ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
 
           # Restore acme.json only when the secret contains data.
           # For STAG with self-signed certs, leave STAG_B64ENC_ACME unset in Gitea
