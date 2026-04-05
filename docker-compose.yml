@@ -13,4 +13,6 @@ include:
     - compose/pgsqldb.yml
 
     # --> Web applications
+    - compose/authentik.yml
     - compose/gitea.yml
+    - compose/wordpress.yml

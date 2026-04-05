@@ -4,6 +4,8 @@ services:
         build:
             context: ../shared/gitea/
         depends_on:
+            traefik:
+                condition: service_healthy
             pgsqldb:
                 condition: service_healthy
         environment:

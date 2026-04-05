@@ -32,9 +32,13 @@ graph TD
         Traefik[Traefik\nReverse Proxy + TLS]
         Traefik -->|git.domain| Gitea[Gitea\nGit + Web UI]
         Traefik -->|traefik.domain| Dashboard[Traefik Dashboard]
+        Traefik -->|accounts.domain| Authentik[Authentik\nIdP / SSO]
+        Traefik -->|www.domain| WordPress[WordPress\nCMS]
+        Authentik -->|forward-auth| Dashboard
         Gitea -->|depends on| PostgreSQL[(PostgreSQL\npgsqldb)]
+        Authentik -->|depends on| PostgreSQL
         Gitea -->|triggers| Runner[Act Runner\nCI/CD Executor]
-        MariaDB[(MariaDB)]
+        WordPress -->|depends on| MariaDB[(MariaDB)]
     end
 
     Runner -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
@@ -55,19 +59,29 @@ servicehub/
 │       └── deploy.yml          # Gitea Actions deployment workflow
 ├── compose/                    # Per-service Docker Compose files
 │   ├── traefik.yml             # Traefik reverse proxy
+│   ├── authentik.yml           # Authentik server + worker
 │   ├── gitea.yml               # Gitea + Act Runner
+│   ├── wordpress.yml           # WordPress CMS
 │   ├── mariadb.yml             # MariaDB database
 │   └── pgsqldb.yml             # PostgreSQL database
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
 │   │   ├── Dockerfile
 │   │   └── advanced/
-│   │       └── certificates.yml  # Self-signed TLS config (staging)
+│   │       ├── certificates.yml          # Self-signed TLS config (staging)
+│   │       └── middlewares-authentik.yml # Authentik forward-auth middleware
+│   ├── authentik/
+│   │   └── Dockerfile
 │   ├── gitea/
 │   │   ├── Dockerfile
 │   │   ├── custom/             # Custom Gitea landing page assets
 │   │   └── runner/
 │   │       └── Dockerfile      # Act Runner image
+│   ├── wordpress/
+│   │   ├── Dockerfile          # Nginx + PHP-FPM + WordPress (Alpine)
+│   │   └── etc/
+│   │       ├── nginx/          # Nginx configuration
+│   │       └── supervisord.conf
 │   ├── mariadb/
 │   │   ├── Dockerfile
 │   │   └── create-multiple-databases.sh
@@ -131,6 +145,45 @@ The init script `shared/postgresql/create-multiple-databases.sh` creates all dat
 ---
 
 ## Web Applications
+
+### Authentik (Identity Provider)
+
+[Authentik](https://goauthentik.io/) is an open-source Identity Provider (IdP) and SSO solution. It provides forward-authentication for Traefik-protected services (e.g. the Traefik dashboard) and can be extended to cover any service in the stack.
+
+| Detail | Value |
+|---|---|
+| URL | `https://${AUTHK_DOMAIN}` |
+| Initial setup | Navigate to `https://${AUTHK_DOMAIN}/if/flow/initial-setup/` on first boot |
+| Database | PostgreSQL (`${AUTHK_DBNAME}`) |
+| Data persistence | `${APPS_DATA}/webapps/authentik/media` and `.../templates` |
+| Image tag | Controlled by `AUTHK_TAG` (e.g. `2025.12`) |
+| Forward-auth middleware | Defined in `shared/traefik/advanced/middlewares-authentik.yml` |
+
+The stack runs two Authentik containers:
+
+- **`authentik`** — the web server, started after the worker is running
+- **`authenwk1`** — the background worker (handles flows, policies, notifications)
+
+> **Note:** The Traefik dashboard is protected by Authentik forward-auth. It will be inaccessible until the Authentik initial setup flow is completed and a forward-auth outpost is configured in Authentik.
+
+### WordPress
+
+[WordPress](https://wordpress.org/) is served as a custom image bundling Nginx (reverse proxy) and PHP-FPM in a single Alpine-based container managed by Supervisord.
+
+| Detail | Value |
+|---|---|
+| URL | `https://${WP_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
+| Database | MariaDB (`${WP_DBNAME}`) |
+| Data persistence | `${APPS_DATA}/webapps/wwhome` (mounted as `/var/www/html`) |
+| PHP extensions | `intl`, `zip`, `gd`, `opcache`, `imagick`, `exif`, `fileinfo` |
+| Upload limit | 768 MB (configured in both PHP and Nginx) |
+| www-data UID/GID | Matches host UID/GID via `WWW_DATA_UID`/`WWW_DATA_GID` build args (default `1000:1000`) |
+
+> **Permissions:** The data directory must be owned by the same UID/GID as `WWW_DATA_UID`/`WWW_DATA_GID` (default `1000:1000`):
+> ```bash
+> mkdir -p ${APPS_DATA}/webapps/wwhome
+> chown -R 1000:1000 ${APPS_DATA}/webapps/wwhome
+> ```
 
 ### Gitea
 
@@ -372,7 +425,7 @@ Set these in **Repository Settings → Secrets → Add Secret**.
 
 1. Navigate to **Repository → Actions → Deploy to Server**
 2. Click **Run workflow**
-3. Select the **service** (`all`, `gitea`, `mariadb`, `pgsqldb`, or `runner`) and **environment** (`stag` or `prod`)
+3. Select the **service** (`all`, `traefik`, `authentik`, `wordpress`, `gitea`, `mariadb`, `pgsqldb`, or `runner`) and **environment** (`stag` or `prod`)
 4. Click **Run workflow**
 
 ---
@@ -443,6 +496,23 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `ACME_EMAIL` | Let's Encrypt registration email |
 | `TRAFIK_BAAUTH` | Dashboard basic-auth credentials (htpasswd format) |
 | `CERTRESOLVER` | Set to `letsencrypt` for ACME; leave empty for self-signed |
+
+### Authentik
+
+| Variable | Description |
+|---|---|
+| `AUTHK_TAG` | Authentik image tag (e.g. `2025.12`) |
+| `AUTHK_DOMAIN` | Authentik hostname (e.g. `accounts.example.com`) |
+| `AUTHK_DBNAME` | PostgreSQL database name for Authentik |
+| `AUTHK_PASSWD` | Auto-generated by `setup.sh`; Authentik DB password |
+| `AUTHK_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
+
+### WordPress
+
+| Variable | Description |
+|---|---|
+| `WP_DOMAIN` | WordPress hostname (e.g. `www.example.com`) |
+| `WP_DBNAME` | MariaDB database name for WordPress (default: `wordpress`) |
 
 ### Gitea
 

@@ -29,9 +29,13 @@ inject_secrets() {
     echo "Generating secrets..."
 
     SQLDB_PASS=$(openssl rand -hex 16 | head -c 18)
+    AUTHK_PASS=$(openssl rand -base64 36 | tr -d '\n')
+    AUTHK_SECRET=$(openssl rand -base64 60 | tr -d '\n')
 
     sed -i.bak \
         -e "s|<YOUR_STRONG_SQLDB_PASSWORD>|${SQLDB_PASS}|g" \
+        -e "s|<YOUR_STRONG_AUTHENTIK_PASSWORD>|${AUTHK_PASS}|g" \
+        -e "s|<YOUR_STRONG_AUTHENTIK_SECRETKEY>|${AUTHK_SECRET}|g" \
         "$ENV_FILE" && rm "${ENV_FILE}.bak"
 }
 
