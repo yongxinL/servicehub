@@ -1,0 +1,16 @@
+############### NETWORKS ###############
+networks:
+    subnet:
+        driver: bridge
+
+############### SERVICES ###############
+include:
+    # --> infrastructure
+    - compose/traefik.yml
+
+    # --> database services
+    - compose/mariadb.yml
+    - compose/pgsqldb.yml
+
+    # --> Web applications
+    - compose/gitea.yml

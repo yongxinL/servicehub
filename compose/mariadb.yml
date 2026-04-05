@@ -1,0 +1,21 @@
+services:
+    mariadb:
+        build:
+            context: ../shared/mariadb/
+        environment:
+            - MARIADB_USER=${SQLDB_USER}
+            - MARIADB_PASSWORD=${SQLDB_PASS}
+            - MARIADB_ROOT_PASSWORD=${SQLDB_PASS}
+            - MARIADB_DB_LIST=${MARIADB_DB_LIST}
+        healthcheck:
+            test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+            start_period: 10s
+            interval: 10s
+            timeout: 5s
+            retries: 3
+        image: mariadb
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/databases/mariadb:/var/lib/mysql
