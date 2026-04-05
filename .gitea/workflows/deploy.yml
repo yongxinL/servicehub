@@ -22,6 +22,11 @@ on:
         options:
           - stag
           - prod
+      branch:
+        description: "Branch to deploy"
+        required: true
+        default: "main"
+        type: string
 
 jobs:
   deploy:
@@ -66,6 +71,7 @@ jobs:
       - name: Deploy to Server
         env:
           SERVICE: ${{ github.event.inputs.service }}
+          BRANCH: ${{ github.event.inputs.branch }}
         run: |
           # Use SSHPASS env var (sshpass -e) instead of -p to avoid the password
           # appearing as a process argument in /proc.
@@ -81,16 +87,16 @@ jobs:
           # Remote URL is updated each run to keep the token current.
           ssh_exec "set -e
             if [ -d '$DEPLOY_PATH/.git' ]; then
-              cd '$DEPLOY_PATH' && git remote set-url origin '$AUTH_REPO_URL' && git pull origin main
+              cd '$DEPLOY_PATH' && git remote set-url origin '$AUTH_REPO_URL' && git pull origin $BRANCH
             else
-              mkdir -p '$DEPLOY_PATH' && git clone '$AUTH_REPO_URL' '$DEPLOY_PATH'
+              mkdir -p '$DEPLOY_PATH' && git clone --branch $BRANCH '$AUTH_REPO_URL' '$DEPLOY_PATH'
             fi"
 
           # Decrypt git-crypt encrypted files (e.g. self-signed certs in shared/letsencrypt/).
           # Installs git-crypt on the remote server if not already present.
           # GIT_CRYPT_KEY must be the base64-encoded symmetric key: base64 -w0 servicehub.key
           if [ -n "$GIT_CRYPT_KEY" ]; then
-            ssh_exec "command -v git-crypt > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq git-crypt)"
+            ssh_exec "command -v git-crypt > /dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y -qq git-crypt)"
             ssh_exec "echo \"$GIT_CRYPT_KEY\" | base64 -d > /tmp/gcrypt.key && (git -C '$DEPLOY_PATH' crypt unlock /tmp/gcrypt.key 2>/dev/null || true); rm -f /tmp/gcrypt.key"
           fi
 
@@ -117,4 +123,4 @@ jobs:
           fi
           ssh_exec "cd '$DEPLOY_PATH' && $REMOTE_CMD"
 
-          echo "Deployment of $SERVICE to ${{ github.event.inputs.environment }} completed"
+          echo "Deployment of $SERVICE from $BRANCH to ${{ github.event.inputs.environment }} completed"
