@@ -96,8 +96,8 @@ encode_secrets() {
     local envs_file="${env}_B64ENC_ENVS.b64"
     local acme_b64_file="${env}_B64ENC_ACME.b64"
 
-    echo "Encoding .env to ${envs_file}..."
-    base64 < "$ENV_FILE" | tr -d '\n' > "$envs_file"
+    echo "Encoding .env to ${envs_file} (gzip compressed)..."
+    gzip -c "$ENV_FILE" | base64 | tr -d '\n' > "$envs_file"
 
     local acme_encoded=false
     local acme_size=0
