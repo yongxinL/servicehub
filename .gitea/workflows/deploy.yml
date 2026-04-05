@@ -1,0 +1,120 @@
+name: Deploy to Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy (or "all")'
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - gitea
+          - mariadb
+          - pgsqldb
+          - runner
+      environment:
+        description: "Target environment"
+        required: true
+        default: "stag"
+        type: choice
+        options:
+          - stag
+          - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Resolve environment-specific secrets here using ternary expressions so
+    # that secret values are never written to step outputs or logs.
+    env:
+      SERVER_HOST: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SERVER_HOST || secrets.PROD_SERVER_HOST }}
+      SERVER_USER: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SERVER_USER || secrets.PROD_SERVER_USER }}
+      SERVER_PASSWORD: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SERVER_PASS || secrets.PROD_SERVER_PASS }}
+      DEPLOY_PATH: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_DEPLOY_PATH || secrets.PROD_DEPLOY_PATH }}
+      ENV_B64: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_B64ENC_ENVS || secrets.PROD_B64ENC_ENVS }}
+      ACME_B64: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_B64ENC_ACME || secrets.PROD_B64ENC_ACME }}
+      # Store the server's SSH public host key as a Gitea secret (output of
+      # `ssh-keyscan <host>`) to enable strict host verification. If unset,
+      # the workflow falls back to ssh-keyscan at runtime (MITM-vulnerable on
+      # first connection) and prints a warning.
+      SSH_KNOWN_HOST: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SSHKWN_KEYS || secrets.PROD_SSHKWN_KEYS }}
+      # Base64-encoded git-crypt symmetric key (base64 -w0 servicehub.key).
+      # Used to decrypt encrypted files (e.g. self-signed certs) on the remote
+      # server after git clone/pull. Shared across environments — same repo key.
+      GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
+      # GITEA_TOKEN is automatically injected by Gitea Actions for the current repo.
+      GIT_TOKEN: ${{ secrets.GITEA_TOKEN }}
+
+    steps:
+      - name: Install sshpass
+        run: apt-get update && apt-get install -y sshpass
+
+      - name: Configure SSH known hosts
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          if [ -n "$SSH_KNOWN_HOST" ]; then
+            echo "$SSH_KNOWN_HOST" >> ~/.ssh/known_hosts
+          else
+            echo "WARNING: SSH_KNOWN_HOST secret not set; falling back to ssh-keyscan (MITM-vulnerable on first run)" >&2
+            ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy to Server
+        env:
+          SERVICE: ${{ github.event.inputs.service }}
+        run: |
+          # Use SSHPASS env var (sshpass -e) instead of -p to avoid the password
+          # appearing as a process argument in /proc.
+          ssh_exec() {
+            SSHPASS="$SERVER_PASSWORD" sshpass -e ssh "$SERVER_USER@$SERVER_HOST" "$@"
+          }
+
+          # Build authenticated repo URL using Gitea's built-in token and context variables.
+          # gitea.server_url and gitea.repository are provided automatically by Gitea Actions.
+          AUTH_REPO_URL=$(echo "${{ gitea.server_url }}/${{ gitea.repository }}.git" | sed "s|://|://oauth2:${GIT_TOKEN}@|")
+
+          # Clone repo on first deploy, or pull latest code on subsequent deploys.
+          # Remote URL is updated each run to keep the token current.
+          ssh_exec "set -e
+            if [ -d '$DEPLOY_PATH/.git' ]; then
+              cd '$DEPLOY_PATH' && git remote set-url origin '$AUTH_REPO_URL' && git pull origin main
+            else
+              mkdir -p '$DEPLOY_PATH' && git clone '$AUTH_REPO_URL' '$DEPLOY_PATH'
+            fi"
+
+          # Decrypt git-crypt encrypted files (e.g. self-signed certs in shared/letsencrypt/).
+          # Installs git-crypt on the remote server if not already present.
+          # GIT_CRYPT_KEY must be the base64-encoded symmetric key: base64 -w0 servicehub.key
+          if [ -n "$GIT_CRYPT_KEY" ]; then
+            ssh_exec "command -v git-crypt > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq git-crypt)"
+            ssh_exec "echo \"$GIT_CRYPT_KEY\" | base64 -d > /tmp/gcrypt.key && (git -C '$DEPLOY_PATH' crypt unlock /tmp/gcrypt.key 2>/dev/null || true); rm -f /tmp/gcrypt.key"
+          fi
+
+          ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
+
+          # Override .env with the encoded secret
+          if [ -n "$ENV_B64" ]; then
+            echo "$ENV_B64" | ssh_exec "base64 -d > '$DEPLOY_PATH/.env' && chmod 600 '$DEPLOY_PATH/.env'"
+          fi
+
+          # Restore acme.json only when the secret contains data.
+          # For STAG with self-signed certs, leave STAG_B64ENC_ACME unset in Gitea
+          # and Traefik will fall back to the certificate defined in certificates.yml.
+          if [ -n "$ACME_B64" ]; then
+            echo "$ACME_B64" | ssh_exec "mkdir -p '$DEPLOY_PATH/shared/letsencrypt' && base64 -d | gunzip > '$DEPLOY_PATH/shared/letsencrypt/acme.json' && chmod 600 '$DEPLOY_PATH/shared/letsencrypt/acme.json'"
+          fi
+
+          # Detect the available compose command on the remote server (not the runner)
+          # and run the appropriate deploy command.
+          if [ "$SERVICE" = "all" ]; then
+            REMOTE_CMD="if command -v docker-compose > /dev/null 2>&1; then docker-compose up --build -d; else docker compose up --build -d; fi"
+          else
+            REMOTE_CMD="if command -v docker-compose > /dev/null 2>&1; then docker-compose up -d --build $SERVICE; else docker compose up -d --build $SERVICE; fi"
+          fi
+          ssh_exec "cd '$DEPLOY_PATH' && $REMOTE_CMD"
+
+          echo "Deployment of $SERVICE to ${{ github.event.inputs.environment }} completed"

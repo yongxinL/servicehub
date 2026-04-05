@@ -1,0 +1,22 @@
+################################################################
+# Dynamic configuration
+# default certificates
+#
+# NOTE: This file is used for self-signed certificates.
+# To use self-signed certificates instead of Let's Encrypt:
+#   1. Place your certificate files in shared/letsencrypt/ on the host
+#   2. The container path /letsencrypt is mapped to shared/letsencrypt
+#   3. Rename the files below to match your certificate names
+#   4. Ensure certresolver in traefik.yml is not set to "letsencrypt"
+#      for the routers that should use this self-signed certificate
+#
+# Example: certFile: /letsencrypt/onelijia.pem
+#          keyFile: /letsencrypt/onelijia.key
+################################################################
+
+tls:
+    stores:
+        default:
+            defaultCertificate:
+                certFile: /letsencrypt/onelijia.pem
+                keyFile: /letsencrypt/onelijia.key
