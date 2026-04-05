@@ -69,7 +69,7 @@ services:
             # - "traefik.http.routers.dashboard.middlewares=dashboard-whitelist"
             # - "traefik.http.middlewares.dashboard-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
             # uncomment when Domain Level Forward Authentication enabled in Authentik
-            # - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
+            - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.dashboard.tls.certresolver=${CERTRESOLVER}"
         networks:

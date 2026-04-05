@@ -10,6 +10,9 @@ on:
         type: choice
         options:
           - all
+          - traefik
+          - authentik
+          - wordpress
           - gitea
           - mariadb
           - pgsqldb
@@ -34,12 +37,12 @@ jobs:
     # Resolve environment-specific secrets here using ternary expressions so
     # that secret values are never written to step outputs or logs.
     env:
-      SERVER_HOST: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SERVER_HOST || secrets.PROD_SERVER_HOST }}
-      SERVER_USER: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SERVER_USER || secrets.PROD_SERVER_USER }}
-      SERVER_PASSWORD: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SERVER_PASS || secrets.PROD_SERVER_PASS }}
-      DEPLOY_PATH: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_DEPLOY_PATH || secrets.PROD_DEPLOY_PATH }}
-      ENV_B64: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_B64ENC_ENVS || secrets.PROD_B64ENC_ENVS }}
-      ACME_B64: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_B64ENC_ACME || secrets.PROD_B64ENC_ACME }}
+      SERVER_HOST: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SERVER_HOST || github.event.inputs.environment != 'stag' && secrets.PROD_SERVER_HOST || '' }}
+      SERVER_USER: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SERVER_USER || github.event.inputs.environment != 'stag' && secrets.PROD_SERVER_USER || '' }}
+      SERVER_PASSWORD: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_SERVER_PASS || github.event.inputs.environment != 'stag' && secrets.PROD_SERVER_PASS || '' }}
+      DEPLOY_PATH: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_DEPLOY_PATH || github.event.inputs.environment != 'stag' && secrets.PROD_DEPLOY_PATH || '' }}
+      ENV_B64: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_B64ENC_ENVS || github.event.inputs.environment != 'stag' && secrets.PROD_B64ENC_ENVS || '' }}
+      ACME_B64: ${{ github.event.inputs.environment == 'stag' && secrets.STAG_B64ENC_ACME || github.event.inputs.environment != 'stag' && secrets.PROD_B64ENC_ACME || '' }}
       # Store the server's SSH public host key as a Gitea secret (output of
       # `ssh-keyscan <host>`) to enable strict host verification. If unset,
       # the workflow falls back to ssh-keyscan at runtime (MITM-vulnerable on
@@ -100,12 +103,16 @@ jobs:
             ssh_exec "echo \"$GIT_CRYPT_KEY\" | base64 -d > /tmp/gcrypt.key && (git -C '$DEPLOY_PATH' crypt unlock /tmp/gcrypt.key 2>/dev/null || true); rm -f /tmp/gcrypt.key"
           fi
 
-          ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
-
-          # Override .env with the encoded secret
+          # Restore .env from the encoded secret first, so setup.sh merges
+          # new env.example variables into the correct base rather than the template.
+          # On a new environment with no secret set, setup.sh will create .env from template.
           if [ -n "$ENV_B64" ]; then
             echo "$ENV_B64" | ssh_exec "base64 -d > '$DEPLOY_PATH/.env' && chmod 600 '$DEPLOY_PATH/.env'"
           fi
+
+          # Merge any new variables added to env.example into the existing .env.
+          # Existing values are preserved; only keys absent from .env are added.
+          ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
 
           # Restore acme.json only when the secret contains data.
           # For STAG with self-signed certs, leave STAG_B64ENC_ACME unset in Gitea
