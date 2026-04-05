@@ -1,0 +1,106 @@
+services:
+    # Authentik - open source IdP and SSO
+    # start the initail setup, navigate to http://<server>:9000/if/flow/initial-setup/
+    # integration auth forward: > https://github.com/brokenscripts/authentik_traefik
+    authentik:
+        build:
+            context: ../shared/authentik/
+            args:
+              - AUTHK_TAG=${AUTHK_TAG}
+        command: server
+        depends_on:
+            traefik:
+                condition: service_healthy
+            authenwk1:
+                condition: service_started
+        environment:
+            # authentick settings
+            - PG_PASS=${AUTHK_PASSWD}
+            - AUTHENTIK_SECRET_KEY=${AUTHK_SECRET}
+            # disable outbound analytics connections
+            - AUTHENTIK_DISABLE_STARTUP_ANALYTICS=true
+            - AUTHENTIK_DISABLE_UPDATE_CHECK=true
+            - AUTHENTIK_ERROR_REPORTING__ENABLED=false
+            # authentik email settings
+            - AUTHENTIK_EMAIL__HOST=${SMTP_HOST}
+            - AUTHENTIK_EMAIL__PORT=${SMTP_PORT}
+            - AUTHENTIK_EMAIL__USERNAME=${SMTP_USER}
+            - AUTHENTIK_EMAIL__PASSWORD=${SMTP_PASS}
+            - AUTHENTIK_EMAIL__USE_TLS=true
+            - AUTHENTIK_EMAIL__FROM=${SMTP_FROM}
+            # PostgreSQL settings
+            - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
+            - AUTHENTIK_POSTGRESQL__USER=${SQLDB_USER}
+            - AUTHENTIK_POSTGRESQL__PASSWORD=${SQLDB_PASS}
+            - AUTHENTIK_POSTGRESQL__NAME=${AUTHK_DBNAME}
+            # listen settings
+            - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
+        image: authentik
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.authk.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.authk.rule=Host(`${AUTHK_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.authk.service=authk"
+            # Define the internal container port for routing
+            - "traefik.http.services.authk.loadbalancer.server.port=9000"
+            # Enable TLS on this router
+            - "traefik.http.routers.authk.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.authk.tls.certresolver=${CERTRESOLVER}"
+        networks:
+            - subnet
+        restart: unless-stopped
+        shm_size: 512mb
+        volumes:
+            - ${APPS_DATA}/webapps/authentik/media:/media
+            - ${APPS_DATA}/webapps/authentik/templates:/templates
+
+    ## Authentik Services - open source IdP and SSO solution
+    # worker for authentik
+    authenwk1:
+        command: worker
+        depends_on:
+            pgsqldb:
+                condition: service_healthy
+        environment:
+            # authentick settings
+            - PG_PASS=${AUTHK_PASSWD}
+            - AUTHENTIK_SECRET_KEY=${AUTHK_SECRET}
+            # disable outbound analytics connections
+            - AUTHENTIK_DISABLE_STARTUP_ANALYTICS=true
+            - AUTHENTIK_DISABLE_UPDATE_CHECK=true
+            - AUTHENTIK_ERROR_REPORTING__ENABLED=false
+            # authentik email settings
+            - AUTHENTIK_EMAIL__HOST=${SMTP_HOST}
+            - AUTHENTIK_EMAIL__PORT=${SMTP_PORT}
+            - AUTHENTIK_EMAIL__USERNAME=${SMTP_USER}
+            - AUTHENTIK_EMAIL__PASSWORD=${SMTP_PASS}
+            - AUTHENTIK_EMAIL__USE_TLS=true
+            - AUTHENTIK_EMAIL__FROM=${SMTP_FROM}
+            # PostgreSQL settings
+            - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
+            - AUTHENTIK_POSTGRESQL__USER=${SQLDB_USER}
+            - AUTHENTIK_POSTGRESQL__PASSWORD=${SQLDB_PASS}
+            - AUTHENTIK_POSTGRESQL__NAME=${AUTHK_DBNAME}
+            # listen settings
+            - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
+        image: authentik
+        networks:
+            - subnet
+        restart: unless-stopped
+        shm_size: 512mb
+        # `user: root` and the docker socket volume are optional.
+        # See more for the docker socket integration here:
+        # https://goauthentik.io/docs/outposts/integrations/docker
+        # Removing `user: root` also prevents the worker from fixing the permissions
+        # on the mounted folders, so when removing this make sure the folders have the correct UID/GID
+        # (1000:1000 by default)
+        user: root
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ${APPS_DATA}/webapps/authentik/media:/media
+            - ${APPS_DATA}/webapps/authentik/templates:/templates
