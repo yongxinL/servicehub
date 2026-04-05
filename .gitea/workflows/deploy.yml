@@ -117,8 +117,33 @@ jobs:
           # Restore acme.json only when the secret contains data.
           # For STAG with self-signed certs, leave STAG_B64ENC_ACME unset in Gitea
           # and Traefik will fall back to the certificate defined in certificates.yml.
+          #
+          # For PROD: gunzip preserves the original mtime from the gzip header, so we
+          # compare it against the existing acme.json mtime (last updated by Traefik on
+          # certificate renewal). The newer file wins — this prevents overwriting a
+          # freshly-renewed cert with a stale secret, while still restoring on a new
+          # server or after data loss. sudo is required as Traefik (privileged) owns the file.
           if [ -n "$ACME_B64" ]; then
-            echo "$ACME_B64" | ssh_exec "mkdir -p '$DEPLOY_PATH/shared/letsencrypt' && base64 -d | gunzip > '$DEPLOY_PATH/shared/letsencrypt/acme.json' && chmod 600 '$DEPLOY_PATH/shared/letsencrypt/acme.json'"
+            echo "$ACME_B64" | ssh_exec "
+              set -e
+              ACME_PATH='$DEPLOY_PATH/shared/letsencrypt/acme.json'
+              mkdir -p '$DEPLOY_PATH/shared/letsencrypt'
+              base64 -d > /tmp/acme_restore.gz
+              gunzip -f /tmp/acme_restore.gz
+              if [ -f \"\$ACME_PATH\" ]; then
+                existing_time=\$(stat -c %Y \"\$ACME_PATH\")
+                restore_time=\$(stat -c %Y /tmp/acme_restore)
+                if [ \"\$restore_time\" -gt \"\$existing_time\" ]; then
+                  echo 'acme.json: secret is newer — restoring from secret'
+                  sudo cp /tmp/acme_restore \"\$ACME_PATH\" && sudo chmod 600 \"\$ACME_PATH\"
+                else
+                  echo 'acme.json: existing file is newer — keeping'
+                fi
+              else
+                echo 'acme.json: not found — restoring from secret'
+                sudo cp /tmp/acme_restore \"\$ACME_PATH\" && sudo chmod 600 \"\$ACME_PATH\"
+              fi
+              rm -f /tmp/acme_restore /tmp/acme_restore.gz"
           fi
 
           # Detect the available compose command on the remote server (not the runner)
