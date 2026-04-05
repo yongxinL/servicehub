@@ -103,14 +103,34 @@ jobs:
             ssh_exec "echo \"$GIT_CRYPT_KEY\" | base64 -d > /tmp/gcrypt.key && (git -C '$DEPLOY_PATH' crypt unlock /tmp/gcrypt.key 2>/dev/null || true); rm -f /tmp/gcrypt.key"
           fi
 
-          # Restore .env from the encoded secret first, so setup.sh merges
-          # new env.example variables into the correct base rather than the template.
+          # Restore .env from the encoded secret, comparing timestamps so that
+          # manual edits made directly on the server are not overwritten by a stale
+          # secret. gunzip preserves the original mtime from the gzip header (set when
+          # setup.sh --encode was last run), allowing comparison against the existing file.
           # On a new environment with no secret set, setup.sh will create .env from template.
           if [ -n "$ENV_B64" ]; then
-            echo "$ENV_B64" | ssh_exec "base64 -d > '$DEPLOY_PATH/.env' && chmod 600 '$DEPLOY_PATH/.env'"
+            echo "$ENV_B64" | ssh_exec "
+              set -e
+              ENV_PATH='$DEPLOY_PATH/.env'
+              base64 -d > /tmp/env_restore.gz
+              gunzip -f /tmp/env_restore.gz
+              if [ -f \"\$ENV_PATH\" ]; then
+                existing_time=\$(stat -c %Y \"\$ENV_PATH\")
+                restore_time=\$(stat -c %Y /tmp/env_restore)
+                if [ \"\$restore_time\" -gt \"\$existing_time\" ]; then
+                  echo '.env: secret is newer — restoring from secret'
+                  cp /tmp/env_restore \"\$ENV_PATH\" && chmod 600 \"\$ENV_PATH\"
+                else
+                  echo '.env: existing file is newer — keeping'
+                fi
+              else
+                echo '.env: not found — restoring from secret'
+                cp /tmp/env_restore \"\$ENV_PATH\" && chmod 600 \"\$ENV_PATH\"
+              fi
+              rm -f /tmp/env_restore /tmp/env_restore.gz"
           fi
 
-          # Merge any new variables added to env.example into the existing .env.
+          # Always run setup.sh to merge any new variables added to env.example.
           # Existing values are preserved; only keys absent from .env are added.
           ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
 
