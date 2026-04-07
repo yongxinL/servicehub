@@ -8,6 +8,8 @@ services:
                 condition: service_healthy
             pgsqldb:
                 condition: service_healthy
+            authentik:
+                condition: service_started
         environment:
             # Using MySQL for databases
             - GITEA__database__DB_TYPE=postgres
@@ -15,17 +17,21 @@ services:
             - GITEA__database__NAME=${GIT_DBNAME}
             - GITEA__database__USER=${SQLDB_USER}
             - GITEA__database__PASSWD=${SQLDB_PASS}
+            # Disable openID authentication and login
+            - GITEA__openid__ENABLE_OPENID_SIGNIN=false
+            - GITEA__openid__ENABLE_OPENID_SIGNUP=false
             # Changing the global default branch
-            - GITEA__repository__DEFAULT_BRANCH=master
+            - GITEA__repository__DEFAULT_BRANCH = master
+            # Disable SSH feature
+            - GITEA__server__DISABLE_SSH = true
             # Enable this to force users to log in to view any page or to use API
             - GITEA__service__REQUIRE_SIGNIN_VIEW=true
             # Disable registration, only admin can create accounts for users.
             - GITEA__service__DISABLE_REGISTRATION=true
             # Disable passkey login
             - GITEA__service__ENABLE_PASSKEY_AUTHENTICATION=false
-            # Disable openID authentication and login
-            - GITEA__openid__ENABLE_OPENID_SIGNIN=false
-            - GITEA__openid__ENABLE_OPENID_SIGNUP=false
+            # Show the password login form, set to true when linking oAuth user
+            - EGITEA__service__ENABLE_PASSWORD_SIGNIN_FORM = false
             # default Gitea custom folder
             - GITEA_CUSTOM=/var/lib/custom
         healthcheck:
