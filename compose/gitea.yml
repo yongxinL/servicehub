@@ -21,9 +21,9 @@ services:
             - GITEA__openid__ENABLE_OPENID_SIGNIN=false
             - GITEA__openid__ENABLE_OPENID_SIGNUP=false
             # Changing the global default branch
-            - GITEA__repository__DEFAULT_BRANCH = master
+            - GITEA__repository__DEFAULT_BRANCH=master
             # Disable SSH feature
-            - GITEA__server__DISABLE_SSH = true
+            - GITEA__server__DISABLE_SSH=true
             # Enable this to force users to log in to view any page or to use API
             - GITEA__service__REQUIRE_SIGNIN_VIEW=true
             # Disable registration, only admin can create accounts for users.
@@ -31,7 +31,7 @@ services:
             # Disable passkey login
             - GITEA__service__ENABLE_PASSKEY_AUTHENTICATION=false
             # Show the password login form, set to true when linking oAuth user
-            - EGITEA__service__ENABLE_PASSWORD_SIGNIN_FORM = false
+            - EGITEA__service__ENABLE_PASSWORD_SIGNIN_FORM=false
             # default Gitea custom folder
             - GITEA_CUSTOM=/var/lib/custom
         healthcheck:
