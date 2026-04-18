@@ -13,6 +13,8 @@ on:
           - traefik
           - authentik
           - wordpress
+          - hermes
+          - openwebui
           - gitea
           - mariadb
           - pgsqldb

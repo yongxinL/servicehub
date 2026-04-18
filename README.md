@@ -10,6 +10,8 @@ Dockyard is a self-hosted HomeLab services platform built on Docker Compose. It 
 - [Project Structure](#project-structure)
 - [Core Services](#core-services)
 - [Web Applications](#web-applications)
+    - [Hermes Agent](#hermes-agent)
+    - [Open WebUI](#open-webui)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
@@ -34,6 +36,9 @@ graph TD
         Traefik -->|traefik.domain| Dashboard[Traefik Dashboard]
         Traefik -->|accounts.domain| Authentik[Authentik\nIdP / SSO]
         Traefik -->|www.domain| WordPress[WordPress\nCMS]
+        Traefik -->|hermes.domain| Hermes[Hermes\nAI Agent]
+        Traefik -->|gateway.domain| Gateway[Hermes Gateway\nAPI Server]
+        Traefik -->|chats.domain| OpenWebUI[Open WebUI\nLLM Web Interface]
         Authentik -->|forward-auth| Dashboard
         Gitea -->|depends on| PostgreSQL[(PostgreSQL\npgsqldb)]
         Authentik -->|depends on| PostgreSQL
@@ -62,6 +67,8 @@ servicehub/
 │   ├── authentik.yml           # Authentik server + worker
 │   ├── gitea.yml               # Gitea + Act Runner
 │   ├── wordpress.yml           # WordPress CMS
+│   ├── hermes.yml              # Hermes Agent gateway + dashboard
+│   ├── openwebui.yml           # Open WebUI for LLMs
 │   ├── mariadb.yml             # MariaDB database
 │   └── pgsqldb.yml             # PostgreSQL database
 ├── shared/                     # Shared build contexts and static config
@@ -213,6 +220,41 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 | Labels | Inherit from Gitea runner registration |
 
 > **Note:** The runner must be registered in Gitea (`Site Administration → Actions → Runners`) before the first workflow can execute. Set the registration token as `GIT_RUNNER_TOKEN` in your `.env`.
+
+### Hermes Agent
+
+[Hermes Agent](https://hermes-agent.nousresearch.com) is a self-hosted AI agent platform by Nous Research. It provides a gateway API server and web dashboard for interacting with AI agents.
+
+| Detail | Value |
+|---|---|
+| Dashboard URL | `https://${HERMES_DOMAIN}` |
+| Gateway URL | `https://${HERMES_GATEWAY_DOMAIN}` |
+| Gateway port | 8642 |
+| Dashboard port | 9119 |
+| Data persistence | `${APPS_DATA}/webapps/hermes` |
+| Browser tools | Requires `--shm-size=1g` (already configured) |
+
+The stack runs two containers:
+
+- **`hermes`** — the gateway API server (`gateway run`)
+- **`dashboard`** — the web dashboard for monitoring and interaction
+
+> **Resource requirements:** The gateway is memory-intensive (recommended 4 GB). Ensure your host has adequate resources.
+
+### Open WebUI
+
+[Open WebUI](https://docs.openwebui.com/) is a web-based interface for interacting with Large Language Models (LLMs). It provides a chat UI, model management, and RAG capabilities.
+
+| Detail | Value |
+|---|---|
+| URL | `https://${OPENWEBUI_DOMAIN}` |
+| Internal port | 8080 (mapped to 3000 on host) |
+| Data persistence | `${APPS_DATA}/webapps/openwebui` |
+| Ollama endpoint | `http://host.docker.internal:11434` |
+
+Open WebUI connects to Ollama running on the host machine. Ensure Ollama is installed and running with your desired models.
+
+> **Resource requirements:** At least 2 GB RAM minimum, 4+ GB recommended. Requires sufficient disk space for model storage.
 
 ---
 
@@ -427,7 +469,7 @@ Set these in **Repository Settings → Secrets → Add Secret**.
 
 1. Navigate to **Repository → Actions → Deploy to Server**
 2. Click **Run workflow**
-3. Select the **service** (`all`, `traefik`, `authentik`, `wordpress`, `gitea`, `mariadb`, `pgsqldb`, or `runner`) and **environment** (`stag` or `prod`)
+3. Select the **service** (`all`, `traefik`, `authentik`, `wordpress`, `hermes`, `openwebui`, `gitea`, `mariadb`, `pgsqldb`, or `runner`) and **environment** (`stag` or `prod`)
 4. Click **Run workflow**
 
 ---
@@ -523,6 +565,19 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `GIT_DOMAIN` | Gitea hostname |
 | `GIT_DBNAME` | PostgreSQL database name for Gitea |
 | `GIT_RUNNER_TOKEN` | Act Runner registration token |
+
+### Hermes Agent
+
+| Variable | Description |
+|---|---|
+| `HERMES_DOMAIN` | Hermes dashboard hostname |
+| `HERMES_GATEWAY_DOMAIN` | Hermes gateway API hostname |
+
+### Open WebUI
+
+| Variable | Description |
+|---|---|
+| `OPENWEBUI_DOMAIN` | Open WebUI hostname |
 
 ### Databases
 

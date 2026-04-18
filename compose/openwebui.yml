@@ -1,0 +1,31 @@
+services:
+    # Open WebUI - Web interface for interacting with LLMs
+    # https://docs.openwebui.com/
+    openwebui:
+        build:
+            context: ../shared/openwebui/
+        depends_on:
+            traefik:
+                condition: service_healthy
+        environment:
+            - TZ=${TIME_ZONE}
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.openwebui.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.openwebui.rule=Host(`${OWEBUI_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.openwebui.service=openwebui"
+            # Define the internal container port for routing
+            - "traefik.http.services.openwebui.loadbalancer.server.port=8080"
+            # Enable TLS on this router
+            - "traefik.http.routers.openwebui.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.openwebui.tls.certresolver=${CERTRESOLVER}"
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/webapps/openwebui:/app/backend/data
