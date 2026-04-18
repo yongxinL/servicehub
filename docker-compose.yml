@@ -16,3 +16,5 @@ include:
     - compose/authentik.yml
     - compose/gitea.yml
     - compose/wordpress.yml
+    - compose/hermes.yml
+    - compose/openwebui.yml
