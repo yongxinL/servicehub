@@ -6,6 +6,10 @@ services:
             context: ../shared/ollama/
         environment:
             - TZ=${TIME_ZONE}
+            - OLLAMA_HOST=0.0.0.0
+            - OLLAMA_ORIGINS=*
+            - OLLAMA_ORIGINS=app://obsidian.md*,moz-extension://*,chrome-extension://*,safari-web-extension://*
+            - OLLAMA_CONTEXT_LENGTH=128000
         image: ollama
         networks:
             - subnet
