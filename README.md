@@ -12,6 +12,7 @@ Dockyard is a self-hosted HomeLab services platform built on Docker Compose. It 
 - [Web Applications](#web-applications)
     - [Hermes Agent](#hermes-agent)
     - [Open WebUI](#open-webui)
+    - [Ollama](#ollama)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
@@ -39,6 +40,7 @@ graph TD
         Traefik -->|hermes.domain| Hermes[Hermes\nAI Agent]
         Traefik -->|gateway.domain| Gateway[Hermes Gateway\nAPI Server]
         Traefik -->|chats.domain| OpenWebUI[Open WebUI\nLLM Web Interface]
+        Traefik -->|ollama.domain| Ollama[Ollama\nLLM Runtime]
         Authentik -->|forward-auth| Dashboard
         Gitea -->|depends on| PostgreSQL[(PostgreSQL\npgsqldb)]
         Authentik -->|depends on| PostgreSQL
@@ -69,6 +71,7 @@ servicehub/
 │   ├── wordpress.yml           # WordPress CMS
 │   ├── hermes.yml              # Hermes Agent gateway + dashboard
 │   ├── openwebui.yml           # Open WebUI for LLMs
+│   ├── ollama.yml              # Ollama LLM runtime
 │   ├── mariadb.yml             # MariaDB database
 │   └── pgsqldb.yml             # PostgreSQL database
 ├── shared/                     # Shared build contexts and static config
@@ -255,6 +258,19 @@ The stack runs two containers:
 Open WebUI connects to Ollama running on the host machine. Ensure Ollama is installed and running with your desired models.
 
 > **Resource requirements:** At least 2 GB RAM minimum, 4+ GB recommended. Requires sufficient disk space for model storage.
+
+### Ollama
+
+[Ollama](https://github.com/ollama/ollama) enables running LLMs locally with a simple API. It manages model lifecycle, memory, and GPU acceleration.
+
+| Detail | Value |
+|---|---|
+| URL | `https://${OLLAMA_DOMAIN}` |
+| API port | 11434 |
+| Data persistence | `${APPS_DATA}/webapps/ollama` |
+| WebUI connection | Connect Open WebUI to `http://ollama:11434` |
+
+> **Resource requirements:** At least 4 GB RAM recommended. Models are stored in `${APPS_DATA}/webapps/ollama`.
 
 ---
 
@@ -469,7 +485,7 @@ Set these in **Repository Settings → Secrets → Add Secret**.
 
 1. Navigate to **Repository → Actions → Deploy to Server**
 2. Click **Run workflow**
-3. Select the **service** (`all`, `traefik`, `authentik`, `wordpress`, `hermes`, `openwebui`, `gitea`, `mariadb`, `pgsqldb`, or `runner`) and **environment** (`stag` or `prod`)
+3. Select the **service** (`all`, `traefik`, `authentik`, `wordpress`, `hermes`, `openwebui`, `ollama`, `gitea`, `mariadb`, `pgsqldb`, or `runner`) and **environment** (`stag` or `prod`)
 4. Click **Run workflow**
 
 ---
@@ -578,6 +594,12 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | Variable | Description |
 |---|---|
 | `OPENWEBUI_DOMAIN` | Open WebUI hostname |
+
+### Ollama
+
+| Variable | Description |
+|---|---|
+| `OLLAMA_DOMAIN` | Ollama hostname |
 
 ### Databases
 

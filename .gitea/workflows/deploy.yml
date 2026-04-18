@@ -13,8 +13,10 @@ on:
           - traefik
           - authentik
           - wordpress
-          - hermes
+          - hermesagent
+          - hermesdash
           - openwebui
+          - ollama
           - gitea
           - mariadb
           - pgsqldb

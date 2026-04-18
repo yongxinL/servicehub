@@ -9,6 +9,7 @@ services:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
+        image: openwebui
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"

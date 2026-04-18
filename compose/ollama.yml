@@ -1,0 +1,16 @@
+services:
+    # Ollama - Running LLMs locally
+    # https://github.com/ollama/ollama
+    ollama:
+        build:
+            context: ../shared/ollama/
+        environment:
+            - TZ=${TIME_ZONE}
+        image: ollama
+        networks:
+            - subnet
+        ports:
+            - "11434:11434"
+        volumes:
+            - ${APPS_DATA}/webapps/ollama:/root/.ollama
+        restart: unless-stopped
