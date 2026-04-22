@@ -1,8 +1,8 @@
-# Dockyard
+# ServiceHub
 
 > A quiet harbor where HomeLab services arrive, find their place, and don't get lost again
 
-Dockyard is a self-hosted HomeLab services platform built on Docker Compose. It provides a curated stack of infrastructure and developer tools behind a single Traefik reverse proxy with automatic TLS — deployable to staging or production via a one-click Gitea Actions workflow.
+ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. It provides a curated stack of infrastructure and developer tools behind a single Traefik reverse proxy with automatic TLS — deployable to staging or production via a one-click Gitea Actions workflow.
 
 ## Table of Contents
 
@@ -63,14 +63,10 @@ servicehub/
 │   └── workflows/
 │       └── deploy.yml          # Gitea Actions deployment workflow
 ├── compose/                    # Per-service Docker Compose files
-│   ├── traefik.yml             # Traefik reverse proxy
-│   ├── authentik.yml           # Authentik server + worker
-│   ├── gitea.yml               # Gitea + Act Runner
-│   ├── wordpress.yml           # WordPress CMS
-│   ├── hermes.yml              # Hermes Agent gateway + dashboard
-│   ├── openwebui.yml           # Open WebUI for LLMs
-│   ├── mariadb.yml             # MariaDB database
-│   └── pgsqldb.yml             # PostgreSQL database
+│   ├── infra.yml               # Traefik + MariaDB + PostgreSQL
+│   ├── authn.yml               # Authentik server + worker
+│   ├── wbsvc.yml               # Gitea + Act Runner + WordPress
+│   └── agent.yml               # Hermes Agent + Open WebUI
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
 │   │   ├── Dockerfile
@@ -84,6 +80,10 @@ servicehub/
 │   │   ├── custom/             # Custom Gitea landing page assets
 │   │   └── runner/
 │   │       └── Dockerfile      # Act Runner image
+│   ├── hermes/
+│   │   └── Dockerfile
+│   ├── openwebui/
+│   │   └── Dockerfile
 │   ├── wordpress/
 │   │   ├── Dockerfile          # Nginx + PHP-FPM + WordPress (Alpine)
 │   │   └── etc/
@@ -121,7 +121,7 @@ servicehub/
 Key behaviours:
 - Automatic HTTP → HTTPS redirect for all services
 - Docker provider: services opt in to routing via container labels
-- Forward-auth and IP allowlist middleware stubs are in `compose/traefik.yml` (commented out) for easy activation
+- Forward-auth and IP allowlist middleware stubs are in `compose/infra.yml` (commented out) for easy activation
 
 ### MariaDB
 
@@ -131,7 +131,7 @@ Key behaviours:
 |---|---|
 | Internal port | 3306 (not exposed externally) |
 | Multiple databases | Set `MARIADB_DB_LIST` (comma-separated) in `.env` |
-| Data persistence | `${APPS_DATA}/databases/mariadb` |
+| Data persistence | `${APPS_DATA}/mariadb` |
 | Health check | `innodb_initialized` every 10 s |
 
 The init script `shared/mariadb/create-multiple-databases.sh` creates all databases listed in `MARIADB_DB_LIST` on first start.
@@ -144,7 +144,7 @@ The init script `shared/mariadb/create-multiple-databases.sh` creates all databa
 |---|---|
 | Internal port | 5432 (not exposed externally) |
 | Multiple databases | Set `PGRSQL_DBLIST` (comma-separated) in `.env` |
-| Data persistence | `${APPS_DATA}/databases/pgsqldb` |
+| Data persistence | `${APPS_DATA}/pgsqldb` |
 | Health check | `pg_isready` every 30 s (20 s startup delay) |
 
 The init script `shared/postgresql/create-multiple-databases.sh` creates all databases listed in `PGRSQL_DBLIST` on first start.
@@ -162,14 +162,14 @@ The init script `shared/postgresql/create-multiple-databases.sh` creates all dat
 | URL | `https://${AUTHK_DOMAIN}` |
 | Initial setup | Navigate to `https://${AUTHK_DOMAIN}/if/flow/initial-setup/` on first boot |
 | Database | PostgreSQL (`${AUTHK_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/webapps/authentik/media` and `.../templates` |
+| Data persistence | `${APPS_DATA}/authn/media` and `.../templates` |
 | Image tag | Controlled by `AUTHK_TAG` (e.g. `2025.12`) |
 | Forward-auth middleware | Defined in `shared/traefik/advanced/middlewares-authentik.yml` |
 
 The stack runs two Authentik containers:
 
-- **`authentik`** — the web server, started after the worker is running
-- **`authenwk1`** — the background worker (handles flows, policies, notifications)
+- **`wbsvcauthtik`** — the web server, started after the worker is running
+- **`wbsvcauthwok`** — the background worker (handles flows, policies, notifications)
 
 > **Note:** The Traefik dashboard is protected by Authentik forward-auth. It will be inaccessible until the Authentik initial setup flow is completed and a forward-auth outpost is configured in Authentik.
 
@@ -181,15 +181,15 @@ The stack runs two Authentik containers:
 |---|---|
 | URL | `https://${WP_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
 | Database | MariaDB (`${WP_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/webapps/wwhome` (mounted as `/var/www/html`) |
+| Data persistence | `${APPS_DATA}/wwhome` (mounted as `/var/www/html`) |
 | PHP extensions | `intl`, `zip`, `gd`, `opcache`, `imagick`, `exif`, `fileinfo` |
 | Upload limit | 768 MB (configured in both PHP and Nginx) |
 | www-data UID/GID | Matches host UID/GID via `WWW_DATA_UID`/`WWW_DATA_GID` build args (default `1000:1000`) |
 
 > **Permissions:** The data directory must be owned by the same UID/GID as `WWW_DATA_UID`/`WWW_DATA_GID` (default `1000:1000`):
 > ```bash
-> mkdir -p ${APPS_DATA}/webapps/wwhome
-> chown -R 1000:1000 ${APPS_DATA}/webapps/wwhome
+> mkdir -p ${APPS_DATA}/wwhome
+> chown -R 1000:1000 ${APPS_DATA}/wwhome
 > ```
 
 ### Gitea
@@ -200,8 +200,8 @@ The stack runs two Authentik containers:
 |---|---|
 | URL | `https://${GIT_DOMAIN}` |
 | Database | PostgreSQL (`${GIT_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/webapps/repbuk/data` |
-| Config persistence | `${APPS_DATA}/webapps/repbuk/config` |
+| Data persistence | `${APPS_DATA}/repbuk/data` |
+| Config persistence | `${APPS_DATA}/repbuk/config` |
 | Volume ownership | **`1000:1000`** — required; Gitea runs rootless |
 | Registration | Disabled (admin-only account creation) |
 | Auth | Local accounts only (OpenID and passkeys disabled) |
@@ -216,7 +216,7 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 |---|---|
 | Registration | Token set via `GIT_RUNNER_TOKEN` in `.env` |
 | Instance URL | `https://${GIT_DOMAIN}` |
-| Runner data | `${APPS_DATA}/webapps/repbuk/runner` |
+| Runner data | `${APPS_DATA}/repbuk/runner` |
 | Labels | Inherit from Gitea runner registration |
 
 > **Note:** The runner must be registered in Gitea (`Site Administration → Actions → Runners`) before the first workflow can execute. Set the registration token as `GIT_RUNNER_TOKEN` in your `.env`.
@@ -231,13 +231,13 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 | Gateway URL | `https://${HERMES_GATEWAY_DOMAIN}` |
 | Gateway port | 8642 |
 | Dashboard port | 9119 |
-| Data persistence | `${APPS_DATA}/webapps/hermes` |
+| Data persistence | `${APPS_DATA}/hermes` |
 | Browser tools | Requires `--shm-size=1g` (already configured) |
 
 The stack runs two containers:
 
-- **`hermes`** — the gateway API server (`gateway run`)
-- **`dashboard`** — the web dashboard for monitoring and interaction
+- **`agsvchermagt`** — the gateway API server (`gateway run`)
+- **`agsvchermdsh`** — the web dashboard for monitoring and interaction
 
 > **Resource requirements:** The gateway is memory-intensive (recommended 4 GB). Ensure your host has adequate resources.
 
@@ -249,7 +249,7 @@ The stack runs two containers:
 |---|---|
 | URL | `https://${OPENWEBUI_DOMAIN}` |
 | Internal port | 8080 (mapped to 3000 on host) |
-| Data persistence | `${APPS_DATA}/webapps/openwebui` |
+| Data persistence | `${APPS_DATA}/openwebui` |
 | Ollama endpoint | `http://host.docker.internal:11434` |
 
 Open WebUI connects to Ollama running on the host machine. Ensure Ollama is installed and running with your desired models.
@@ -321,10 +321,10 @@ For staging (self-signed), place your `.pem` and `.key` files in `shared/letsenc
 Gitea runs as a rootless container (UID/GID `1000:1000`). The data and config directories on the host **must** be owned by `1000:1000`, otherwise Gitea will fail to start or write data.
 
 ```bash
-mkdir -p ${APPS_DATA}/webapps/repbuk/data
-mkdir -p ${APPS_DATA}/webapps/repbuk/config
-mkdir -p ${APPS_DATA}/webapps/repbuk/runner
-chown -R 1000:1000 ${APPS_DATA}/webapps/repbuk
+mkdir -p ${APPS_DATA}/repbuk/data
+mkdir -p ${APPS_DATA}/repbuk/config
+mkdir -p ${APPS_DATA}/repbuk/runner
+chown -R 1000:1000 ${APPS_DATA}/repbuk
 ```
 
 Replace `${APPS_DATA}` with the actual path you set in `.env` (e.g. `/opt/containerd`).
@@ -338,7 +338,7 @@ docker compose up -d
 Or start a specific service:
 
 ```bash
-docker compose up -d gitea
+docker compose up -d wbsvcrepobuk
 ```
 
 ---
@@ -469,7 +469,7 @@ Set these in **Repository Settings → Secrets → Add Secret**.
 
 1. Navigate to **Repository → Actions → Deploy to Server**
 2. Click **Run workflow**
-3. Select the **service** (`all`, `traefik`, `authentik`, `wordpress`, `hermes`, `openwebui`, `gitea`, `mariadb`, `pgsqldb`, or `runner`) and **environment** (`stag` or `prod`)
+3. Select the **service** (`all`, `agsvchermagt`, `inframariadb`, `infrapgsqldb`, `infratraefik`, `wbsvcauthtik`, `wbsvcreporun`, `wbsvcrepobuk`, `wbsvcwebchat`, or `wbsvcwebhome`) and **environment** (`stag` or `prod`)
 4. Click **Run workflow**
 
 ---
@@ -486,16 +486,16 @@ docker compose up -d
 docker compose down
 
 # Restart a single service
-docker compose restart gitea
+docker compose restart wbsvcrepobuk
 
 # View logs
-docker compose logs -f gitea
+docker compose logs -f wbsvcrepobuk
 ```
 
 ### Rebuild After a Config Change
 
 ```bash
-docker compose up -d --build gitea
+docker compose up -d --build wbsvcrepobuk
 ```
 
 ### Update All Images
@@ -509,7 +509,7 @@ docker compose pull && docker compose up -d
 After Gitea starts, generate a runner token in Gitea (`Site Administration → Actions → Runners → Create new runner token`), add it to `.env` as `GIT_RUNNER_TOKEN`, then restart the runner:
 
 ```bash
-docker compose restart runner
+docker compose restart wbsvcreporun
 ```
 
 ---

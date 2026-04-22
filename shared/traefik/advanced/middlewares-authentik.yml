@@ -8,7 +8,7 @@ http:
     middlewares:
         authentik-forwardauth:
             forwardAuth:
-                address: "http://authentik:9000/outpost.goauthentik.io/auth/traefik"
+                address: "http://wbsvcauthtik:9000/outpost.goauthentik.io/auth/traefik"
                 trustForwardHeader: true
                 authResponseHeaders:
                     - X-authentik-username

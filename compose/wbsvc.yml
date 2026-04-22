@@ -1,14 +1,14 @@
 services:
     # Gitea: self-hosted software development service
-    gitea:
+    wbsvcrepobuk:
         build:
             context: ../shared/gitea/
         depends_on:
-            traefik:
+            infratraefik:
                 condition: service_healthy
-            pgsqldb:
+            infrapgsqldb:
                 condition: service_healthy
-            authentik:
+            wbsvcauthtik:
                 condition: service_started
         environment:
             # Using MySQL for databases
@@ -35,27 +35,27 @@ services:
             # default Gitea custom folder
             - GITEA_CUSTOM=/var/lib/custom
         healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+            test: [ "CMD", "curl", "-f", "http://localhost:3000/" ]
             start_period: 20s
             interval: 30s
             retries: 5
             timeout: 5s
-        image: gitea
+        image: wbsvcrepobuk:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.gitea.entrypoints=websecure"
+            - "traefik.http.routers.wbsvcrepobuk.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.gitea.rule=Host(`${GIT_DOMAIN}`)"
+            - "traefik.http.routers.wbsvcrepobuk.rule=Host(`${GIT_DOMAIN}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.gitea.service=gitea"
+            - "traefik.http.routers.wbsvcrepobuk.service=wbsvcrepobuk"
             # Define the internal container port for routing
-            - "traefik.http.services.gitea.loadbalancer.server.port=3000"
+            - "traefik.http.services.wbsvcrepobuk.loadbalancer.server.port=3000"
             # Enable TLS on this router
-            - "traefik.http.routers.gitea.tls=true"
+            - "traefik.http.routers.wbsvcrepobuk.tls=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.gitea.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.wbsvcrepobuk.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         ports:
@@ -63,22 +63,22 @@ services:
         restart: unless-stopped
         volumes:
             - /etc/localtime:/etc/localtime:ro
-            - ${APPS_DATA}/webapps/repbuk/data:/var/lib/gitea
-            - ${APPS_DATA}/webapps/repbuk/config:/etc/gitea
+            - ${APPS_DATA}/repbuk/data:/var/lib/gitea
+            - ${APPS_DATA}/repbuk/config:/etc/gitea
             - ../shared/gitea/custom:/var/lib/custom
 
     # Gitea Act Runner - executes CI/CD workflows
     # https://codeberg.org/gitea/act_runner
-    runner:
+    wbsvcreporun:
         build:
             context: ../shared/gitea/runner/
         depends_on:
-            gitea:
+            wbsvcrepobuk:
                 condition: service_healthy
         environment:
             - GITEA_INSTANCE_URL=https://${GIT_DOMAIN}
             - GITEA_RUNNER_REGISTRATION_TOKEN=${GIT_RUNNER_TOKEN}
-        image: runner
+        image: wbsvcreporun:latest
         networks:
             - subnet
         restart: unless-stopped
@@ -87,4 +87,42 @@ services:
             # Mount Docker socket for running docker commands in workflows
             - /var/run/docker.sock:/var/run/docker.sock
             # Runner data persistence
-            - ${APPS_DATA}/webapps/repbuk/runner:/data
+            - ${APPS_DATA}/repbuk/runner:/data
+
+    # WordPress - CMS and blogging platform
+    wbsvcwebhome:
+        build:
+            context: ../shared/wordpress/
+        depends_on:
+            infratraefik:
+                condition: service_healthy
+            inframariadb:
+                condition: service_healthy
+            wbsvcauthtik:
+                condition: service_started
+        environment:
+            - WORDPRESS_DB_HOST=${MySQL_HOST}
+            - WORDPRESS_DB_NAME=${WP_DBNAME:-wordpress}
+            - WORDPRESS_DB_USER=${SQLDB_USER}
+            - WORDPRESS_DB_PASSWORD=${SQLDB_PASS}
+        image: wbsvcwebhome:latest
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.wbsvcwebhome.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.wbsvcwebhome.rule=Host(`${WP_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.wbsvcwebhome.service=wbsvcwebhome"
+            # Define the internal container port for routing
+            - "traefik.http.services.wbsvcwebhome.loadbalancer.server.port=80"
+            # Enable TLS on this router
+            - "traefik.http.routers.wbsvcwebhome.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.wbsvcwebhome.tls.certresolver=${CERTRESOLVER}"
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/webhome:/var/www/html

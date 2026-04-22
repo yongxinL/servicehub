@@ -2,6 +2,7 @@
 FROM nousresearch/hermes-agent:latest
 LABEL org.opencontainers.image.authors="yongxinL@outlook.com"
 
-ENV PATH="$PATH:/opt/hermes/.venv/bin"
+# Add your setup here
+# Example: RUN
 
-RUN echo 'export PATH="$PATH:/opt/hermes/.venv/bin"' >> /etc/profile
+ENV PATH="$PATH:/opt/hermes/.venv/bin"

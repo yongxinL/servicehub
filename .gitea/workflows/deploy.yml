@@ -10,15 +10,15 @@ on:
         type: choice
         options:
           - all
-          - traefik
-          - authentik
-          - wordpress
-          - hermes
-          - openwebui
-          - gitea
-          - mariadb
-          - pgsqldb
-          - runner
+          - agsvchermagt
+          - inframariadb
+          - infrapgsqldb
+          - infratraefik
+          - wbsvcauthtik
+          - wbsvcreporun
+          - wbsvcrepobuk
+          - wbsvcwebchat
+          - wbsvcwebhome
       environment:
         description: "Target environment"
         required: true
