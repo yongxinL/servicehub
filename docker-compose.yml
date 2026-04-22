@@ -5,16 +5,14 @@ networks:
 
 ############### SERVICES ###############
 include:
-    # --> infrastructure
-    - compose/traefik.yml
+    # --> infrastructure (infra)
+    - compose/infra.yml
 
-    # --> database services
-    - compose/mariadb.yml
-    - compose/pgsqldb.yml
+    # --> authentication (authn)
+    - compose/authn.yml
 
-    # --> Web applications
-    - compose/authentik.yml
-    - compose/gitea.yml
-    - compose/wordpress.yml
-    - compose/hermes.yml
-    - compose/openwebui.yml
+    # --> web services (wbsvc)
+    - compose/wbsvc.yml
+
+    # --> agent services (agent)
+    - compose/agent.yml

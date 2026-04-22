@@ -1,6 +1,50 @@
 services:
+    # MariaDB - MySQL-compatible relational database
+    inframariadb:
+        build:
+            context: ../shared/mariadb/
+        environment:
+            - MARIADB_USER=${SQLDB_USER}
+            - MARIADB_PASSWORD=${SQLDB_PASS}
+            - MARIADB_ROOT_PASSWORD=${SQLDB_PASS}
+            - MARIADB_DB_LIST=${MARIADB_DB_LIST}
+        healthcheck:
+            test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+            start_period: 10s
+            interval: 10s
+            timeout: 5s
+            retries: 3
+        image: inframariadb:latest
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/inframariadb:/var/lib/mysql
+
+    # PostgreSQL - Advanced open source relational database
+    infrapgsqldb:
+        build:
+            context: ../shared/postgresql/
+        environment:
+            - POSTGRES_USER=${SQLDB_USER}
+            - POSTGRES_PASSWORD=${SQLDB_PASS}
+            - POSTGRES_DB_LIST=${PGRSQL_DBLIST:-defaultdb}
+        healthcheck:
+            test: [ "CMD-SHELL", "pg_isready -d $${PGRSQL_DBLIST%%,*} -U $${PGRSQL_USER}" ]
+            start_period: 20s
+            interval: 30s
+            retries: 5
+            timeout: 5s
+        image: infrapgsqldb:latest
+        networks:
+            - subnet
+        restart: unless-stopped
+        shm_size: 128mb
+        volumes:
+            - ${APPS_DATA}/infrapgsqldb:/var/lib/postgresql/data
+
     # Traefik 3 Reverse Proxy Server
-    traefik:
+    infratraefik:
         build:
             context: ../shared/traefik/
         command:
@@ -42,12 +86,12 @@ services:
         environment:
             - TZ=${TIME_ZONE}
         healthcheck:
-            test: ["CMD", "traefik", "healthcheck", "--ping"]
+            test: [ "CMD", "traefik", "healthcheck", "--ping" ]
             interval: 60s
             timeout: 5s
             retries: 3
             start_period: 5s
-        image: traefik
+        image: infratraefik:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"

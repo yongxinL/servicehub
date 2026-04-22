@@ -18,5 +18,5 @@ tls:
     stores:
         default:
             defaultCertificate:
-                certFile: /letsencrypt/onelijia.pem
-                keyFile: /letsencrypt/onelijia.key
+                certFile: /letsencrypt/selfcert.pem
+                keyFile: /letsencrypt/selfcert.key

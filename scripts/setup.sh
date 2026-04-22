@@ -26,12 +26,13 @@ cd "$PROJECT_ROOT"
 
 # Function to generate secrets and inject into .env
 inject_secrets() {
-    echo "Generating secrets..."
+    echo "Generating secrets for placeholder values..."
 
     SQLDB_PASS=$(openssl rand -hex 16 | head -c 18)
     AUTHK_PASS=$(openssl rand -base64 36 | tr -d '\n')
     AUTHK_SECRET=$(openssl rand -base64 60 | tr -d '\n')
 
+    # Only replace if the current value matches the placeholder (not already set)
     sed -i.bak \
         -e "s|<YOUR_STRONG_SQLDB_PASSWORD>|${SQLDB_PASS}|g" \
         -e "s|<YOUR_STRONG_AUTHENTIK_PASSWORD>|${AUTHK_PASS}|g" \

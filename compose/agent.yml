@@ -1,0 +1,88 @@
+services:
+    # Hermes Agent Dashboard - Web UI for monitoring and interaction
+    agsvchermdsh:
+        command: dashboard --host 0.0.0.0 --insecure
+        depends_on:
+            infratraefik:
+                condition: service_healthy
+            agsvchermagt:
+                condition: service_started
+        environment:
+            - TZ=${TIME_ZONE}
+            - GATEWAY_HEALTH_URL=http://agsvchermagt:8642
+        image: agsvchermagt:latest
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.agsvchermdsh.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.agsvchermdsh.rule=Host(`${HERMES_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.agsvchermdsh.service=agsvchermdsh"
+            # Define the internal container port for routing
+            - "traefik.http.services.agsvchermdsh.loadbalancer.server.port=9119"
+            # Enable TLS on this router
+            - "traefik.http.routers.agsvchermdsh.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.agsvchermdsh.tls.certresolver=${CERTRESOLVER}"
+        networks:
+            - subnet
+        ports:
+            - "9119:9119"
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/hermesagent:/opt/data
+
+    # Hermes Agent Gateway - API server + chat platforms integration
+    # https://hermes-agent.nousresearch.com
+    agsvchermagt:
+        build:
+            context: ../shared/hermes/
+        command: gateway run
+        environment:
+            - TZ=${TIME_ZONE}
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:8642/health" ]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 5s
+        image: agsvchermagt:latest
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/hermesagent:/opt/data
+
+    # Open WebUI - Web interface for interacting with LLMs
+    # https://docs.openwebui.com/
+    wbsvcwebchat:
+        build:
+            context: ../shared/openwebui/
+        depends_on:
+            infratraefik:
+                condition: service_healthy
+        environment:
+            - TZ=${TIME_ZONE}
+        image: wbsvcwebchat:latest
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.wbsvcwebchat.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.wbsvcwebchat.rule=Host(`${OWEBUI_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.wbsvcwebchat.service=wbsvcwebchat"
+            # Define the internal container port for routing
+            - "traefik.http.services.wbsvcwebchat.loadbalancer.server.port=8080"
+            # Enable TLS on this router
+            - "traefik.http.routers.wbsvcwebchat.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.wbsvcwebchat.tls.certresolver=${CERTRESOLVER}"
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/openwebui:/app/backend/data
