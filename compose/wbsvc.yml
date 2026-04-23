@@ -1,15 +1,27 @@
 services:
+    # Gitea data + config permission init
+    wbsvcrepoint:
+        command: >
+            sh -c 'chown -R 1000:1000 /data /config 2>/dev/null; chmod -R 755 /data /config 2>/dev/null || true'
+        image: busybox:latest
+        networks:
+            - subnet
+        user: root
+        volumes:
+            - ${APPS_DATA}/repbuk/data:/data
+            - ${APPS_DATA}/repbuk/config:/config
+
     # Gitea: self-hosted software development service
     wbsvcrepobuk:
         build:
             context: ../shared/gitea/
         depends_on:
+            wbsvcrepoint:
+                condition: service_completed_successfully
             infratraefik:
                 condition: service_healthy
             infrapgsqldb:
                 condition: service_healthy
-            wbsvcauthtik:
-                condition: service_started
         environment:
             # Using MySQL for databases
             - GITEA__database__DB_TYPE=postgres
@@ -58,8 +70,6 @@ services:
             - "traefik.http.routers.wbsvcrepobuk.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
-        ports:
-            - 3000:3000
         restart: unless-stopped
         volumes:
             - /etc/localtime:/etc/localtime:ro
