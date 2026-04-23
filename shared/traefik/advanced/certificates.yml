@@ -10,13 +10,13 @@
 #   4. Ensure certresolver in traefik.yml is not set to "letsencrypt"
 #      for the routers that should use this self-signed certificate
 #
-# Example: certFile: /letsencrypt/onelijia.pem
-#          keyFile: /letsencrypt/onelijia.key
+# Example: certFile: /letsencrypt/selfsigncert/selfcert.pem
+#          keyFile: /letsencrypt/selfsigncert/selfcert.key
 ################################################################
 
 tls:
     stores:
         default:
             defaultCertificate:
-                certFile: /letsencrypt/selfcert.pem
-                keyFile: /letsencrypt/selfcert.key
+                certFile: /letsencrypt/selfsigncert/selfcert.pem
+                keyFile: /letsencrypt/selfsigncert/selfcert.key
