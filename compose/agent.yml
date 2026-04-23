@@ -38,7 +38,7 @@ services:
     # https://hermes-agent.nousresearch.com
     agsvchermagt:
         build:
-            context: ../shared/hermes/
+            context: ../shared/hermesagent/
         command: gateway run
         environment:
             - TZ=${TIME_ZONE}
