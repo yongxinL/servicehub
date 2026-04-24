@@ -24,6 +24,8 @@ services:
             - "traefik.http.services.agsvchermdsh.loadbalancer.server.port=9119"
             # Enable TLS on this router
             - "traefik.http.routers.agsvchermdsh.tls=true"
+            # uncomment when Domain Level Forward Authentication enabled in Authentik
+            - "traefik.http.routers.agsvchermdsh.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.agsvchermdsh.tls.certresolver=${CERTRESOLVER}"
         networks:
@@ -79,6 +81,8 @@ services:
             - "traefik.http.services.wbsvcwebchat.loadbalancer.server.port=8080"
             # Enable TLS on this router
             - "traefik.http.routers.wbsvcwebchat.tls=true"
+            # uncomment when Domain Level Forward Authentication enabled in Authentik
+            - "traefik.http.routers.wbsvcwebchat.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.wbsvcwebchat.tls.certresolver=${CERTRESOLVER}"
         networks:
