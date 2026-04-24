@@ -129,12 +129,10 @@ services:
             - "traefik.http.routers.secobgrafana.tls=true"
             - "traefik.http.services.secobgrafana.loadbalancer.server.port=3000"
             # uncomment when Domain Level Forward Authentication enabled in Authentik
-            # - "traefik.http.routers.secobgrafana.middlewares=authentik-forwardauth@file"
+            - "traefik.http.routers.secobgrafana.middlewares=authentik-forwardauth@file"
             - "traefik.http.routers.secobgrafana.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
-        ports:
-            - "3000:3000"
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/grafana:/var/lib/grafana
