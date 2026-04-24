@@ -1,0 +1,152 @@
+services:
+    # =============================================
+    # VictoriaMetrics - Fast, cost-effective metrics storage
+    # https://victoriametrics.com/products/open-source/
+    # =============================================
+    secobvicmtrx:
+        build:
+            context: ../shared/victoriametrics/
+        command:
+            - "--storageDataPath=/storage"
+            - "--httpListenAddr=:8428"
+            - "--promscrape.config=/etc/vm/scrape.yaml"
+            - "--promscrape.config.strictParse=false"
+            - "--enableTCP6=true"
+        healthcheck:
+            test: [ "CMD-SHELL", "curl -fsS http://localhost:8428/health || exit 1" ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 20s
+        image: secobvicmtrx:latest
+        networks:
+            - subnet
+        ports:
+            - "8428:8428" # HTTP API - for remote Alloy/metrics push
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/victoriametrics:/storage
+            - ../shared/victoriametrics/scrape.yaml:/etc/vm/scrape.yaml:ro
+
+    # =============================================
+    # VictoriaLogs - Fast, lightweight log aggregation
+    # https://victoriametrics.com/products/victorialogs/
+    # =============================================
+    secobviclogs:
+        build:
+            context: ../shared/victorialogs/
+        command:
+            - "--storageDataPath=/vlogs"
+            - "--httpListenAddr=:9428"
+        healthcheck:
+            test: [ "CMD-SHELL", "curl -fsS http://localhost:9428/health || exit 1" ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 20s
+        image: secobviclogs:latest
+        networks:
+            - subnet
+        ports:
+            - "9428:9428" # HTTP API - for remote Alloy/log push
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/victorialogs:/vlogs
+
+    # =============================================
+    # Grafana Alloy - Host metrics + container metrics + log collection
+    # Built-in unix exporter (host) + built-in cAdvisor (containers)
+    # Pattern: github.com/grafana/alloy-scenarios
+    # =============================================
+    secobgrafaly:
+        build:
+            context: ../shared/grafana/alloy/
+        command:
+            - run
+            - --server.http.listen-addr=0.0.0.0:9080
+            - /etc/alloy/config.alloy
+        depends_on:
+            secobviclogs:
+                condition: service_healthy
+            secobvicmtrx:
+                condition: service_healthy
+        healthcheck:
+            test: [ "CMD-SHELL", "curl -fsS http://localhost:9080/health || exit 1" ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+        hostname: ${DOMAIN_NAME}
+        image: secobgrafaly:latest
+        networks:
+            - subnet
+        privileged: true
+        restart: unless-stopped
+        volumes:
+            - ../shared/grafana/geoip/GeoLite2-City.mmdb:/geoip/GeoLite2-City.mmdb:ro # GeoLite2 City database for GeoIP enrichment
+            - ../shared/grafana/alloy:/etc/alloy:ro # Alloy config files
+            - /var/run/docker.sock:/var/run/docker.sock # Docker API — cAdvisor + Loki log discovery (writable required for cAdvisor)
+            - /var/lib/docker/:/var/lib/docker:ro # cAdvisor — container filesystem stats
+            - /proc:/host/proc:ro # unix exporter — procfs_path (CPU, memory, network)
+            - /sys:/host/sys:ro # unix exporter — sysfs_path (disk I/O, hardware info)
+            - /:/rootfs:ro # unix exporter — rootfs_path (disk space, /etc, /dev)
+            - /sys/fs/cgroup:/sys/fs/cgroup:ro # cAdvisor — cgroup stats (standard in-container path)
+            - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
+
+    # =============================================
+    # Grafana - Security observability dashboards
+    # =============================================
+    secobgrafana:
+        build:
+            context: ../shared/grafana/
+        depends_on:
+            infratraefik:
+                condition: service_healthy
+            secobgrafint:
+                condition: service_completed_successfully
+            secobgrafaly:
+                condition: service_healthy
+        environment:
+            - GF_ALERTING_enabled=true
+            - GF_ALERTING_render_only_panels=true
+            - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+            - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
+            - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER}
+            - GF_SERVER_DOMAIN=${GF_DOMAIN}
+            - GF_SERVER_ROOT_URL=https://${GF_DOMAIN}
+            - GF_USERS_ALLOW_SIGN_UP=false
+            - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource
+        healthcheck:
+            test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1" ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 30s
+        image: secobgrafana:latest
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.secobgrafana.entrypoints=websecure"
+            - "traefik.http.routers.secobgrafana.rule=Host(`${GF_DOMAIN}`)"
+            - "traefik.http.routers.secobgrafana.tls=true"
+            - "traefik.http.services.secobgrafana.loadbalancer.server.port=3000"
+            # uncomment when Domain Level Forward Authentication enabled in Authentik
+            # - "traefik.http.routers.secobgrafana.middlewares=authentik-forwardauth@file"
+            - "traefik.http.routers.secobgrafana.tls.certresolver=${CERTRESOLVER}"
+        networks:
+            - subnet
+        ports:
+            - "3000:3000"
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/grafana:/var/lib/grafana
+            - ../shared/grafana/provisioning:/etc/grafana/provisioning:ro
+            - ../shared/grafana/dashboards:/var/lib/grafana/dashboards/observability:ro
+
+    secobgrafint:
+        command: >
+            sh -c '[ "$(stat -c %u /var/lib/grafana 2>/dev/null)" != "472" ] && chown -R 472:472 /var/lib/grafana || true chmod -R 775 /var/lib/grafana'
+        image: busybox:latest
+        networks:
+            - subnet
+        user: root
+        volumes:
+            - ${APPS_DATA}/grafana:/var/lib/grafana

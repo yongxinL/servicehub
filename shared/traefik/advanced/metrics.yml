@@ -1,0 +1,17 @@
+################################################################
+# Traefik Metrics Configuration
+# https://doc.traefik.io/traefik/v3.0/observability/metrics/prometheus/
+#
+# Enable Prometheus metrics with HTTP header-based labels
+################################################################
+
+metrics:
+    prometheus:
+        # Add entrypoint labels (entrypoint name, etc.)
+        addEntryPointsLabels: true
+        # Add service labels (service name, etc.)
+        addServicesLabels: true
+        # Extract HTTP header as metric label
+        # X-Forwarded-For contains the original client IP when behind a proxy
+        headerLabels:
+            client_ip: X-Forwarded-For

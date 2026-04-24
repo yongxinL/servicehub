@@ -79,8 +79,15 @@ services:
             - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
             # The file where ACME certificates are stored inside the container
             - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-            # activate access logging
+            # activate access logging with JSON format for Grafana Alloy/Loki
             - "--accesslog=true"
+            - "--accesslog.format=json"
+            # Enable Prometheus metrics exporter with entrypoint/service labels
+            - "--metrics.prometheus=true"
+            - "--metrics.prometheus.addEntryPointsLabels=true"
+            - "--metrics.prometheus.addServicesLabels=true"
+            # Extract X-Forwarded-For header as client_ip label
+            - "--metrics.prometheus.headerlabels.client_ip=X-Forwarded-For"
             # Set the log level (DEBUG, INFO, WARN, ERROR)
             - "--log.level=INFO"
         environment:

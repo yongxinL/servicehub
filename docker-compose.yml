@@ -16,3 +16,6 @@ include:
 
     # --> agent services (agent)
     - compose/agent.yml
+
+    # --> security observability (secob)
+    - compose/secob.yml

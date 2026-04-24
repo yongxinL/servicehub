@@ -19,6 +19,10 @@ on:
           - wbsvcrepobuk
           - wbsvcwebchat
           - wbsvcwebhome
+          - secobvicmtrx
+          - secobviclogs
+          - secobgrafaly
+          - secobgrafana
       environment:
         description: "Target environment"
         required: true
