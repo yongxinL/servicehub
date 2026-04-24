@@ -12,6 +12,11 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Web Applications](#web-applications)
     - [Hermes Agent](#hermes-agent)
     - [Open WebUI](#open-webui)
+- [Security Observability Stack](#security-observability-stack)
+    - [VictoriaMetrics](#victoriametrics)
+    - [VictoriaLogs](#victorialogs)
+    - [Grafana Alloy](#grafana-alloy)
+    - [Grafana](#grafana)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
@@ -38,12 +43,22 @@ graph TD
         Traefik -->|www.domain| WordPress[WordPress\nCMS]
         Traefik -->|hermes.domain| Hermes[Hermes\nAI Agent]
         Traefik -->|gateway.domain| Gateway[Hermes Gateway\nAPI Server]
-        Traefik -->|chats.domain| OpenWebUI[Open WebUI\nLLM Web Interface]
+        Traefik -->|chats.domain| OpenWebUI[Open WebUI
+LLM Web Interface]
+        Traefik -->|stats.domain| Grafana[Grafana
+Dashboards + Metrics + Logs]
         Authentik -->|forward-auth| Dashboard
         Gitea -->|depends on| PostgreSQL[(PostgreSQL\npgsqldb)]
         Authentik -->|depends on| PostgreSQL
         Gitea -->|triggers| Runner[Act Runner\nCI/CD Executor]
         WordPress -->|depends on| MariaDB[(MariaDB)]
+        Grafana -.->|metrics| VM[VictoriaMetrics
+Metrics DB]
+        Grafana -.->|logs| VL[VictoriaLogs
+Log Aggregation]
+        VM -.->|scrapes| Alloy[Grafana Alloy
+Host/Container Metrics]
+        VL -.->|receives| Alloy
     end
 
     Runner -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
@@ -66,13 +81,15 @@ servicehub/
 │   ├── infra.yml               # Traefik + MariaDB + PostgreSQL
 │   ├── authn.yml               # Authentik server + worker
 │   ├── wbsvc.yml               # Gitea + Act Runner + WordPress
-│   └── agent.yml               # Hermes Agent + Open WebUI
+│   ├── agent.yml               # Hermes Agent + Open WebUI
+│   └── secob.yml               # Security observability stack
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
 │   │   ├── Dockerfile
 │   │   └── advanced/
 │   │       ├── certificates.yml          # Self-signed TLS config (staging)
-│   │       └── middlewares-authentik.yml # Authentik forward-auth middleware
+│   │       ├── middlewares-authentik.yml # Authentik forward-auth middleware
+│   │       └── metrics.yml              # Traefik Prometheus metrics config
 │   ├── authentik/
 │   │   └── Dockerfile
 │   ├── gitea/
@@ -83,6 +100,17 @@ servicehub/
 │   ├── hermes/
 │   │   └── Dockerfile
 │   ├── openwebui/
+│   │   └── Dockerfile
+│   ├── grafana/
+│   │   ├── Dockerfile
+│   │   ├── alloy/                 # Grafana Alloy config
+│   │   ├── dashboards/            # Pre-built observability dashboards
+│   │   ├── geoip/                 # GeoIP database for log enrichment
+│   │   └── provisioning/          # Grafana datasources + dashboard provisioning
+│   ├── victoriametrics/
+│   │   ├── Dockerfile
+│   │   └── scrape.yaml            # Metrics scrape configuration
+│   ├── victorialogs/
 │   │   └── Dockerfile
 │   ├── wordpress/
 │   │   ├── Dockerfile          # Nginx + PHP-FPM + WordPress (Alpine)
@@ -255,6 +283,78 @@ The stack runs two containers:
 Open WebUI connects to Ollama running on the host machine. Ensure Ollama is installed and running with your desired models.
 
 > **Resource requirements:** At least 2 GB RAM minimum, 4+ GB recommended. Requires sufficient disk space for model storage.
+
+---
+
+## Security Observability Stack
+
+A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy.
+
+```mermaid
+graph LR
+    subgraph Collectors[Collection]
+        Alloy[Grafana Alloy\nHost + Container + Traefik]
+    end
+    subgraph Storage[Storage]
+        VM[VictoriaMetrics\nTime-series metrics]
+        VL[VictoriaLogs\nLog aggregation]
+    end
+    subgraph Visualization[Visualization]
+        Grafana[Grafana\nDashboards]
+    end
+    Alloy -->|metrics push| VM
+    Alloy -->|logs push| VL
+    Grafana -->|query| VM
+    Grafana -->|query| VL
+```
+
+### VictoriaMetrics
+
+[VictoriaMetrics](https://victoriametrics.com/products/open-source/) is a fast, cost-effective time-series database for Prometheus-format metrics.
+
+| Detail | Value |
+|---|---|
+| HTTP API port | 8428 (not exposed externally) |
+| Data persistence | `${APPS_DATA}/victoriametrics` |
+| Scrape target | Grafana Alloy (host + container + Traefik metrics) |
+| Health check | `curl` on port 8428 every 30 s |
+
+### VictoriaLogs
+
+[VictoriaLogs](https://victoriametrics.com/products/victorialogs/) is a lightweight log aggregation system with a simple query interface.
+
+| Detail | Value |
+|---|---|
+| HTTP API port | 9428 (not exposed externally) |
+| Data persistence | `${APPS_DATA}/victorialogs` |
+| Log source | Grafana Alloy (Docker logs, container stats, Traefik access logs) |
+| Health check | `curl` on port 9428 every 30 s |
+
+### Grafana Alloy
+
+[Grafana Alloy](https://grafana.com/docs/alloy/) is a telemetry collector that gathers host metrics, container metrics, and logs. It runs a built-in UNIX exporter for host metrics and cAdvisor for container metrics.
+
+| Detail | Value |
+|---|---|
+| HTTP API port | 9080 (internal only) |
+| Collectors | unix_exporter (CPU, memory, disk, network), cAdvisor (containers), Loki (logs) |
+| Data sources | Docker socket, containerd socket, procfs, sysfs, cgroupfs |
+| Depends on | VictoriaMetrics, VictoriaLogs (healthy) |
+
+> **Privileged access:** The Alloy container runs in privileged mode (`--privileged`) because cAdvisor requires access to the host's `/proc`, `/sys`, and Docker socket to collect container metrics.
+
+### Grafana
+
+[Grafana](https://grafana.com/) provides dashboards for visualizing metrics and logs. Dashboards are pre-provisioned for VictoriaMetrics, VictoriaLogs, Traefik, Docker, cAdvisor, and node exporter.
+
+| Detail | Value |
+|---|---|
+| URL | `https://${GF_DOMAIN}` |
+| Port | 3000 (mapped to host) |
+| Database | SQLite (embedded, persisted to `${APPS_DATA}/grafana`) |
+| Data sources | VictoriaMetrics (metrics), VictoriaLogs (logs) |
+| Dashboards | Node Exporter Full, Docker Dashboard, cAdvisor Explorer, Traefik Dashboard, VictoriaLogs Explorer, and more |
+| Plugins | `victoriametrics-logs-datasource` |
 
 ---
 
@@ -578,6 +678,14 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | Variable | Description |
 |---|---|
 | `OPENWEBUI_DOMAIN` | Open WebUI hostname |
+
+### Grafana (Security Observability)
+
+| Variable | Description |
+|---|---|
+| `GF_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
+| `GF_ADMIN_USER` | Grafana admin username |
+| `GF_ADMIN_PASSWORD` | Grafana admin password |
 
 ### Databases
 

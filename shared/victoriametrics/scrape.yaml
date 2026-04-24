@@ -1,0 +1,8 @@
+# Scrape configuration for VictoriaMetrics
+# Scrape metrics from Grafana Alloy (host + container + traefik metrics)
+
+scrape_configs:
+    # Scrape Alloy's metrics endpoint (host + container + traefik metrics)
+    - job_name: 'alloy'
+      static_configs:
+          - targets: ['secobgrafaly:9080']
