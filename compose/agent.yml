@@ -81,8 +81,6 @@ services:
             - "traefik.http.services.wbsvcwebchat.loadbalancer.server.port=8080"
             # Enable TLS on this router
             - "traefik.http.routers.wbsvcwebchat.tls=true"
-            # uncomment when Domain Level Forward Authentication enabled in Authentik
-            - "traefik.http.routers.wbsvcwebchat.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.wbsvcwebchat.tls.certresolver=${CERTRESOLVER}"
         networks:
@@ -90,3 +88,135 @@ services:
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/openwebui:/app/backend/data
+
+
+    # Fast chat inference — Gemma 4 2B, 64K context, 2 concurrent slots
+    # https://github.com/ggerganov/llama.cpp
+    agsvcchatllm:
+        build:
+            context: ../shared/llamacpp/
+        cap_add:
+            - IPC_LOCK           # required for --mlock to work inside Docker
+        command: >
+            -hf ${LLM_CHAT_MODEL:-ggml-org/gemma-4-E2B-it-GGUF:Q8_0}
+            --host 0.0.0.0
+            --port 12321
+            --ctx-size 65536
+            --threads 6
+            --threads-batch 8
+            --flash-attn on
+            --cache-type-k q8_0
+            --cache-type-v q8_0
+            --parallel 2
+            --mlock
+            --cont-batching
+        environment:
+            - TZ=${TIME_ZONE}
+            - LLAMA_CACHE=/models
+            - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:12321/health" ]
+            interval: 60s
+            timeout: 10s
+            retries: 3
+            start_period: 120s   # 5.6 GB model + mmproj; ~60-90s to mlock into RAM
+        image: agsvcchatllm:latest
+        networks:
+            - subnet
+        ports:
+            - "12321:12321"
+        restart: unless-stopped
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1         # unlimited memlock — needed alongside IPC_LOCK
+        volumes:
+            - ${APPS_DATA}/agentmodels:/models
+
+    # Deep reasoning inference — Gemma 4 26B MoE, 32K context, temp=0 for Hermes Agent
+    # https://github.com/ggerganov/llama.cpp
+    agsvclogcllm:
+        build:
+            context: ../shared/llamacpp/
+        cap_add:
+            - IPC_LOCK           # required for --mlock to work inside Docker
+        command: >
+            -hf ${LLM_LOGC_MODEL:-unsloth/gemma-4-26B-A4B-it-GGUF:Q8_0}
+            --host 0.0.0.0
+            --port 12322
+            --ctx-size 32768
+            --threads 8
+            --threads-batch 12
+            --flash-attn on
+            --cache-type-k q8_0
+            --cache-type-v q8_0
+            --temp 0.0
+            --parallel 1
+            --mlock
+            --cont-batching
+        environment:
+            - TZ=${TIME_ZONE}
+            - LLAMA_CACHE=/models
+            - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:12322/health" ]
+            interval: 60s
+            timeout: 10s
+            retries: 3
+            start_period: 300s   # ~28 GB model; allow 5 min to mlock into RAM
+        image: agsvcchatllm:latest
+        networks:
+            - subnet
+        ports:
+            - "12322:12322"
+        restart: unless-stopped
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1         # unlimited memlock — needed alongside IPC_LOCK
+        volumes:
+            - ${APPS_DATA}/agentmodels:/models
+
+    # Vector embeddings for RAG — Qwen3 0.6B, 32K context, 4 concurrent slots
+    # https://github.com/ggerganov/llama.cpp
+    agsvcembdllm:
+        build:
+            context: ../shared/llamacpp/
+        cap_add:
+            - IPC_LOCK           # required for --mlock to work inside Docker
+        command: >
+            -hf ${LLM_EMBD_MODEL_FILE:-Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0}
+            --host 0.0.0.0
+            --port 12323
+            --ctx-size 32768
+            --threads 3
+            --threads-batch 4
+            --flash-attn on
+            --cache-type-k q8_0
+            --cache-type-v q8_0
+            --parallel 4
+            --embedding
+            --pooling last
+            --mlock
+        environment:
+            - TZ=${TIME_ZONE}
+            - LLAMA_CACHE=/models
+            - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:12323/health" ]
+            interval: 60s
+            timeout: 10s
+            retries: 3
+            start_period: 60s    # <1 GB model; fast to load
+        image: agsvcchatllm:latest
+        networks:
+            - subnet
+        ports:
+            - "12323:12323"
+        restart: unless-stopped
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1         # unlimited memlock — needed alongside IPC_LOCK
+        volumes:
+            - ${APPS_DATA}/agentmodels:/models
