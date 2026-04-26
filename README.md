@@ -9,6 +9,7 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
 - [Core Services](#core-services)
+- [LLM Inference Services](#llm-inference-services)
 - [Web Applications](#web-applications)
     - [Hermes Agent](#hermes-agent)
     - [Open WebUI](#open-webui)
@@ -101,6 +102,8 @@ servicehub/
 │   │   └── Dockerfile
 │   ├── openwebui/
 │   │   └── Dockerfile
+│   ├── llamacpp/
+│   │   └── Dockerfile          # Shared llama.cpp server image
 │   ├── grafana/
 │   │   ├── Dockerfile
 │   │   ├── alloy/                 # Grafana Alloy config
@@ -176,6 +179,50 @@ The init script `shared/mariadb/create-multiple-databases.sh` creates all databa
 | Health check | `pg_isready` every 30 s (20 s startup delay) |
 
 The init script `shared/postgresql/create-multiple-databases.sh` creates all databases listed in `PGRSQL_DBLIST` on first start.
+
+---
+
+## LLM Inference Services
+
+Three llama.cpp-based inference services provide CPU-only LLM capabilities. All services use the same base image built from [`shared/llamacpp/Dockerfile`](shared/llamacpp/Dockerfile) and mount model files from `${APPS_DATA}/agentmodels`.
+
+Models are auto-downloaded on first start via the `-hf` flag and cached locally. A `HF_TOKEN` is required for gated models (e.g. Gemma 4 from Google's organisation).
+
+> **Resource requirements:** These services are memory-intensive. Ensure adequate RAM before starting — the 26B model alone requires ~28 GB.
+
+### Chat Inference — agsvcchatllm
+
+[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Gemma 4 2B for fast, high-concurrency chat.
+
+| Detail | Value |
+|---|---|
+| Port | 12321 |
+| Model | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0` (default) |
+| Context | 64K tokens |
+| Concurrent slots | 2 |
+
+### Deep Reasoning — agsvclogcllm
+
+[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Gemma 4 26B MoE for deep-reasoning tasks (temperature 0, single slot).
+
+| Detail | Value |
+|---|---|
+| Port | 12322 |
+| Model | `unsloth/gemma-4-26B-A4B-it-GGUF:Q8_0` (default) |
+| Context | 32K tokens |
+| Temperature | 0.0 (deterministic) |
+| Concurrent slots | 1 |
+
+### Vector Embeddings — agsvcembdllm
+
+[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Qwen3 0.6B for RAG embedding generation.
+
+| Detail | Value |
+|---|---|
+| Port | 12323 |
+| Model | `Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` (default) |
+| Context | 32K tokens |
+| Concurrent slots | 4 |
 
 ---
 
@@ -678,6 +725,15 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | Variable | Description |
 |---|---|
 | `OPENWEBUI_DOMAIN` | Open WebUI hostname |
+
+### LLM Inference
+
+| Variable | Default | Description |
+|---|---|---|
+| `HF_TOKEN` | *(empty)* | HuggingFace token for gated models (required for Gemma 4) |
+| `LLM_CHAT_MODEL` | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0` | Chat inference model (Gemma 4 2B) |
+| `LLM_LOGC_MODEL` | `unsloth/gemma-4-26B-A4B-it-GGUF:Q8_0` | Deep reasoning model (Gemma 4 26B) |
+| `LLM_EMBD_MODEL_FILE` | `Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` | Embeddings model (Qwen3 0.6B) |
 
 ### Grafana (Security Observability)
 
