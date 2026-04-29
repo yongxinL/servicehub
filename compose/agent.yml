@@ -97,25 +97,14 @@ services:
             context: ../shared/llamacpp/
         cap_add:
             - IPC_LOCK           # required for --mlock to work inside Docker
-        command: >
-            -hf ${LLM_CHAT_MODEL:-ggml-org/gemma-4-E2B-it-GGUF:Q8_0}
-            --host 0.0.0.0
-            --port 12321
-            --ctx-size 65536
-            --threads 6
-            --threads-batch 8
-            --flash-attn on
-            --cache-type-k q8_0
-            --cache-type-v q8_0
-            --parallel 2
-            --mlock
-            --cont-batching
         environment:
             - TZ=${TIME_ZONE}
             - LLAMA_CACHE=/models
-            - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+            - LLAMA_MODEL=${LLM_CHAT_MODEL}
+            - LLAMA_PORT=${LLM_CHAT_PORT}
+            - LLAMA_ARGS=${LLM_CHAT_ARGMS}
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:12321/health" ]
+            test: [ "CMD", "curl", "-f", "http://localhost:${LLM_CHAT_PORT}/health" ]
             interval: 60s
             timeout: 10s
             retries: 3
@@ -124,7 +113,7 @@ services:
         networks:
             - subnet
         ports:
-            - "12321:12321"
+            - "${LLM_CHAT_PORT}:${LLM_CHAT_PORT}"
         restart: unless-stopped
         ulimits:
             memlock:
@@ -140,26 +129,14 @@ services:
             context: ../shared/llamacpp/
         cap_add:
             - IPC_LOCK           # required for --mlock to work inside Docker
-        command: >
-            -hf ${LLM_LOGC_MODEL:-unsloth/gemma-4-26B-A4B-it-GGUF:Q8_0}
-            --host 0.0.0.0
-            --port 12322
-            --ctx-size 32768
-            --threads 8
-            --threads-batch 12
-            --flash-attn on
-            --cache-type-k q8_0
-            --cache-type-v q8_0
-            --temp 0.0
-            --parallel 1
-            --mlock
-            --cont-batching
         environment:
             - TZ=${TIME_ZONE}
             - LLAMA_CACHE=/models
-            - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+            - LLAMA_MODEL=${LLM_LOGC_MODEL}
+            - LLAMA_PORT=${LLM_LOGC_PORT}
+            - LLAMA_ARGS=${LLM_LOGC_ARGMS}
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:12322/health" ]
+            test: [ "CMD", "curl", "-f", "http://localhost:${LLM_LOGC_PORT}/health" ]
             interval: 60s
             timeout: 10s
             retries: 3
@@ -168,7 +145,7 @@ services:
         networks:
             - subnet
         ports:
-            - "12322:12322"
+            - "${LLM_LOGC_PORT}:${LLM_LOGC_PORT}"
         restart: unless-stopped
         ulimits:
             memlock:
@@ -184,26 +161,14 @@ services:
             context: ../shared/llamacpp/
         cap_add:
             - IPC_LOCK           # required for --mlock to work inside Docker
-        command: >
-            -hf ${LLM_EMBD_MODEL_FILE:-Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0}
-            --host 0.0.0.0
-            --port 12323
-            --ctx-size 32768
-            --threads 3
-            --threads-batch 4
-            --flash-attn on
-            --cache-type-k q8_0
-            --cache-type-v q8_0
-            --parallel 4
-            --embedding
-            --pooling last
-            --mlock
         environment:
             - TZ=${TIME_ZONE}
             - LLAMA_CACHE=/models
-            - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+            - LLAMA_MODEL=${LLM_EMBD_MODEL}
+            - LLAMA_PORT=${LLM_EMBD_PORT}
+            - LLAMA_ARGS=${LLM_EMBD_ARGMS}
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:12323/health" ]
+            test: [ "CMD", "curl", "-f", "http://localhost:${LLM_EMBD_PORT}/health" ]
             interval: 60s
             timeout: 10s
             retries: 3
@@ -212,7 +177,7 @@ services:
         networks:
             - subnet
         ports:
-            - "12323:12323"
+            - "${LLM_EMBD_PORT}:${LLM_EMBD_PORT}"
         restart: unless-stopped
         ulimits:
             memlock:
