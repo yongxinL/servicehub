@@ -254,8 +254,8 @@ The stack runs two Authentik containers:
 
 | Detail | Value |
 |---|---|
-| URL | `https://${WP_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
-| Database | MariaDB (`${WP_DBNAME}`) |
+| URL | `https://${WEBHOM_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
+| Database | MariaDB (`${WEBHOM_DBNAME}`) |
 | Data persistence | `${APPS_DATA}/wwhome` (mounted as `/var/www/html`) |
 | PHP extensions | `intl`, `zip`, `gd`, `opcache`, `imagick`, `exif`, `fileinfo` |
 | Upload limit | 768 MB (configured in both PHP and Nginx) |
@@ -273,8 +273,8 @@ The stack runs two Authentik containers:
 
 | Detail | Value |
 |---|---|
-| URL | `https://${GIT_DOMAIN}` |
-| Database | PostgreSQL (`${GIT_DBNAME}`) |
+| URL | `https://${REPBUK_DOMAIN}` |
+| Database | PostgreSQL (`${REPBUK_DBNAME}`) |
 | Data persistence | `${APPS_DATA}/repbuk/data` |
 | Config persistence | `${APPS_DATA}/repbuk/config` |
 | Volume ownership | **`1000:1000`** — required; Gitea runs rootless |
@@ -289,12 +289,12 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 
 | Detail | Value |
 |---|---|
-| Registration | Token set via `GIT_RUNNER_TOKEN` in `.env` |
-| Instance URL | `https://${GIT_DOMAIN}` |
+| Registration | Token set via `REPBUK_RUNTOKEN` in `.env` |
+| Instance URL | `https://${REPBUK_DOMAIN}` |
 | Runner data | `${APPS_DATA}/repbuk/runner` |
 | Labels | Inherit from Gitea runner registration |
 
-> **Note:** The runner must be registered in Gitea (`Site Administration → Actions → Runners`) before the first workflow can execute. Set the registration token as `GIT_RUNNER_TOKEN` in your `.env`.
+> **Note:** The runner must be registered in Gitea (`Site Administration → Actions → Runners`) before the first workflow can execute. Set the registration token as `REPBUK_RUNTOKEN` in your `.env`.
 
 ### Hermes Agent
 
@@ -396,7 +396,7 @@ graph LR
 
 | Detail | Value |
 |---|---|
-| URL | `https://${GF_DOMAIN}` |
+| URL | `https://${SECOB_DOMAIN}` |
 | Port | 3000 (mapped to host) |
 | Database | SQLite (embedded, persisted to `${APPS_DATA}/grafana`) |
 | Data sources | VictoriaMetrics (metrics), VictoriaLogs (logs) |
@@ -442,7 +442,7 @@ Edit `.env` to match your environment:
 ```bash
 # Required — set these before first start
 DOMAIN_NAME=example.com        # Your primary domain
-GIT_DOMAIN=git.example.com     # Gitea hostname
+REPBUK_DOMAIN=git.example.com     # Gitea hostname
 TRAFIK_DOMAIN=traefik.example.com
 ACME_EMAIL=you@example.com     # Let's Encrypt registration email
 APPS_DATA=/opt/containerd      # Host path for persistent data
@@ -653,7 +653,7 @@ docker compose pull && docker compose up -d
 
 ### Register the Act Runner
 
-After Gitea starts, generate a runner token in Gitea (`Site Administration → Actions → Runners → Create new runner token`), add it to `.env` as `GIT_RUNNER_TOKEN`, then restart the runner:
+After Gitea starts, generate a runner token in Gitea (`Site Administration → Actions → Runners → Create new runner token`), add it to `.env` as `REPBUK_RUNTOKEN`, then restart the runner:
 
 ```bash
 docker compose restart wbsvcreporun
@@ -702,16 +702,16 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 
 | Variable | Description |
 |---|---|
-| `WP_DOMAIN` | WordPress hostname (e.g. `www.example.com`) |
-| `WP_DBNAME` | MariaDB database name for WordPress (default: `wordpress`) |
+| `WEBHOM_DOMAIN` | WordPress hostname (e.g. `www.example.com`) |
+| `WEBHOM_DBNAME` | MariaDB database name for WordPress (default: `wordpress`) |
 
 ### Gitea
 
 | Variable | Description |
 |---|---|
-| `GIT_DOMAIN` | Gitea hostname |
-| `GIT_DBNAME` | PostgreSQL database name for Gitea |
-| `GIT_RUNNER_TOKEN` | Act Runner registration token |
+| `REPBUK_DOMAIN` | Gitea hostname |
+| `REPBUK_DBNAME` | PostgreSQL database name for Gitea |
+| `REPBUK_RUNTOKEN` | Act Runner registration token |
 
 ### Hermes Agent
 
@@ -731,17 +731,17 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | Variable | Default | Description |
 |---|---|---|
 | `HF_TOKEN` | *(empty)* | HuggingFace token for gated models (required for Gemma 4) |
-| `LLM_CHAT_MODEL` | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0` | Chat inference model (Gemma 4 2B) |
+| `LLAMA_CHTMDL` | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0` | Chat inference model (Gemma 4 2B) |
 | `LLM_LOGC_MODEL` | `unsloth/gemma-4-26B-A4B-it-GGUF:Q8_0` | Deep reasoning model (Gemma 4 26B) |
-| `LLM_EMBD_MODEL_FILE` | `Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` | Embeddings model (Qwen3 0.6B) |
+| `LLM_EMBMDL_FILE` | `Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` | Embeddings model (Qwen3 0.6B) |
 
 ### Grafana (Security Observability)
 
 | Variable | Description |
 |---|---|
-| `GF_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
-| `GF_ADMIN_USER` | Grafana admin username |
-| `GF_ADMIN_PASSWORD` | Grafana admin password |
+| `SECOB_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
+| `SECOB_ADMUSR` | Grafana admin username |
+| `SECOB_ADMPWD` | Grafana admin password |
 
 ### Databases
 

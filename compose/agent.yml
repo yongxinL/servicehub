@@ -11,23 +11,6 @@ services:
             - TZ=${TIME_ZONE}
             - GATEWAY_HEALTH_URL=http://agsvchermagt:8642
         image: agsvchermagt:latest
-        labels:
-            # Enable Traefik for this container
-            - "traefik.enable=true"
-            # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.agsvchermdsh.entrypoints=websecure"
-            # Match incoming requests on a specific hostname
-            - "traefik.http.routers.agsvchermdsh.rule=Host(`${HERMES_DOMAIN}`)"
-            # Assign the router to a named Traefik service
-            - "traefik.http.routers.agsvchermdsh.service=agsvchermdsh"
-            # Define the internal container port for routing
-            - "traefik.http.services.agsvchermdsh.loadbalancer.server.port=9119"
-            # Enable TLS on this router
-            - "traefik.http.routers.agsvchermdsh.tls=true"
-            # uncomment when Domain Level Forward Authentication enabled in Authentik
-            - "traefik.http.routers.agsvchermdsh.middlewares=authentik-forwardauth@file"
-            # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.agsvchermdsh.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         ports:
@@ -100,11 +83,11 @@ services:
         environment:
             - TZ=${TIME_ZONE}
             - LLAMA_CACHE=/models
-            - LLAMA_MODEL=${LLM_CHAT_MODEL}
-            - LLAMA_PORT=${LLM_CHAT_PORT}
-            - LLAMA_ARGS=${LLM_CHAT_ARGMS}
+            - LLAMA_MODEL=${LLAMA_CHTMDL}
+            - LLAMA_PORT=${LLAMA_CHTPORT}
+            - LLAMA_ARGS=${LLAMA_CHTARG}
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:${LLM_CHAT_PORT}/health" ]
+            test: [ "CMD", "curl", "-f", "http://localhost:${LLAMA_CHTPORT}/health" ]
             interval: 60s
             timeout: 10s
             retries: 3
@@ -112,76 +95,10 @@ services:
         image: agsvcchatllm:latest
         networks:
             - subnet
-        ports:
-            - "${LLM_CHAT_PORT}:${LLM_CHAT_PORT}"
         restart: unless-stopped
         ulimits:
             memlock:
                 soft: -1
                 hard: -1         # unlimited memlock — needed alongside IPC_LOCK
         volumes:
-            - ${APPS_DATA}/agentmodels:/models
-
-    # Deep reasoning inference — Gemma 4 26B MoE, 32K context, temp=0 for Hermes Agent
-    # https://github.com/ggerganov/llama.cpp
-    agsvclogcllm:
-        build:
-            context: ../shared/llamacpp/
-        cap_add:
-            - IPC_LOCK           # required for --mlock to work inside Docker
-        environment:
-            - TZ=${TIME_ZONE}
-            - LLAMA_CACHE=/models
-            - LLAMA_MODEL=${LLM_LOGC_MODEL}
-            - LLAMA_PORT=${LLM_LOGC_PORT}
-            - LLAMA_ARGS=${LLM_LOGC_ARGMS}
-        healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:${LLM_LOGC_PORT}/health" ]
-            interval: 60s
-            timeout: 10s
-            retries: 3
-            start_period: 300s   # ~28 GB model; allow 5 min to mlock into RAM
-        image: agsvcchatllm:latest
-        networks:
-            - subnet
-        ports:
-            - "${LLM_LOGC_PORT}:${LLM_LOGC_PORT}"
-        restart: unless-stopped
-        ulimits:
-            memlock:
-                soft: -1
-                hard: -1         # unlimited memlock — needed alongside IPC_LOCK
-        volumes:
-            - ${APPS_DATA}/agentmodels:/models
-
-    # Vector embeddings for RAG — Qwen3 0.6B, 32K context, 4 concurrent slots
-    # https://github.com/ggerganov/llama.cpp
-    agsvcembdllm:
-        build:
-            context: ../shared/llamacpp/
-        cap_add:
-            - IPC_LOCK           # required for --mlock to work inside Docker
-        environment:
-            - TZ=${TIME_ZONE}
-            - LLAMA_CACHE=/models
-            - LLAMA_MODEL=${LLM_EMBD_MODEL}
-            - LLAMA_PORT=${LLM_EMBD_PORT}
-            - LLAMA_ARGS=${LLM_EMBD_ARGMS}
-        healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:${LLM_EMBD_PORT}/health" ]
-            interval: 60s
-            timeout: 10s
-            retries: 3
-            start_period: 60s    # <1 GB model; fast to load
-        image: agsvcchatllm:latest
-        networks:
-            - subnet
-        ports:
-            - "${LLM_EMBD_PORT}:${LLM_EMBD_PORT}"
-        restart: unless-stopped
-        ulimits:
-            memlock:
-                soft: -1
-                hard: -1         # unlimited memlock — needed alongside IPC_LOCK
-        volumes:
-            - ${APPS_DATA}/agentmodels:/models
+            - ${APPS_DATA}/llamacpp:/models
