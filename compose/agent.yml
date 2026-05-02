@@ -1,44 +1,88 @@
 services:
-    # Hermes Agent Dashboard - Web UI for monitoring and interaction
-    agsvchermdsh:
-        command: dashboard --host 0.0.0.0 --insecure
-        depends_on:
-            infratraefik:
-                condition: service_healthy
-            agsvchermagt:
-                condition: service_started
-        environment:
-            - TZ=${TIME_ZONE}
-            - GATEWAY_HEALTH_URL=http://agsvchermagt:8642
-        image: agsvchermagt:latest
-        networks:
-            - subnet
-        ports:
-            - "9119:9119"
-        restart: unless-stopped
-        volumes:
-            - ${APPS_DATA}/hermesagent:/opt/data
-
-    # Hermes Agent Gateway - API server + chat platforms integration
+    # =========================================================================
+    # Hermes Agent — gateway(s) + dashboard in one container
     # https://hermes-agent.nousresearch.com
+    #
+    # Gateway starts with NO profile by default. Set HERMES_PROFILES in .env
+    # to auto-start named profiles (space-separated).
+    # Add a profile at runtime (no restart needed):
+    #   docker compose exec -d agsvchermagt hermes gateway run --port <N>
+    #
+    # Gateway ports are NOT published — Discord/WhatsApp use outbound
+    # WebSocket connections only. Dashboard on 12329 is published (LAN only).
+    #
+    # Docker sandbox: /var/run/docker.sock is mounted read-only so Hermes can
+    # spin up terminal sandbox containers (terminal.backend=docker in config).
+    # The 'hermes' user is added to gid 999 (docker group) in the image.
+    # If your host docker group gid differs, add: group_add: [<host-gid>]
+    # =========================================================================
     agsvchermagt:
         build:
             context: ../shared/hermesagent/
-        command: gateway run
+        depends_on:
+            agsvclitellm:
+                condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
+            - HOME=/opt/data
+            - HERMES_PROFILES=${HERMES_PROFILES:-}
+            - HERMES_DASHBOARD_PORT=12329
+            - LITELLM_KEY=${LITEM_APIKEY}
+            - FIRECRAWL_API_URL=http://agsvcfircrl:3002
+            - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
         healthcheck:
             test: [ "CMD", "curl", "-f", "http://localhost:8642/health" ]
             interval: 60s
             timeout: 5s
             retries: 3
-            start_period: 5s
+            start_period: 15s
         image: agsvchermagt:latest
         networks:
             - subnet
+        ports:
+            - "12329:12329"    # Dashboard (LAN only)
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/hermesagent:/opt/data
+            # Docker socket — required for terminal.backend=docker sandbox
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    # =========================================================================
+    # LiteLLM Proxy — complexity-based routing + SearXNG web search
+    # SIMPLE → llm-fast (local Gemma E2B), MEDIUM/COMPLEX → llm-cloud (MiniMax)
+    # Port 12321 (LAN only)
+    # =========================================================================
+    agsvclitellm:
+        build:
+            context: ../shared/litellm/
+        depends_on:
+            agsvcchatllm:
+                condition: service_healthy
+            infrapgsqldb:
+                condition: service_healthy
+        environment:
+            - TZ=${TIME_ZONE}
+            - LLM_MASTER_KEY=${LITEM_APIKEY}
+            - DATABASE_URL=postgresql://${SQLDB_USER}:${SQLDB_PASS}@${PGRSQL_HOST}:${PGRSQL_PORT}/${LITEM_DBNAME}
+            - UI_PORT=${LITEM_UIPORT}
+            - UI_USERNAME=${LITEM_ADMUSR}
+            - UI_PASSWORD=${LITEM_ADMPWD}
+            - MINIMAX_API_BASE=${LITEM_MMAX_BASE}
+            - MINIMAX_API_KEY=${LITEM_MMAX_APIKEY}
+        healthcheck:
+            test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${LITEM_APIKEY}", "http://localhost:${LITEM_UIPORT}/health/liveliness" ]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 60s
+        image: agsvclitellm:latest
+        networks:
+            - subnet
+        ports:
+            - "${LITEM_UIPORT}:${LITEM_UIPORT}"    # LiteLLM proxy (LAN only)
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/litellm:/opt/litellm   # place config.yaml here to override default
 
     # Open WebUI - Web interface for interacting with LLMs
     # https://docs.openwebui.com/
