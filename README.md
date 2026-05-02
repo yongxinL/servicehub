@@ -196,33 +196,10 @@ Models are auto-downloaded on first start via the `-hf` flag and cached locally.
 
 | Detail | Value |
 |---|---|
-| Port | 12321 |
+| Port | 12326 |
 | Model | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0` (default) |
 | Context | 64K tokens |
 | Concurrent slots | 2 |
-
-### Deep Reasoning — agsvclogcllm
-
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Gemma 4 26B MoE for deep-reasoning tasks (temperature 0, single slot).
-
-| Detail | Value |
-|---|---|
-| Port | 12322 |
-| Model | `unsloth/gemma-4-26B-A4B-it-GGUF:Q8_0` (default) |
-| Context | 32K tokens |
-| Temperature | 0.0 (deterministic) |
-| Concurrent slots | 1 |
-
-### Vector Embeddings — agsvcembdllm
-
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Qwen3 0.6B for RAG embedding generation.
-
-| Detail | Value |
-|---|---|
-| Port | 12323 |
-| Model | `Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` (default) |
-| Context | 32K tokens |
-| Concurrent slots | 4 |
 
 ---
 

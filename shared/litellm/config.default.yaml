@@ -1,0 +1,50 @@
+# =============================================================================
+# LiteLLM Proxy — default config  (baked into image as /app/config.default.yaml)
+#
+# Runtime override: place your config.yaml at ${APPS_DATA}/litellm/config.yaml
+# The entrypoint.sh uses it if present, otherwise this default is used.
+#
+# Routing:  hermes-router → auto_router/complexity_router
+#   SIMPLE              → llm-fast  (local Gemma-4 E2B Q4_K_M via llama.cpp)
+#   MEDIUM/COMPLEX/REASONING → llm-cloud (MiniMax M2.7 via Anthropic-compat API)
+# Fallback: llm-fast → llm-cloud
+# =============================================================================
+
+model_list:
+
+  # Tier 1: local fast (llama.cpp, Gemma-4 E2B)
+  - model_name: llm-fast
+    litellm_params:
+      model: openai/fast
+      api_base: http://agsvcchatllm:12326/v1
+      api_key: "none"
+
+  # Tier 2: cloud fallback (MiniMax M2.7)
+  - model_name: llm-cloud
+    litellm_params:
+      model: anthropic/MiniMax-M2.7
+      api_base: os.environ/MINIMAX_API_BASE
+      api_key: os.environ/MINIMAX_API_KEY
+
+  # Router virtual model — complexity-based routing exposed to Hermes profiles
+  # SIMPLE prompts (≤8 tokens, no code/reasoning markers) → llm-fast
+  # MEDIUM/COMPLEX/REASONING → llm-cloud
+  - model_name: hermes-router
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: llm-fast
+          MEDIUM: llm-cloud
+          COMPLEX: llm-cloud
+          REASONING: llm-cloud
+      complexity_router_default_model: llm-cloud
+
+router_settings:
+  fallbacks:
+    - llm-fast:
+        - llm-cloud
+
+general_settings:
+  master_key: os.environ/LLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
