@@ -11,17 +11,19 @@
 # =============================================================================
 set -euo pipefail
 
-RUNTIME_CFG="/opt/litellm/config.yaml"
-DEFAULT_CFG="/app/config.default.yaml"
-ACTIVE_CFG="/tmp/litellm-config.yaml"
-LITELLM_UIPORT="${UI_PORT:-12321}"
+USER_CONFIG="/opt/litellm/config.yaml"
+DEFT_CONFIG="/app/config.default.yaml"
+RUNT_CONFIG="/app/litellm-config.yaml"
+RUNT_UIPORT="${UI_PORT:-12321}"
 
-if [[ -f "${RUNTIME_CFG}" ]]; then
-    echo "[litellm] Using runtime config: ${RUNTIME_CFG}"
-    cp "${RUNTIME_CFG}" "${ACTIVE_CFG}"
+if [[ -f "${USER_CONFIG}" ]]; then
+    echo "[litellm] Using user configuration: ${USER_CONFIG}"
+    cp "${USER_CONFIG}" "${RUNT_CONFIG}"
 else
-    echo "[litellm] No runtime config — using built-in default"
-    cp "${DEFAULT_CFG}" "${ACTIVE_CFG}"
+    echo "[litellm] No user configuration — using built-in default configuration ${DEFT_CONFIG}"
+    cp "${DEFT_CONFIG}" "${RUNT_CONFIG}"
+    echo "[litellm] copy default configuration to user configuration ..."
+    cp "${DEFT_CONFIG}" "${USER_CONFIG}"
 fi
 
-exec litellm --config "${ACTIVE_CFG}" --port "${LITELLM_UIPORT}" --host 0.0.0.0
+exec litellm --config "${RUNT_CONFIG}" --port "${RUNT_UIPORT}" --host 0.0.0.0

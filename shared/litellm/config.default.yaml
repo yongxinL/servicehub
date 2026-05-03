@@ -4,46 +4,104 @@
 # Runtime override: place your config.yaml at ${APPS_DATA}/litellm/config.yaml
 # The entrypoint.sh uses it if present, otherwise this default is used.
 #
-# Routing:  hermes-router → auto_router/complexity_router
-#   SIMPLE              → llm-fast  (local Gemma-4 E2B Q4_K_M via llama.cpp)
-#   MEDIUM/COMPLEX/REASONING → llm-cloud (MiniMax M2.7 via Anthropic-compat API)
-# Fallback: llm-fast → llm-cloud
+# ── Routing (all hermes-agent requests use model="hermes-router") ──────────
+#
+#  Rule 1  Privacy keywords         → llm-fast  (data never leaves the host)
+#  Rule 2  Input > 50K tokens       → llm-cloud (large-document workload)
+#  Rule 3  Complexity keywords       → llm-cloud (formal / logic-heavy task)
+#  Rule 4  Default                   → llm-fast  (fast, free, private)
+#
+#  Fallback policy (num_retries: 1 = 2 total attempts per provider):
+#    llm-fast  unavailable → llm-cloud
+#    llm-cloud unavailable → llm-fast
+#    Both fail             → LiteLLM returns error to caller
+#
+#  Safety net: context_window_fallbacks auto-escalates any request that
+#  overflows Gemma-4-4B's 120K soft cap to MiniMax before LiteLLM errors.
+#
+#  See hermes_router.py for the full keyword lists and routing logic.
 # =============================================================================
 
 model_list:
 
-  # Tier 1: local fast (llama.cpp, Gemma-4 E2B)
+  # ── Tier 1: Local inference ─────────────────────────────────────────────
+  # llama.cpp, Gemma-4-4B Q4_K_M, 128K context window
+  # Use for: quick tasks, creative writing, emails, translation, RAG on
+  #          private docs, classroom materials, flashcards, CLI assistance,
+  #          log preprocessing, boilerplate code, sensitive personal files.
   - model_name: llm-fast
     litellm_params:
       model: openai/fast
       api_base: http://agsvcchatllm:12326/v1
       api_key: "none"
+      timeout: 30                  # abandon hung local call after 30 s → triggers fallback
+      max_parallel_requests: 2     # 3rd concurrent request overflows to llm-cloud
+    model_info:
+      max_input_tokens: 120000     # soft cap — leaves headroom for output tokens
 
-  # Tier 2: cloud fallback (MiniMax M2.7)
+  # ── Tier 2: Cloud inference ──────────────────────────────────────────────
+  # MiniMax 2.7, 200K context window (Anthropic-compatible API)
+  # Use for: long-form reports, academic essays, multi-document analysis,
+  #          curriculum mapping, grant writing, legal/philosophy, root-cause
+  #          synthesis, certification study, complex multi-step planning.
   - model_name: llm-cloud
     litellm_params:
       model: anthropic/MiniMax-M2.7
       api_base: os.environ/MINIMAX_API_BASE
       api_key: os.environ/MINIMAX_API_KEY
+      timeout: 15                  # quick failure detection; bump if long responses get cut off
+    model_info:
+      max_input_tokens: 200000
 
-  # Router virtual model — complexity-based routing exposed to Hermes profiles
-  # SIMPLE prompts (≤8 tokens, no code/reasoning markers) → llm-fast
-  # MEDIUM/COMPLEX/REASONING → llm-cloud
+  # ── Virtual router (hermes-agent entry point) ────────────────────────────
+  # hermes_router.HermesRouter intercepts requests to this model name and
+  # rewrites data["model"] to llm-fast or llm-cloud before LiteLLM resolves
+  # the deployment.  This entry exists so LiteLLM accepts the model name;
+  # it also acts as the degraded-mode fallback (→ llm-fast) if the callback
+  # import fails.
   - model_name: hermes-router
     litellm_params:
-      model: auto_router/complexity_router
-      complexity_router_config:
-        tiers:
-          SIMPLE: llm-fast
-          MEDIUM: llm-cloud
-          COMPLEX: llm-cloud
-          REASONING: llm-cloud
-      complexity_router_default_model: llm-cloud
+      model: openai/fast
+      api_base: http://agsvcchatllm:12326/v1
+      api_key: "none"
+      timeout: 30
 
 router_settings:
+  # 2 total attempts per provider (1 original + 1 retry) before the fallback
+  # chain fires.  Worst-case wait: 2 × 30 s = 60 s for local,
+  # 2 × 15 s = 30 s for cloud, then the next tier is tried.
+  num_retries: 1
+
+  # Automatically escalate to llm-cloud when a request overflows the local
+  # model's context window.  This is the safety net for the 50K-token
+  # threshold in hermes_router.py — any request that slips through and
+  # exceeds 120K tokens is escalated here instead of returning a 400 error.
+  context_window_fallbacks:
+    - llm-fast:
+        - llm-cloud
+    - hermes-router:
+        - llm-cloud
+
+  # Provider-failure fallback chain (timeout, 5xx, connection error, OOM, etc.)
+  #   llm-fast  down → try llm-cloud
+  #   llm-cloud down → try llm-fast   (bidirectional)
+  #   hermes-router degraded → try llm-cloud, then llm-fast
+  # LiteLLM tracks already-attempted models per request, so fast→cloud→fast
+  # does not loop — the second llm-fast attempt is skipped and an error is
+  # returned to the caller.
   fallbacks:
     - llm-fast:
         - llm-cloud
+    - llm-cloud:
+        - llm-fast
+    - hermes-router:
+        - llm-cloud
+        - llm-fast
+
+litellm_settings:
+  # Content-based routing hook — rewrites hermes-router → llm-fast / llm-cloud
+  callbacks:
+    - hermes_router.HermesRouter
 
 general_settings:
   master_key: os.environ/LLM_MASTER_KEY
