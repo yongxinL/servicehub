@@ -71,7 +71,7 @@ services:
             - MINIMAX_API_KEY=${LITEM_MMAX_APIKEY}
         healthcheck:
             test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${LITEM_APIKEY}", "http://localhost:${LITEM_UIPORT}/health/liveliness" ]
-            interval: 30s
+            interval: 60s
             timeout: 5s
             retries: 3
             start_period: 30s
@@ -128,10 +128,10 @@ services:
             - TZ=${TIME_ZONE}
             - LLAMA_CACHE=/models
             - LLAMA_MODEL=${LLAMA_CHTMDL}
-            - LLAMA_PORT=${LLAMA_CHTPORT}
+            - LLAMA_PORT=12326
             - LLAMA_ARGS=${LLAMA_CHTARG}
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:${LLAMA_CHTPORT}/health" ]
+            test: [ "CMD", "curl", "-f", "http://localhost:12326/health" ]
             interval: 60s
             timeout: 10s
             retries: 3
