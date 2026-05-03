@@ -6,7 +6,7 @@
 
 # LLM — routes through LiteLLM proxy (complexity-based routing)
 model: openai/hermes-router
-api_base: http://agsvcllmrtr:12321/v1
+api_base: http://agsvclitellm:12321/v1
 api_key: ${LITELLM_KEY}
 
 # ---------------------------------------------------------------------------

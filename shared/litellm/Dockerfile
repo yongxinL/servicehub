@@ -7,8 +7,9 @@ LABEL org.opencontainers.image.authors="yongxinL@outlook.com"
 
 RUN apk add --no-cache curl nano
 
-# Bake default config into image
+# Bake default config and routing callback into image
 COPY config.default.yaml /app/config.default.yaml
+COPY hermes_router.py /app/hermes_router.py
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
