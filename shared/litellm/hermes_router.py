@@ -20,9 +20,16 @@ Explicit tags are stripped from the message before forwarding so the
 model never sees the routing instruction.
 """
 import re
+import time
+from datetime import datetime, timezone
 from typing import Any
 
 from litellm.integrations.custom_logger import CustomLogger
+
+
+def _log(msg: str) -> None:
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    print(f"{ts} [hermes-router] {msg}", flush=True)
 
 # Explicit routing tags typed by the user at the start of a message.
 # The tag (and any surrounding whitespace / punctuation) is stripped before
@@ -184,6 +191,13 @@ class HermesRouter(CustomLogger):
     Requests that already target llm-fast or llm-cloud are passed through.
     """
 
+    def __init__(self) -> None:
+        super().__init__()
+        # Tracks routing context keyed by litellm_call_id so the success/failure
+        # log events can report the original decision even after a fallback
+        # (fallback requests don't carry the original metadata dict).
+        self._call_ctx: dict[str, dict] = {}
+
     async def async_pre_call_hook(
         self,
         user_api_key_dict: Any,
@@ -191,31 +205,79 @@ class HermesRouter(CustomLogger):
         data: dict,
         call_type: str,
     ) -> dict:
-        if data.get("model") != "hermes-router":
+        # Strip provider prefix: Hermes sends "openai/hermes-router";
+        # bare "hermes-router" also accepted for direct API callers.
+        raw_model = data.get("model", "")
+        model_name = raw_model.split("/", 1)[-1]  # "openai/hermes-router" → "hermes-router"
+        if model_name != "hermes-router":
             return data
 
         messages = data.get("messages") or []
 
-        # Rule 1: explicit tag — user intent overrides everything
+        # Rule 1: explicit tag — user intent overrides everything, including fallbacks
         explicit = _pop_explicit_tag(messages)
         if explicit:
             data["model"] = explicit
+            # [local] / [cloud] must never silently fall back to the other tier —
+            # the user stated a deliberate choice (e.g. privacy or testing).
+            data["disable_fallbacks"] = True
+            reason = "explicit_tag"
+            _log(f"→ {explicit}  (reason: {reason}, fallbacks disabled)")
+            self._store_ctx(data, explicit, reason)
             return data
 
         text = _extract_text(messages)
         approx_tokens = len(text) // _CHARS_PER_TOKEN
 
-        # Rule 2: privacy — always local
+        # Rule 2: privacy — data must never leave the host, even if local is slow
         if _FAST_OVERRIDE.search(text):
             data["model"] = "llm-fast"
+            data["disable_fallbacks"] = True
+            reason = "privacy_keyword"
         # Rule 3: large input — cloud (large-document workload)
         elif approx_tokens > _CLOUD_TOKEN_THRESHOLD:
             data["model"] = "llm-cloud"
+            reason = f"large_input (~{approx_tokens:,} tokens)"
         # Rule 4: complexity keyword — cloud
         elif _CLOUD_SIGNALS.search(text):
             data["model"] = "llm-cloud"
+            reason = "complexity_keyword"
         # Rule 5: default — fast (local, private, free)
         else:
             data["model"] = "llm-fast"
+            reason = "default"
 
+        _log(f"→ {data['model']}  (reason: {reason})")
+        self._store_ctx(data, data["model"], reason)
         return data
+
+    def _store_ctx(self, data: dict, model: str, reason: str) -> None:
+        call_id = data.get("litellm_call_id") or id(data)
+        self._call_ctx[call_id] = {"model": model, "reason": reason, "t0": time.monotonic()}
+
+    def _pop_ctx(self, kwargs: dict) -> dict:
+        call_id = kwargs.get("litellm_call_id") or kwargs.get("id")
+        return self._call_ctx.pop(call_id, {}) if call_id else {}
+
+    async def async_log_success_event(self, kwargs: dict, response_obj: Any, start_time: Any, end_time: Any) -> None:
+        ctx = self._pop_ctx(kwargs)
+        model = kwargs.get("model") or "unknown"
+        reason = ctx.get("reason", "n/a")
+        elapsed = f"{time.monotonic() - ctx['t0']:.1f}s" if "t0" in ctx else "n/a"
+        routed_to = ctx.get("model", "n/a")
+        if model != routed_to and routed_to != "n/a":
+            _log(f"response from {model}  (routed: {reason} → FALLBACK from {routed_to}, total: {elapsed})")
+        else:
+            _log(f"response from {model}  (routed: {reason}, total: {elapsed})")
+
+    async def async_log_failure_event(self, kwargs: dict, response_obj: Any, start_time: Any, end_time: Any) -> None:
+        self._pop_ctx(kwargs)
+        model = kwargs.get("model") or "unknown"
+        error = kwargs.get("exception", "unknown error")
+        _log(f"FAILED on {model}: {error}")
+
+
+# Pre-instantiated singleton — config.yaml must reference this attribute,
+# not the class.  LiteLLM's get_instance_fn returns getattr(module, name)
+# as-is; pointing it at a class gives an uninstantiated class, not an instance.
+hermes_router_callback = HermesRouter()

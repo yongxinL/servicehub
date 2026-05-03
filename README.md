@@ -756,7 +756,6 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | Variable | Default | Description |
 |---|---|---|
 | `LLAMA_CHTMDL` | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | Chat inference model (`llm-fast` tier). Auto-downloaded from HuggingFace on first start. |
-| `LLAMA_CHTPORT` | `12326` | llama.cpp server listen port |
 | `LLAMA_CHTARG` | *(see env.example)* | Additional llama.cpp server flags (context size, thread count, batching, etc.) |
 | `HF_TOKEN` | *(empty)* | HuggingFace token — required for gated models (e.g. Gemma 4) |
 

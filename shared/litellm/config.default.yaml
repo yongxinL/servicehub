@@ -34,7 +34,7 @@ model_list:
       model: openai/fast
       api_base: http://agsvcchatllm:12326/v1
       api_key: "none"
-      timeout: 30                  # abandon hung local call after 30 s → triggers fallback
+      timeout: 90                  # Gemma 4B needs up to ~60 s for medium-length outputs
       max_parallel_requests: 2     # 3rd concurrent request overflows to llm-cloud
     model_info:
       max_input_tokens: 120000     # soft cap — leaves headroom for output tokens
@@ -64,13 +64,12 @@ model_list:
       model: openai/fast
       api_base: http://agsvcchatllm:12326/v1
       api_key: "none"
-      timeout: 30
+      timeout: 60
 
 router_settings:
-  # 2 total attempts per provider (1 original + 1 retry) before the fallback
-  # chain fires.  Worst-case wait: 2 × 30 s = 60 s for local,
-  # 2 × 15 s = 30 s for cloud, then the next tier is tried.
-  num_retries: 1
+  # 0 retries — fall through to the next provider on first timeout/error.
+  # Worst-case wait: 15 s (local timeout) + 15 s (cloud timeout) = 30 s max.
+  num_retries: 0
 
   # Automatically escalate to llm-cloud when a request overflows the local
   # model's context window.  This is the safety net for the 50K-token
@@ -100,8 +99,10 @@ router_settings:
 
 litellm_settings:
   # Content-based routing hook — rewrites hermes-router → llm-fast / llm-cloud
+  # Must reference the pre-instantiated module-level object, not the class —
+  # LiteLLM's get_instance_fn returns getattr(module, name) without instantiating.
   callbacks:
-    - hermes_router.HermesRouter
+    - hermes_router.hermes_router_callback
 
 general_settings:
   master_key: os.environ/LLM_MASTER_KEY
