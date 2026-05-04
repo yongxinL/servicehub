@@ -3,11 +3,11 @@
 # on first run and LiteLLM starts with the bundled settings.
 #
 # User override path (mount in agent.yml):
-#   ${APPS_DATA}/litellm/config.yaml  →  /opt/litellm/config.yaml
+#   /opt/litellm/config.yaml  →  /opt/litellm/config.yaml
 #
 # To customise: copy the default from the container, edit, and restart:
 #   docker cp agsvclmrtr:/app/config.default.yaml ~/config.yaml
-#   # edit ~/config.yaml, then place it at ${APPS_DATA}/litellm/config.yaml
+#   # edit ~/config.yaml, then place it at /opt/litellm/config.yaml
 # =============================================================================
 set -euo pipefail
 

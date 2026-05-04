@@ -1,20 +1,20 @@
 """
 hermes_router.py — LiteLLM pre-call routing hook for hermes-agent
 
-All requests arrive as model="hermes-router".  This hook examines the
+All requests arrive as model="broker".  This hook examines the
 message content and rewrites data["model"] to either:
 
-  llm-fast   — local Gemma-4-4B (128K ctx, private, low-latency)
-  llm-cloud  — MiniMax 2.7 (200K ctx, logic-heavy, long-form)
+  edge   — local Gemma-4-4B (128K ctx, private, low-latency)
+  remote  — MiniMax 2.7 (200K ctx, logic-heavy, long-form)
 
 Decision order (first match wins):
   1. Explicit tag        → honours user intent unconditionally
-       [cloud] / [c]     → llm-cloud
-       [local] / [l]     → llm-fast
-  2. Privacy keywords   → llm-fast  (data never leaves the host)
-  3. Input > 50K tokens → llm-cloud (large-scale document workload)
-  4. Complexity keywords → llm-cloud (formal / logic-heavy task)
-  5. Default             → llm-fast
+       [cloud] / [c]     → remote
+       [local] / [l]     → edge
+  2. Privacy keywords   → edge  (data never leaves the host)
+  3. Input > 50K tokens → remote (large-scale document workload)
+  4. Complexity keywords → remote (formal / logic-heavy task)
+  5. Default             → edge
 
 Explicit tags are stripped from the message before forwarding so the
 model never sees the routing instruction.
@@ -29,13 +29,13 @@ from litellm.integrations.custom_logger import CustomLogger
 
 def _log(msg: str) -> None:
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    print(f"{ts} [hermes-router] {msg}", flush=True)
+    print(f"{ts} [broker] {msg}", flush=True)
 
 # Explicit routing tags typed by the user at the start of a message.
 # The tag (and any surrounding whitespace / punctuation) is stripped before
 # the message is forwarded so the model never sees the routing instruction.
-#   [cloud] or [c]  → llm-cloud
-#   [local] or [l]  → llm-fast
+#   [cloud] or [c]  → remote
+#   [local] or [l]  → edge
 _TAG_CLOUD = re.compile(r"^\s*\[\s*(?:cloud|c)\s*\]\s*", re.IGNORECASE)
 _TAG_LOCAL = re.compile(r"^\s*\[\s*(?:local|l)\s*\]\s*", re.IGNORECASE)
 
@@ -154,7 +154,7 @@ def _extract_text(messages: list) -> str:
 def _pop_explicit_tag(messages: list) -> str | None:
     """
     Scan the last user message for a leading [cloud/c] or [local/l] tag.
-    If found, strip the tag in-place and return "llm-cloud" or "llm-fast".
+    If found, strip the tag in-place and return "remote" or "edge".
     Returns None when no explicit tag is present.
     """
     for msg in reversed(messages):
@@ -164,10 +164,10 @@ def _pop_explicit_tag(messages: list) -> str | None:
         if isinstance(content, str):
             if _TAG_CLOUD.match(content):
                 msg["content"] = _TAG_CLOUD.sub("", content)
-                return "llm-cloud"
+                return "remote"
             if _TAG_LOCAL.match(content):
                 msg["content"] = _TAG_LOCAL.sub("", content)
-                return "llm-fast"
+                return "edge"
         elif isinstance(content, list):
             # Multimodal: check first text block only
             for block in content:
@@ -175,10 +175,10 @@ def _pop_explicit_tag(messages: list) -> str | None:
                     text = block.get("text", "")
                     if _TAG_CLOUD.match(text):
                         block["text"] = _TAG_CLOUD.sub("", text)
-                        return "llm-cloud"
+                        return "remote"
                     if _TAG_LOCAL.match(text):
                         block["text"] = _TAG_LOCAL.sub("", text)
-                        return "llm-fast"
+                        return "edge"
                     break  # only inspect the first text block
         break  # only inspect the last user message
     return None
@@ -186,9 +186,9 @@ def _pop_explicit_tag(messages: list) -> str | None:
 
 class HermesRouter(CustomLogger):
     """
-    LiteLLM custom pre-call hook that rewrites model="hermes-router" to
-    either "llm-fast" or "llm-cloud" before deployment resolution.
-    Requests that already target llm-fast or llm-cloud are passed through.
+    LiteLLM custom pre-call hook that rewrites model="broker" to
+    either "edge" or "remote" before deployment resolution.
+    Requests that already target edge or remote are passed through.
     """
 
     def __init__(self) -> None:
@@ -205,11 +205,11 @@ class HermesRouter(CustomLogger):
         data: dict,
         call_type: str,
     ) -> dict:
-        # Strip provider prefix: Hermes sends "openai/hermes-router";
-        # bare "hermes-router" also accepted for direct API callers.
+        # Strip provider prefix: Hermes sends "openai/broker";
+        # bare "broker" also accepted for direct API callers.
         raw_model = data.get("model", "")
-        model_name = raw_model.split("/", 1)[-1]  # "openai/hermes-router" → "hermes-router"
-        if model_name != "hermes-router":
+        model_name = raw_model.split("/", 1)[-1]  # "openai/broker" → "broker"
+        if model_name != "broker":
             return data
 
         messages = data.get("messages") or []
@@ -231,20 +231,20 @@ class HermesRouter(CustomLogger):
 
         # Rule 2: privacy — data must never leave the host, even if local is slow
         if _FAST_OVERRIDE.search(text):
-            data["model"] = "llm-fast"
+            data["model"] = "edge"
             data["disable_fallbacks"] = True
             reason = "privacy_keyword"
         # Rule 3: large input — cloud (large-document workload)
         elif approx_tokens > _CLOUD_TOKEN_THRESHOLD:
-            data["model"] = "llm-cloud"
+            data["model"] = "remote"
             reason = f"large_input (~{approx_tokens:,} tokens)"
         # Rule 4: complexity keyword — cloud
         elif _CLOUD_SIGNALS.search(text):
-            data["model"] = "llm-cloud"
+            data["model"] = "remote"
             reason = "complexity_keyword"
         # Rule 5: default — fast (local, private, free)
         else:
-            data["model"] = "llm-fast"
+            data["model"] = "edge"
             reason = "default"
 
         _log(f"→ {data['model']}  (reason: {reason})")

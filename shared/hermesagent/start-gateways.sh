@@ -31,8 +31,11 @@ GATEWAY_PIDS=()
 # seed_defaults <target-dir>
 # Copies every file from DEFAULTS_DIR into target-dir, skipping any file that
 # already exists. Creates target-dir if needed.
-# Special case: .env.example is copied as .env (kept as .env.example in the
+# Special case: env.example is copied as .env (kept as env.example in the
 # repo so it is not gitignored, renamed here for Hermes to pick up).
+# Placeholder substitution (<your-...> tokens) is handled separately by
+# substitute_placeholders so that multi-byte UTF-8 characters (e.g. em-dashes)
+# are never corrupted by locale-sensitive tools like envsubst.
 # ---------------------------------------------------------------------------
 seed_defaults() {
     local target="$1"
@@ -69,11 +72,45 @@ warn_placeholders() {
 }
 
 # ---------------------------------------------------------------------------
+# substitute_placeholders <target-file>
+# Replaces <your-litellm-master-key> and <your-firecrawl-api-key> in the
+# target file with actual environment variable values, but only when the
+# variable is non-empty — leaving the placeholder intact otherwise so the
+# user sees a clear signal that a value still needs to be filled in.
+# ---------------------------------------------------------------------------
+substitute_placeholders() {
+    local file="$1"
+    if [[ ! -f "${file}" ]]; then
+        return
+    fi
+
+    # LITELLM_KEY for custom_providers[0].api_key
+    if grep -q '<your-litellm-master-key>' "${file}" 2>/dev/null; then
+        local litellm_key="${LITELLM_KEY:-}"
+        if [[ -n "${litellm_key}" ]]; then
+            sed -i "s|<your-litellm-master-key>|${litellm_key}|g" "${file}"
+            echo "[hermes] Substituted LITELLM_KEY in ${file}"
+        fi
+    fi
+
+    # FIRECRAWL_API_KEY for web.api_key
+    if grep -q '<your-firecrawl-api-key>' "${file}" 2>/dev/null; then
+        local firecrawl_key="${FIRECRAWL_API_KEY:-}"
+        if [[ -n "${firecrawl_key}" ]]; then
+            sed -i "s|<your-firecrawl-api-key>|${firecrawl_key}|g" "${file}"
+            echo "[hermes] Substituted FIRECRAWL_API_KEY in ${file}"
+        fi
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Seed the default data directory and warn about placeholders
 # This always runs, even when HERMES_PROFILES is empty.
 # ---------------------------------------------------------------------------
 seed_defaults "${DATA_DIR}"
 warn_placeholders "${DATA_DIR}/.env"
+substitute_placeholders "${DATA_DIR}/.env"
+substitute_placeholders "${DATA_DIR}/config.yaml"
 
 # ---------------------------------------------------------------------------
 # Per-profile gateway — hermes -p <name> gateway
@@ -83,6 +120,8 @@ start_profile_gateway() {
     local profile_dir="${DATA_DIR}/profiles/${profile}"
     seed_defaults "${profile_dir}"
     warn_placeholders "${profile_dir}/.env"
+    substitute_placeholders "${profile_dir}/.env"
+    substitute_placeholders "${profile_dir}/config.yaml"
     echo "[hermes] Starting gateway for profile '${profile}'"
     ${HERMES_BIN} -p "${profile}" gateway &
     GATEWAY_PIDS+=($!)

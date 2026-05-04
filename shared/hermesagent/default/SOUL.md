@@ -1,6 +1,6 @@
 # =============================================================================
 # SOUL.md — Default agent personality template
-# Place in ${APPS_DATA}/hermesagent/profiles/<name>/SOUL.md
+# Place in /opt/data/hermesagent/profiles/<name>/SOUL.md
 # Customise tone, name, and focus area per family member.
 # =============================================================================
 
