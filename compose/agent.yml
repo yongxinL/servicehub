@@ -29,9 +29,14 @@ services:
             - HERMES_DASHBOARD_PORT=12329
             - LITELLM_KEY=${LITEM_APIKEY}
             - FIRECRAWL_API_URL=http://agsvcfircrl:3002
-            - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
+            - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY:-}
+            # enable the API server
+            - API_SERVER_ENABLED=true
+            - API_SERVER_KEY=${LITEM_APIKEY}
+            - API_SERVER_PORT=12330
+            - API_SERVER_HOST=0.0.0.0
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:8642/health" ]
+            test: [ "CMD", "curl", "-f", "http://localhost:12330/health" ]
             interval: 60s
             timeout: 5s
             retries: 3
@@ -41,6 +46,7 @@ services:
             - subnet
         ports:
             - "12329:12329"    # Dashboard (LAN only)
+            - "12330:12330"
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/hermesagent:/opt/data
@@ -49,7 +55,7 @@ services:
 
     # =========================================================================
     # LiteLLM Proxy — complexity-based routing + SearXNG web search
-    # SIMPLE → llm-fast (local Gemma E2B), MEDIUM/COMPLEX → llm-cloud (MiniMax)
+    # SIMPLE → edge (local Gemma E2B), MEDIUM/COMPLEX → remote (MiniMax)
     # Port 12321 (LAN only)
     # =========================================================================
     agsvclitellm:

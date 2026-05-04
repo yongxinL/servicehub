@@ -54,9 +54,9 @@ Dashboards + Metrics + Logs]
         Authentik -->|depends on| PostgreSQL
         Gitea -->|triggers| Runner[Act Runner\nCI/CD Executor]
         WordPress -->|depends on| MariaDB[(MariaDB)]
-        Hermes -->|hermes-router| LiteLLM[LiteLLM Proxy\nComplexity Router]
-        LiteLLM -->|llm-fast| Gemma[llama.cpp\nGemma-4-4B local]
-        LiteLLM -->|llm-cloud| MiniMax[MiniMax 2.7\nCloud API]
+        Hermes -->|broker| LiteLLM[LiteLLM Proxy\nComplexity Router]
+        LiteLLM -->|edge| Gemma[llama.cpp\nGemma-4-4B local]
+        LiteLLM -->|remote| MiniMax[MiniMax 2.7\nCloud API]
         Grafana -.->|metrics| VM[VictoriaMetrics
 Metrics DB]
         Grafana -.->|logs| VL[VictoriaLogs
@@ -205,7 +205,7 @@ Models are auto-downloaded on first start via the `-hf` flag and cached locally.
 
 ### Chat Inference — agsvcchatllm
 
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Gemma 4 4B for fast, private, on-device chat. This is the `llm-fast` tier in LiteLLM — used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host.
+[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Gemma 4 4B for fast, private, on-device chat. This is the `edge` tier in LiteLLM — used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host.
 
 | Detail | Value |
 |---|---|
@@ -213,31 +213,31 @@ Models are auto-downloaded on first start via the `-hf` flag and cached locally.
 | Model | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` (default) |
 | Context | 128K tokens |
 | Concurrent slots | 1 |
-| LiteLLM alias | `llm-fast` |
+| LiteLLM alias | `edge` |
 
 ### LiteLLM Proxy — agsvclitellm
 
-[LiteLLM](https://github.com/BerriAI/litellm) is a unified LLM proxy and complexity router. All Hermes agent requests are sent to the `hermes-router` virtual model; `hermes_router.py` rewrites each request to either `llm-fast` (local Gemma) or `llm-cloud` (MiniMax) before the API call is made.
+[LiteLLM](https://github.com/BerriAI/litellm) is a unified LLM proxy and complexity router. All Hermes agent requests are sent to the `broker` virtual model; `hermes_router.py` rewrites each request to either `edge` (local Gemma) or `remote` (MiniMax) before the API call is made.
 
 | Detail | Value |
 |---|---|
 | Port | `${LITEM_UIPORT}` (default 12321, LAN only) |
 | Admin UI | `http://<host>:${LITEM_UIPORT}/ui` |
 | Database | PostgreSQL (`${LITEM_DBNAME}`) |
-| Local tier | `llm-fast` → agsvcchatllm (Gemma-4-4B, 128K ctx) |
-| Cloud tier | `llm-cloud` → MiniMax 2.7 (200K ctx, Anthropic-compatible API) |
+| Local tier | `edge` → agsvcchatllm (Gemma-4-4B, 128K ctx) |
+| Cloud tier | `remote` → MiniMax 2.7 (200K ctx, Anthropic-compatible API) |
 | Health check | `GET /health/liveliness` with Bearer token |
 
 **Routing logic** (first match wins):
 
 | Signal | Destination |
 |---|---|
-| `[cloud]` or `[c]` prefix in message | llm-cloud — explicit user override |
-| `[local]` or `[l]` prefix in message | llm-fast — explicit user override |
-| Privacy keywords (`IEP`, `tax return`, `bank statement`, `medical record`, etc.) | llm-fast — data never leaves the host |
-| Input > 50K tokens (~200 pages) | llm-cloud — large-document workload |
-| Complexity keywords (root cause, academic essay, curriculum map, certification exam, etc.) | llm-cloud — formal / logic-heavy task |
-| Default | llm-fast |
+| `[cloud]` or `[c]` prefix in message | remote — explicit user override |
+| `[local]` or `[l]` prefix in message | edge — explicit user override |
+| Privacy keywords (`IEP`, `tax return`, `bank statement`, `medical record`, etc.) | edge — data never leaves the host |
+| Input > 50K tokens (~200 pages) | remote — large-document workload |
+| Complexity keywords (root cause, academic essay, curriculum map, certification exam, etc.) | remote — formal / logic-heavy task |
+| Default | edge |
 
 The explicit tags are stripped from the message before forwarding so the model never sees the routing instruction. `context_window_fallbacks` in `config.default.yaml` provides an additional safety net: any request that overflows Gemma's 128K context window is automatically escalated to MiniMax.
 
@@ -322,13 +322,13 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 | Dashboard port | 12329 (LAN only, direct access) |
 | Gateway port | 8642 (internal, outbound WebSocket to Discord/WhatsApp) |
 | Data persistence | `${APPS_DATA}/hermesagent` (mounted as `/opt/data`, also set as `$HOME`) |
-| LLM backend | LiteLLM proxy via `model: openai/hermes-router` |
+| LLM backend | LiteLLM proxy via `model: openai/broker` |
 | Terminal sandbox | Docker (`/var/run/docker.sock` mounted read-only) |
 | Web search | Firecrawl + SearXNG |
 
 **Profiles:** Set `HERMES_PROFILES` (space-separated) in `.env` to auto-start named profiles on boot. Each profile gets its own gateway process and data directory under `/opt/data/profiles/<name>/`. Without profiles, a single default gateway starts on port 8642.
 
-**LLM routing from Hermes:** All requests use `model: openai/hermes-router`. The LiteLLM proxy automatically routes to local (Gemma-4-4B) or cloud (MiniMax 2.7) based on content. Users can override by prefixing their message:
+**LLM routing from Hermes:** All requests use `model: openai/broker`. The LiteLLM proxy automatically routes to local (Gemma-4-4B) or cloud (MiniMax 2.7) based on content. Users can override by prefixing their message:
 
 ```
 [cloud] write a grant proposal for the school...   → MiniMax 2.7
@@ -748,14 +748,14 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `LITEM_ADMPWD` | | Admin UI password |
 | `LITEM_UIPORT` | `12321` | LiteLLM proxy listen port |
 | `LITEM_DBNAME` | `litellm` | PostgreSQL database name for LiteLLM usage tracking |
-| `LITEM_MMAX_BASE` | `https://api.minimax.io/anthropic` | MiniMax Anthropic-compatible API base URL (`llm-cloud` tier) |
+| `LITEM_MMAX_BASE` | `https://api.minimax.io/anthropic` | MiniMax Anthropic-compatible API base URL (`remote` tier) |
 | `LITEM_MMAX_APIKEY` | | MiniMax API key |
 
 ### LLM Inference (llama.cpp)
 
 | Variable | Default | Description |
 |---|---|---|
-| `LLAMA_CHTMDL` | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | Chat inference model (`llm-fast` tier). Auto-downloaded from HuggingFace on first start. |
+| `LLAMA_CHTMDL` | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | Chat inference model (`edge` tier). Auto-downloaded from HuggingFace on first start. |
 | `LLAMA_CHTARG` | *(see env.example)* | Additional llama.cpp server flags (context size, thread count, batching, etc.) |
 | `HF_TOKEN` | *(empty)* | HuggingFace token — required for gated models (e.g. Gemma 4) |
 
