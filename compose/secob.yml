@@ -109,10 +109,10 @@ services:
             - GF_ALERTING_enabled=true
             - GF_ALERTING_render_only_panels=true
             - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
-            - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
-            - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER}
-            - GF_SERVER_DOMAIN=${GF_DOMAIN}
-            - GF_SERVER_ROOT_URL=https://${GF_DOMAIN}
+            - GF_SECURITY_ADMIN_PASSWORD=${SECOB_ADMPWD}
+            - GF_SECURITY_ADMIN_USER=${SECOB_ADMUSR}
+            - GF_SERVER_DOMAIN=${SECOB_DOMAIN}
+            - GF_SERVER_ROOT_URL=https://${SECOB_DOMAIN}
             - GF_USERS_ALLOW_SIGN_UP=false
             - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource
         healthcheck:
@@ -125,7 +125,7 @@ services:
         labels:
             - "traefik.enable=true"
             - "traefik.http.routers.secobgrafana.entrypoints=websecure"
-            - "traefik.http.routers.secobgrafana.rule=Host(`${GF_DOMAIN}`)"
+            - "traefik.http.routers.secobgrafana.rule=Host(`${SECOB_DOMAIN}`)"
             - "traefik.http.routers.secobgrafana.tls=true"
             - "traefik.http.services.secobgrafana.loadbalancer.server.port=3000"
             # uncomment when Domain Level Forward Authentication enabled in Authentik

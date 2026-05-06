@@ -1,0 +1,109 @@
+# =============================================================================
+# LiteLLM Proxy — default config  (baked into image as /app/config.default.yaml)
+#
+# Runtime override: place your config.yaml at /opt/litellm/config.yaml
+# The entrypoint.sh uses it if present, otherwise this default is used.
+#
+# ── Routing (all hermes-agent requests use model="broker") ──────────
+#
+#  Rule 1  Privacy keywords         → edge  (data never leaves the host)
+#  Rule 2  Input > 50K tokens       → remote (large-document workload)
+#  Rule 3  Complexity keywords       → remote (formal / logic-heavy task)
+#  Rule 4  Default                   → edge  (fast, free, private)
+#
+#  Fallback policy (num_retries: 1 = 2 total attempts per provider):
+#    edge  unavailable → remote
+#    remote unavailable → edge
+#    Both fail             → LiteLLM returns error to caller
+#
+#  Safety net: context_window_fallbacks auto-escalates any request that
+#  overflows Gemma-4-4B's 120K soft cap to MiniMax before LiteLLM errors.
+#
+#  See hermes_router.py for the full keyword lists and routing logic.
+# =============================================================================
+
+model_list:
+
+  # ── Tier 1: Local inference ─────────────────────────────────────────────
+  # llama.cpp, Gemma-4-4B Q4_K_M, 128K context window
+  # Use for: quick tasks, creative writing, emails, translation, RAG on
+  #          private docs, classroom materials, flashcards, CLI assistance,
+  #          log preprocessing, boilerplate code, sensitive personal files.
+  - model_name: edge
+    litellm_params:
+      model: openai/gemma
+      api_base: http://agsvcchatllm:12326/v1
+      api_key: "none"
+      timeout: 90                  # Gemma 4B needs up to ~60 s for medium-length outputs
+      max_parallel_requests: 2     # 3rd concurrent request overflows to remote
+    model_info:
+      max_input_tokens: 120000     # soft cap — leaves headroom for output tokens
+
+  # ── Tier 2: Cloud inference ──────────────────────────────────────────────
+  # MiniMax 2.7, 200K context window (Anthropic-compatible API)
+  # Use for: long-form reports, academic essays, multi-document analysis,
+  #          curriculum mapping, grant writing, legal/philosophy, root-cause
+  #          synthesis, certification study, complex multi-step planning.
+  - model_name: remote
+    litellm_params:
+      model: anthropic/MiniMax-M2.7
+      api_base: os.environ/MINIMAX_API_BASE
+      api_key: os.environ/MINIMAX_API_KEY
+      timeout: 15                  # quick failure detection; bump if long responses get cut off
+    model_info:
+      max_input_tokens: 200000
+
+  # ── Virtual router (hermes-agent entry point) ────────────────────────────
+  # hermes_router.HermesRouter intercepts requests to this model name and
+  # rewrites data["model"] to edge or remote before LiteLLM resolves
+  # the deployment.  This entry exists so LiteLLM accepts the model name;
+  # it also acts as the degraded-mode fallback (→ edge) if the callback
+  # import fails.
+  - model_name: broker
+    litellm_params:
+      model: openai/fast
+      api_base: http://agsvcchatllm:12326/v1
+      api_key: "none"
+      timeout: 60
+
+router_settings:
+  # 0 retries — fall through to the next provider on first timeout/error.
+  # Worst-case wait: 15 s (local timeout) + 15 s (cloud timeout) = 30 s max.
+  num_retries: 0
+
+  # Automatically escalate to remote when a request overflows the local
+  # model's context window.  This is the safety net for the 50K-token
+  # threshold in hermes_router.py — any request that slips through and
+  # exceeds 120K tokens is escalated here instead of returning a 400 error.
+  context_window_fallbacks:
+    - edge:
+        - remote
+    - broker:
+        - remote
+
+  # Provider-failure fallback chain (timeout, 5xx, connection error, OOM, etc.)
+  #   edge  down → try remote
+  #   remote down → try edge   (bidirectional)
+  #   broker degraded → try remote, then edge
+  # LiteLLM tracks already-attempted models per request, so fast→cloud→fast
+  # does not loop — the second edge attempt is skipped and an error is
+  # returned to the caller.
+  fallbacks:
+    - edge:
+        - remote
+    - remote:
+        - edge
+    - broker:
+        - remote
+        - edge
+
+litellm_settings:
+  # Content-based routing hook — rewrites broker → edge / remote
+  # Must reference the pre-instantiated module-level object, not the class —
+  # LiteLLM's get_instance_fn returns getattr(module, name) without instantiating.
+  callbacks:
+    - hermes_router.hermes_router_callback
+
+general_settings:
+  master_key: os.environ/LLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL

@@ -1,61 +1,94 @@
 services:
-    # Hermes Agent Dashboard - Web UI for monitoring and interaction
-    agsvchermdsh:
-        command: dashboard --host 0.0.0.0 --insecure
-        depends_on:
-            infratraefik:
-                condition: service_healthy
-            agsvchermagt:
-                condition: service_started
-        environment:
-            - TZ=${TIME_ZONE}
-            - GATEWAY_HEALTH_URL=http://agsvchermagt:8642
-        image: agsvchermagt:latest
-        labels:
-            # Enable Traefik for this container
-            - "traefik.enable=true"
-            # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.agsvchermdsh.entrypoints=websecure"
-            # Match incoming requests on a specific hostname
-            - "traefik.http.routers.agsvchermdsh.rule=Host(`${HERMES_DOMAIN}`)"
-            # Assign the router to a named Traefik service
-            - "traefik.http.routers.agsvchermdsh.service=agsvchermdsh"
-            # Define the internal container port for routing
-            - "traefik.http.services.agsvchermdsh.loadbalancer.server.port=9119"
-            # Enable TLS on this router
-            - "traefik.http.routers.agsvchermdsh.tls=true"
-            # uncomment when Domain Level Forward Authentication enabled in Authentik
-            - "traefik.http.routers.agsvchermdsh.middlewares=authentik-forwardauth@file"
-            # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.agsvchermdsh.tls.certresolver=${CERTRESOLVER}"
-        networks:
-            - subnet
-        ports:
-            - "9119:9119"
-        restart: unless-stopped
-        volumes:
-            - ${APPS_DATA}/hermesagent:/opt/data
-
-    # Hermes Agent Gateway - API server + chat platforms integration
+    # =========================================================================
+    # Hermes Agent — gateway(s) + dashboard in one container
     # https://hermes-agent.nousresearch.com
+    #
+    # Gateway starts with NO profile by default. Set HERMES_PROFILES in .env
+    # to auto-start named profiles (space-separated).
+    # Add a profile at runtime (no restart needed):
+    #   docker compose exec -d agsvchermagt hermes gateway run --port <N>
+    #
+    # Gateway ports are NOT published — Discord/WhatsApp use outbound
+    # WebSocket connections only. Dashboard on 12329 is published (LAN only).
+    #
+    # Docker sandbox: /var/run/docker.sock is mounted read-only so Hermes can
+    # spin up terminal sandbox containers (terminal.backend=docker in config).
+    # The 'hermes' user is added to gid 999 (docker group) in the image.
+    # If your host docker group gid differs, add: group_add: [<host-gid>]
+    # =========================================================================
     agsvchermagt:
         build:
             context: ../shared/hermesagent/
-        command: gateway run
+        depends_on:
+            agsvclitellm:
+                condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
+            - HOME=/opt/data
+            - HERMES_PROFILES=${HERMES_PROFILES:-}
+            - HERMES_DASHBOARD_PORT=12329
+            - LITELLM_KEY=${LITEM_APIKEY}
+            - FIRECRAWL_API_URL=http://agsvcfircrl:3002
+            - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY:-}
+            # enable the API server
+            - API_SERVER_ENABLED=true
+            - API_SERVER_KEY=${LITEM_APIKEY}
+            - API_SERVER_PORT=12330
+            - API_SERVER_HOST=0.0.0.0
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:8642/health" ]
+            test: [ "CMD", "curl", "-f", "http://localhost:12330/health" ]
             interval: 60s
             timeout: 5s
             retries: 3
-            start_period: 5s
+            start_period: 15s
         image: agsvchermagt:latest
         networks:
             - subnet
+        ports:
+            - "12329:12329"    # Dashboard (LAN only)
+            - "12330:12330"
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/hermesagent:/opt/data
+            # Docker socket — required for terminal.backend=docker sandbox
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    # =========================================================================
+    # LiteLLM Proxy — complexity-based routing + SearXNG web search
+    # SIMPLE → edge (local Gemma E2B), MEDIUM/COMPLEX → remote (MiniMax)
+    # Port 12321 (LAN only)
+    # =========================================================================
+    agsvclitellm:
+        build:
+            context: ../shared/litellm/
+        depends_on:
+            agsvcchatllm:
+                condition: service_healthy
+            infrapgsqldb:
+                condition: service_healthy
+        environment:
+            - TZ=${TIME_ZONE}
+            - LLM_MASTER_KEY=${LITEM_APIKEY}
+            - DATABASE_URL=postgresql://${SQLDB_USER}:${SQLDB_PASS}@${PGRSQL_HOST}:${PGRSQL_PORT}/${LITEM_DBNAME}
+            - UI_PORT=${LITEM_UIPORT}
+            - UI_USERNAME=${LITEM_ADMUSR}
+            - UI_PASSWORD=${LITEM_ADMPWD}
+            - MINIMAX_API_BASE=${LITEM_MMAX_BASE}
+            - MINIMAX_API_KEY=${LITEM_MMAX_APIKEY}
+        healthcheck:
+            test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${LITEM_APIKEY}", "http://localhost:${LITEM_UIPORT}/health/liveliness" ]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 30s
+        image: agsvclitellm:latest
+        networks:
+            - subnet
+        ports:
+            - "${LITEM_UIPORT}:${LITEM_UIPORT}"    # LiteLLM proxy (LAN only)
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/litellm:/opt/litellm   # place config.yaml here to override default
 
     # Open WebUI - Web interface for interacting with LLMs
     # https://docs.openwebui.com/
@@ -97,25 +130,14 @@ services:
             context: ../shared/llamacpp/
         cap_add:
             - IPC_LOCK           # required for --mlock to work inside Docker
-        command: >
-            -hf ${LLM_CHAT_MODEL:-ggml-org/gemma-4-E2B-it-GGUF:Q8_0}
-            --host 0.0.0.0
-            --port 12321
-            --ctx-size 65536
-            --threads 6
-            --threads-batch 8
-            --flash-attn on
-            --cache-type-k q8_0
-            --cache-type-v q8_0
-            --parallel 2
-            --mlock
-            --cont-batching
         environment:
             - TZ=${TIME_ZONE}
             - LLAMA_CACHE=/models
-            - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+            - LLAMA_MODEL=${LLAMA_CHTMDL}
+            - LLAMA_PORT=12326
+            - LLAMA_ARGS=${LLAMA_CHTARG}
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:12321/health" ]
+            test: [ "CMD", "curl", "-f", "http://localhost:12326/health" ]
             interval: 60s
             timeout: 10s
             retries: 3
@@ -123,100 +145,10 @@ services:
         image: agsvcchatllm:latest
         networks:
             - subnet
-        ports:
-            - "12321:12321"
         restart: unless-stopped
         ulimits:
             memlock:
                 soft: -1
                 hard: -1         # unlimited memlock — needed alongside IPC_LOCK
         volumes:
-            - ${APPS_DATA}/agentmodels:/models
-
-    # Deep reasoning inference — Gemma 4 26B MoE, 32K context, temp=0 for Hermes Agent
-    # https://github.com/ggerganov/llama.cpp
-    agsvclogcllm:
-        build:
-            context: ../shared/llamacpp/
-        cap_add:
-            - IPC_LOCK           # required for --mlock to work inside Docker
-        command: >
-            -hf ${LLM_LOGC_MODEL:-unsloth/gemma-4-26B-A4B-it-GGUF:Q8_0}
-            --host 0.0.0.0
-            --port 12322
-            --ctx-size 32768
-            --threads 8
-            --threads-batch 12
-            --flash-attn on
-            --cache-type-k q8_0
-            --cache-type-v q8_0
-            --temp 0.0
-            --parallel 1
-            --mlock
-            --cont-batching
-        environment:
-            - TZ=${TIME_ZONE}
-            - LLAMA_CACHE=/models
-            - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
-        healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:12322/health" ]
-            interval: 60s
-            timeout: 10s
-            retries: 3
-            start_period: 300s   # ~28 GB model; allow 5 min to mlock into RAM
-        image: agsvcchatllm:latest
-        networks:
-            - subnet
-        ports:
-            - "12322:12322"
-        restart: unless-stopped
-        ulimits:
-            memlock:
-                soft: -1
-                hard: -1         # unlimited memlock — needed alongside IPC_LOCK
-        volumes:
-            - ${APPS_DATA}/agentmodels:/models
-
-    # Vector embeddings for RAG — Qwen3 0.6B, 32K context, 4 concurrent slots
-    # https://github.com/ggerganov/llama.cpp
-    agsvcembdllm:
-        build:
-            context: ../shared/llamacpp/
-        cap_add:
-            - IPC_LOCK           # required for --mlock to work inside Docker
-        command: >
-            -hf ${LLM_EMBD_MODEL_FILE:-Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0}
-            --host 0.0.0.0
-            --port 12323
-            --ctx-size 32768
-            --threads 3
-            --threads-batch 4
-            --flash-attn on
-            --cache-type-k q8_0
-            --cache-type-v q8_0
-            --parallel 4
-            --embedding
-            --pooling last
-            --mlock
-        environment:
-            - TZ=${TIME_ZONE}
-            - LLAMA_CACHE=/models
-            - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
-        healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:12323/health" ]
-            interval: 60s
-            timeout: 10s
-            retries: 3
-            start_period: 60s    # <1 GB model; fast to load
-        image: agsvcchatllm:latest
-        networks:
-            - subnet
-        ports:
-            - "12323:12323"
-        restart: unless-stopped
-        ulimits:
-            memlock:
-                soft: -1
-                hard: -1         # unlimited memlock — needed alongside IPC_LOCK
-        volumes:
-            - ${APPS_DATA}/agentmodels:/models
+            - ${APPS_DATA}/llamacpp:/models

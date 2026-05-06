@@ -10,6 +10,8 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Project Structure](#project-structure)
 - [Core Services](#core-services)
 - [LLM Inference Services](#llm-inference-services)
+    - [Chat Inference — agsvcchatllm](#chat-inference--agsvcchatllm)
+    - [LiteLLM Proxy — agsvclitellm](#litellm-proxy--agsvclitellm)
 - [Web Applications](#web-applications)
     - [Hermes Agent](#hermes-agent)
     - [Open WebUI](#open-webui)
@@ -42,8 +44,7 @@ graph TD
         Traefik -->|traefik.domain| Dashboard[Traefik Dashboard]
         Traefik -->|accounts.domain| Authentik[Authentik\nIdP / SSO]
         Traefik -->|www.domain| WordPress[WordPress\nCMS]
-        Traefik -->|hermes.domain| Hermes[Hermes\nAI Agent]
-        Traefik -->|gateway.domain| Gateway[Hermes Gateway\nAPI Server]
+        Traefik -->|hermes.domain| Hermes[Hermes Agent\nGateway + Dashboard]
         Traefik -->|chats.domain| OpenWebUI[Open WebUI
 LLM Web Interface]
         Traefik -->|stats.domain| Grafana[Grafana
@@ -53,6 +54,9 @@ Dashboards + Metrics + Logs]
         Authentik -->|depends on| PostgreSQL
         Gitea -->|triggers| Runner[Act Runner\nCI/CD Executor]
         WordPress -->|depends on| MariaDB[(MariaDB)]
+        Hermes -->|broker| LiteLLM[LiteLLM Proxy\nComplexity Router]
+        LiteLLM -->|edge| Gemma[llama.cpp\nGemma-4-4B local]
+        LiteLLM -->|remote| MiniMax[MiniMax 2.7\nCloud API]
         Grafana -.->|metrics| VM[VictoriaMetrics
 Metrics DB]
         Grafana -.->|logs| VL[VictoriaLogs
@@ -82,7 +86,7 @@ servicehub/
 │   ├── infra.yml               # Traefik + MariaDB + PostgreSQL
 │   ├── authn.yml               # Authentik server + worker
 │   ├── wbsvc.yml               # Gitea + Act Runner + WordPress
-│   ├── agent.yml               # Hermes Agent + Open WebUI
+│   ├── agent.yml               # Hermes Agent + LiteLLM + llama.cpp + Open WebUI
 │   └── secob.yml               # Security observability stack
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
@@ -98,12 +102,23 @@ servicehub/
 │   │   ├── custom/             # Custom Gitea landing page assets
 │   │   └── runner/
 │   │       └── Dockerfile      # Act Runner image
-│   ├── hermes/
-│   │   └── Dockerfile
+│   ├── hermesagent/
+│   │   ├── Dockerfile
+│   │   ├── start-gateways.sh   # Entrypoint: seeds defaults, starts gateway(s) + dashboard
+│   │   └── default/            # Default profile files baked into the image
+│   │       ├── config.yaml     # Hermes profile config (LiteLLM endpoint, terminal backend)
+│   │       ├── env.example     # Profile secrets template (Discord token, etc.)
+│   │       └── SOUL.md         # Agent personality / system prompt
+│   ├── litellm/
+│   │   ├── Dockerfile
+│   │   ├── config.default.yaml # LiteLLM routing config (baked into image)
+│   │   ├── hermes_router.py    # Content-based routing hook (privacy + complexity)
+│   │   └── entrypoint.sh
 │   ├── openwebui/
 │   │   └── Dockerfile
 │   ├── llamacpp/
-│   │   └── Dockerfile          # Shared llama.cpp server image
+│   │   ├── Dockerfile
+│   │   └── entrypoint.sh       # Reads LLAMA_MODEL / LLAMA_PORT / LLAMA_ARGS env vars
 │   ├── grafana/
 │   │   ├── Dockerfile
 │   │   ├── alloy/                 # Grafana Alloy config
@@ -169,7 +184,7 @@ The init script `shared/mariadb/create-multiple-databases.sh` creates all databa
 
 ### PostgreSQL
 
-[PostgreSQL 16](https://www.postgresql.org/) is the primary relational database, used by Gitea.
+[PostgreSQL 16](https://www.postgresql.org/) is the primary relational database, used by Gitea, Authentik, and LiteLLM.
 
 | Detail | Value |
 |---|---|
@@ -184,45 +199,47 @@ The init script `shared/postgresql/create-multiple-databases.sh` creates all dat
 
 ## LLM Inference Services
 
-Three llama.cpp-based inference services provide CPU-only LLM capabilities. All services use the same base image built from [`shared/llamacpp/Dockerfile`](shared/llamacpp/Dockerfile) and mount model files from `${APPS_DATA}/agentmodels`.
+Local and cloud LLM services power the Hermes AI agent. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers.
 
 Models are auto-downloaded on first start via the `-hf` flag and cached locally. A `HF_TOKEN` is required for gated models (e.g. Gemma 4 from Google's organisation).
 
-> **Resource requirements:** These services are memory-intensive. Ensure adequate RAM before starting — the 26B model alone requires ~28 GB.
-
 ### Chat Inference — agsvcchatllm
 
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Gemma 4 2B for fast, high-concurrency chat.
+[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Gemma 4 4B for fast, private, on-device chat. This is the `edge` tier in LiteLLM — used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host.
 
 | Detail | Value |
 |---|---|
-| Port | 12321 |
-| Model | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0` (default) |
-| Context | 64K tokens |
-| Concurrent slots | 2 |
-
-### Deep Reasoning — agsvclogcllm
-
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Gemma 4 26B MoE for deep-reasoning tasks (temperature 0, single slot).
-
-| Detail | Value |
-|---|---|
-| Port | 12322 |
-| Model | `unsloth/gemma-4-26B-A4B-it-GGUF:Q8_0` (default) |
-| Context | 32K tokens |
-| Temperature | 0.0 (deterministic) |
+| Port | 12326 (internal only) |
+| Model | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` (default) |
+| Context | 128K tokens |
 | Concurrent slots | 1 |
+| LiteLLM alias | `edge` |
 
-### Vector Embeddings — agsvcembdllm
+### LiteLLM Proxy — agsvclitellm
 
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Qwen3 0.6B for RAG embedding generation.
+[LiteLLM](https://github.com/BerriAI/litellm) is a unified LLM proxy and complexity router. All Hermes agent requests are sent to the `broker` virtual model; `hermes_router.py` rewrites each request to either `edge` (local Gemma) or `remote` (MiniMax) before the API call is made.
 
 | Detail | Value |
 |---|---|
-| Port | 12323 |
-| Model | `Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` (default) |
-| Context | 32K tokens |
-| Concurrent slots | 4 |
+| Port | `${LITEM_UIPORT}` (default 12321, LAN only) |
+| Admin UI | `http://<host>:${LITEM_UIPORT}/ui` |
+| Database | PostgreSQL (`${LITEM_DBNAME}`) |
+| Local tier | `edge` → agsvcchatllm (Gemma-4-4B, 128K ctx) |
+| Cloud tier | `remote` → MiniMax 2.7 (200K ctx, Anthropic-compatible API) |
+| Health check | `GET /health/liveliness` with Bearer token |
+
+**Routing logic** (first match wins):
+
+| Signal | Destination |
+|---|---|
+| `[cloud]` or `[c]` prefix in message | remote — explicit user override |
+| `[local]` or `[l]` prefix in message | edge — explicit user override |
+| Privacy keywords (`IEP`, `tax return`, `bank statement`, `medical record`, etc.) | edge — data never leaves the host |
+| Input > 50K tokens (~200 pages) | remote — large-document workload |
+| Complexity keywords (root cause, academic essay, curriculum map, certification exam, etc.) | remote — formal / logic-heavy task |
+| Default | edge |
+
+The explicit tags are stripped from the message before forwarding so the model never sees the routing instruction. `context_window_fallbacks` in `config.default.yaml` provides an additional safety net: any request that overflows Gemma's 128K context window is automatically escalated to MiniMax.
 
 ---
 
@@ -254,8 +271,8 @@ The stack runs two Authentik containers:
 
 | Detail | Value |
 |---|---|
-| URL | `https://${WP_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
-| Database | MariaDB (`${WP_DBNAME}`) |
+| URL | `https://${WEBHOM_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
+| Database | MariaDB (`${WEBHOM_DBNAME}`) |
 | Data persistence | `${APPS_DATA}/wwhome` (mounted as `/var/www/html`) |
 | PHP extensions | `intl`, `zip`, `gd`, `opcache`, `imagick`, `exif`, `fileinfo` |
 | Upload limit | 768 MB (configured in both PHP and Nginx) |
@@ -273,8 +290,8 @@ The stack runs two Authentik containers:
 
 | Detail | Value |
 |---|---|
-| URL | `https://${GIT_DOMAIN}` |
-| Database | PostgreSQL (`${GIT_DBNAME}`) |
+| URL | `https://${REPBUK_DOMAIN}` |
+| Database | PostgreSQL (`${REPBUK_DBNAME}`) |
 | Data persistence | `${APPS_DATA}/repbuk/data` |
 | Config persistence | `${APPS_DATA}/repbuk/config` |
 | Volume ownership | **`1000:1000`** — required; Gitea runs rootless |
@@ -289,32 +306,38 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 
 | Detail | Value |
 |---|---|
-| Registration | Token set via `GIT_RUNNER_TOKEN` in `.env` |
-| Instance URL | `https://${GIT_DOMAIN}` |
+| Registration | Token set via `REPBUK_RUNTOKEN` in `.env` |
+| Instance URL | `https://${REPBUK_DOMAIN}` |
 | Runner data | `${APPS_DATA}/repbuk/runner` |
 | Labels | Inherit from Gitea runner registration |
 
-> **Note:** The runner must be registered in Gitea (`Site Administration → Actions → Runners`) before the first workflow can execute. Set the registration token as `GIT_RUNNER_TOKEN` in your `.env`.
+> **Note:** The runner must be registered in Gitea (`Site Administration → Actions → Runners`) before the first workflow can execute. Set the registration token as `REPBUK_RUNTOKEN` in your `.env`.
 
 ### Hermes Agent
 
-[Hermes Agent](https://hermes-agent.nousresearch.com) is a self-hosted AI agent platform by Nous Research. It provides a gateway API server and web dashboard for interacting with AI agents.
+[Hermes Agent](https://hermes-agent.nousresearch.com) is a self-hosted AI agent platform by Nous Research. Gateway and dashboard run as a single consolidated container under tini for correct signal forwarding.
 
 | Detail | Value |
 |---|---|
-| Dashboard URL | `https://${HERMES_DOMAIN}` |
-| Gateway URL | `https://${HERMES_GATEWAY_DOMAIN}` |
-| Gateway port | 8642 |
-| Dashboard port | 9119 |
-| Data persistence | `${APPS_DATA}/hermes` |
-| Browser tools | Requires `--shm-size=1g` (already configured) |
+| Dashboard port | 12329 (LAN only, direct access) |
+| Gateway port | 8642 (internal, outbound WebSocket to Discord/WhatsApp) |
+| Data persistence | `${APPS_DATA}/hermesagent` (mounted as `/opt/data`, also set as `$HOME`) |
+| LLM backend | LiteLLM proxy via `model: openai/broker` |
+| Terminal sandbox | Docker (`/var/run/docker.sock` mounted read-only) |
+| Web search | Firecrawl + SearXNG |
 
-The stack runs two containers:
+**Profiles:** Set `HERMES_PROFILES` (space-separated) in `.env` to auto-start named profiles on boot. Each profile gets its own gateway process and data directory under `/opt/data/profiles/<name>/`. Without profiles, a single default gateway starts on port 8642.
 
-- **`agsvchermagt`** — the gateway API server (`gateway run`)
-- **`agsvchermdsh`** — the web dashboard for monitoring and interaction
+**LLM routing from Hermes:** All requests use `model: openai/broker`. The LiteLLM proxy automatically routes to local (Gemma-4-4B) or cloud (MiniMax 2.7) based on content. Users can override by prefixing their message:
 
-> **Resource requirements:** The gateway is memory-intensive (recommended 4 GB). Ensure your host has adequate resources.
+```
+[cloud] write a grant proposal for the school...   → MiniMax 2.7
+[c] debug this system architecture...              → MiniMax 2.7 (shorthand)
+[local] summarise my tax return                    → Gemma-4-4B (stays private)
+[l] translate this paragraph                       → Gemma-4-4B (shorthand)
+```
+
+> **Default profile files:** `shared/hermesagent/default/` is baked into the image at `/opt/hermes-defaults/`. On first start, `start-gateways.sh` seeds these into `/opt/data/` (and per-profile dirs) only when files are absent — it never overwrites existing configuration.
 
 ### Open WebUI
 
@@ -322,14 +345,9 @@ The stack runs two containers:
 
 | Detail | Value |
 |---|---|
-| URL | `https://${OPENWEBUI_DOMAIN}` |
-| Internal port | 8080 (mapped to 3000 on host) |
+| URL | `https://${OWEBUI_DOMAIN}` |
+| Internal port | 8080 |
 | Data persistence | `${APPS_DATA}/openwebui` |
-| Ollama endpoint | `http://host.docker.internal:11434` |
-
-Open WebUI connects to Ollama running on the host machine. Ensure Ollama is installed and running with your desired models.
-
-> **Resource requirements:** At least 2 GB RAM minimum, 4+ GB recommended. Requires sufficient disk space for model storage.
 
 ---
 
@@ -396,7 +414,7 @@ graph LR
 
 | Detail | Value |
 |---|---|
-| URL | `https://${GF_DOMAIN}` |
+| URL | `https://${SECOB_DOMAIN}` |
 | Port | 3000 (mapped to host) |
 | Database | SQLite (embedded, persisted to `${APPS_DATA}/grafana`) |
 | Data sources | VictoriaMetrics (metrics), VictoriaLogs (logs) |
@@ -427,7 +445,7 @@ cd servicehub
 
 ### 2. Initial Setup
 
-Run the setup script to create your `.env` from the template. It auto-generates a strong `SQLDB_PASS` and sets correct file permissions:
+Run the setup script to create your `.env` from the template. It auto-generates strong passwords and API keys for all services:
 
 ```bash
 bash scripts/setup.sh
@@ -442,7 +460,7 @@ Edit `.env` to match your environment:
 ```bash
 # Required — set these before first start
 DOMAIN_NAME=example.com        # Your primary domain
-GIT_DOMAIN=git.example.com     # Gitea hostname
+REPBUK_DOMAIN=git.example.com     # Gitea hostname
 TRAFIK_DOMAIN=traefik.example.com
 ACME_EMAIL=you@example.com     # Let's Encrypt registration email
 APPS_DATA=/opt/containerd      # Host path for persistent data
@@ -616,7 +634,7 @@ Set these in **Repository Settings → Secrets → Add Secret**.
 
 1. Navigate to **Repository → Actions → Deploy to Server**
 2. Click **Run workflow**
-3. Select the **service** (`all`, `agsvchermagt`, `inframariadb`, `infrapgsqldb`, `infratraefik`, `wbsvcauthtik`, `wbsvcreporun`, `wbsvcrepobuk`, `wbsvcwebchat`, or `wbsvcwebhome`) and **environment** (`stag` or `prod`)
+3. Select the **service** (`all`, `agsvcchatllm`, `agsvclitellm`, `agsvchermagt`, `inframariadb`, `infrapgsqldb`, `infratraefik`, `wbsvcauthtik`, `wbsvcreporun`, `wbsvcrepobuk`, `wbsvcwebchat`, or `wbsvcwebhome`) and **environment** (`stag` or `prod`)
 4. Click **Run workflow**
 
 ---
@@ -653,7 +671,7 @@ docker compose pull && docker compose up -d
 
 ### Register the Act Runner
 
-After Gitea starts, generate a runner token in Gitea (`Site Administration → Actions → Runners → Create new runner token`), add it to `.env` as `GIT_RUNNER_TOKEN`, then restart the runner:
+After Gitea starts, generate a runner token in Gitea (`Site Administration → Actions → Runners → Create new runner token`), add it to `.env` as `REPBUK_RUNTOKEN`, then restart the runner:
 
 ```bash
 docker compose restart wbsvcreporun
@@ -702,46 +720,58 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 
 | Variable | Description |
 |---|---|
-| `WP_DOMAIN` | WordPress hostname (e.g. `www.example.com`) |
-| `WP_DBNAME` | MariaDB database name for WordPress (default: `wordpress`) |
+| `WEBHOM_DOMAIN` | WordPress hostname (e.g. `www.example.com`) |
+| `WEBHOM_DBNAME` | MariaDB database name for WordPress (default: `wordpress`) |
 
 ### Gitea
 
 | Variable | Description |
 |---|---|
-| `GIT_DOMAIN` | Gitea hostname |
-| `GIT_DBNAME` | PostgreSQL database name for Gitea |
-| `GIT_RUNNER_TOKEN` | Act Runner registration token |
+| `REPBUK_DOMAIN` | Gitea hostname |
+| `REPBUK_DBNAME` | PostgreSQL database name for Gitea |
+| `REPBUK_RUNTOKEN` | Act Runner registration token |
 
 ### Hermes Agent
 
-| Variable | Description |
-|---|---|
-| `HERMES_DOMAIN` | Hermes dashboard hostname |
-| `HERMES_GATEWAY_DOMAIN` | Hermes gateway API hostname |
+| Variable | Default | Description |
+|---|---|---|
+| `HERMES_PROFILES` | *(empty)* | Space-separated profile names to auto-start on boot. Leave empty for a single default gateway on port 8642. |
+| `LITEM_APIKEY` | Auto-generated | Passed as `LITELLM_KEY` to Hermes for authenticating with the LiteLLM proxy |
+| `FIRECRAWL_API_KEY` | | API key for the Firecrawl web-scraping backend (used by Hermes web search) |
+
+### LiteLLM Proxy
+
+| Variable | Default | Description |
+|---|---|---|
+| `LITEM_APIKEY` | Auto-generated by `setup.sh` | Master API key (Bearer token format `sk-...`). Used by Hermes and any other service to authenticate with the proxy. |
+| `LITEM_ADMUSR` | `admin` | Admin UI username for the LiteLLM dashboard |
+| `LITEM_ADMPWD` | | Admin UI password |
+| `LITEM_UIPORT` | `12321` | LiteLLM proxy listen port |
+| `LITEM_DBNAME` | `litellm` | PostgreSQL database name for LiteLLM usage tracking |
+| `LITEM_MMAX_BASE` | `https://api.minimax.io/anthropic` | MiniMax Anthropic-compatible API base URL (`remote` tier) |
+| `LITEM_MMAX_APIKEY` | | MiniMax API key |
+
+### LLM Inference (llama.cpp)
+
+| Variable | Default | Description |
+|---|---|---|
+| `LLAMA_CHTMDL` | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | Chat inference model (`edge` tier). Auto-downloaded from HuggingFace on first start. |
+| `LLAMA_CHTARG` | *(see env.example)* | Additional llama.cpp server flags (context size, thread count, batching, etc.) |
+| `HF_TOKEN` | *(empty)* | HuggingFace token — required for gated models (e.g. Gemma 4) |
 
 ### Open WebUI
 
 | Variable | Description |
 |---|---|
-| `OPENWEBUI_DOMAIN` | Open WebUI hostname |
-
-### LLM Inference
-
-| Variable | Default | Description |
-|---|---|---|
-| `HF_TOKEN` | *(empty)* | HuggingFace token for gated models (required for Gemma 4) |
-| `LLM_CHAT_MODEL` | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0` | Chat inference model (Gemma 4 2B) |
-| `LLM_LOGC_MODEL` | `unsloth/gemma-4-26B-A4B-it-GGUF:Q8_0` | Deep reasoning model (Gemma 4 26B) |
-| `LLM_EMBD_MODEL_FILE` | `Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` | Embeddings model (Qwen3 0.6B) |
+| `OWEBUI_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
 
 ### Grafana (Security Observability)
 
 | Variable | Description |
 |---|---|
-| `GF_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
-| `GF_ADMIN_USER` | Grafana admin username |
-| `GF_ADMIN_PASSWORD` | Grafana admin password |
+| `SECOB_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
+| `SECOB_ADMUSR` | Grafana admin username |
+| `SECOB_ADMPWD` | Grafana admin password |
 
 ### Databases
 

@@ -29,14 +29,18 @@ inject_secrets() {
     echo "Generating secrets for placeholder values..."
 
     SQLDB_PASS=$(openssl rand -hex 16 | head -c 18)
+    GRAFANA_PASS=$(openssl rand -hex 16 | head -c 18)
     AUTHK_PASS=$(openssl rand -base64 36 | tr -d '\n')
     AUTHK_SECRET=$(openssl rand -base64 60 | tr -d '\n')
+    LITELLM_APIKEY="sk-$(openssl rand -hex 24)"
 
     # Only replace if the current value matches the placeholder (not already set)
     sed -i.bak \
         -e "s|<YOUR_STRONG_SQLDB_PASSWORD>|${SQLDB_PASS}|g" \
+        -e "s|<YOUR_STRONG_GRAFANA_PASSWORD>|${GRAFANA_PASS}|g" \
         -e "s|<YOUR_STRONG_AUTHENTIK_PASSWORD>|${AUTHK_PASS}|g" \
         -e "s|<YOUR_STRONG_AUTHENTIK_SECRETKEY>|${AUTHK_SECRET}|g" \
+        -e "s|<YOUR_LITELLM_MASTER_API_KEY>|${LITELLM_APIKEY}|g" \
         "$ENV_FILE" && rm "${ENV_FILE}.bak"
 }
 
@@ -52,10 +56,20 @@ merge_env() {
         [[ -z "$key" || "$key" =~ ^# ]] && continue
 
         # If key exists in env.example and has a value in .env, preserve it
-        if grep -q "^${key}=" "$ENV_FILE"; then
+        if grep -q "^${key}=" "$ENV_EXAMPLE_FILE"; then
             old_value=$(grep "^${key}=" "$ENV_FILE" | head -1 | cut -d '=' -f2-)
             if [ -n "$old_value" ]; then
-                sed -i "s|^${key}=.*|${key}=${old_value}|" "$ENV_FILE.tmp"
+                # Use python3 so arbitrary characters in old_value (quotes, pipes,
+                # backslashes) are never interpreted by the shell or sed.
+                python3 - "$key" "$old_value" "$ENV_FILE.tmp" <<'PYEOF'
+import sys, re
+key, val, fname = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(fname) as f:
+    content = f.read()
+content = re.sub(r'^' + re.escape(key) + r'=.*', key + '=' + val, content, flags=re.MULTILINE)
+with open(fname, 'w') as f:
+    f.write(content)
+PYEOF
             fi
         fi
     done < "$ENV_FILE"
