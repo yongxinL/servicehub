@@ -1,0 +1,51 @@
+# =============================================================================
+# Hermes Agent — default profile config.yaml
+# Copy to /opt/data/hermesagent/profiles/<name>/config.yaml and edit.
+# Full reference: https://hermes-agent.nousresearch.com/docs/user-guide/configuration
+# =============================================================================
+
+# LLM — routes through LiteLLM proxy (complexity-based routing)
+custom_providers:
+- name: LiteLLM
+  base_url: http://agsvclitellm:12321/v1
+  api_key: <your-litellm-master-key>
+  model: broker
+
+model:
+  default: broker
+  provider: custom
+  base_url: http://agsvclitellm:12321/v1
+  api_key: <your-litellm-master-key>
+
+# ---------------------------------------------------------------------------
+# API server port — set a unique port per profile when running multiple profiles
+# in the same container. Default is 8642.
+# Profile 1 (e.g. alice): 8642  (default, no change needed)
+# Profile 2 (e.g. bob):   8643
+# Profile 3 (e.g. charles): 8644
+# ---------------------------------------------------------------------------
+api_server:
+  port: 12330
+
+# ---------------------------------------------------------------------------
+# Terminal sandbox — Docker isolation
+# Hermes runs agent commands inside a fresh Docker container, not on the host.
+# docker_forward_env: variables passed from Hermes env into the sandbox.
+# The hermes container needs /var/run/docker.sock mounted (see agent.yml).
+# ---------------------------------------------------------------------------
+terminal:
+  backend: docker
+  modal_mode: auto
+  docker_forward_env:
+    - LITELLM_KEY
+    - FIRECRAWL_API_URL
+    - FIRECRAWL_API_KEY
+
+# Web search — self-hosted Firecrawl backed by SearXNG
+web:
+  backend: firecrawl
+  api_key: <your-firecrawl-api-key>
+
+# Memory
+memory:
+  provider: local
