@@ -101,6 +101,7 @@ substitute_placeholders() {
             echo "[hermes] Substituted FIRECRAWL_API_KEY in ${file}"
         fi
     fi
+
 }
 
 # ---------------------------------------------------------------------------

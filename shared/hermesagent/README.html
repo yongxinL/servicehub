@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hermes Agent — Setup & Configuration Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --bg-card:   #161b27;
+      --bg-code:   #1a2035;
+      --bg-note:   #0d1f2d;
+      --bg-warn:   #1f1a0d;
+      --border:    #2a3045;
+      --accent:    #4f9eff;
+      --accent2:   #a78bfa;
+      --green:     #34d399;
+      --yellow:    #fbbf24;
+      --red:       #f87171;
+      --text:      #e2e8f0;
+      --text-muted:#94a3b8;
+      --text-dim:  #64748b;
+      --font-mono: "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace;
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      --sidebar-w: 280px;
+      --radius:    8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    #sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 24px 0 40px;
+      z-index: 100;
+    }
+
+    #sidebar .logo {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    #sidebar .logo h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: .03em;
+    }
+    #sidebar .logo p {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    #sidebar nav a {
+      display: block;
+      padding: 5px 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      transition: all .15s;
+    }
+    #sidebar nav a:hover,
+    #sidebar nav a.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(79,158,255,.06);
+    }
+    #sidebar nav .section-label {
+      padding: 14px 20px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--text-dim);
+    }
+    #sidebar nav a.sub { padding-left: 32px; font-size: 12px; }
+
+    /* ── Main content ────────────────────────────────────────────────── */
+    #content {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      padding: 48px 56px 80px;
+      max-width: 960px;
+    }
+
+    /* ── Hero ────────────────────────────────────────────────────────── */
+    .hero {
+      margin-bottom: 48px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero h1 {
+      font-size: 36px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+    .hero .tagline {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 680px;
+    }
+    .hero .badges { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid;
+    }
+    .badge-blue  { color: var(--accent);  border-color: var(--accent);  background: rgba(79,158,255,.08); }
+    .badge-purple{ color: var(--accent2); border-color: var(--accent2); background: rgba(167,139,250,.08); }
+    .badge-green { color: var(--green);   border-color: var(--green);   background: rgba(52,211,153,.08); }
+
+    /* ── Headings ────────────────────────────────────────────────────── */
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 48px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      scroll-margin-top: 24px;
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 28px 0 10px;
+      scroll-margin-top: 24px;
+    }
+    h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin: 20px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    p { margin-bottom: 12px; }
+    p + p { margin-top: 0; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    strong { color: var(--text); font-weight: 600; }
+
+    /* ── Architecture box ────────────────────────────────────────────── */
+    .arch-box {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: #93c5fd;
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+
+    /* ── Code blocks ─────────────────────────────────────────────────── */
+    pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 12px 0 20px;
+      position: relative;
+    }
+    pre code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.65;
+      color: #c9d1d9;
+    }
+    .lang-tag {
+      position: absolute;
+      top: 8px; right: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      background: rgba(79,158,255,.1);
+      color: #93c5fd;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    pre code { background: none; padding: 0; color: inherit; }
+
+    /* minimal keyword colouring */
+    .kw  { color: #f97316; }   /* orange  — shell keywords */
+    .cm  { color: #6b7280; font-style: italic; } /* grey — comments */
+    .str { color: #86efac; }   /* green   — strings/values */
+    .var { color: #fbbf24; }   /* yellow  — variables */
+    .ok  { color: var(--green); font-weight: 700; }
+    .warn{ color: var(--yellow); font-weight: 700; }
+
+    /* ── Tables ──────────────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; margin: 16px 0 24px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+    thead th {
+      background: #1e2a3a;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    tbody td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,.02); }
+
+    /* ── Callout boxes ───────────────────────────────────────────────── */
+    .callout {
+      display: flex;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      margin: 16px 0;
+      font-size: 13.5px;
+    }
+    .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .callout.note  { background: var(--bg-note);  border-left: 3px solid var(--accent);  }
+    .callout.warn  { background: var(--bg-warn);  border-left: 3px solid var(--yellow);  }
+    .callout.tip   { background: #0d1f18;          border-left: 3px solid var(--green);   }
+    .callout p { margin: 0; }
+
+    /* ── Checklist ───────────────────────────────────────────────────── */
+    .checklist { list-style: none; padding: 0; margin: 12px 0 24px; }
+    .checklist li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 13.5px;
+      border: 1px solid transparent;
+      transition: background .1s;
+    }
+    .checklist li:hover { background: rgba(255,255,255,.03); border-color: var(--border); }
+    .check-box {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+    }
+    .checklist li:hover .check-box { border-color: var(--accent); }
+    .checklist li.checked .check-box {
+      background: var(--green);
+      border-color: var(--green);
+      color: #000;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .check-label { flex: 1; line-height: 1.5; }
+    .check-label code { font-size: 12px; }
+    .check-cat {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent2);
+      margin: 20px 0 8px;
+    }
+
+    /* ── Step cards ──────────────────────────────────────────────────── */
+    .steps { display: flex; flex-direction: column; gap: 4px; margin: 16px 0; }
+    .step {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      color: #000;
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step-body { flex: 1; }
+    .step-body h4 { margin: 0 0 6px; color: var(--text); font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+    .step-body p  { margin: 0; font-size: 13.5px; color: var(--text-muted); }
+
+    /* ── Port pills ──────────────────────────────────────────────────── */
+    .port-grid { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+    .port-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      min-width: 180px;
+    }
+    .port-card .pnum { font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--accent); }
+    .port-card .plabel { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .port-card .pdesc { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+    /* ── Profile card ────────────────────────────────────────────────── */
+    .profile-card {
+      background: var(--bg-card);
+      border: 1px solid var(--accent2);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 20px 0;
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .profile-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .profile-info h3 { margin: 0 0 4px; font-size: 18px; color: var(--text); }
+    .profile-info .meta { display: flex; gap: 16px; flex-wrap: wrap; }
+    .profile-info .meta span { font-size: 12px; color: var(--text-muted); }
+    .profile-info .meta span strong { color: var(--accent); font-family: var(--font-mono); }
+
+    /* ── Health matrix ───────────────────────────────────────────────── */
+    .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 16px 0; }
+    .health-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-size: 13px;
+    }
+    .health-item .h-name { font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .health-item .h-port { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+    .health-item .h-cmd  { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 6px; word-break: break-all; }
+
+    /* ── Divider ─────────────────────────────────────────────────────── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+    /* ── Routing tag table ───────────────────────────────────────────── */
+    .route-tags { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 20px; }
+    .route-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .route-tag {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      min-width: 80px;
+      text-align: center;
+    }
+    .rt-cloud { background: rgba(167,139,250,.15); color: var(--accent2); border: 1px solid var(--accent2); }
+    .rt-local { background: rgba(52,211,153,.1);   color: var(--green);   border: 1px solid var(--green); }
+    .rt-auto  { background: rgba(79,158,255,.1);   color: var(--accent);  border: 1px solid var(--accent); }
+    .route-arrow { color: var(--text-dim); }
+    .route-dest { font-weight: 600; color: var(--text); flex: 1; }
+    .route-note { font-size: 12px; color: var(--text-dim); }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 768px) {
+      #sidebar { display: none; }
+      #content { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════ SIDEBAR -->
+<aside id="sidebar">
+  <div class="logo">
+    <h2>Hermes Agent</h2>
+    <p>Setup &amp; Configuration Guide</p>
+  </div>
+  <nav>
+    <a href="#architecture">Architecture</a>
+    <a href="#requirements">Requirements</a>
+    <div class="section-label">Instructions</div>
+    <a href="#s31">3.1 Configure Hermes Agent</a>
+    <a href="#s32">3.2 AI Provider &amp; Search</a>
+    <a href="#s33">3.3 Discord &amp; WhatsApp</a>
+    <a href="#s34">3.4 Verify &amp; Test</a>
+    <a href="#s35">3.5 Family User Profiles</a>
+    <a href="#s36">3.6 Configure Alice</a>
+    <a href="#s37">3.7 Open WebUI &amp; API</a>
+    <a href="#s38">3.8 Security Hardening</a>
+    <a href="#s39">3.9 Hermes CLI Reference</a>
+  </nav>
+</aside>
+
+<!-- ════════════════════════════════════════════════════════════ CONTENT -->
+<main id="content">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Hermes Agent</h1>
+    <p class="tagline">A self-hosted, multi-profile AI agent platform that brings intelligent assistants to Discord, WhatsApp, and a web API — routed through a privacy-first, complexity-aware LLM proxy.</p>
+    <div class="badges">
+      <span class="badge badge-blue">Nous Research</span>
+      <span class="badge badge-purple">Multi-profile</span>
+      <span class="badge badge-green">Privacy-first routing</span>
+      <span class="badge badge-blue">Docker Compose</span>
+    </div>
+  </div>
+
+  <p>
+    Hermes Agent is an open-source AI agent platform by <a href="https://nousresearch.com">Nous Research</a>. In ServiceHub it runs as a single Docker container (<code>agsvchermagt</code>) that consolidates one or more gateway processes and a web dashboard under <code>tini</code> for correct signal forwarding. Each gateway connects <strong>outbound</strong> via WebSocket to its configured messaging platform — no inbound firewall ports required. All LLM calls pass through the LiteLLM proxy (<code>agsvclitellm</code>), which routes requests between the on-device Gemma 4B edge model and the MiniMax 2.7 cloud model based on content complexity and explicit user tags.
+  </p>
+
+  <hr />
+
+  <!-- ── Architecture ─────────────────────────────────────────────── -->
+  <h2 id="architecture">Architecture</h2>
+
+  <div class="arch-box"><pre>
+┌─────────────────────────────────────────────────────────────────────┐
+│  agsvchermagt  (Docker container — tini PID 1)                      │
+│                                                                     │
+│  Gateway (default)    : 8642  ──→  Discord / WhatsApp  (outbound)  │
+│  Gateway (alice)      : 8643  ──→  Discord / WhatsApp  (outbound)  │
+│  Dashboard            : 12329 ──→  LAN browser UI                  │
+│  API Server           : 12330 ──→  Open WebUI / HTTP clients       │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │
+              ┌──────────────▼─────────────────┐
+              │  agsvclitellm  (LiteLLM Proxy)  │
+              │  Port 12380                     │
+              │  Smart Router (smart_router.py) │
+              └─────────────┬────────┬──────────┘
+                            │        │
+             ┌──────────────▼──┐  ┌──▼──────────────────┐
+             │  agsvcchatllm   │  │  MiniMax 2.7 API     │
+             │  Gemma-4-4B     │  │  (cloud, 200K ctx)   │
+             │  Port 12326     │  └──────────────────────┘
+             │  (edge, local)  │
+             └─────────────────┘
+
+             ┌──────────────────────────────────────┐
+             │  agsvcfastcrw  (FastCRW)             │
+             │  Port 12382 — scrape + search API    │
+             │  ├─→ agsvclighpda  (LightPanda :9222)│
+             │  ├─→ agsvcchromum  (Chromium :12385) │
+             │  └─→ agsvcsearxng  (SearXNG  :12383) │
+             └──────────────────────────────────────┘</pre></div>
+
+  <h3>Published ports</h3>
+  <div class="port-grid">
+    <div class="port-card">
+      <div class="pnum">12329</div>
+      <div class="plabel">Dashboard</div>
+      <div class="pdesc">LAN only — browser UI for chat, pairing &amp; monitoring</div>
+    </div>
+    <div class="port-card">
+      <div class="pnum">12330</div>
+      <div class="plabel">API Server</div>
+      <div class="pdesc">OpenAI-compatible HTTP API consumed by Open WebUI</div>
+    </div>
+    <div class="port-card">
+      <div class="pnum">8642</div>
+      <div class="plabel">Gateway (default)</div>
+      <div class="pdesc">Internal only — outbound WebSocket to Discord/WhatsApp</div>
+    </div>
+    <div class="port-card">
+      <div class="pnum">8643+</div>
+      <div class="plabel">Gateway (profiles)</div>
+      <div class="pdesc">Internal only — one port per named profile</div>
+    </div>
+  </div>
+
+  <div class="callout note">
+    <span class="callout-icon">ℹ</span>
+    <p><strong>Data persistence:</strong> <code>${APPS_DATA}/hermesagent</code> is mounted at <code>/opt/data</code> (also <code>$HOME</code>). Default profile files live in <code>/opt/data/</code>; per-profile files in <code>/opt/data/profiles/&lt;name&gt;/</code>. Default files are seeded from the image on first start and <strong>never overwritten</strong>.</p>
+  </div>
+
+  <hr />
+
+  <!-- ── Requirements ─────────────────────────────────────────────── -->
+  <h2 id="requirements">Requirements</h2>
+
+  <h3>Host resources</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Resource</th><th>Minimum</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>RAM</td><td>8 GB</td><td>5.6 GB for Gemma-4-4B model lock, remainder for services</td></tr>
+        <tr><td>Disk</td><td>20 GB free</td><td>~5.6 GB model cache, logs, agent data</td></tr>
+        <tr><td>CPU</td><td>4 cores</td><td>llama.cpp benefits from more cores for prompt processing</td></tr>
+        <tr><td>OS</td><td>Linux 64-bit</td><td>Docker socket at <code>/var/run/docker.sock</code> assumed</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Software dependencies</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Dependency</th><th>Version</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Docker Engine</td><td>24+</td><td>Container runtime</td></tr>
+        <tr><td>Docker Compose</td><td>v2.20+</td><td>Multi-service orchestration</td></tr>
+        <tr><td><code>curl</code></td><td>any</td><td>Health check commands in this guide</td></tr>
+        <tr><td>Hugging Face account</td><td>—</td><td><code>HF_TOKEN</code> required for gated Gemma 4 model</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>External accounts (create before first start)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Account</th><th>Required for</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Discord Developer account</td><td>Discord gateway</td><td>Create bot app at <code>discord.com/developers</code></td></tr>
+        <tr><td>WhatsApp (personal or Business API)</td><td>WhatsApp gateway</td><td>QR-scan pairing or Business API token</td></tr>
+        <tr><td>MiniMax API key</td><td>Cloud LLM tier</td><td>Sign up at <code>api.minimax.chat</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Root <code>.env</code> variables</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Core shared key — auto-generated by setup.sh</span>
+<span class="var">LITEM_APIKEY</span>=<span class="str">"&lt;YOUR_LITELLM_MASTER_API_KEY&gt;"</span>
+
+<span class="cm"># Space-separated profile names — empty starts a single default gateway</span>
+<span class="var">HERMES_PROFILES</span>=<span class="str">""</span>
+
+<span class="cm"># LiteLLM cloud backend</span>
+<span class="var">LITEM_MMAX_BASE</span>=<span class="str">"https://api.minimax.chat/v1"</span>
+<span class="var">LITEM_MMAX_APIKEY</span>=<span class="str">"&lt;YOUR_MINIMAX_API_KEY&gt;"</span></code></pre>
+
+  <hr />
+
+  <!-- ── 3.1 ────────────────────────────────────────────────────────── -->
+  <h2 id="s31">3.1 Configure Hermes Agent</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Generate the master API key</h4>
+        <p>If you have not run <code>setup.sh</code>, generate a strong random key and paste it into <code>LITEM_APIKEY</code> in the root <code>.env</code>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Start the stack</h4>
+        <p>On first start, <code>start-gateways.sh</code> seeds <code>config.yaml</code>, <code>.env</code>, and <code>SOUL.md</code> into <code>${APPS_DATA}/hermesagent/</code> and substitutes all <code>&lt;your-…&gt;</code> placeholders automatically.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Verify placeholder substitution</h4>
+        <p>Run the audit commands below. Both should print <code>OK</code>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Inspect the startup log</h4>
+        <p>Confirm seeding, substitution, and gateway/dashboard start messages appear.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4>Open the dashboard</h4>
+        <p>Navigate to <code>http://&lt;host-ip&gt;:12329</code> from a browser on your LAN.</p>
+      </div>
+    </div>
+  </div>
+
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Step 1 — generate key</span>
+python3 -c <span class="str">"import secrets; print(secrets.token_urlsafe(32))"</span>
+
+<span class="cm"># Step 2 — start</span>
+docker compose up -d agsvchermagt
+
+<span class="cm"># Step 3 — verify no placeholders remain</span>
+grep <span class="str">'your-'</span> <span class="var">${APPS_DATA}</span>/hermesagent/config.yaml &amp;&amp; echo <span class="warn">"WARN: unfilled"</span> || echo <span class="ok">"OK"</span>
+grep <span class="str">'your-'</span> <span class="var">${APPS_DATA}</span>/hermesagent/.env        &amp;&amp; echo <span class="warn">"WARN: unfilled"</span> || echo <span class="ok">"OK"</span>
+
+<span class="cm"># Step 4 — startup log</span>
+docker compose logs agsvchermagt | head -40</code></pre>
+
+  <p>Expected log output:</p>
+  <pre><code>[hermes] Seeded default: /opt/data/.env
+[hermes] Seeded default: /opt/data/config.yaml
+[hermes] Seeded default: /opt/data/SOUL.md
+[hermes] Substituted LITELLM_KEY in /opt/data/.env
+[hermes] Substituted FIRECRAWL_API_KEY in /opt/data/.env
+[hermes] Starting default gateway
+[hermes] Starting dashboard on port 12329</code></pre>
+
+  <hr />
+
+  <!-- ── 3.2 ────────────────────────────────────────────────────────── -->
+  <h2 id="s32">3.2 Configure and Verify AI Provider, Search, and Browser</h2>
+
+  <h3>LiteLLM proxy</h3>
+  <p>The LiteLLM proxy (<code>agsvclitellm</code>) is the single AI endpoint Hermes uses. It routes between local and cloud models transparently based on message content.</p>
+
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Reachability check from inside the Hermes container</span>
+docker compose exec agsvchermagt \
+  curl -sf -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  http://agsvclitellm:12380/health/liveliness &amp;&amp; echo <span class="ok">"LiteLLM OK"</span>
+
+<span class="cm"># List available models</span>
+docker compose exec agsvchermagt \
+  curl -sf -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  http://agsvclitellm:12380/v1/models | python3 -m json.tool</code></pre>
+
+  <p>Expected models: <code>smartrouter</code>, <code>edgeai</code>, <code>cloudai</code>. Admin UI at <code>http://&lt;host-ip&gt;:12380/ui</code>.</p>
+
+  <h4>Routing tags</h4>
+  <div class="route-tags">
+    <div class="route-row">
+      <span class="route-tag rt-cloud">[cloud] / [c]</span>
+      <span class="route-arrow">→</span>
+      <span class="route-dest">MiniMax 2.7 (200K ctx)</span>
+      <span class="route-note">Long docs, grant writing, complex reasoning</span>
+    </div>
+    <div class="route-row">
+      <span class="route-tag rt-local">[local] / [l]</span>
+      <span class="route-arrow">→</span>
+      <span class="route-dest">Gemma-4-4B (128K ctx, on-device)</span>
+      <span class="route-note">Private data, quick tasks, offline mode</span>
+    </div>
+    <div class="route-row">
+      <span class="route-tag rt-auto">auto</span>
+      <span class="route-arrow">→</span>
+      <span class="route-dest">Smart routed by content</span>
+      <span class="route-note">Privacy keywords → local &nbsp;|&nbsp; Complexity keywords → cloud</span>
+    </div>
+  </div>
+
+  <h3>Edge model — Gemma-4-4B (llama.cpp)</h3>
+  <div class="callout warn">
+    <span class="callout-icon">⚠</span>
+    <p>On first start the model (~5.6 GB) downloads from Hugging Face. The healthcheck has a 120-second startup delay. Set <code>HF_TOKEN</code> in your root <code>.env</code> if the model is gated.</p>
+  </div>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Health check</span>
+curl -sf http://localhost:12386/health &amp;&amp; echo <span class="ok">"llama.cpp OK"</span>
+
+<span class="cm"># Test completion</span>
+curl -s http://localhost:12386/v1/chat/completions \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"model":"gemma-4","messages":[{"role":"user","content":"Say hello."}],"max_tokens":20}'</span> \
+  | python3 -m json.tool</code></pre>
+
+  <h3>FastCRW — web scraping and search</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Health</span>
+docker compose exec agsvcfastcrw bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12382"</span> &amp;&amp; echo <span class="ok">"FastCRW OK"</span>
+
+<span class="cm"># Web search test</span>
+curl -s http://localhost:12382/v1/search \
+  -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"query":"servicenow latest release","limit":3}'</span> \
+  | python3 -m json.tool
+
+<span class="cm"># Scrape test</span>
+curl -s http://localhost:12382/v1/scrape \
+  -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"url":"https://example.com","formats":["markdown"]}'</span> \
+  | python3 -m json.tool</code></pre>
+
+  <h3>SearXNG</h3>
+  <pre><span class="lang-tag">bash</span><code>curl -sf http://localhost:12383/healthz &amp;&amp; echo <span class="ok">"SearXNG OK"</span>
+curl -s <span class="str">"http://localhost:12383/search?q=test&amp;format=json"</span> \
+  | python3 -c <span class="str">"import sys,json; d=json.load(sys.stdin); print(f'Results: {len(d[\"results\"])}')"</span></code></pre>
+
+  <h3>Chromium renderer</h3>
+  <pre><span class="lang-tag">bash</span><code>docker compose exec agsvcchromum bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12385"</span> &amp;&amp; echo <span class="ok">"Chromium OK"</span>
+curl -sf <span class="str">"http://localhost:12385/json/version?token=<span class="var">${LITEM_APIKEY}</span>"</span> | python3 -m json.tool</code></pre>
+
+  <div class="callout tip">
+    <span class="callout-icon">✓</span>
+    <p>Browser tool verification: in the dashboard (<code>http://&lt;host-ip&gt;:12329</code>), send <em>"open https://example.com and tell me the page title"</em>. A successful CDP call returns the page title in the agent trace.</p>
+  </div>
+
+  <hr />
+
+  <!-- ── 3.3 ────────────────────────────────────────────────────────── -->
+  <h2 id="s33">3.3 Configure and Verify Messaging Platforms</h2>
+
+  <h3>Discord</h3>
+
+  <h4>Create a Discord bot</h4>
+  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
+    <li>Go to <code>discord.com/developers/applications</code> → <strong>New Application</strong>.</li>
+    <li>Under <strong>Bot</strong>, enable <strong>Message Content Intent</strong> and <strong>Server Members Intent</strong>. Copy the <strong>Bot Token</strong>. <em>Failing to enable Message Content Intent is the #1 reason Discord bots don't respond.</em></li>
+    <li>Under <strong>OAuth2 → URL Generator</strong>: scopes <code>bot</code> + <code>applications.commands</code>; minimum permissions: View Channels, Send Messages, Read Message History, Attach Files. Recommended additions: Send Messages in Threads, Add Reactions, Embed Links (permission integer <code>274878286912</code>). Copy the URL and invite the bot to your server.</li>
+  </ol>
+
+  <div class="callout warn">
+    <span class="callout-icon">⚠</span>
+    <p>Without <code>DISCORD_BOT_TOKEN</code> <strong>and</strong> <code>DISCORD_ALLOWED_USERS</code> (or <code>DISCORD_ALLOWED_ROLES</code>), the gateway starts but <strong>denies all users by default</strong>. Both variables are required for the bot to respond.</p>
+  </div>
+
+  <h4>Set the token and access control (default profile)</h4>
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/.env
+<span class="cm"># Add (get your Discord User ID via Settings → Advanced → Developer Mode → right-click username):</span>
+<span class="var">DISCORD_BOT_TOKEN</span>=&lt;your-discord-bot-token&gt;
+<span class="var">DISCORD_ALLOWED_USERS</span>=&lt;your-discord-user-id&gt;
+
+docker compose restart agsvchermagt
+docker compose logs agsvchermagt | grep -i discord</code></pre>
+
+  <p>Expected: <code>Gateway connected</code> or <code>Discord gateway ready</code>. Send the bot a DM to confirm it replies.</p>
+
+  <h3>WhatsApp</h3>
+  <p>Hermes connects outbound — no inbound port or public IP needed. Use a <strong>dedicated phone number</strong> per profile (Google Voice, prepaid SIM, or VoIP), not a personal number. Pairing a personal account exposes private messages to the server.</p>
+
+  <div class="callout warn">
+    <span class="callout-icon">⚠</span>
+    <p>Without <code>WHATSAPP_ALLOWED_USERS</code>, the gateway starts but <strong>denies all incoming messages by default</strong>. Set it to the phone number(s) allowed to message this bot (country code, no <code>+</code>).</p>
+  </div>
+
+  <h4>Step 1 — Set env vars (default profile)</h4>
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/.env
+<span class="cm"># Add:</span>
+<span class="var">WHATSAPP_ENABLED</span>=<span class="str">true</span>
+<span class="var">WHATSAPP_MODE</span>=<span class="str">bot</span>                  <span class="cm"># dedicated number (recommended)</span>
+<span class="var">WHATSAPP_ALLOWED_USERS</span>=&lt;your-phone-number-no-plus&gt;  <span class="cm"># e.g. 61412123456</span></code></pre>
+
+  <h4>Step 2 — Run the pairing wizard</h4>
+  <pre><span class="lang-tag">bash</span><code>docker compose restart agsvchermagt
+<span class="cm"># Launch the interactive WhatsApp setup wizard</span>
+docker compose exec -it agsvchermagt hermes whatsapp</code></pre>
+
+  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
+    <li>The wizard displays a QR code in the terminal.</li>
+    <li>On the bot's dedicated phone: <strong>WhatsApp → Settings → Linked Devices → Link a Device</strong> — scan the QR code.</li>
+    <li>The wizard confirms pairing and saves the session.</li>
+  </ol>
+
+  <p>Session credentials persist at <code>${APPS_DATA}/hermesagent/whatsapp-session/</code> across restarts.</p>
+
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Verify connection</span>
+docker compose logs agsvchermagt | grep -i whatsapp
+
+<span class="cm"># Force re-pair (delete session and restart wizard)</span>
+rm -rf <span class="var">${APPS_DATA}</span>/hermesagent/whatsapp-session/
+docker compose restart agsvchermagt
+docker compose exec -it agsvchermagt hermes whatsapp</code></pre>
+
+  <hr />
+
+  <!-- ── 3.4 ────────────────────────────────────────────────────────── -->
+  <h2 id="s34">3.4 Verify Configuration Files and Test</h2>
+
+  <h3>Quick configuration audit</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># 1. No unfilled placeholders</span>
+grep -r <span class="str">'&lt;your-'</span> <span class="var">${APPS_DATA}</span>/hermesagent/ 2&gt;/dev/null \
+  &amp;&amp; echo <span class="warn">"WARN: placeholders remain"</span> || echo <span class="ok">"OK: no placeholders"</span>
+
+<span class="cm"># 2. Container status</span>
+docker compose ps agsvchermagt agsvclitellm agsvcfastcrw agsvcsearxng agsvcchatllm
+
+<span class="cm"># 3. API server</span>
+curl -sf http://localhost:12330/health &amp;&amp; echo <span class="ok">"API OK"</span>
+
+<span class="cm"># 4. Dashboard</span>
+curl -sf http://localhost:12329 -o /dev/null &amp;&amp; echo <span class="ok">"Dashboard OK"</span></code></pre>
+
+  <h3>Full service health matrix</h3>
+
+  <div class="health-grid">
+    <div class="health-item">
+      <div class="h-name">Hermes API</div>
+      <div class="h-port">:12330</div>
+      <div class="h-cmd">curl -sf http://localhost:12330/health</div>
+    </div>
+    <div class="health-item">
+      <div class="h-name">Dashboard</div>
+      <div class="h-port">:12329</div>
+      <div class="h-cmd">curl -sf http://localhost:12329 -o /dev/null</div>
+    </div>
+    <div class="health-item">
+      <div class="h-name">LiteLLM</div>
+      <div class="h-port">:12380</div>
+      <div class="h-cmd">curl -sf -H "Authorization: Bearer …" http://localhost:12380/health/liveliness</div>
+    </div>
+    <div class="health-item">
+      <div class="h-name">llama.cpp</div>
+      <div class="h-port">:12386</div>
+      <div class="h-cmd">curl -sf http://localhost:12386/health</div>
+    </div>
+    <div class="health-item">
+      <div class="h-name">FastCRW</div>
+      <div class="h-port">:12382</div>
+      <div class="h-cmd">exec 3&lt;&gt;/dev/tcp/127.0.0.1/12382</div>
+    </div>
+    <div class="health-item">
+      <div class="h-name">SearXNG</div>
+      <div class="h-port">:12383</div>
+      <div class="h-cmd">curl -sf http://localhost:12383/healthz</div>
+    </div>
+    <div class="health-item">
+      <div class="h-name">Chromium</div>
+      <div class="h-port">:12385</div>
+      <div class="h-cmd">exec 3&lt;&gt;/dev/tcp/127.0.0.1/12385</div>
+    </div>
+  </div>
+
+  <h3>End-to-end AI test</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="var">LITEM_APIKEY</span>=$(grep LITEM_APIKEY .env | cut -d= -f2)
+
+curl -s http://localhost:12330/v1/chat/completions \
+  -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"model":"hermes","messages":[{"role":"user","content":"What is 2 + 2?"}]}'</span> \
+  | python3 -m json.tool</code></pre>
+
+  <h3>End-to-end web search test</h3>
+  <pre><span class="lang-tag">bash</span><code>curl -s http://localhost:12330/v1/chat/completions \
+  -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"model":"hermes","messages":[{"role":"user","content":"Search the web for the current date and tell me the result."}]}'</span> \
+  | python3 -m json.tool</code></pre>
+
+  <hr />
+
+  <!-- ── 3.5 ────────────────────────────────────────────────────────── -->
+  <h2 id="s35">3.5 Create Family User Profiles — Alice Example</h2>
+
+  <p>Family members each get an isolated profile: a separate gateway process, data directory, Discord connection, WhatsApp session, memory store, and agent personality. Profiles share the same container but are fully isolated at filesystem and process level.</p>
+
+  <div class="profile-card">
+    <div class="profile-avatar">👩</div>
+    <div class="profile-info">
+      <h3>Alice</h3>
+      <div class="meta">
+        <span>Profile name: <strong>alice</strong></span>
+        <span>Discord User ID: <strong>12345678</strong></span>
+        <span>WhatsApp: <strong>+61 412 123 456</strong></span>
+        <span>Gateway port: <strong>8643</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout tip">
+    <span class="callout-icon">✓</span>
+    <p><strong>Shortcut:</strong> <code>init-profile.sh</code> automates Steps 1–6 in one command. It seeds all config files from defaults, substitutes API keys, and writes Discord/WhatsApp credentials directly — no manual file editing needed.<br><br>
+    <code>./shared/hermesagent/init-profile.sh alice --port 8643 --discord-token "&lt;token&gt;" --discord-user "12345678" --whatsapp-number "61412123456"</code></p>
+  </div>
+
+  <h3>Step 1 — Create the profile</h3>
+  <p>Use the <code>hermes profile create</code> command inside the running container. This initialises the profile directory, config files, and the per-profile CLI alias in one step.</p>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Create a blank profile (bundled skills, fresh memory)</span>
+docker compose exec agsvchermagt hermes profile create alice
+
+<span class="cm"># Clone config + .env + SOUL.md from the default profile (keeps fresh memory)</span>
+docker compose exec agsvchermagt hermes profile create alice --clone
+
+<span class="cm"># Clone everything — config, personality, memories, sessions, skills, cron jobs</span>
+docker compose exec agsvchermagt hermes profile create alice --clone-all
+
+<span class="cm"># Clone config from a specific existing profile</span>
+docker compose exec agsvchermagt hermes profile create alice --clone --clone-from coder</code></pre>
+
+  <p>After creation, Hermes registers a convenience alias at <code>~/.local/bin/alice</code> inside the container, so you can use shorthand commands like <code>alice chat</code>, <code>alice setup</code>, and <code>alice gateway start</code>.</p>
+
+  <h3>Step 2 — Declare the profile in the root <code>.env</code></h3>
+  <p>Add <code>HERMES_PROFILES</code> to the <strong>root <code>.env</code></strong> at the ServiceHub project root — this is the Docker Compose environment file, not the hermesagent data <code>.env</code>. Docker Compose injects it into the container via <code>compose/agent.yml</code>, where <code>start-gateways.sh</code> reads it to know which gateway processes to launch on container start.</p>
+  <pre><span class="lang-tag">root .env</span><code><span class="cm"># Single profile</span>
+<span class="var">HERMES_PROFILES</span>=<span class="str">"alice"</span>
+
+<span class="cm"># Multiple profiles (space-separated)</span>
+<span class="var">HERMES_PROFILES</span>=<span class="str">"alice bob charles"</span></code></pre>
+
+  <h3>Step 3 — Run interactive setup</h3>
+  <p>The <code>setup</code> command walks through API keys, model selection, and bot token configuration interactively. Run it once per profile immediately after creation.</p>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Interactive setup wizard for Alice's profile</span>
+docker compose exec -it agsvchermagt alice setup
+
+<span class="cm"># Equivalent using the -p flag</span>
+docker compose exec -it agsvchermagt hermes -p alice setup</code></pre>
+
+  <div class="callout note">
+    <span class="callout-icon">ℹ</span>
+    <p>The setup wizard will prompt for <code>DISCORD_BOT_TOKEN</code> (Alice's bot token), the preferred model, and any other provider keys. Each profile requires its <strong>own</strong> Discord bot application — do not reuse the default profile's token. Create a new app at <code>discord.com/developers/applications</code> — see §3.6 for the full steps.</p>
+  </div>
+
+  <h3>Step 4 — Set messaging credentials manually (if skipped in setup)</h3>
+  <p>If the setup wizard was skipped or credentials need updating, append them directly to Alice's <code>.env</code> on the host.</p>
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/.env
+<span class="cm"># Append — Discord (one bot per profile, Alice's user ID only):</span>
+<span class="var">DISCORD_BOT_TOKEN</span>=&lt;alice-aria-bot-token&gt;
+<span class="var">DISCORD_ALLOWED_USERS</span>=&lt;alice-discord-user-id&gt;
+
+<span class="cm"># Append — WhatsApp (bot's dedicated number; Alice's personal number is the allowed sender):</span>
+<span class="var">WHATSAPP_ENABLED</span>=<span class="str">true</span>
+<span class="var">WHATSAPP_MODE</span>=<span class="str">bot</span>
+<span class="var">WHATSAPP_ALLOWED_USERS</span>=61412123456   <span class="cm"># Alice's personal number (country code, no +)</span></code></pre>
+
+  <h3>Step 5 — Assign Alice a unique API server port</h3>
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/config.yaml</code></pre>
+  <pre><span class="lang-tag">yaml</span><code>api_server:
+  port: 8643    <span class="cm"># 8643 = first profile, 8644 = second, 8645 = third, etc.</span></code></pre>
+
+  <h3>Step 6 — Personalise Alice's SOUL.md</h3>
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/SOUL.md</code></pre>
+  <pre><span class="lang-tag">markdown</span><code>## Identity
+You are Aria, Alice's personal AI assistant. You are warm, encouraging, and organised.
+You remember Alice's preferences and help her stay on top of her schedule and family tasks.
+
+## Communication style
+- Always respond in English unless Alice writes in another language.
+- Use Alice's name naturally in conversation.
+- Keep answers focused; use short lists for tasks.
+
+## Focus areas
+- Family schedule management and reminders
+- School and homework support
+- Recipe and cooking suggestions
+- Summarising news and research
+
+## Boundaries
+- Never share information from other family member profiles.
+- Keep medical, financial, and personal information strictly private.
+- Decline requests that could cause harm.</code></pre>
+
+  <h3>Step 7 — Restart to launch Alice's gateway</h3>
+  <pre><span class="lang-tag">bash</span><code>docker compose restart agsvchermagt
+docker compose logs -f agsvchermagt
+
+<span class="cm"># Verify both the default and Alice's gateway are running</span>
+docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
+
+  <p>Expected log lines:</p>
+  <pre><code>[hermes] Starting default gateway
+[hermes] Starting gateway for profile 'alice'
+[hermes] Starting dashboard on port 12329</code></pre>
+
+  <hr />
+
+  <!-- ── 3.6 ────────────────────────────────────────────────────────── -->
+  <h2 id="s36">3.6 Configure AI Provider and Messaging for Alice</h2>
+
+  <h3>Alice's config.yaml</h3>
+  <div class="callout note">
+    <span class="callout-icon">ℹ</span>
+    <p>Leave <code>&lt;your-litellm-master-key&gt;</code> and <code>&lt;your-firecrawl-api-key&gt;</code> as placeholders. <code>start-gateways.sh</code> substitutes them from environment variables at container start.</p>
+  </div>
+  <pre><span class="lang-tag">yaml</span><code>custom_providers:
+- name: LiteLLM
+  base_url: http://agsvclitellm:12380/v1
+  api_key: &lt;your-litellm-master-key&gt;
+  model: smartrouter
+
+model:
+  default: cloudai          <span class="cm"># Alice prefers MiniMax 2.7</span>
+  provider: custom
+  base_url: http://agsvclitellm:12380/v1
+  api_key: &lt;your-litellm-master-key&gt;
+
+api_server:
+  port: 8643
+
+terminal:
+  backend: docker
+  modal_mode: auto
+  docker_forward_env:
+    - LITELLM_KEY
+    - FIRECRAWL_API_URL
+    - FIRECRAWL_API_KEY
+
+browser:
+  cdp_url: "ws://agsvcchromum:12385/chromium?token=&lt;your-firecrawl-api-key&gt;&amp;stealth=true"
+
+web:
+  backend: firecrawl
+  base_url: http://agsvcfastcrw:12382
+  api_key: &lt;your-firecrawl-api-key&gt;
+
+memory:
+  provider: local
+
+# Discord gateway behaviour
+discord:
+  require_mention: true    <span class="cm"># @mention required in server channels; DMs always work</span>
+  auto_thread: true        <span class="cm"># each conversation gets its own thread</span>
+  reactions: true
+  allow_mentions:
+    everyone: false
+    roles: false
+    users: true
+    replied_user: true</code></pre>
+
+  <h3>Alice's Discord setup</h3>
+
+  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
+    <li>Create a new Discord application named <strong>"Aria"</strong> at <code>discord.com/developers/applications</code>.</li>
+    <li>Under <strong>Bot</strong>, copy Alice's <strong>Bot Token</strong>. Enable <strong>Message Content Intent</strong> and <strong>Server Members Intent</strong>.</li>
+    <li>Invite Aria to the family Discord server via the OAuth2 URL Generator (permission integer <code>274878286912</code>).</li>
+    <li>Get Alice's Discord User ID: in Discord <strong>Settings → Advanced → Developer Mode</strong>, then right-click Alice's username → <strong>Copy User ID</strong>.</li>
+  </ol>
+
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/.env
+<span class="cm"># Add (DISCORD_ALLOWED_USERS locks the bot to Alice only — required):</span>
+<span class="var">DISCORD_BOT_TOKEN</span>=&lt;alice-aria-bot-token&gt;
+<span class="var">DISCORD_ALLOWED_USERS</span>=12345678901234567
+
+docker compose restart agsvchermagt
+docker compose logs agsvchermagt | grep -i "alice\|discord" | tail -20</code></pre>
+
+  <h3>Alice's WhatsApp setup (dedicated bot number: <code>+61 412 123 456</code>)</h3>
+
+  <div class="callout note">
+    <span class="callout-icon">ℹ</span>
+    <p>Use a <strong>dedicated phone number</strong> for this bot — not Alice's personal number. Options: Google Voice (free, US), prepaid SIM ($5–15), or a VoIP number. Register a WhatsApp account on that number first.</p>
+  </div>
+
+  <h4>Step 1 — Set env vars in Alice's .env</h4>
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/.env
+<span class="cm"># Add (Alice's personal number — she messages this bot number and only she gets replies):</span>
+<span class="var">WHATSAPP_ENABLED</span>=<span class="str">true</span>
+<span class="var">WHATSAPP_MODE</span>=<span class="str">bot</span>
+<span class="var">WHATSAPP_ALLOWED_USERS</span>=61412123456   <span class="cm"># Alice's personal number (country code, no +)</span></code></pre>
+
+  <h4>Step 2 — Run the pairing wizard for Alice's profile</h4>
+  <pre><span class="lang-tag">bash</span><code>docker compose restart agsvchermagt
+docker compose exec -it agsvchermagt hermes -p alice whatsapp</code></pre>
+
+  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
+    <li>The wizard displays a QR code in the terminal.</li>
+    <li>On the <strong>bot's dedicated phone</strong> (<code>+61 412 123 456</code>): <strong>WhatsApp → Settings → Linked Devices → Link a Device</strong> → scan the QR code.</li>
+    <li>The wizard confirms pairing and saves the session under <code>/opt/data/profiles/alice/whatsapp-session/</code>.</li>
+  </ol>
+
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Verify</span>
+docker compose logs agsvchermagt | grep -i "alice\|whatsapp" | tail -20
+
+<span class="cm"># Force re-pair if session expires</span>
+rm -rf <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/whatsapp-session/
+docker compose restart agsvchermagt
+docker compose exec -it agsvchermagt hermes -p alice whatsapp</code></pre>
+
+  <div class="callout tip">
+    <span class="callout-icon">✓</span>
+    <p>Alice messages the bot's dedicated number from her personal phone. The bot replies only to <code>WHATSAPP_ALLOWED_USERS</code> — no other family member's messages reach this profile.</p>
+  </div>
+
+  <hr />
+
+  <!-- ── 3.7 ────────────────────────────────────────────────────────── -->
+  <h2 id="s37">3.7 Connect Open WebUI to Hermes via API</h2>
+
+  <p>Open WebUI (<code>wbsvcwebchat</code>) is accessible at <code>https://${OWEBUI_DOMAIN}</code>. Adding Hermes as an OpenAI-compatible connection lets family members chat via the browser alongside Discord and WhatsApp.</p>
+
+  <h3>Connection details</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Parameter</th><th>Default profile</th><th>Alice profile</th></tr></thead>
+      <tbody>
+        <tr><td>API base URL</td><td><code>http://agsvchermagt:12330/v1</code></td><td><code>http://agsvchermagt:8643/v1</code></td></tr>
+        <tr><td>API key</td><td colspan="2">Value of <code>LITEM_APIKEY</code> from root <code>.env</code></td></tr>
+        <tr><td>Health endpoint</td><td colspan="2"><code>http://agsvchermagt:12330/health</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Step 1 — Add connection in Open WebUI</h3>
+  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
+    <li>Log in to Open WebUI at <code>https://${OWEBUI_DOMAIN}</code>.</li>
+    <li>Go to <strong>Settings → Admin Settings → Connections → OpenAI API</strong>.</li>
+    <li>Click <strong>Add Connection</strong>: URL = <code>http://agsvchermagt:12330/v1</code>, Key = <code>&lt;LITEM_APIKEY&gt;</code>.</li>
+    <li>Click <strong>Verify Connection</strong> — Open WebUI calls <code>GET /v1/models</code> to confirm reachability.</li>
+    <li>Save. Repeat with port <code>8643</code> for "Hermes (Alice)".</li>
+  </ol>
+
+  <h3>Step 2 — CLI verification</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="var">LITEM_APIKEY</span>=$(grep LITEM_APIKEY .env | cut -d= -f2)
+
+<span class="cm"># List models</span>
+curl -s http://localhost:12330/v1/models \
+  -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> | python3 -m json.tool
+
+<span class="cm"># Test with web search</span>
+curl -s http://localhost:12330/v1/chat/completions \
+  -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"model":"hermes","messages":[{"role":"user","content":"Search the web for todays weather in Sydney."}],"stream":false}'</span> \
+  | python3 -m json.tool</code></pre>
+
+  <hr />
+
+  <!-- ── 3.8 ────────────────────────────────────────────────────────── -->
+  <h2 id="s38">3.8 Security and Hardening Checklist</h2>
+
+  <p>Click each item to mark it complete. Your progress is saved for this browser session.</p>
+
+  <div class="check-cat">API Keys &amp; Secrets</div>
+  <ul class="checklist" id="cl">
+
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Replace the default <code>LITEM_APIKEY</code> placeholder. Generate with <code>python3 -c "import secrets; print(secrets.token_urlsafe(32))"</code>. Store only in root <code>.env</code> (git-ignored).</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Never commit <code>.env</code> to git. Verify: <code>git check-ignore -v .env</code> should match.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Rotate <code>LITEM_APIKEY</code> periodically. Update in <code>.env</code>, then <code>docker compose up -d</code> to propagate.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Set a separate <code>BROWSERLESS_TOKEN</code> for Chromium: <code>echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env</code>. Update <code>TOKEN=${BROWSERLESS_TOKEN}</code> in <code>agsvcchromum</code> in <code>agent.yml</code>.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Discord bot tokens are per-profile secrets — store only in <code>${APPS_DATA}/hermesagent/profiles/&lt;name&gt;/.env</code>, never in <code>agent.yml</code> or git.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">MiniMax API key stored only as <code>LITEM_MMAX_APIKEY</code> in root <code>.env</code>. Confirm it is not echoed in logs: <code>docker compose logs agsvclitellm | grep -i minimax</code>.</div>
+    </li>
+
+    <div class="check-cat">Network Isolation</div>
+
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Gateway port 8642 is NOT published. Confirm: <code>docker compose port agsvchermagt 8642</code> returns nothing.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Restrict dashboard (port 12329) to LAN: <code>ufw deny 12329 && ufw allow from 192.168.0.0/16 to any port 12329</code>.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">API server (port 12330) behind Authentik forward-auth middleware when exposed through Traefik.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Internal service ports (12380, 12382, 12383, 12385, 12386) not bound to <code>0.0.0.0</code> on a public host. Remove their <code>ports:</code> entries in <code>agent.yml</code> for production.</div>
+    </li>
+
+    <div class="check-cat">Docker Socket</div>
+
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Docker socket mounted read-only (<code>/var/run/docker.sock:ro</code>). Confirm: <code>docker inspect agsvchermagt | python3 -m json.tool | grep -A3 docker.sock</code> — <code>"RW": false</code>.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Check host Docker group GID: <code>getent group docker | cut -d: -f3</code>. If not 999, add <code>group_add: [&lt;host-gid&gt;]</code> to <code>agsvchermagt</code> in <code>agent.yml</code>.</div>
+    </li>
+
+    <div class="check-cat">Privacy Routing</div>
+
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Privacy keywords route to edge model. Test with <em>"Summarise my medical record"</em> and confirm <code>docker compose logs agsvclitellm | grep route</code> shows <code>route=edgeai</code>.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Confirm <code>smart_router.py</code> intercepts: <code>medical record</code>, <code>tax return</code>, <code>bank statement</code>, <code>passport</code>, <code>IEP</code>, <code>salary</code>. No cloud calls for sensitive content.</div>
+    </li>
+
+    <div class="check-cat">Profile Isolation</div>
+
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Each profile has a unique <code>DISCORD_BOT_TOKEN</code>. Verify: <code>grep DISCORD_BOT_TOKEN ${APPS_DATA}/hermesagent/profiles/*/.env</code>.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Profile data directories owned by hermes uid 10000: <code>ls -lan ${APPS_DATA}/hermesagent/profiles/</code>.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Every profile's <code>SOUL.md</code> contains the boundary instruction: <code>grep -r "other family" ${APPS_DATA}/hermesagent/</code></div>
+    </li>
+
+    <div class="check-cat">Container Hardening</div>
+
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label"><code>restart: unless-stopped</code> is set in <code>agent.yml</code> so gateways reconnect after host reboots.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Pin the base image to a specific version tag instead of <code>:latest</code> (e.g. <code>nousresearch/hermes-agent:1.2.3</code>) to prevent unexpected updates.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Add memory limits to <code>agsvchermagt</code> in <code>agent.yml</code>: <code>mem_limit: 2g</code> and <code>memswap_limit: 2g</code>.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Enable log rotation in <code>agent.yml</code> under <code>agsvchermagt</code>:<br><code>logging: {driver: "json-file", options: {max-size: "50m", max-file: "5"}}</code></div>
+    </li>
+
+    <div class="check-cat">Observability</div>
+
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs agsvclitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">Grafana dashboards imported from <code>shared/grafana/dashboards/</code> for LiteLLM and FastCRW token usage and latency.</div>
+    </li>
+    <li onclick="toggle(this)">
+      <div class="check-box"></div>
+      <div class="check-label">VictoriaLogs captures agent logs — confirm in Grafana Explore → VictoriaLogs with query <code>{container="agsvchermagt"}</code>.</div>
+    </li>
+  </ul>
+
+
+  <hr />
+
+  <!-- ── 3.9 ────────────────────────────────────────────────────────── -->
+  <h2 id="s39">3.9 Using the Hermes CLI</h2>
+
+  <p>The <code>hermes</code> binary is available inside the <code>agsvchermagt</code> container. Use <code>docker compose exec</code> to run commands directly, or <code>docker compose exec -it</code> for interactive sessions. All commands run as the <code>hermes</code> user (uid 10000); profile data lives at <code>/opt/data/profiles/&lt;name&gt;/</code> inside the container (<code>${APPS_DATA}/hermesagent/profiles/&lt;name&gt;/</code> on the host).</p>
+
+  <h3>Profile management</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Command</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>hermes profile create &lt;name&gt;</code></td><td>Create a blank profile with bundled skills</td></tr>
+        <tr><td><code>hermes profile create &lt;name&gt; --clone</code></td><td>Clone current profile's <code>config.yaml</code>, <code>.env</code>, <code>SOUL.md</code> (fresh sessions/memory)</td></tr>
+        <tr><td><code>hermes profile create &lt;name&gt; --clone-all</code></td><td>Clone everything: config, keys, personality, memories, sessions, skills, cron jobs, plugins</td></tr>
+        <tr><td><code>hermes profile create &lt;name&gt; --clone --clone-from &lt;src&gt;</code></td><td>Clone config from a specific named profile</td></tr>
+        <tr><td><code>hermes profile list</code></td><td>List all profiles with name, path, model, and gateway status</td></tr>
+        <tr><td><code>hermes profile show &lt;name&gt;</code></td><td>Show detailed info for a profile</td></tr>
+        <tr><td><code>hermes profile use &lt;name&gt;</code></td><td>Set the active default profile (<code>hermes profile use default</code> to revert)</td></tr>
+        <tr><td><code>hermes profile rename &lt;name&gt; &lt;new&gt;</code></td><td>Rename a profile and update its alias and service</td></tr>
+        <tr><td><code>hermes profile export &lt;name&gt;</code></td><td>Export profile to <code>&lt;name&gt;.tar.gz</code></td></tr>
+        <tr><td><code>hermes profile import &lt;name&gt;.tar.gz</code></td><td>Import profile from archive</td></tr>
+        <tr><td><code>hermes profile delete &lt;name&gt;</code></td><td>Delete a profile and all its data</td></tr>
+        <tr><td><code>hermes profile delete &lt;name&gt; --yes</code></td><td>Delete without confirmation prompt</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Create profiles</span>
+docker compose exec agsvchermagt hermes profile create alice
+docker compose exec agsvchermagt hermes profile create bob --clone --clone-from alice
+
+<span class="cm"># List all profiles</span>
+docker compose exec agsvchermagt hermes profile list
+
+<span class="cm"># Inspect a profile</span>
+docker compose exec agsvchermagt hermes profile show alice
+
+<span class="cm"># Rename, export, import</span>
+docker compose exec agsvchermagt hermes profile rename alice aria
+docker compose exec agsvchermagt hermes profile export alice    <span class="cm"># → alice.tar.gz</span>
+docker compose exec agsvchermagt hermes profile import alice.tar.gz
+
+<span class="cm"># Delete (skip confirmation with --yes)</span>
+docker compose exec agsvchermagt hermes profile delete alice --yes</code></pre>
+
+  <h3>Per-profile alias shorthand</h3>
+  <p>After <code>hermes profile create</code>, Hermes registers a convenience alias at <code>~/.local/bin/&lt;name&gt;</code> inside the container. This lets you skip the <code>hermes -p &lt;name&gt;</code> prefix for common operations.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Alias form</th><th>Equivalent <code>hermes -p</code> form</th></tr></thead>
+      <tbody>
+        <tr><td><code>alice setup</code></td><td><code>hermes -p alice setup</code> — interactive configuration wizard</td></tr>
+        <tr><td><code>alice chat</code></td><td><code>hermes -p alice chat</code> — interactive terminal chat</td></tr>
+        <tr><td><code>alice run "&lt;prompt&gt;"</code></td><td><code>hermes -p alice run "&lt;prompt&gt;"</code> — single-shot task</td></tr>
+        <tr><td><code>alice gateway start</code></td><td><code>hermes -p alice gateway</code> — start Alice's gateway manually</td></tr>
+        <tr><td><code>alice gateway install</code></td><td>Create a systemd/launchd service for Alice's gateway</td></tr>
+        <tr><td><code>alice doctor</code></td><td><code>hermes -p alice doctor</code> — health check for Alice's profile</td></tr>
+        <tr><td><code>alice skills list</code></td><td>List skills available to Alice's profile</td></tr>
+        <tr><td><code>alice config set model.default &lt;model&gt;</code></td><td>Change Alice's default model</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Run interactive setup wizard for Alice</span>
+docker compose exec -it agsvchermagt alice setup
+
+<span class="cm"># Chat as Alice</span>
+docker compose exec -it agsvchermagt alice chat
+
+<span class="cm"># One-shot task as Alice</span>
+docker compose exec agsvchermagt alice run <span class="str">"[cloud] Summarise today's top news"</span>
+
+<span class="cm"># Check Alice's health</span>
+docker compose exec agsvchermagt alice doctor
+
+<span class="cm"># Change Alice's default model</span>
+docker compose exec agsvchermagt alice config set model.default cloudai</code></pre>
+
+  <h3>Interactive terminal chat</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Default agent</span>
+docker compose exec -it agsvchermagt hermes chat
+
+<span class="cm"># Named profile (two equivalent forms)</span>
+docker compose exec -it agsvchermagt hermes -p alice chat
+docker compose exec -it agsvchermagt alice chat
+
+<span class="cm"># One-liner with inline prompt (-q / --query)</span>
+docker compose exec agsvchermagt hermes chat -p alice -q <span class="str">"What's on my schedule today?"</span></code></pre>
+
+  <h3>One-shot task execution</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Default profile — returns when the agent finishes</span>
+docker compose exec agsvchermagt hermes run <span class="str">"What files are in /opt/data?"</span>
+
+<span class="cm"># Alice's profile, force cloud model</span>
+docker compose exec agsvchermagt alice run <span class="str">"[cloud] Write a short summary of the Paris climate agreement"</span>
+
+<span class="cm"># Alice's profile, force local (on-device) model</span>
+docker compose exec agsvchermagt alice run <span class="str">"[local] Review this private document: …"</span></code></pre>
+
+  <h3>Routing tags</h3>
+  <p>Prefix any message with a routing tag to override the smart router. Works in terminal chat, <code>run</code>, Discord, WhatsApp, and API calls.</p>
+  <div class="route-tags">
+    <div class="route-row">
+      <span class="route-tag rt-cloud">[cloud] / [c]</span>
+      <span class="route-arrow">→</span>
+      <span class="route-dest">Force MiniMax 2.7 (200K ctx)</span>
+      <span class="route-note">Long docs, grant writing, complex reasoning</span>
+    </div>
+    <div class="route-row">
+      <span class="route-tag rt-local">[local] / [l]</span>
+      <span class="route-arrow">→</span>
+      <span class="route-dest">Force Gemma-4-4B (on-device)</span>
+      <span class="route-note">Private data, offline, quick tasks</span>
+    </div>
+    <div class="route-row">
+      <span class="route-tag rt-auto">auto</span>
+      <span class="route-arrow">→</span>
+      <span class="route-dest">Smart-routed by content</span>
+      <span class="route-note">No tag — privacy keywords → local &nbsp;|&nbsp; complexity keywords → cloud</span>
+    </div>
+  </div>
+
+  <h3>API-based interaction</h3>
+  <p>For scripting and Open WebUI, use the OpenAI-compatible HTTP endpoint directly.</p>
+  <pre><span class="lang-tag">bash</span><code><span class="var">LITEM_APIKEY</span>=$(grep LITEM_APIKEY .env | cut -d= -f2)
+
+<span class="cm"># Default profile</span>
+curl -s http://localhost:12330/v1/chat/completions \
+  -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"model":"hermes","messages":[{"role":"user","content":"Hello, what can you do?"}]}'</span> \
+  | python3 -m json.tool
+
+<span class="cm"># Alice's profile (port 8643)</span>
+curl -s http://localhost:8643/v1/chat/completions \
+  -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"model":"hermes","messages":[{"role":"user","content":"[local] Summarise this private doc…"}]}'</span> \
+  | python3 -m json.tool
+
+<span class="cm"># Streaming response</span>
+curl -s http://localhost:12330/v1/chat/completions \
+  -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"model":"hermes","messages":[{"role":"user","content":"Tell me a short story."}],"stream":true}'</span></code></pre>
+
+  <h3>Tab completion</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Enable tab completion for profile names and subcommands (inside container)</span>
+docker compose exec agsvchermagt bash -c <span class="str">'eval "$(hermes completion bash)"'</span>
+
+<span class="cm"># Add permanently to the container user's shell profile</span>
+docker compose exec agsvchermagt bash -c \
+  <span class="str">'echo "eval \"\$(hermes completion bash)\"" >> ~/.bashrc'</span></code></pre>
+
+  <h3>Inspect running gateways</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Show all hermes processes</span>
+docker compose exec agsvchermagt ps aux | grep hermes
+
+<span class="cm"># Live logs (all profiles)</span>
+docker compose logs -f agsvchermagt
+
+<span class="cm"># Filter logs by profile name</span>
+docker compose logs agsvchermagt | grep alice
+
+<span class="cm"># Health checks</span>
+curl -sf http://localhost:12330/health &amp;&amp; echo <span class="ok">"default OK"</span>
+curl -sf http://localhost:8643/health  &amp;&amp; echo <span class="ok">"alice OK"</span></code></pre>
+
+  <div class="callout tip">
+    <span class="callout-icon">✓</span>
+    <p>Full CLI reference: <a href="https://hermes-agent.nousresearch.com/docs/user-guide/profiles">hermes-agent.nousresearch.com/docs/user-guide/profiles</a> &nbsp;|&nbsp; <a href="https://hermes-agent.nousresearch.com/docs/user-guide/cli">user-guide/cli</a></p>
+  </div>
+
+</main>
+
+<script>
+  function toggle(li) {
+    li.classList.toggle('checked');
+    const box = li.querySelector('.check-box');
+    box.textContent = li.classList.contains('checked') ? '✓' : '';
+    save();
+  }
+
+  function save() {
+    const state = [...document.querySelectorAll('.checklist li')].map(li => li.classList.contains('checked'));
+    localStorage.setItem('hermes-checklist', JSON.stringify(state));
+  }
+
+  function restore() {
+    const state = JSON.parse(localStorage.getItem('hermes-checklist') || '[]');
+    const items = document.querySelectorAll('.checklist li');
+    items.forEach((li, i) => {
+      if (state[i]) {
+        li.classList.add('checked');
+        li.querySelector('.check-box').textContent = '✓';
+      }
+    });
+  }
+
+  // Active sidebar link on scroll
+  function updateActive() {
+    const sections = document.querySelectorAll('h2[id]');
+    const links    = document.querySelectorAll('#sidebar nav a');
+    let current = '';
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 60) current = s.id; });
+    links.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  }
+
+  window.addEventListener('scroll', updateActive, { passive: true });
+  document.addEventListener('DOMContentLoaded', () => { restore(); updateActive(); });
+</script>
+</body>
+</html>

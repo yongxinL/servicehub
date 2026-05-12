@@ -28,8 +28,8 @@ services:
             - HERMES_PROFILES=${HERMES_PROFILES:-}
             - HERMES_DASHBOARD_PORT=12329
             - LITELLM_KEY=${LITEM_APIKEY}
-            - FIRECRAWL_API_URL=http://agsvcfircrl:3002
-            - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY:-}
+            - FIRECRAWL_API_URL=http://agsvcfastcrw:12382
+            - FIRECRAWL_API_KEY=${LITEM_APIKEY}
             # enable the API server
             - API_SERVER_ENABLED=true
             - API_SERVER_KEY=${LITEM_APIKEY}
@@ -55,28 +55,39 @@ services:
 
     # =========================================================================
     # LiteLLM Proxy — complexity-based routing + SearXNG web search
-    # SIMPLE → edge (local Gemma E2B), MEDIUM/COMPLEX → remote (MiniMax)
-    # Port 12321 (LAN only)
+    # SIMPLE → hephaestus (local Gemma), MEDIUM/COMPLEX → prometheus (MiniMax)
+    # Port 12380
     # =========================================================================
     agsvclitellm:
         build:
             context: ../shared/litellm/
         depends_on:
-            agsvcchatllm:
-                condition: service_healthy
             infrapgsqldb:
                 condition: service_healthy
+            agsvcfastcrw:
+                condition: service_started
         environment:
             - TZ=${TIME_ZONE}
             - LLM_MASTER_KEY=${LITEM_APIKEY}
             - DATABASE_URL=postgresql://${SQLDB_USER}:${SQLDB_PASS}@${PGRSQL_HOST}:${PGRSQL_PORT}/${LITEM_DBNAME}
-            - UI_PORT=${LITEM_UIPORT}
+            - UI_PORT=12380
             - UI_USERNAME=${LITEM_ADMUSR}
             - UI_PASSWORD=${LITEM_ADMPWD}
-            - MINIMAX_API_BASE=${LITEM_MMAX_BASE}
-            - MINIMAX_API_KEY=${LITEM_MMAX_APIKEY}
+            # Web search tools (FastCRW + SearXNG)
+            - FIRECRAWL_API_URL=http://agsvcfastcrw:12382
+            - FIRECRAWL_API_KEY=${LITEM_APIKEY}
+            # Edge — local llama.cpp or remote edge service
+            - LITEM_EDGE_API_BASE=${LITEM_HPH_APIURL:-http://agsvcchatllm:12386/v1}
+            - LITEM_EDGE_API_KEY=${LITEM_HPH_APIKEY:-none}
+            # Health check for auto-failover routing (used by smartrouter.py)
+            - LITEM_EDGE_HEALTH_URL=${LITEM_HPH_HLTURL:-http://agsvcchatllm:12386/health}
+            - LITEM_EDGE_HEALTH_TIMEOUT=3
+            - LITEM_EDGE_HEALTH_CACHE_TTL=30
+            # Cloud — public or remote cloud provider
+            - LITEM_CLOUD_API_BASE=${LITEM_PRM_APIBASE}
+            - LITEM_CLOUD_API_KEY=${LITEM_PRM_APIKEY}
         healthcheck:
-            test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${LITEM_APIKEY}", "http://localhost:${LITEM_UIPORT}/health/liveliness" ]
+            test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${LITEM_APIKEY}", "http://localhost:12380/health/liveliness" ]
             interval: 60s
             timeout: 5s
             retries: 3
@@ -85,7 +96,7 @@ services:
         networks:
             - subnet
         ports:
-            - "${LITEM_UIPORT}:${LITEM_UIPORT}"    # LiteLLM proxy (LAN only)
+            - 12380:12380
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/litellm:/opt/litellm   # place config.yaml here to override default
@@ -134,10 +145,10 @@ services:
             - TZ=${TIME_ZONE}
             - LLAMA_CACHE=/models
             - LLAMA_MODEL=${LLAMA_CHTMDL}
-            - LLAMA_PORT=12326
+            - LLAMA_PORT=12386
             - LLAMA_ARGS=${LLAMA_CHTARG}
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:12326/health" ]
+            test: [ "CMD", "curl", "-f", "http://localhost:12386/health" ]
             interval: 60s
             timeout: 10s
             retries: 3
@@ -146,9 +157,143 @@ services:
         networks:
             - subnet
         restart: unless-stopped
+        ports:
+            - 12386:12386
         ulimits:
             memlock:
                 soft: -1
                 hard: -1         # unlimited memlock — needed alongside IPC_LOCK
         volumes:
             - ${APPS_DATA}/llamacpp:/models
+
+    # =========================================================================
+    # FastCRW— Fast, lightweight Firecrawl alternative in Rust.
+    # Port 12382
+    # =========================================================================
+    agsvcfastcrw:
+        build:
+            context: ../shared/fastcrw/
+        depends_on:
+            agsvclighpda:
+                condition: service_healthy
+            agsvcsearxng:
+                condition: service_healthy
+            agsvcchromum:
+                condition: service_healthy
+        environment:
+            - RUST_LOG=info
+            - CRW_CONFIG=config.docker
+            - CRW_SERVER__PORT=12382
+            - CRW_CRAWLER__REQUESTS_PER_SECOND=5.0
+            # renderer urls, search url, and auth key are all set in
+            # config.docker.toml and substituted by entrypoint.sh at startup.
+            - FIRECRAWL_API_KEY=${LITEM_APIKEY}
+        image: agsvcfastcrw:latest
+        networks:
+            - subnet
+        ports:
+            - 12382:12382
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12382"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 15s
+        volumes:
+            - ../shared/fastcrw/config.docker.toml:/app/config.docker.toml:ro
+
+    # Primary JS renderer — lightweight (~64 MB), fast startup.
+    # Handles most static-JS sites. Falls back to Chrome for complex SPAs.
+    #
+    # `restart: unless-stopped` is load-bearing: LightPanda is known to OOM
+    # or segfault on adversarial pages (heavy SPA bundles, Cloudflare turnstile),
+    # and without auto-restart the breaker stays open forever and every JS
+    # request falls through to Chrome — defeating the lightweight tier.
+    # `mem_limit` keeps a runaway tab from dragging Chrome and the host into
+    # swap on small VPS instances.
+    agsvclighpda:
+        build:
+            context: ../shared/fastcrw/lightpanda/
+        healthcheck:
+            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9222"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 5s
+        image: agsvclighpda:latest
+        mem_limit: 1g
+        memswap_limit: 1g
+        networks:
+            - subnet
+        restart: unless-stopped
+
+    # Stealth JS renderer — browserless/chromium with built-in anti-fingerprint
+    # plugin. Drop-in replacement for the `chrome` tier on hosts that ship
+    # bot-detection (Cloudflare Turnstile, DataDome, PerimeterX). On the 1000-URL
+    # Firecrawl bench (2026-05-04): +2.5pt success rate (87.1% → 89.6%) over
+    # vanilla chromedp/headless-shell, p50 1725ms.
+    agsvcchromum:
+        build:
+            context: ../shared/fastcrw/chromium/
+        environment:
+            # TOKEN is required by browserless v2 — clients must pass `?token=...`.
+            # Default is a published placeholder; override via `.env` in production:
+            #   echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env
+            - TOKEN=${LITEM_APIKEY:-agsvcfcrwche}
+            - PORT=12385
+            - CONCURRENT=15
+            - MAX_QUEUE_LENGTH=30
+            - TIMEOUT=30000
+            # Kill the container instead of accepting traffic in a degraded state;
+            # without this, browserless can wedge in "healthy but refusing CDP".
+            - EXIT_ON_HEALTH_FAILURE=true
+        healthcheck:
+            # TCP accept on browserless's listen port. App-level CDP failures
+            # (chromium pool wedged, /chromium routing broken) are caught by
+            # browserless's own supervision via `EXIT_ON_HEALTH_FAILURE=true`
+            # above — it kills the container and `restart: unless-stopped`
+            # brings it back up. A bash-based HTTP probe with token
+            # interpolation is fragile (compose-vs-runtime expansion of $TOKEN,
+            # and short-lived /dev/tcp FDs racing with HTTP/1.0 connection close)
+            # and gave us nothing this combo doesn't already.
+            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12385"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 15s
+        image: agsvcfcrwche:latest
+        mem_limit: 3g
+        memswap_limit: 3g
+        networks:
+            - subnet
+        restart: unless-stopped
+        shm_size: "2g"
+        # Confine browserless's user-data-dirs and downloads to tmpfs so a
+        # runaway session can't fill the host disk (we hit ENOSPC during
+        # bench tuning when this was missing). Browserless v2 writes session
+        # state under /tmp by default, so a single bounded tmpfs is enough.
+        tmpfs:
+            - /tmp:size=512m
+
+    agsvcsearxng:
+        build:
+            context: ../shared/searxng/
+        environment:
+            - TZ=${TIME_ZONE}
+            - SEARXNG_PORT=12383
+            - SEARXNG_BIND_ADDRESS=0.0.0.0
+            - SEARXNG_BASE_URL=http://agsvcsearxng:12383
+            - SEARXNG_SECRET=${LITEM_APIKEY:-agsvcsearxng}
+        image: agsvcsearxng:latest
+        networks:
+            - subnet
+        ports:
+            - 12383:12383
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "/usr/sbin/wget", "-qO", "/dev/null", "http://localhost:12383/healthz"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 15s

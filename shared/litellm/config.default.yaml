@@ -4,22 +4,22 @@
 # Runtime override: place your config.yaml at /opt/litellm/config.yaml
 # The entrypoint.sh uses it if present, otherwise this default is used.
 #
-# ── Routing (all hermes-agent requests use model="broker") ──────────
+# ── Routing (all hermes-agent requests use model="hermes") ───────────────
 #
-#  Rule 1  Privacy keywords         → edge  (data never leaves the host)
-#  Rule 2  Input > 50K tokens       → remote (large-document workload)
-#  Rule 3  Complexity keywords       → remote (formal / logic-heavy task)
-#  Rule 4  Default                   → edge  (fast, free, private)
+#  Rule 1  Privacy keywords         → hephaestus  (data never leaves the host)
+#  Rule 2  Input > 50K tokens       → prometheus  (large-document workload)
+#  Rule 3  Complexity keywords      → prometheus  (formal / logic-heavy task)
+#  Rule 4  Default                  → hephaestus  (fast, free, private)
 #
-#  Fallback policy (num_retries: 1 = 2 total attempts per provider):
-#    edge  unavailable → remote
-#    remote unavailable → edge
-#    Both fail             → LiteLLM returns error to caller
+#  Fallback policy (num_retries: 0 — fall through on first error):
+#    hephaestus  unavailable → prometheus
+#    prometheus  unavailable → hephaestus
+#    Both fail               → LiteLLM returns error to caller
 #
 #  Safety net: context_window_fallbacks auto-escalates any request that
-#  overflows Gemma-4-4B's 120K soft cap to MiniMax before LiteLLM errors.
+#  overflows Gemma-4-4B's 120K soft cap to prometheus before LiteLLM errors.
 #
-#  See hermes_router.py for the full keyword lists and routing logic.
+#  See smartrouter.py for the full keyword lists and routing logic.
 # =============================================================================
 
 model_list:
@@ -29,14 +29,16 @@ model_list:
   # Use for: quick tasks, creative writing, emails, translation, RAG on
   #          private docs, classroom materials, flashcards, CLI assistance,
   #          log preprocessing, boilerplate code, sensitive personal files.
-  - model_name: edge
+  - model_name: hephaestus
     litellm_params:
       model: openai/gemma
-      api_base: http://agsvcchatllm:12326/v1
-      api_key: "none"
-      timeout: 90                  # Gemma 4B needs up to ~60 s for medium-length outputs
+      api_base: os.environ/LITEM_EDGE_API_BASE
+      api_key: os.environ/LITEM_EDGE_API_KEY
+      timeout: 60                  # Gemma 4B needs up to ~60 s for medium-length outputs
       max_parallel_requests: 2     # 3rd concurrent request overflows to remote
     model_info:
+      input_cost_per_token: 0.00000015  # $0.15 / M tokens
+      output_cost_per_token: 0.0000006 # $0.6 / M tokens
       max_input_tokens: 120000     # soft cap — leaves headroom for output tokens
 
   # ── Tier 2: Cloud inference ──────────────────────────────────────────────
@@ -44,65 +46,108 @@ model_list:
   # Use for: long-form reports, academic essays, multi-document analysis,
   #          curriculum mapping, grant writing, legal/philosophy, root-cause
   #          synthesis, certification study, complex multi-step planning.
-  - model_name: remote
+  - model_name: prometheus
     litellm_params:
       model: anthropic/MiniMax-M2.7
-      api_base: os.environ/MINIMAX_API_BASE
-      api_key: os.environ/MINIMAX_API_KEY
+      api_base: os.environ/LITEM_CLOUD_API_BASE
+      api_key: os.environ/LITEM_CLOUD_API_KEY
       timeout: 15                  # quick failure detection; bump if long responses get cut off
     model_info:
+      input_cost_per_token: 0.0000002  # $0.3 / M tokens
+      output_cost_per_token: 0.0000012 # $1.2 / M tokens
       max_input_tokens: 200000
 
   # ── Virtual router (hermes-agent entry point) ────────────────────────────
-  # hermes_router.HermesRouter intercepts requests to this model name and
-  # rewrites data["model"] to edge or remote before LiteLLM resolves
-  # the deployment.  This entry exists so LiteLLM accepts the model name;
-  # it also acts as the degraded-mode fallback (→ edge) if the callback
-  # import fails.
-  - model_name: broker
+  # smartrouter.SmartRouter intercepts requests to this model name and
+  # rewrites data["model"] to hephaestus or prometheus before LiteLLM resolves
+  # the deployment.  This entry exists so LiteLLM accepts the model name
+  # and displays it in the UI model list.
+  #
+  # litellm_params here are the degraded-mode fallback: they are only called
+  # if the smartrouter callback fails to import at startup.  They mirror
+  # hephaestus so the fallback is safe and self-consistent.
+  #
+  # "model: hermes" (no provider prefix) is NOT valid — LiteLLM cannot
+  # determine the provider and silently drops the entry from the model list.
+  # Use openai/gemma (same as hephaestus) so LiteLLM can register and display it.
+  - model_name: hermes
     litellm_params:
-      model: openai/fast
-      api_base: http://agsvcchatllm:12326/v1
-      api_key: "none"
+      model: openai/gemma
+      api_base: os.environ/LITEM_EDGE_API_BASE
+      api_key: os.environ/LITEM_EDGE_API_KEY
       timeout: 60
+    model_info:
+      input_cost_per_token: 0.0000001  # $0.1 / M tokens
+      output_cost_per_token: 0.000001  # $0.1 / M tokens
 
 router_settings:
   # 0 retries — fall through to the next provider on first timeout/error.
   # Worst-case wait: 15 s (local timeout) + 15 s (cloud timeout) = 30 s max.
   num_retries: 0
 
-  # Automatically escalate to remote when a request overflows the local
+  # Automatically escalate to prometheus when a request overflows the local
   # model's context window.  This is the safety net for the 50K-token
-  # threshold in hermes_router.py — any request that slips through and
+  # threshold in smartrouter.py — any request that slips through and
   # exceeds 120K tokens is escalated here instead of returning a 400 error.
   context_window_fallbacks:
-    - edge:
-        - remote
-    - broker:
-        - remote
+    - hephaestus:
+        - prometheus
+    - hermes:
+        - prometheus
 
   # Provider-failure fallback chain (timeout, 5xx, connection error, OOM, etc.)
-  #   edge  down → try remote
-  #   remote down → try edge   (bidirectional)
-  #   broker degraded → try remote, then edge
+  #   hephaestus  down → try prometheus
+  #   prometheus  down → try hephaestus  (bidirectional)
+  #   hermes degraded  → try prometheus, then hephaestus
   # LiteLLM tracks already-attempted models per request, so fast→cloud→fast
-  # does not loop — the second edge attempt is skipped and an error is
+  # does not loop — the second hephaestus attempt is skipped and an error is
   # returned to the caller.
   fallbacks:
-    - edge:
-        - remote
-    - remote:
-        - edge
-    - broker:
-        - remote
-        - edge
+    - hephaestus:
+        - prometheus
+    - prometheus:
+        - hephaestus
+    - hermes:
+        - prometheus
+        - hephaestus
 
 litellm_settings:
-  # Content-based routing hook — rewrites broker → edge / remote
+  # Content-based routing hook — rewrites hermes → hephaestus / prometheus
   # Must reference the pre-instantiated module-level object, not the class —
   # LiteLLM's get_instance_fn returns getattr(module, name) without instantiating.
   callbacks:
-    - hermes_router.hermes_router_callback
+    - smartrouter.smart_router_callback
+
+  # Automatically execute firecrawl-search tool calls made by the model.
+  # Without this, LiteLLM passes the tool definition to the model but does NOT
+  # execute the search — the caller would have to handle the tool call manually.
+  # enabled_providers must match the provider prefix of the models in use:
+  #   hephaestus → openai/gemma    → "openai"
+  #   prometheus → anthropic/...   → "anthropic"
+  websearch_interception:
+    enabled_providers:
+      - openai
+      - anthropic
+    search_tool_name: firecrawl-search
+
+  # Enable Prometheus metrics at /metrics endpoint on UI port
+  prometheus_metrics: true
+
+  # Detailed metrics: include model, api_base, and custom metadata
+  set_verbose: true
+
+# ── Search Tool (FastCRW) ──────────────────────────────────────────────────
+#
+# All search and scrape requests route through FastCRW (agsvcfastcrw:12382).
+# FastCRW handles SearXNG internally via its /v1/search endpoint — no direct
+# SearXNG connection is needed from LiteLLM or the agent.
+# ──────────────────────────────────────────────────────────────────────────
+search_tools:
+  - search_tool_name: firecrawl-search
+    litellm_params:
+      search_provider: firecrawl
+      api_base: os.environ/FIRECRAWL_API_URL
+      api_key: os.environ/FIRECRAWL_API_KEY
 
 general_settings:
   master_key: os.environ/LLM_MASTER_KEY

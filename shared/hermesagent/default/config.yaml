@@ -7,22 +7,23 @@
 # LLM — routes through LiteLLM proxy (complexity-based routing)
 custom_providers:
 - name: LiteLLM
-  base_url: http://agsvclitellm:12321/v1
+  base_url: http://agsvclitellm:12380/v1
   api_key: <your-litellm-master-key>
-  model: broker
+  model: hermes
 
 model:
-  default: broker
+  default: hermes
   provider: custom
-  base_url: http://agsvclitellm:12321/v1
+  base_url: http://agsvclitellm:12380/v1
   api_key: <your-litellm-master-key>
 
 # ---------------------------------------------------------------------------
 # API server port — set a unique port per profile when running multiple profiles
-# in the same container. Default is 8642.
-# Profile 1 (e.g. alice): 8642  (default, no change needed)
-# Profile 2 (e.g. bob):   8643
-# Profile 3 (e.g. charles): 8644
+# in the same container. The default profile uses 12330; named profiles start at 8643.
+# Default profile:            12330  (no change needed)
+# Profile 1 (e.g. alice):    8643
+# Profile 2 (e.g. bob):      8644
+# Profile 3 (e.g. charles):  8645
 # ---------------------------------------------------------------------------
 api_server:
   port: 12330
@@ -41,9 +42,17 @@ terminal:
     - FIRECRAWL_API_URL
     - FIRECRAWL_API_KEY
 
-# Web search — self-hosted Firecrawl backed by SearXNG
+# Browser — CDP connection to the Chromium renderer in the same stack.
+# token= uses the same key as FastCRW auth, substituted at startup.
+# Switch cdp_url to ws://agsvclighpda:9222/ for the lighter LightPanda renderer.
+browser:
+  cdp_url: "ws://agsvcchromum:12385/chromium?token=<your-firecrawl-api-key>&stealth=true"
+
+# Web — FastCRW handles both search (/v1/search → SearXNG internally) and
+# scraping (/v1/scrape). No separate SearXNG connection needed.
 web:
   backend: firecrawl
+  base_url: http://agsvcfastcrw:12382
   api_key: <your-firecrawl-api-key>
 
 # Memory
