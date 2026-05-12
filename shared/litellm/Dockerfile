@@ -9,10 +9,10 @@ RUN apk add --no-cache curl nano
 
 # Bake default config and routing callback into image
 COPY config.default.yaml /app/config.default.yaml
-COPY hermes_router.py /app/hermes_router.py
+COPY smart_router.py /app/smart_router.py
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 12321
+EXPOSE 12380
 
 ENTRYPOINT ["/entrypoint.sh"]

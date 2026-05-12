@@ -1,26 +1,39 @@
 """
-hermes_router.py — LiteLLM pre-call routing hook for hermes-agent
+smartrouter.py — LiteLLM pre-call routing hook for hermes-agent
 
-All requests arrive as model="broker".  This hook examines the
+All requests arrive as model="hermes".  This hook examines the
 message content and rewrites data["model"] to either:
 
-  edge   — local Gemma-4-4B (128K ctx, private, low-latency)
-  remote  — MiniMax 2.7 (200K ctx, logic-heavy, long-form)
+  hephaestus — local Gemma-4-4B (128K ctx, private, low-latency)
+  prometheus  — MiniMax 2.7 (200K ctx, logic-heavy, long-form)
 
 Decision order (first match wins):
   1. Explicit tag        → honours user intent unconditionally
-       [cloud] / [c]     → remote
-       [local] / [l]     → edge
-  2. Privacy keywords   → edge  (data never leaves the host)
-  3. Input > 50K tokens → remote (large-scale document workload)
-  4. Complexity keywords → remote (formal / logic-heavy task)
-  5. Default             → edge
+       [cloud] / [c]     → prometheus
+       [edge] / [e]      → hephaestus
+  2. Health check       → hephaestus unhealthy → prometheus (auto-failover)
+  3. Privacy keywords   → hephaestus  (data never leaves the host)
+  4. Input > 50K tokens → prometheus  (large-scale document workload)
+  5. Complexity keywords → prometheus (formal / logic-heavy task)
+  6. Default             → hephaestus
 
 Explicit tags are stripped from the message before forwarding so the
 model never sees the routing instruction.
 """
+import os as _os
+
+# Model names — configurable via env vars to match config.default.yaml
+_SMARTROUTER_MODEL = _os.environ.get("HERMES_MODEL", "hermes")
+_EDGEAI_MODEL = _os.environ.get("HEPHAESTUS_MODEL", "hephaestus")
+_CLOUDAI_MODEL = _os.environ.get("PROMETHEUS_MODEL", "prometheus")
+
+# Routing decision tags in logs
+_ROUTER_TAG = _SMARTROUTER_MODEL
+
 import re
 import time
+import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 from typing import Any
 
@@ -29,15 +42,15 @@ from litellm.integrations.custom_logger import CustomLogger
 
 def _log(msg: str) -> None:
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    print(f"{ts} [broker] {msg}", flush=True)
+    print(f"{ts} [router] {msg}", flush=True)
 
 # Explicit routing tags typed by the user at the start of a message.
 # The tag (and any surrounding whitespace / punctuation) is stripped before
 # the message is forwarded so the model never sees the routing instruction.
-#   [cloud] or [c]  → remote
-#   [local] or [l]  → edge
+#   [cloud] or [c]  → prometheus
+#   [edge] or [e]   → hephaestus
 _TAG_CLOUD = re.compile(r"^\s*\[\s*(?:cloud|c)\s*\]\s*", re.IGNORECASE)
-_TAG_LOCAL = re.compile(r"^\s*\[\s*(?:local|l)\s*\]\s*", re.IGNORECASE)
+_TAG_EDGE = re.compile(r"^\s*\[\s*(?:edge|e)\s*\]\s*", re.IGNORECASE)
 
 # Approx chars-per-token for English prose; used for fast estimation.
 _CHARS_PER_TOKEN = 4
@@ -45,6 +58,12 @@ _CHARS_PER_TOKEN = 4
 # 50K tokens ≈ 200 pages of text.  context_window_fallbacks in config.yaml
 # provides a second safety net at the model's hard limit (120K tokens).
 _CLOUD_TOKEN_THRESHOLD = 50_000
+
+# Hephaestus (edge LLM) health check — URL configurable via LITEM_EDGE_HEALTH_URL env var
+_EDGE_HEALTH_URL = _os.environ.get("LITEM_EDGE_HEALTH_URL", "http://agsvcchatllm:12326/health")
+_EDGE_HEALTH_TIMEOUT = int(_os.environ.get("LITEM_EDGE_HEALTH_TIMEOUT", "3"))  # seconds
+# Cache health for this many seconds to avoid hammering the endpoint
+_HEALTH_CACHE_TTL = int(_os.environ.get("LITEM_EDGE_HEALTH_CACHE_TTL", "30"))
 
 # ---------------------------------------------------------------------------
 # Privacy / sensitivity — always stay local regardless of other signals.
@@ -151,10 +170,38 @@ def _extract_text(messages: list) -> str:
     return " ".join(parts)
 
 
+def _check_edge_health() -> bool:
+    """
+    Check if hephaestus (llama.cpp server) is reachable.
+    Returns True if healthy, False if unreachable or error.
+    Results are cached for _HEALTH_CACHE_TTL seconds.
+    """
+    now = time.time()
+    # Use module-level cache for the health check result
+    cached_result = getattr(_check_edge_health, "_cache", (None, None))
+    if cached_result[0] is not None and (now - cached_result[1]) < _HEALTH_CACHE_TTL:
+        return cached_result[0]
+
+    healthy = False
+    try:
+        req = urllib.request.Request(
+            _EDGE_HEALTH_URL,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=_EDGE_HEALTH_TIMEOUT) as resp:
+            healthy = resp.status == 200
+    except (urllib.error.URLError, OSError, TimeoutError):
+        pass
+
+    # Cache the result
+    _check_edge_health._cache = (healthy, now)
+    return healthy
+
+
 def _pop_explicit_tag(messages: list) -> str | None:
     """
-    Scan the last user message for a leading [cloud/c] or [local/l] tag.
-    If found, strip the tag in-place and return "remote" or "edge".
+    Scan the last user message for a leading [cloud/c] or [edge/e] tag.
+    If found, strip the tag in-place and return _CLOUDAI_MODEL or _EDGEAI_MODEL.
     Returns None when no explicit tag is present.
     """
     for msg in reversed(messages):
@@ -164,10 +211,10 @@ def _pop_explicit_tag(messages: list) -> str | None:
         if isinstance(content, str):
             if _TAG_CLOUD.match(content):
                 msg["content"] = _TAG_CLOUD.sub("", content)
-                return "remote"
-            if _TAG_LOCAL.match(content):
-                msg["content"] = _TAG_LOCAL.sub("", content)
-                return "edge"
+                return _CLOUDAI_MODEL
+            if _TAG_EDGE.match(content):
+                msg["content"] = _TAG_EDGE.sub("", content)
+                return _EDGEAI_MODEL
         elif isinstance(content, list):
             # Multimodal: check first text block only
             for block in content:
@@ -175,20 +222,21 @@ def _pop_explicit_tag(messages: list) -> str | None:
                     text = block.get("text", "")
                     if _TAG_CLOUD.match(text):
                         block["text"] = _TAG_CLOUD.sub("", text)
-                        return "remote"
-                    if _TAG_LOCAL.match(text):
-                        block["text"] = _TAG_LOCAL.sub("", text)
-                        return "edge"
+                        return _CLOUDAI_MODEL
+                    if _TAG_EDGE.match(text):
+                        block["text"] = _TAG_EDGE.sub("", text)
+                        return _EDGEAI_MODEL
                     break  # only inspect the first text block
         break  # only inspect the last user message
     return None
 
 
-class HermesRouter(CustomLogger):
+class SmartRouter(CustomLogger):
     """
-    LiteLLM custom pre-call hook that rewrites model="broker" to
-    either "edge" or "remote" before deployment resolution.
-    Requests that already target edge or remote are passed through.
+    LiteLLM custom pre-call hook that rewrites model=_SMARTROUTER_MODEL to
+    either _EDGEAI_MODEL (hephaestus) or _CLOUDAI_MODEL (prometheus) before
+    deployment resolution.  Requests already targeting hephaestus or prometheus
+    are passed through unchanged.
     """
 
     def __init__(self) -> None:
@@ -205,11 +253,11 @@ class HermesRouter(CustomLogger):
         data: dict,
         call_type: str,
     ) -> dict:
-        # Strip provider prefix: Hermes sends "openai/broker";
-        # bare "broker" also accepted for direct API callers.
+        # Strip provider prefix: Hermes sends "openai/hermes";
+        # bare "hermes" also accepted for direct API callers.
         raw_model = data.get("model", "")
-        model_name = raw_model.split("/", 1)[-1]  # "openai/broker" → "broker"
-        if model_name != "broker":
+        model_name = raw_model.split("/", 1)[-1]
+        if model_name != _SMARTROUTER_MODEL:
             return data
 
         messages = data.get("messages") or []
@@ -226,25 +274,35 @@ class HermesRouter(CustomLogger):
             self._store_ctx(data, explicit, reason)
             return data
 
+        # Rule 2: hephaestus health check — route to prometheus if unreachable
+        # (unless user explicitly chose local via tag, which is already handled above)
+        if not _check_edge_health():
+            _log("hephaestus unhealthy → routing to prometheus")
+            data["model"] = _CLOUDAI_MODEL
+            data["disable_fallbacks"] = True
+            reason = "edge_unhealthy"
+            self._store_ctx(data, _CLOUDAI_MODEL, reason)
+            return data
+
         text = _extract_text(messages)
         approx_tokens = len(text) // _CHARS_PER_TOKEN
 
-        # Rule 2: privacy — data must never leave the host, even if local is slow
+        # Rule 3: privacy — data must never leave the host, even if local is slow
         if _FAST_OVERRIDE.search(text):
-            data["model"] = "edge"
+            data["model"] = _EDGEAI_MODEL
             data["disable_fallbacks"] = True
             reason = "privacy_keyword"
-        # Rule 3: large input — cloud (large-document workload)
+        # Rule 4: large input — prometheus (large-document workload)
         elif approx_tokens > _CLOUD_TOKEN_THRESHOLD:
-            data["model"] = "remote"
+            data["model"] = _CLOUDAI_MODEL
             reason = f"large_input (~{approx_tokens:,} tokens)"
-        # Rule 4: complexity keyword — cloud
+        # Rule 5: complexity keyword — prometheus
         elif _CLOUD_SIGNALS.search(text):
-            data["model"] = "remote"
+            data["model"] = _CLOUDAI_MODEL
             reason = "complexity_keyword"
-        # Rule 5: default — fast (local, private, free)
+        # Rule 6: default — hephaestus (fast, local, private, free)
         else:
-            data["model"] = "edge"
+            data["model"] = _EDGEAI_MODEL
             reason = "default"
 
         _log(f"→ {data['model']}  (reason: {reason})")
@@ -280,4 +338,4 @@ class HermesRouter(CustomLogger):
 # Pre-instantiated singleton — config.yaml must reference this attribute,
 # not the class.  LiteLLM's get_instance_fn returns getattr(module, name)
 # as-is; pointing it at a class gives an uninstantiated class, not an instance.
-hermes_router_callback = HermesRouter()
+smart_router_callback = SmartRouter()
