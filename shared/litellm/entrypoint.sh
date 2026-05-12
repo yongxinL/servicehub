@@ -14,7 +14,7 @@ set -euo pipefail
 USER_CONFIG="/opt/litellm/config.yaml"
 DEFT_CONFIG="/app/config.default.yaml"
 RUNT_CONFIG="/app/litellm-config.yaml"
-RUNT_UIPORT="${UI_PORT:-12321}"
+RUNT_UIPORT="${UI_PORT:-12380}"
 
 if [[ -f "${USER_CONFIG}" ]]; then
     echo "[litellm] Using user configuration: ${USER_CONFIG}"
