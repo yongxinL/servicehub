@@ -4,17 +4,20 @@
 # Full reference: https://hermes-agent.nousresearch.com/docs/user-guide/configuration
 # =============================================================================
 
-# LLM — routes through LiteLLM proxy (complexity-based routing)
+# LLM — routes through LiteLLM proxy (complexity-based routing).
+# <your-litellm-api-base> and <your-litellm-master-key> are substituted at
+# container start by start-gateways.sh from the LITELLM_API_BASE and
+# LITELLM_API_KEY env vars (set in compose/agent.yml).
 custom_providers:
 - name: LiteLLM
-  base_url: http://agsvclitellm:12380/v1
+  base_url: <your-litellm-api-base>
   api_key: <your-litellm-master-key>
   model: hermes
 
 model:
   default: hermes
   provider: custom
-  base_url: http://agsvclitellm:12380/v1
+  base_url: <your-litellm-api-base>
   api_key: <your-litellm-master-key>
 
 # ---------------------------------------------------------------------------
@@ -38,7 +41,8 @@ terminal:
   backend: docker
   modal_mode: auto
   docker_forward_env:
-    - LITELLM_KEY
+    - LITELLM_API_BASE
+    - LITELLM_API_KEY
     - FIRECRAWL_API_URL
     - FIRECRAWL_API_KEY
 
@@ -46,13 +50,15 @@ terminal:
 # token= uses the same key as FastCRW auth, substituted at startup.
 # Switch cdp_url to ws://agsvclighpda:9222/ for the lighter LightPanda renderer.
 browser:
-  cdp_url: "ws://agsvcchromum:12385/chromium?token=<your-firecrawl-api-key>&stealth=true"
+  cdp_url: "ws://agsvcchromum:12363/chromium?token=<your-firecrawl-api-key>&stealth=true"
 
 # Web — FastCRW handles both search (/v1/search → SearXNG internally) and
 # scraping (/v1/scrape). No separate SearXNG connection needed.
+# base_url and api_key placeholders are substituted at container start by
+# start-gateways.sh from the FIRECRAWL_API_URL and FIRECRAWL_API_KEY env vars.
 web:
   backend: firecrawl
-  base_url: http://agsvcfastcrw:12382
+  base_url: <your-firecrawl-api-url>
   api_key: <your-firecrawl-api-key>
 
 # Memory
