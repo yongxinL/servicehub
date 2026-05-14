@@ -73,10 +73,17 @@ warn_placeholders() {
 
 # ---------------------------------------------------------------------------
 # substitute_placeholders <target-file>
-# Replaces <your-litellm-master-key> and <your-firecrawl-api-key> in the
-# target file with actual environment variable values, but only when the
-# variable is non-empty — leaving the placeholder intact otherwise so the
-# user sees a clear signal that a value still needs to be filled in.
+# Replaces <your-litellm-api-base>, <your-litellm-master-key>,
+# <your-firecrawl-api-url>, and <your-firecrawl-api-key> in the target file
+# with actual environment variable values, but only when the variable is
+# non-empty — leaving the placeholder intact otherwise so the user sees a
+# clear signal that a value still needs to be filled in.
+#
+# Env vars consumed (set in compose/agent.yml from the root .env):
+#   LITELLM_API_BASE   ← LITEM_APIBASE  (LiteLLM proxy base URL)
+#   LITELLM_API_KEY    ← LITEM_APIKEY   (LiteLLM master key)
+#   FIRECRAWL_API_URL  ← FCRW_APIURL    (FastCRW base URL)
+#   FIRECRAWL_API_KEY  ← LITEM_APIKEY   (FastCRW auth, same key)
 # ---------------------------------------------------------------------------
 substitute_placeholders() {
     local file="$1"
@@ -84,16 +91,34 @@ substitute_placeholders() {
         return
     fi
 
-    # LITELLM_KEY for custom_providers[0].api_key
-    if grep -q '<your-litellm-master-key>' "${file}" 2>/dev/null; then
-        local litellm_key="${LITELLM_KEY:-}"
-        if [[ -n "${litellm_key}" ]]; then
-            sed -i "s|<your-litellm-master-key>|${litellm_key}|g" "${file}"
-            echo "[hermes] Substituted LITELLM_KEY in ${file}"
+    # LITELLM_API_BASE for custom_providers[0].base_url and model.base_url
+    if grep -q '<your-litellm-api-base>' "${file}" 2>/dev/null; then
+        local litellm_base="${LITELLM_API_BASE:-}"
+        if [[ -n "${litellm_base}" ]]; then
+            sed -i "s|<your-litellm-api-base>|${litellm_base}|g" "${file}"
+            echo "[hermes] Substituted LITELLM_API_BASE in ${file}"
         fi
     fi
 
-    # FIRECRAWL_API_KEY for web.api_key
+    # LITELLM_API_KEY for custom_providers[0].api_key and model.api_key
+    if grep -q '<your-litellm-master-key>' "${file}" 2>/dev/null; then
+        local litellm_key="${LITELLM_API_KEY:-}"
+        if [[ -n "${litellm_key}" ]]; then
+            sed -i "s|<your-litellm-master-key>|${litellm_key}|g" "${file}"
+            echo "[hermes] Substituted LITELLM_API_KEY in ${file}"
+        fi
+    fi
+
+    # FIRECRAWL_API_URL for web.base_url
+    if grep -q '<your-firecrawl-api-url>' "${file}" 2>/dev/null; then
+        local firecrawl_url="${FIRECRAWL_API_URL:-}"
+        if [[ -n "${firecrawl_url}" ]]; then
+            sed -i "s|<your-firecrawl-api-url>|${firecrawl_url}|g" "${file}"
+            echo "[hermes] Substituted FIRECRAWL_API_URL in ${file}"
+        fi
+    fi
+
+    # FIRECRAWL_API_KEY for web.api_key and browser.cdp_url token
     if grep -q '<your-firecrawl-api-key>' "${file}" 2>/dev/null; then
         local firecrawl_key="${FIRECRAWL_API_KEY:-}"
         if [[ -n "${firecrawl_key}" ]]; then
