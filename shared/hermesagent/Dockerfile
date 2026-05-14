@@ -22,7 +22,8 @@ ENV HOME="/opt/data"
 COPY default/ /opt/hermes-defaults/
 
 COPY start-gateways.sh /usr/local/bin/start-gateways.sh
-RUN chmod +x /usr/local/bin/start-gateways.sh
+COPY init-profile.sh   /usr/local/bin/init-profile.sh
+RUN chmod +x /usr/local/bin/start-gateways.sh /usr/local/bin/init-profile.sh
 
 # Dashboard port only — gateway (8642) is internal/outbound, never published.
 EXPOSE 12329
