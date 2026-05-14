@@ -12,10 +12,10 @@ This deployment runs four containers together:
 
 | Container | Role | Internal address |
 |---|---|---|
-| `agsvcfastcrw` | FastCRW API server | `http://agsvcfastcrw:12382` |
+| `agsvcfastcrw` | FastCRW API server | `http://agsvcfastcrw:12360` |
 | `agsvclighpda` | LightPanda JS renderer (lightweight) | `ws://agsvclighpda:9222` |
-| `agsvcchromum` | Browserless/Chromium renderer (stealth) | `ws://agsvcchromum:3000` |
-| `agsvcsearxng` | SearXNG search engine sidecar | `http://agsvcsearxng:12383` |
+| `agsvcchromum` | Browserless/Chromium renderer (stealth) | `ws://agsvcchromum:12363` |
+| `agsvcsearxng` | SearXNG search engine sidecar | `http://agsvcsearxng:12361` |
 
 ---
 
@@ -63,11 +63,11 @@ Files changed:
 
 ### 2. Shared API key — no separate credential needed
 
-`FIRECRAWL_API_KEY` in `compose/agent.yml` defaults to `${LITEM_APIKEY}` via shell fallback (`:-`). This means you do not need to set a separate key in `.env`; FastCRW, the Hermes agent, and LiteLLM all share the same master key automatically. Set `FIRECRAWL_API_KEY` in `.env` explicitly only if you need a distinct credential.
+`FIRECRAWL_API_KEY` in `compose/agent.yml` defaults to `${LITEM_APIKEY}` via shell fallback (`:-`). This means you do not need to set a separate key in `.env`; FastCRW and the Hermes agent share the same master key automatically. Set `FIRECRAWL_API_KEY` in `.env` explicitly only if you need a distinct credential.
 
 ### 3. Port
 
-FastCRW is exposed on **12382** (upstream default is 3000).
+FastCRW is exposed on **12360** (upstream default is 3000).
 
 ### 4. Rate limiting
 
@@ -95,20 +95,20 @@ KEY=$(grep LITEM_APIKEY .env | cut -d= -f2 | tr -d '"')
 ### Health check
 
 ```bash
-curl -sf http://localhost:12382/health | jq .
+curl -sf http://localhost:12360/health | jq .
 ```
 
 ### Verify API key auth
 
 ```bash
 # Correct key — should return 200 with scraped content
-curl -s http://localhost:12382/v1/scrape \
+curl -s http://localhost:12360/v1/scrape \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com"}' | jq '.data.markdown | .[0:200]'
 
 # Wrong key — should return 401
-curl -si http://localhost:12382/v1/scrape \
+curl -si http://localhost:12360/v1/scrape \
   -H "Authorization: Bearer wrong-key" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com"}' | head -1
@@ -124,7 +124,7 @@ docker compose exec agsvcfastcrw \
 ### Scrape — auto renderer
 
 ```bash
-curl -s http://localhost:12382/v1/scrape \
+curl -s http://localhost:12360/v1/scrape \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com","formats":["markdown"]}' \
@@ -136,7 +136,7 @@ The `renderDecision.chain` field shows which tier(s) were tried.
 ### Scrape — force LightPanda (agsvclighpda)
 
 ```bash
-curl -s http://localhost:12382/v1/scrape \
+curl -s http://localhost:12360/v1/scrape \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com","renderer":"lightpanda"}' \
@@ -152,7 +152,7 @@ docker compose logs agsvclighpda --tail 30
 ### Scrape — force Chrome (agsvcchromum)
 
 ```bash
-curl -s http://localhost:12382/v1/scrape \
+curl -s http://localhost:12360/v1/scrape \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com","renderer":"chrome"}' \
@@ -169,14 +169,14 @@ docker compose logs agsvcchromum --tail 30
 
 ```bash
 # Returns result links only
-curl -s http://localhost:12382/v1/search \
+curl -s http://localhost:12360/v1/search \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{"query":"rust web scraper 2026","limit":5}' \
   | jq '.data[] | .url'
 
 # Search and scrape each result to markdown
-curl -s http://localhost:12382/v1/search \
+curl -s http://localhost:12360/v1/search \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -190,20 +190,20 @@ curl -s http://localhost:12382/v1/search \
 
 ```bash
 # Start crawl, get job ID
-JOB=$(curl -s http://localhost:12382/v1/crawl \
+JOB=$(curl -s http://localhost:12360/v1/crawl \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com","limit":10}' | jq -r '.id')
 
 # Poll for results
-curl -s http://localhost:12382/v1/crawl/$JOB \
+curl -s http://localhost:12360/v1/crawl/$JOB \
   -H "Authorization: Bearer $KEY" | jq '{status: .status, pages: (.data | length)}'
 ```
 
 ### URL discovery (map)
 
 ```bash
-curl -s http://localhost:12382/v1/map \
+curl -s http://localhost:12360/v1/map \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://firecrawl.dev"}' | jq '.links[0:10]'

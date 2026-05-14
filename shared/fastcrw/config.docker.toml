@@ -12,7 +12,7 @@ deadline_ms_default = 15000
 
 [server]
 host = "0.0.0.0"
-port = 12382
+port = 12360
 request_timeout_secs = 120
 # Disable global rps cap for benchmark + production load — the bench fires
 # 8-concurrency for 5-10s and gets rate-limited at the default 10 rps.
@@ -54,20 +54,32 @@ chrome_intercept_resources = true
 chrome_nav_budget_ms = 12000
 
 [renderer.lightpanda]
-ws_url = "ws://agsvclighpda:9222/"
+ws_url = "ws://agsvclighpda:12362/"
 
 [renderer.chrome]
-# browserless v2 endpoint on the Docker bridge. `token` is substituted at
-# container start from FIRECRAWL_API_KEY by entrypoint.sh — must match the TOKEN
-# env var on the agsvcchromum service.
-ws_url = "ws://agsvcchromum:12385/chromium?token=${FIRECRAWL_API_KEY}&stealth=true"
+# browserless v2 endpoint on the Docker bridge. 
+# `/chromium` opens a fresh session; `stealth=true` enables the
+# anti-fingerprint plugin per session; `token` must match the TOKEN env
+# var on the chrome-stealth service. The published default `crwtest` is
+# a placeholder — set BROWSERLESS_TOKEN in `.env` before any deploy and
+# update this URL to match.
+# NOTE: keep this `token=` value in sync with `BROWSERLESS_TOKEN` in `.env`.
+# The two are not auto-linked — rotate one, rotate the other.
+ws_url = "ws://agsvcchromum:12363/chromium?token=${FIRECRAWL_API_KEY}&stealth=true"
 
 [search]
 # SearXNG sidecar running in the same stack.
-searxng_url = "http://agsvcsearxng:12383"
+searxng_url = "http://agsvcsearxng:12361"
 
 # Auth — restrict access to FastCRW.
 # Value is substituted at container start from the FIRECRAWL_API_KEY env var
 # by entrypoint.sh (envsubst). Set FIRECRAWL_API_KEY in .env.
 [auth]
 api_keys = ["${FIRECRAWL_API_KEY}"]
+
+# /map URL filter — defaults on. Set `drop_action_urls = false` to revert
+# to legacy behaviour (action URLs surface in results).
+[map.url_filter]
+strip_tracking_params = true
+drop_action_urls = true
+gov_tld_drop_actions = false

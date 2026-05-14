@@ -507,10 +507,10 @@
 
              ┌──────────────────────────────────────┐
              │  agsvcfastcrw  (FastCRW)             │
-             │  Port 12382 — scrape + search API    │
+             │  Port 12360 — scrape + search API    │
              │  ├─→ agsvclighpda  (LightPanda :9222)│
-             │  ├─→ agsvcchromum  (Chromium :12385) │
-             │  └─→ agsvcsearxng  (SearXNG  :12383) │
+             │  ├─→ agsvcchromum  (Chromium :12363) │
+             │  └─→ agsvcsearxng  (SearXNG  :12361) │
              └──────────────────────────────────────┘</pre></div>
 
   <h3>Published ports</h3>
@@ -656,7 +656,9 @@ docker compose logs agsvchermagt | head -40</code></pre>
   <pre><code>[hermes] Seeded default: /opt/data/.env
 [hermes] Seeded default: /opt/data/config.yaml
 [hermes] Seeded default: /opt/data/SOUL.md
-[hermes] Substituted LITELLM_KEY in /opt/data/.env
+[hermes] Substituted LITELLM_API_BASE in /opt/data/.env
+[hermes] Substituted LITELLM_API_KEY in /opt/data/.env
+[hermes] Substituted FIRECRAWL_API_URL in /opt/data/.env
 [hermes] Substituted FIRECRAWL_API_KEY in /opt/data/.env
 [hermes] Starting default gateway
 [hermes] Starting dashboard on port 12329</code></pre>
@@ -719,30 +721,30 @@ curl -s http://localhost:12386/v1/chat/completions \
 
   <h3>FastCRW — web scraping and search</h3>
   <pre><span class="lang-tag">bash</span><code><span class="cm"># Health</span>
-docker compose exec agsvcfastcrw bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12382"</span> &amp;&amp; echo <span class="ok">"FastCRW OK"</span>
+docker compose exec agsvcfastcrw bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12360"</span> &amp;&amp; echo <span class="ok">"FastCRW OK"</span>
 
 <span class="cm"># Web search test</span>
-curl -s http://localhost:12382/v1/search \
+curl -s http://localhost:12360/v1/search \
   -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
   -H <span class="str">"Content-Type: application/json"</span> \
   -d <span class="str">'{"query":"servicenow latest release","limit":3}'</span> \
   | python3 -m json.tool
 
 <span class="cm"># Scrape test</span>
-curl -s http://localhost:12382/v1/scrape \
+curl -s http://localhost:12360/v1/scrape \
   -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_APIKEY}</span>"</span> \
   -H <span class="str">"Content-Type: application/json"</span> \
   -d <span class="str">'{"url":"https://example.com","formats":["markdown"]}'</span> \
   | python3 -m json.tool</code></pre>
 
   <h3>SearXNG</h3>
-  <pre><span class="lang-tag">bash</span><code>curl -sf http://localhost:12383/healthz &amp;&amp; echo <span class="ok">"SearXNG OK"</span>
-curl -s <span class="str">"http://localhost:12383/search?q=test&amp;format=json"</span> \
+  <pre><span class="lang-tag">bash</span><code>curl -sf http://localhost:12361/healthz &amp;&amp; echo <span class="ok">"SearXNG OK"</span>
+curl -s <span class="str">"http://localhost:12361/search?q=test&amp;format=json"</span> \
   | python3 -c <span class="str">"import sys,json; d=json.load(sys.stdin); print(f'Results: {len(d[\"results\"])}')"</span></code></pre>
 
   <h3>Chromium renderer</h3>
-  <pre><span class="lang-tag">bash</span><code>docker compose exec agsvcchromum bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12385"</span> &amp;&amp; echo <span class="ok">"Chromium OK"</span>
-curl -sf <span class="str">"http://localhost:12385/json/version?token=<span class="var">${LITEM_APIKEY}</span>"</span> | python3 -m json.tool</code></pre>
+  <pre><span class="lang-tag">bash</span><code>docker compose exec agsvcchromum bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12363"</span> &amp;&amp; echo <span class="ok">"Chromium OK"</span>
+curl -sf <span class="str">"http://localhost:12363/json/version?token=<span class="var">${LITEM_APIKEY}</span>"</span> | python3 -m json.tool</code></pre>
 
   <div class="callout tip">
     <span class="callout-icon">✓</span>
@@ -754,7 +756,111 @@ curl -sf <span class="str">"http://localhost:12385/json/version?token=<span clas
   <!-- ── 3.3 ────────────────────────────────────────────────────────── -->
   <h2 id="s33">3.3 Configure and Verify Messaging Platforms</h2>
 
-  <h3>Discord</h3>
+  <h3>How Hermes connects to chat platforms</h3>
+  <p>Each Hermes profile runs <strong>its own gateway process with its own bot credentials</strong> — gateways are per-profile, not per-host. That single fact drives every design choice below: there is no front-door router that demultiplexes one shared Discord bot or one shared WhatsApp number into different profiles based on sender. If you want isolated agents (separate memory, SOUL, skills, cron jobs) per person, each profile needs its own bot.</p>
+
+  <h3>Discord — configuration options</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Pattern</th><th>How it works</th><th>Pros</th><th>Cons</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>One bot per profile</strong><br><em>(recommended for families)</em></td>
+          <td>Each profile has its own Discord application and bot token. Family members <code>@mention</code> their own bot. <code>DISCORD_ALLOWED_USERS</code> locks each bot to a single Discord user ID.</td>
+          <td>Full state isolation — each user gets their own memory, personality, skills. No risk of cross-talk.</td>
+          <td>One Discord application per profile to create in the Developer Portal.</td>
+        </tr>
+        <tr>
+          <td><strong>One shared bot for everyone</strong></td>
+          <td>Single bot/profile. Add all family Discord IDs to <code>DISCORD_ALLOWED_USERS</code>. Enable <code>group_sessions_per_user: true</code> in <code>config.yaml</code> so each Discord user gets a separate <em>session</em> in shared channels.</td>
+          <td>Cheapest setup; per-user session histories are still kept apart inside the shared profile.</td>
+          <td>Memory, SOUL, skills, and cron jobs are all shared across users — one agent, multiple chat threads.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>WhatsApp — configuration options</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Mode</th><th>Phone number</th><th>How people message Hermes</th><th>Intended for</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong><code>WHATSAPP_MODE=bot</code></strong><br><em>(recommended)</em></td>
+          <td>A <em>dedicated</em> number not yet registered with WhatsApp — Google Voice (free, US), prepaid SIM ($5–15), or a VoIP number.</td>
+          <td>Anyone on <code>WHATSAPP_ALLOWED_USERS</code> messages the bot's number directly, like any contact.</td>
+          <td>Real, multi-user, or family-member use.</td>
+        </tr>
+        <tr>
+          <td><strong><code>WHATSAPP_MODE=self</code></strong></td>
+          <td>Your own existing WhatsApp account.</td>
+          <td>You message <em>yourself</em> — WhatsApp's "Note to Self" thread is the agent channel.</td>
+          <td>Solo testing only — cannot be shared with another person.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout warn">
+    <span class="callout-icon">⚠</span>
+    <div>
+      <p><strong>WhatsApp limitations that drive the design</strong></p>
+      <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; line-height: 1.8;">
+        <li>One WhatsApp account can have at most <strong>~4 linked devices</strong> — a hard cap from WhatsApp itself.</li>
+        <li>Pairing the <em>same</em> WhatsApp account on multiple Hermes profiles via Linked Devices is technically possible but practically broken: every paired profile receives every incoming message, so every agent replies. WhatsApp has no per-profile routing key. Don't do it.</li>
+        <li>There is no allowlist semantic that routes message X to profile A and message Y to profile B. <code>WHATSAPP_ALLOWED_USERS</code> only gates <em>who can talk to this one profile's bot</em>.</li>
+        <li>Self-chat mode is inherently single-user — only the account owner can open their own "Note to Self".</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Practical patterns — pick one</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Pattern</th><th>WhatsApp cost</th><th>Discord cost</th><th>Isolation</th><th>Use when</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1</strong></td>
+          <td><strong>Dedicated number + Discord bot per profile</strong><br><em>✓ recommended</em></td>
+          <td>One number per family member (Google Voice / prepaid / VoIP).</td>
+          <td>One Discord application per family member.</td>
+          <td>Full — separate memory, SOUL, skills, cron jobs.</td>
+          <td>Each family member should have <em>their own</em> assistant.</td>
+        </tr>
+        <tr>
+          <td><strong>2</strong></td>
+          <td><strong>Shared profile, allowlisted family</strong></td>
+          <td>One number total. Add every family member to <code>WHATSAPP_ALLOWED_USERS</code>.</td>
+          <td>One bot total. Add every Discord user ID to <code>DISCORD_ALLOWED_USERS</code>; set <code>group_sessions_per_user: true</code>.</td>
+          <td>Discord: separate sessions per user. WhatsApp: shared.</td>
+          <td>Single family assistant; cost-sensitive; shared memory acceptable.</td>
+        </tr>
+        <tr>
+          <td><strong>3</strong></td>
+          <td><strong>Self-chat — testing only</strong></td>
+          <td>Your own personal WhatsApp account.</td>
+          <td>N/A.</td>
+          <td>None — you only.</td>
+          <td>Solo testing before committing to a dedicated number.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout tip">
+    <span class="callout-icon">✓</span>
+    <p><strong>This guide uses Pattern #1.</strong> The default profile gets the first dedicated WhatsApp number and first Discord bot; each additional family profile (Alice, Bob, …) gets its <em>own</em> dedicated WhatsApp number and its <em>own</em> Discord bot application. Default-profile setup follows immediately below; per-profile setup follows in <a href="#s36">§3.6</a>.</p>
+  </div>
+
+  <hr style="margin: 18px 0; border-color: var(--border);" />
+
+  <h3>Default profile — Discord</h3>
 
   <h4>Create a Discord bot</h4>
   <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
@@ -779,7 +885,7 @@ docker compose logs agsvchermagt | grep -i discord</code></pre>
 
   <p>Expected: <code>Gateway connected</code> or <code>Discord gateway ready</code>. Send the bot a DM to confirm it replies.</p>
 
-  <h3>WhatsApp</h3>
+  <h3>Default profile — WhatsApp</h3>
   <p>Hermes connects outbound — no inbound port or public IP needed. Use a <strong>dedicated phone number</strong> per profile (Google Voice, prepaid SIM, or VoIP), not a personal number. Pairing a personal account exposes private messages to the server.</p>
 
   <div class="callout warn">
@@ -859,18 +965,18 @@ curl -sf http://localhost:12329 -o /dev/null &amp;&amp; echo <span class="ok">"D
     </div>
     <div class="health-item">
       <div class="h-name">FastCRW</div>
-      <div class="h-port">:12382</div>
-      <div class="h-cmd">exec 3&lt;&gt;/dev/tcp/127.0.0.1/12382</div>
+      <div class="h-port">:12360</div>
+      <div class="h-cmd">exec 3&lt;&gt;/dev/tcp/127.0.0.1/12360</div>
     </div>
     <div class="health-item">
       <div class="h-name">SearXNG</div>
-      <div class="h-port">:12383</div>
-      <div class="h-cmd">curl -sf http://localhost:12383/healthz</div>
+      <div class="h-port">:12361</div>
+      <div class="h-cmd">curl -sf http://localhost:12361/healthz</div>
     </div>
     <div class="health-item">
       <div class="h-name">Chromium</div>
-      <div class="h-port">:12385</div>
-      <div class="h-cmd">exec 3&lt;&gt;/dev/tcp/127.0.0.1/12385</div>
+      <div class="h-port">:12363</div>
+      <div class="h-cmd">exec 3&lt;&gt;/dev/tcp/127.0.0.1/12363</div>
     </div>
   </div>
 
@@ -912,8 +1018,14 @@ curl -s http://localhost:12330/v1/chat/completions \
 
   <div class="callout tip">
     <span class="callout-icon">✓</span>
-    <p><strong>Shortcut:</strong> <code>init-profile.sh</code> automates Steps 1–6 in one command. It seeds all config files from defaults, substitutes API keys, and writes Discord/WhatsApp credentials directly — no manual file editing needed.<br><br>
-    <code>./shared/hermesagent/init-profile.sh alice --port 8643 --discord-token "&lt;token&gt;" --discord-user "12345678" --whatsapp-number "61412123456"</code></p>
+    <div>
+      <p><strong>Shortcut:</strong> <code>init-profile.sh</code> automates Steps 1–6 in one command. It seeds all config files from defaults, substitutes API keys and base URLs, and writes Discord/WhatsApp credentials directly — no manual file editing needed.</p>
+      <p style="margin-top:8px;">The script auto-detects whether it is running on the host or inside the <code>agsvchermagt</code> container, and resolves env vars + paths accordingly. Both invocations are equivalent:</p>
+      <p style="margin-top:8px;"><strong>Host</strong> (reads <code>LITEM_APIKEY</code>, <code>LITEM_APIBASE</code>, <code>FCRW_APIURL</code>, <code>APPS_DATA</code> from root <code>.env</code>; writes to <code>${APPS_DATA}/hermesagent/profiles/&lt;name&gt;/</code>):<br>
+      <code>./shared/hermesagent/init-profile.sh alice --port 8643 --discord-token "&lt;token&gt;" --discord-user "12345678" --whatsapp-number "61412123456"</code></p>
+      <p style="margin-top:8px;"><strong>Container</strong> (reads <code>LITELLM_API_KEY</code>, <code>LITELLM_API_BASE</code>, <code>FIRECRAWL_API_URL</code>, <code>FIRECRAWL_API_KEY</code> from process env set by <code>compose/agent.yml</code>; writes to <code>/opt/data/profiles/&lt;name&gt;/</code>):<br>
+      <code>docker compose exec agsvchermagt init-profile.sh alice --port 8643 --discord-token "&lt;token&gt;" --discord-user "12345678" --whatsapp-number "61412123456"</code></p>
+    </div>
   </div>
 
   <h3>Step 1 — Create the profile</h3>
@@ -996,34 +1108,64 @@ You remember Alice's preferences and help her stay on top of her schedule and fa
   <pre><span class="lang-tag">bash</span><code>docker compose restart agsvchermagt
 docker compose logs -f agsvchermagt
 
-<span class="cm"># Verify both the default and Alice's gateway are running</span>
+<span class="cm"># Verify Alice's gateway process is running (one per named profile)</span>
 docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
 
-  <p>Expected log lines:</p>
-  <pre><code>[hermes] Starting default gateway
-[hermes] Starting gateway for profile 'alice'
+  <p>Expected log lines with <code>HERMES_PROFILES="alice"</code>:</p>
+  <pre><code>[hermes] Starting gateway for profile 'alice'
 [hermes] Starting dashboard on port 12329</code></pre>
+
+  <div class="callout warn">
+    <span class="callout-icon">⚠</span>
+    <div>
+      <p><strong>How <code>start-gateways.sh</code> decides what to launch</strong> — important if you expected the default gateway to keep running alongside named profiles:</p>
+      <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; line-height: 1.8;">
+        <li><code>HERMES_PROFILES</code> <strong>empty</strong> → one default gateway only (uses <code>/opt/data</code> directly, no per-profile subdirectory).</li>
+        <li><code>HERMES_PROFILES="alice bob"</code> → one gateway per named profile; the default gateway is <strong>not</strong> started.</li>
+        <li>The dashboard always starts on port <code>12329</code> regardless.</li>
+      </ul>
+      <p style="margin-top:8px;">To keep a "shared" agent running alongside per-user profiles, declare it as a named profile too — e.g. <code>HERMES_PROFILES="shared alice bob"</code> and create a <code>shared</code> profile with its own port. The default profile's <code>/opt/data</code> root is a single-user fallback and is intentionally skipped once named profiles are declared.</p>
+    </div>
+  </div>
 
   <hr />
 
   <!-- ── 3.6 ────────────────────────────────────────────────────────── -->
   <h2 id="s36">3.6 Configure AI Provider and Messaging for Alice</h2>
 
+  <div class="callout tip">
+    <span class="callout-icon">✓</span>
+    <div>
+      <p><strong>Pattern in use: <a href="#s33">§3.3</a> Pattern #1 — dedicated WhatsApp number + dedicated Discord bot per profile.</strong> Alice gets her own bot identity ("Aria"), her own Discord application, and her own dedicated WhatsApp number (<code>+61 412 123 456</code>) — fully isolated from the default profile and from any future profile (Bob, Charles, …).</p>
+      <p style="margin-top:8px;">For each additional family member, repeat this section after <a href="#s35">§3.5</a>, substituting their profile name, gateway port, Discord bot, and WhatsApp number.</p>
+    </div>
+  </div>
+
+  <h4>Per-profile checklist</h4>
+  <ol style="padding-left:20px; margin: 8px 0 16px; font-size:13.5px; line-height:2;">
+    <li>Provision a <strong>dedicated WhatsApp number</strong> for the profile (Google Voice / prepaid SIM / VoIP) and register a WhatsApp account on it.</li>
+    <li>Create a <strong>new Discord application</strong> for the profile in the Developer Portal and copy its bot token.</li>
+    <li>Write Alice's <code>config.yaml</code> (model, ports, Discord behaviour) — see below.</li>
+    <li>Set Discord credentials in Alice's <code>.env</code> and restart the container.</li>
+    <li>Set WhatsApp env vars in Alice's <code>.env</code> and run the pairing wizard — scan the QR from <em>Alice's dedicated phone</em>.</li>
+    <li>Verify Alice's gateway connects on both platforms.</li>
+  </ol>
+
   <h3>Alice's config.yaml</h3>
   <div class="callout note">
     <span class="callout-icon">ℹ</span>
-    <p>Leave <code>&lt;your-litellm-master-key&gt;</code> and <code>&lt;your-firecrawl-api-key&gt;</code> as placeholders. <code>start-gateways.sh</code> substitutes them from environment variables at container start.</p>
+    <p>Leave <code>&lt;your-litellm-api-base&gt;</code>, <code>&lt;your-litellm-master-key&gt;</code>, <code>&lt;your-firecrawl-api-url&gt;</code>, and <code>&lt;your-firecrawl-api-key&gt;</code> as placeholders. <code>start-gateways.sh</code> substitutes them from the <code>LITELLM_API_BASE</code>, <code>LITELLM_API_KEY</code>, <code>FIRECRAWL_API_URL</code>, and <code>FIRECRAWL_API_KEY</code> environment variables (sourced from <code>LITEM_APIBASE</code>, <code>LITEM_APIKEY</code>, and <code>FCRW_APIURL</code> in the root <code>.env</code>) at container start.</p>
   </div>
   <pre><span class="lang-tag">yaml</span><code>custom_providers:
 - name: LiteLLM
-  base_url: http://agsvclitellm:12380/v1
+  base_url: &lt;your-litellm-api-base&gt;
   api_key: &lt;your-litellm-master-key&gt;
   model: smartrouter
 
 model:
   default: cloudai          <span class="cm"># Alice prefers MiniMax 2.7</span>
   provider: custom
-  base_url: http://agsvclitellm:12380/v1
+  base_url: &lt;your-litellm-api-base&gt;
   api_key: &lt;your-litellm-master-key&gt;
 
 api_server:
@@ -1033,16 +1175,17 @@ terminal:
   backend: docker
   modal_mode: auto
   docker_forward_env:
-    - LITELLM_KEY
+    - LITELLM_API_BASE
+    - LITELLM_API_KEY
     - FIRECRAWL_API_URL
     - FIRECRAWL_API_KEY
 
 browser:
-  cdp_url: "ws://agsvcchromum:12385/chromium?token=&lt;your-firecrawl-api-key&gt;&amp;stealth=true"
+  cdp_url: "ws://agsvcchromum:12363/chromium?token=&lt;your-firecrawl-api-key&gt;&amp;stealth=true"
 
 web:
   backend: firecrawl
-  base_url: http://agsvcfastcrw:12382
+  base_url: &lt;your-firecrawl-api-url&gt;
   api_key: &lt;your-firecrawl-api-key&gt;
 
 memory:
@@ -1206,7 +1349,7 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Internal service ports (12380, 12382, 12383, 12385, 12386) not bound to <code>0.0.0.0</code> on a public host. Remove their <code>ports:</code> entries in <code>agent.yml</code> for production.</div>
+      <div class="check-label">Internal service ports (12380, 12360, 12361, 12363, 12386) not bound to <code>0.0.0.0</code> on a public host. Remove their <code>ports:</code> entries in <code>agent.yml</code> for production.</div>
     </li>
 
     <div class="check-cat">Docker Socket</div>
@@ -1437,19 +1580,94 @@ docker compose exec agsvchermagt bash -c <span class="str">'eval "$(hermes compl
 docker compose exec agsvchermagt bash -c \
   <span class="str">'echo "eval \"\$(hermes completion bash)\"" >> ~/.bashrc'</span></code></pre>
 
-  <h3>Inspect running gateways</h3>
-  <pre><span class="lang-tag">bash</span><code><span class="cm"># Show all hermes processes</span>
+  <h3>Gateway management — start, stop, restart, inspect</h3>
+  <p>Each profile runs its gateway as a foreground child of <code>start-gateways.sh</code> (tini is PID 1). The container's systemd/launchd flow is <em>not</em> in play — <code>hermes gateway install / uninstall / start</code> (which manage OS services) are not relevant inside Docker. Use the foreground form (<code>hermes gateway</code>) and OS-level process controls, or restart the container for a clean reset of every gateway.</p>
+
+  <div class="callout note">
+    <span class="callout-icon">ℹ</span>
+    <p>Gateways read environment variables once at process start. After editing any profile's <code>.env</code>, the gateway for that profile <strong>must be restarted</strong> for the new tokens or allowlists to take effect.</p>
+  </div>
+
+  <h4>What launches automatically</h4>
+  <p>On container start, <code>start-gateways.sh</code> seeds defaults, substitutes API-key placeholders, and launches one gateway per name listed in <code>HERMES_PROFILES</code> (or a single default gateway if the list is empty). The dashboard always starts on port <code>12329</code>. See <a href="#s35">§3.5 Step 7</a> for the full rule.</p>
+
+  <h4>Common operations</h4>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Action</th><th>Command</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Restart <em>all</em> gateways</td>
+          <td><code>docker compose restart agsvchermagt</code></td>
+          <td>tini → SIGTERM → <code>start-gateways.sh</code> shutdown handler → re-runs the script. Cleanest reset; every profile and the dashboard restart together.</td>
+        </tr>
+        <tr>
+          <td>Stop the whole stack</td>
+          <td><code>docker compose stop agsvchermagt</code></td>
+          <td>Graceful shutdown of every gateway and the dashboard.</td>
+        </tr>
+        <tr>
+          <td>Start the whole stack</td>
+          <td><code>docker compose up -d agsvchermagt</code></td>
+          <td>Same as boot: launches one gateway per <code>HERMES_PROFILES</code> entry, plus the dashboard.</td>
+        </tr>
+        <tr>
+          <td>Restart only Alice's gateway</td>
+          <td><code>docker compose exec agsvchermagt pkill -f 'hermes -p alice gateway'</code><br>
+              <code>docker compose exec -d agsvchermagt hermes -p alice gateway</code></td>
+          <td>Stops just Alice's process, starts a fresh one detached inside the container. Other profiles untouched. Useful when only Alice's tokens or <code>.env</code> changed.</td>
+        </tr>
+        <tr>
+          <td>Stop only Alice's gateway</td>
+          <td><code>docker compose exec agsvchermagt pkill -f 'hermes -p alice gateway'</code></td>
+          <td>Leaves other profile gateways and the dashboard running. Alice's API port goes offline until restarted.</td>
+        </tr>
+        <tr>
+          <td>Start Alice's gateway ad-hoc</td>
+          <td><code>docker compose exec -d agsvchermagt hermes -p alice gateway</code></td>
+          <td>Starts Alice's gateway as a detached process. Survives until container restart, at which point <code>start-gateways.sh</code> takes over again.</td>
+        </tr>
+        <tr>
+          <td>List profiles + gateway status</td>
+          <td><code>docker compose exec agsvchermagt hermes profile list</code></td>
+          <td>Shows every profile, its model, and reported gateway status.</td>
+        </tr>
+        <tr>
+          <td>Per-profile health check</td>
+          <td><code>docker compose exec agsvchermagt alice doctor</code></td>
+          <td>Runs Hermes' built-in health check for Alice's profile.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout note">
+    <span class="callout-icon">ℹ</span>
+    <p>The official <code>hermes gateway</code> subcommands (<code>run</code>, <code>stop</code>, <code>restart</code>, <code>status</code>, <code>install</code>, <code>uninstall</code>) are designed for systemd/launchd hosts. Inside this container they do not have a service to manage — the gateway is just a child process of <code>start-gateways.sh</code>. Use the OS-level commands in the table above instead.</p>
+  </div>
+
+  <h4>Inspect what's running</h4>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># All hermes processes inside the container (one line per gateway + dashboard)</span>
 docker compose exec agsvchermagt ps aux | grep hermes
 
-<span class="cm"># Live logs (all profiles)</span>
+<span class="cm"># Live logs (all profiles + dashboard)</span>
 docker compose logs -f agsvchermagt
 
 <span class="cm"># Filter logs by profile name</span>
 docker compose logs agsvchermagt | grep alice
 
-<span class="cm"># Health checks</span>
+<span class="cm"># Health probes — one URL per gateway (port from each profile's api_server.port)</span>
 curl -sf http://localhost:12330/health &amp;&amp; echo <span class="ok">"default OK"</span>
-curl -sf http://localhost:8643/health  &amp;&amp; echo <span class="ok">"alice OK"</span></code></pre>
+curl -sf http://localhost:8643/health  &amp;&amp; echo <span class="ok">"alice OK"</span>
+curl -sf http://localhost:8644/health  &amp;&amp; echo <span class="ok">"bob OK"</span>
+
+<span class="cm"># Confirm port mapping for each gateway</span>
+docker compose exec agsvchermagt hermes profile list</code></pre>
+
+  <h4>Dashboard</h4>
+  <p>The Hermes dashboard runs on port <code>12329</code> (started unconditionally by <code>start-gateways.sh</code>). It surfaces per-profile status, model and provider configuration, sessions, skills, and recent logs across every gateway in the container. Open at:</p>
+  <pre><span class="lang-tag">url</span><code>http://localhost:12329</code></pre>
+  <p>Gateway start/stop is <strong>not</strong> exposed in the dashboard — use the CLI commands in the table above. The dashboard is read-mostly: useful for confirming "is Alice's gateway green?" and "what model is each profile on?", not for lifecycle control.</p>
 
   <div class="callout tip">
     <span class="callout-icon">✓</span>

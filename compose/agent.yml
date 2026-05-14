@@ -22,13 +22,16 @@ services:
         depends_on:
             agsvclitellm:
                 condition: service_healthy
+            agsvcfastcrw:
+                condition: service_started
         environment:
             - TZ=${TIME_ZONE}
             - HOME=/opt/data
             - HERMES_PROFILES=${HERMES_PROFILES:-}
             - HERMES_DASHBOARD_PORT=12329
-            - LITELLM_KEY=${LITEM_APIKEY}
-            - FIRECRAWL_API_URL=http://agsvcfastcrw:12382
+            - LITELLM_API_KEY=${LITEM_APIKEY}
+            - LITELLM_API_BASE=${LITEM_APIBASE:-http://agsvclitellm:12380/v1}
+            - FIRECRAWL_API_URL=${FCRW_APIURL:-http://agsvcfastcrw:12360}
             - FIRECRAWL_API_KEY=${LITEM_APIKEY}
             # enable the API server
             - API_SERVER_ENABLED=true
@@ -64,8 +67,6 @@ services:
         depends_on:
             infrapgsqldb:
                 condition: service_healthy
-            agsvcfastcrw:
-                condition: service_started
         environment:
             - TZ=${TIME_ZONE}
             - LLM_MASTER_KEY=${LITEM_APIKEY}
@@ -73,9 +74,6 @@ services:
             - UI_PORT=12380
             - UI_USERNAME=${LITEM_ADMUSR}
             - UI_PASSWORD=${LITEM_ADMPWD}
-            # Web search tools (FastCRW + SearXNG)
-            - FIRECRAWL_API_URL=http://agsvcfastcrw:12382
-            - FIRECRAWL_API_KEY=${LITEM_APIKEY}
             # Edge — local llama.cpp or remote edge service
             - LITEM_EDGE_API_BASE=${LITEM_HPH_APIURL:-http://agsvcchatllm:12386/v1}
             - LITEM_EDGE_API_KEY=${LITEM_HPH_APIKEY:-none}
@@ -168,7 +166,7 @@ services:
 
     # =========================================================================
     # FastCRW— Fast, lightweight Firecrawl alternative in Rust.
-    # Port 12382
+    # Port 12360
     # =========================================================================
     agsvcfastcrw:
         build:
@@ -183,7 +181,7 @@ services:
         environment:
             - RUST_LOG=info
             - CRW_CONFIG=config.docker
-            - CRW_SERVER__PORT=12382
+            - CRW_SERVER__PORT=12360
             - CRW_CRAWLER__REQUESTS_PER_SECOND=5.0
             # renderer urls, search url, and auth key are all set in
             # config.docker.toml and substituted by entrypoint.sh at startup.
@@ -192,10 +190,10 @@ services:
         networks:
             - subnet
         ports:
-            - 12382:12382
+            - 12360:12360
         restart: unless-stopped
         healthcheck:
-            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12382"]
+            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12360"]
             interval: 60s
             timeout: 5s
             retries: 3
@@ -216,7 +214,7 @@ services:
         build:
             context: ../shared/fastcrw/lightpanda/
         healthcheck:
-            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9222"]
+            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12362"]
             interval: 30s
             timeout: 5s
             retries: 3
@@ -241,7 +239,7 @@ services:
             # Default is a published placeholder; override via `.env` in production:
             #   echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env
             - TOKEN=${LITEM_APIKEY:-agsvcfcrwche}
-            - PORT=12385
+            - PORT=12363
             - CONCURRENT=15
             - MAX_QUEUE_LENGTH=30
             - TIMEOUT=30000
@@ -257,7 +255,7 @@ services:
             # interpolation is fragile (compose-vs-runtime expansion of $TOKEN,
             # and short-lived /dev/tcp FDs racing with HTTP/1.0 connection close)
             # and gave us nothing this combo doesn't already.
-            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12385"]
+            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12363"]
             interval: 30s
             timeout: 5s
             retries: 3
@@ -281,18 +279,18 @@ services:
             context: ../shared/searxng/
         environment:
             - TZ=${TIME_ZONE}
-            - SEARXNG_PORT=12383
+            - SEARXNG_PORT=12361
             - SEARXNG_BIND_ADDRESS=0.0.0.0
-            - SEARXNG_BASE_URL=http://agsvcsearxng:12383
+            - SEARXNG_BASE_URL=http://agsvcsearxng:12361
             - SEARXNG_SECRET=${LITEM_APIKEY:-agsvcsearxng}
         image: agsvcsearxng:latest
         networks:
             - subnet
         ports:
-            - 12383:12383
+            - 12361:12361
         restart: unless-stopped
         healthcheck:
-            test: ["CMD", "/usr/sbin/wget", "-qO", "/dev/null", "http://localhost:12383/healthz"]
+            test: ["CMD", "/usr/sbin/wget", "-qO", "/dev/null", "http://localhost:12361/healthz"]
             interval: 60s
             timeout: 5s
             retries: 3
