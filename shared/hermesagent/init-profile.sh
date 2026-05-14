@@ -1,19 +1,29 @@
 #!/usr/bin/env bash
 # =============================================================================
-# init-profile.sh — Bootstrap a Hermes Agent profile directory on the host
+# init-profile.sh — Bootstrap a Hermes Agent profile directory
 #
-# Run from the ServiceHub project root:
-#   ./shared/hermesagent/init-profile.sh <profile-name> [OPTIONS]
+# Runs in two modes (auto-detected):
+#
+#   Host mode — invoked from the ServiceHub project root on the host:
+#     ./shared/hermesagent/init-profile.sh <profile-name> [OPTIONS]
+#   Reads LITEM_APIKEY, LITEM_APIBASE, FCRW_APIURL, APPS_DATA from the root
+#   .env and writes the profile to ${APPS_DATA}/hermesagent/profiles/<name>/.
+#
+#   Container mode — invoked inside the agsvchermagt container:
+#     docker compose exec agsvchermagt init-profile.sh <profile-name> [OPTIONS]
+#   Reads LITELLM_API_KEY, LITELLM_API_BASE, FIRECRAWL_API_URL, FIRECRAWL_API_KEY
+#   from process env (populated by compose/agent.yml) and writes the profile to
+#   /opt/data/profiles/<name>/.
+#
+# Detection: presence of /opt/hermes-defaults (baked into the image by the
+# Dockerfile) marks container mode. Anything else is treated as host mode.
 #
 # What it does:
-#   1. Reads LITEM_APIKEY and APPS_DATA from the root .env
-#   2. Creates ${APPS_DATA}/hermesagent/profiles/<name>/ on the host
-#   3. Copies config.yaml, SOUL.md, and env.example → .env from
-#      shared/hermesagent/default/, skipping files that already exist
-#      (use --force to overwrite)
-#   4. Substitutes <your-litellm-master-key> and <your-firecrawl-api-key>
-#      with the real values from the root .env
-#   5. Optionally sets api_server.port, Discord and WhatsApp credentials
+#   1. Seeds config.yaml, SOUL.md, and env.example → .env from the defaults
+#      directory, skipping files that already exist (use --force to overwrite)
+#   2. Substitutes <your-litellm-api-base>, <your-litellm-master-key>,
+#      <your-firecrawl-api-url>, and <your-firecrawl-api-key> with real values
+#   3. Optionally sets api_server.port, Discord and WhatsApp credentials
 #
 # Options:
 #   --port <n>                api_server.port in config.yaml (e.g. 8643)
@@ -24,29 +34,39 @@
 #   --force                   Overwrite existing profile files
 #
 # Examples:
-#   # Minimal — fill tokens later
+#   # Host — minimal, fill tokens later
 #   ./shared/hermesagent/init-profile.sh alice --port 8643
 #
-#   # Full setup in one command
+#   # Host — full setup in one command
 #   ./shared/hermesagent/init-profile.sh alice \
 #     --port 8643 \
 #     --discord-token "Bot.Token.Here" \
 #     --discord-user "123456789012345678" \
 #     --whatsapp-number "61412123456"
 #
-#   # Second profile
-#   ./shared/hermesagent/init-profile.sh bob \
-#     --port 8644 \
-#     --discord-token "AnotherBot.Token" \
-#     --discord-user "987654321098765432" \
-#     --whatsapp-number "61487654321"
+#   # Container — full setup, same flags
+#   docker compose exec agsvchermagt init-profile.sh bob \
+#     --port 8644 --discord-token "AnotherBot.Token" \
+#     --discord-user "987654321098765432" --whatsapp-number "61487654321"
 # =============================================================================
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-DEFAULTS_DIR="${SCRIPT_DIR}/default"
-ENV_FILE="${PROJECT_ROOT}/.env"
+# ── Detect execution context ──────────────────────────────────────────────────
+# /opt/hermes-defaults is baked into the image by the Dockerfile, so its
+# presence is a reliable container-mode signal.
+if [[ -d /opt/hermes-defaults ]]; then
+    CONTEXT="container"
+    DEFAULTS_DIR="/opt/hermes-defaults"
+    DATA_ROOT="/opt/data"
+    ENV_FILE=""
+else
+    CONTEXT="host"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+    DEFAULTS_DIR="${SCRIPT_DIR}/default"
+    DATA_ROOT=""   # resolved below from APPS_DATA
+    ENV_FILE="${PROJECT_ROOT}/.env"
+fi
 
 # ── Portable sed -i (BSD/macOS vs GNU/Linux) ──────────────────────────────────
 sed_inplace() {
@@ -95,39 +115,54 @@ if ! [[ "${PROFILE_NAME}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
     exit 1
 fi
 
-# ── Read root .env ────────────────────────────────────────────────────────────
-if [[ ! -f "${ENV_FILE}" ]]; then
-    echo "Error: ${ENV_FILE} not found."
-    echo "Run this script from the ServiceHub project root, or ensure .env exists."
-    exit 1
-fi
-
-# Extract a variable from .env, stripping surrounding quotes
-read_env() {
+# ── Resolve config values ─────────────────────────────────────────────────────
+# Precedence: process env (container-side names) → root .env (host-side names)
+# → in-stack defaults. read_env_file silently returns "" if the .env file is
+# missing, which is the normal case in container mode.
+read_env_file() {
     local key="$1"
+    [[ -n "${ENV_FILE}" && -f "${ENV_FILE}" ]] || { echo ""; return; }
     grep -E "^${key}=" "${ENV_FILE}" 2>/dev/null | head -1 | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//"
 }
 
-LITEM_APIKEY="$(read_env LITEM_APIKEY)"
-APPS_DATA_RAW="$(read_env APPS_DATA)"
-APPS_DATA="${APPS_DATA_RAW/#\~/${HOME}}"   # expand leading ~
+# Process env wins; root .env supplies upstream (LITEM_*/FCRW_*) names on host.
+LITELLM_API_KEY="${LITELLM_API_KEY:-$(read_env_file LITEM_APIKEY)}"
+LITELLM_API_BASE="${LITELLM_API_BASE:-$(read_env_file LITEM_APIBASE)}"
+FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-$(read_env_file FCRW_APIURL)}"
+FIRECRAWL_API_KEY="${FIRECRAWL_API_KEY:-${LITELLM_API_KEY}}"
 
-if [[ -z "${LITEM_APIKEY}" || "${LITEM_APIKEY}" == *"YOUR_"* || "${LITEM_APIKEY}" == *"your-"* ]]; then
-    echo "Error: LITEM_APIKEY is not set or still a placeholder in ${ENV_FILE}."
-    echo "Generate one with: python3 -c \"import secrets; print(secrets.token_urlsafe(32))\""
+# In-stack defaults if neither source supplied a value
+LITELLM_API_BASE="${LITELLM_API_BASE:-http://agsvclitellm:12380/v1}"
+FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-http://agsvcfastcrw:12360}"
+
+if [[ -z "${LITELLM_API_KEY}" || "${LITELLM_API_KEY}" == *"YOUR_"* || "${LITELLM_API_KEY}" == *"your-"* ]]; then
+    echo "Error: LiteLLM master key is not set or still a placeholder."
+    if [[ "${CONTEXT}" == "container" ]]; then
+        echo "  Inside container: ensure LITELLM_API_KEY is exported."
+        echo "  (compose/agent.yml sets it from LITEM_APIKEY in the root .env.)"
+    else
+        echo "  On host: set LITEM_APIKEY in ${ENV_FILE}."
+        echo "  Generate one with: python3 -c \"import secrets; print(secrets.token_urlsafe(32))\""
+    fi
     exit 1
 fi
 
-if [[ -z "${APPS_DATA}" ]]; then
-    echo "Error: APPS_DATA is not set in ${ENV_FILE}."
-    exit 1
+# ── Resolve profile directory ─────────────────────────────────────────────────
+if [[ "${CONTEXT}" == "container" ]]; then
+    PROFILE_DIR="${DATA_ROOT}/profiles/${PROFILE_NAME}"
+else
+    APPS_DATA_RAW="$(read_env_file APPS_DATA)"
+    APPS_DATA="${APPS_DATA_RAW/#\~/${HOME}}"   # expand leading ~
+    if [[ -z "${APPS_DATA}" ]]; then
+        echo "Error: APPS_DATA is not set in ${ENV_FILE} (required for host execution)."
+        exit 1
+    fi
+    PROFILE_DIR="${APPS_DATA}/hermesagent/profiles/${PROFILE_NAME}"
 fi
-
-# ── Create profile directory ──────────────────────────────────────────────────
-PROFILE_DIR="${APPS_DATA}/hermesagent/profiles/${PROFILE_NAME}"
 mkdir -p "${PROFILE_DIR}"
 
 echo ""
+echo "[init-profile] Context   : ${CONTEXT}"
 echo "[init-profile] Profile   : ${PROFILE_NAME}"
 echo "[init-profile] Directory : ${PROFILE_DIR}"
 echo ""
@@ -148,13 +183,17 @@ seed_file "${DEFAULTS_DIR}/config.yaml"  "${PROFILE_DIR}/config.yaml"
 seed_file "${DEFAULTS_DIR}/env.example"  "${PROFILE_DIR}/.env"
 seed_file "${DEFAULTS_DIR}/SOUL.md"      "${PROFILE_DIR}/SOUL.md"
 
-# ── Substitute API key placeholders ──────────────────────────────────────────
+# ── Substitute API key + base URL placeholders ───────────────────────────────
+# Mirrors the substitutions performed by start-gateways.sh at container start
+# so a profile created via this script is immediately usable without a restart.
 for f in "${PROFILE_DIR}/config.yaml" "${PROFILE_DIR}/.env"; do
     [[ -f "${f}" ]] || continue
-    sed_inplace "s|<your-litellm-master-key>|${LITEM_APIKEY}|g" "${f}"
-    sed_inplace "s|<your-firecrawl-api-key>|${LITEM_APIKEY}|g"  "${f}"
+    sed_inplace "s|<your-litellm-api-base>|${LITELLM_API_BASE}|g"   "${f}"
+    sed_inplace "s|<your-litellm-master-key>|${LITELLM_API_KEY}|g"  "${f}"
+    sed_inplace "s|<your-firecrawl-api-url>|${FIRECRAWL_API_URL}|g" "${f}"
+    sed_inplace "s|<your-firecrawl-api-key>|${FIRECRAWL_API_KEY}|g" "${f}"
 done
-echo "[init-profile] Substituted API keys in config.yaml and .env"
+echo "[init-profile] Substituted LiteLLM + FastCRW base URLs and API keys in config.yaml and .env"
 
 # ── api_server.port ───────────────────────────────────────────────────────────
 if [[ -n "${OPT_PORT}" ]]; then
