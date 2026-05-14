@@ -54,9 +54,9 @@ Dashboards + Metrics + Logs]
         Authentik -->|depends on| PostgreSQL
         Gitea -->|triggers| Runner[Act Runner\nCI/CD Executor]
         WordPress -->|depends on| MariaDB[(MariaDB)]
-        Hermes -->|broker| LiteLLM[LiteLLM Proxy\nComplexity Router]
-        LiteLLM -->|edge| Gemma[llama.cpp\nGemma-4-4B local]
-        LiteLLM -->|remote| MiniMax[MiniMax 2.7\nCloud API]
+        Hermes -->|hermes| LiteLLM[LiteLLM Proxy\nComplexity Router]
+        LiteLLM -->|hephaestus| Gemma[llama.cpp\nGemma-4-4B local]
+        LiteLLM -->|prometheus| MiniMax[MiniMax 2.7\nCloud API]
         Grafana -.->|metrics| VM[VictoriaMetrics
 Metrics DB]
         Grafana -.->|logs| VL[VictoriaLogs
@@ -112,7 +112,7 @@ servicehub/
 │   ├── litellm/
 │   │   ├── Dockerfile
 │   │   ├── config.default.yaml # LiteLLM routing config (baked into image)
-│   │   ├── hermes_router.py    # Content-based routing hook (privacy + complexity)
+│   │   ├── smartrouter.py      # Content-based routing hook (privacy + complexity)
 │   │   └── entrypoint.sh
 │   ├── openwebui/
 │   │   └── Dockerfile
@@ -209,7 +209,7 @@ Models are auto-downloaded on first start via the `-hf` flag and cached locally.
 
 | Detail | Value |
 |---|---|
-| Port | 12326 (internal only) |
+| Port | 12386 (internal only) |
 | Model | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` (default) |
 | Context | 128K tokens |
 | Concurrent slots | 1 |
@@ -217,28 +217,28 @@ Models are auto-downloaded on first start via the `-hf` flag and cached locally.
 
 ### LiteLLM Proxy — agsvclitellm
 
-[LiteLLM](https://github.com/BerriAI/litellm) is a unified LLM proxy and complexity router. All Hermes agent requests are sent to the `broker` virtual model; `hermes_router.py` rewrites each request to either `edge` (local Gemma) or `remote` (MiniMax) before the API call is made.
+[LiteLLM](https://github.com/BerriAI/litellm) is a unified LLM proxy and complexity router. All Hermes agent requests are sent to the `hermes` virtual model; `smartrouter.py` rewrites each request to either `hephaestus` (local Gemma) or `prometheus` (MiniMax) before the API call is made.
 
 | Detail | Value |
 |---|---|
 | Admin UI | `http://<host>:12380/ui` |
 | Database | PostgreSQL (`${LITEM_DBNAME}`) |
-| Local tier | `edge` → agsvcchatllm (Gemma-4-4B, 128K ctx) |
-| Cloud tier | `remote` → MiniMax 2.7 (200K ctx, Anthropic-compatible API) |
+| Local tier | `hephaestus` → agsvcchatllm (Gemma-4-4B, 128K ctx) |
+| Cloud tier | `prometheus` → MiniMax 2.7 (200K ctx, Anthropic-compatible API) |
 | Health check | `GET /health/liveliness` with Bearer token |
 
 **Routing logic** (first match wins):
 
 | Signal | Destination |
 |---|---|
-| `[cloud]` or `[c]` prefix in message | remote — explicit user override |
-| `[local]` or `[l]` prefix in message | edge — explicit user override |
-| Privacy keywords (`IEP`, `tax return`, `bank statement`, `medical record`, etc.) | edge — data never leaves the host |
-| Input > 50K tokens (~200 pages) | remote — large-document workload |
-| Complexity keywords (root cause, academic essay, curriculum map, certification exam, etc.) | remote — formal / logic-heavy task |
-| Default | edge |
+| `[cloud]` or `[c]` prefix in message | prometheus — explicit user override |
+| `[edge]` or `[e]` prefix in message | hephaestus — explicit user override |
+| Privacy keywords (`IEP`, `tax return`, `bank statement`, `medical record`, etc.) | hephaestus — data never leaves the host |
+| Input > 50K tokens (~200 pages) | prometheus — large-document workload |
+| Complexity keywords (root cause, academic essay, curriculum map, certification exam, etc.) | prometheus — formal / logic-heavy task |
+| Default | hephaestus |
 
-The explicit tags are stripped from the message before forwarding so the model never sees the routing instruction. `context_window_fallbacks` in `config.default.yaml` provides an additional safety net: any request that overflows Gemma's 128K context window is automatically escalated to MiniMax.
+The explicit tags are stripped from the message before forwarding so the model never sees the routing instruction. `context_window_fallbacks` in `config.default.yaml` provides an additional safety net: any request that overflows Gemma's 128K context window is automatically escalated to prometheus (MiniMax).
 
 ---
 
@@ -321,19 +321,19 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 | Dashboard port | 12329 (LAN only, direct access) |
 | Gateway port | 8642 (internal, outbound WebSocket to Discord/WhatsApp) |
 | Data persistence | `${APPS_DATA}/hermesagent` (mounted as `/opt/data`, also set as `$HOME`) |
-| LLM backend | LiteLLM proxy via `model: openai/broker` |
+| LLM backend | LiteLLM proxy via `model: hermes` |
 | Terminal sandbox | Docker (`/var/run/docker.sock` mounted read-only) |
 | Web search | Firecrawl + SearXNG |
 
 **Profiles:** Set `HERMES_PROFILES` (space-separated) in `.env` to auto-start named profiles on boot. Each profile gets its own gateway process and data directory under `/opt/data/profiles/<name>/`. Without profiles, a single default gateway starts on port 8642.
 
-**LLM routing from Hermes:** All requests use `model: openai/broker`. The LiteLLM proxy automatically routes to local (Gemma-4-4B) or cloud (MiniMax 2.7) based on content. Users can override by prefixing their message:
+**LLM routing from Hermes:** All requests use `model: hermes`. The LiteLLM proxy automatically routes to hephaestus (local Gemma-4-4B) or prometheus (MiniMax 2.7) based on content. Users can override by prefixing their message:
 
 ```
-[cloud] write a grant proposal for the school...   → MiniMax 2.7
-[c] debug this system architecture...              → MiniMax 2.7 (shorthand)
-[local] summarise my tax return                    → Gemma-4-4B (stays private)
-[l] translate this paragraph                       → Gemma-4-4B (shorthand)
+[cloud] write a grant proposal for the school...   → prometheus / MiniMax 2.7
+[c] debug this system architecture...              → prometheus / MiniMax 2.7 (shorthand)
+[edge] summarise my tax return                    → hephaestus / Gemma-4-4B (stays private)
+[e] translate this paragraph                       → hephaestus / Gemma-4-4B (shorthand)
 ```
 
 > **Default profile files:** `shared/hermesagent/default/` is baked into the image at `/opt/hermes-defaults/`. On first start, `start-gateways.sh` seeds these into `/opt/data/` (and per-profile dirs) only when files are absent — it never overwrites existing configuration.

@@ -118,36 +118,16 @@ litellm_settings:
   callbacks:
     - smartrouter.smart_router_callback
 
-  # Automatically execute firecrawl-search tool calls made by the model.
-  # Without this, LiteLLM passes the tool definition to the model but does NOT
-  # execute the search — the caller would have to handle the tool call manually.
-  # enabled_providers must match the provider prefix of the models in use:
-  #   hephaestus → openai/gemma    → "openai"
-  #   prometheus → anthropic/...   → "anthropic"
-  websearch_interception:
-    enabled_providers:
-      - openai
-      - anthropic
-    search_tool_name: firecrawl-search
-
   # Enable Prometheus metrics at /metrics endpoint on UI port
   prometheus_metrics: true
 
   # Detailed metrics: include model, api_base, and custom metadata
   set_verbose: true
 
-# ── Search Tool (FastCRW) ──────────────────────────────────────────────────
-#
-# All search and scrape requests route through FastCRW (agsvcfastcrw:12382).
-# FastCRW handles SearXNG internally via its /v1/search endpoint — no direct
-# SearXNG connection is needed from LiteLLM or the agent.
-# ──────────────────────────────────────────────────────────────────────────
-search_tools:
-  - search_tool_name: firecrawl-search
-    litellm_params:
-      search_provider: firecrawl
-      api_base: os.environ/FIRECRAWL_API_URL
-      api_key: os.environ/FIRECRAWL_API_KEY
+# Web search is handled by Hermes Agent (web.backend: firecrawl in its
+# config.yaml), not by LiteLLM. LiteLLM is a proxy — it does not execute
+# tool calls. FastCRW env vars (FIRECRAWL_API_URL / FIRECRAWL_API_KEY) are
+# forwarded to the Hermes container for use by the agent's tool loop.
 
 general_settings:
   master_key: os.environ/LLM_MASTER_KEY
