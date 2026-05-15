@@ -80,10 +80,10 @@ warn_placeholders() {
 # clear signal that a value still needs to be filled in.
 #
 # Env vars consumed (set in compose/agent.yml from the root .env):
-#   LITELLM_API_BASE   ← LITEM_APIBASE  (LiteLLM proxy base URL)
-#   LITELLM_API_KEY    ← LITEM_APIKEY   (LiteLLM master key)
-#   FIRECRAWL_API_URL  ← FCRW_APIURL    (FastCRW base URL)
-#   FIRECRAWL_API_KEY  ← LITEM_APIKEY   (FastCRW auth, same key)
+#   LITELLM_API_URL   ← LITEM_API_URL  (LiteLLM proxy base URL)
+#   LITELLM_API_KEY    ← LITEM_API_KEY   (LiteLLM master key)
+#   FIRECRAWL_API_URL  ← FCRW_API_URL    (FastCRW base URL)
+#   FIRECRAWL_API_KEY  ← LITEM_API_KEY   (FastCRW auth, same key)
 # ---------------------------------------------------------------------------
 substitute_placeholders() {
     local file="$1"
@@ -91,12 +91,12 @@ substitute_placeholders() {
         return
     fi
 
-    # LITELLM_API_BASE for custom_providers[0].base_url and model.base_url
+    # LITELLM_API_URL for custom_providers[0].base_url and model.base_url
     if grep -q '<your-litellm-api-base>' "${file}" 2>/dev/null; then
-        local litellm_base="${LITELLM_API_BASE:-}"
+        local litellm_base="${LITELLM_API_URL:-}"
         if [[ -n "${litellm_base}" ]]; then
             sed -i "s|<your-litellm-api-base>|${litellm_base}|g" "${file}"
-            echo "[hermes] Substituted LITELLM_API_BASE in ${file}"
+            echo "[hermes] Substituted LITELLM_API_URL in ${file}"
         fi
     fi
 

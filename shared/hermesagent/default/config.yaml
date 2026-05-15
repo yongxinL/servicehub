@@ -6,7 +6,7 @@
 
 # LLM — routes through LiteLLM proxy (complexity-based routing).
 # <your-litellm-api-base> and <your-litellm-master-key> are substituted at
-# container start by start-gateways.sh from the LITELLM_API_BASE and
+# container start by start-gateways.sh from the LITELLM_API_URL and
 # LITELLM_API_KEY env vars (set in compose/agent.yml).
 custom_providers:
 - name: LiteLLM
@@ -39,12 +39,23 @@ api_server:
 # ---------------------------------------------------------------------------
 terminal:
   backend: docker
-  modal_mode: auto
-  docker_forward_env:
-    - LITELLM_API_BASE
-    - LITELLM_API_KEY
+  docker_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+  docker_mount_cwd_to_workspace: false  # Mount launch dir into /workspace
+  docker_run_as_host_user: false   # See "Running container as host user" below
+  docker_forward_env:              # Env vars to forward into container
     - FIRECRAWL_API_URL
     - FIRECRAWL_API_KEY
+  docker_volumes:
+    - "/opt/containerd/serviceHub/sandbox:/home"
+
+  # Resource limits
+  container_cpu: 1.0
+  container_memory: 2048
+  container_disk: 10240
+  container_persistent: true
+
+  # Connect sandbox to servicehub_subnet so it can reach FastCRW/LiteLLM
+  docker_network: "servicehub_subnet"
 
 # Browser — CDP connection to the Chromium renderer in the same stack.
 # token= uses the same key as FastCRW auth, substituted at startup.
