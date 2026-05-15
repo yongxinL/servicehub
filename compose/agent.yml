@@ -29,13 +29,13 @@ services:
             - HOME=/opt/data
             - HERMES_PROFILES=${HERMES_PROFILES:-}
             - HERMES_DASHBOARD_PORT=12329
-            - LITELLM_API_KEY=${LITEM_APIKEY}
-            - LITELLM_API_BASE=${LITEM_APIBASE:-http://agsvclitellm:12380/v1}
-            - FIRECRAWL_API_URL=${FCRW_APIURL:-http://agsvcfastcrw:12360}
-            - FIRECRAWL_API_KEY=${LITEM_APIKEY}
+            - LITELLM_API_KEY=${LITEM_API_KEY}
+            - LITELLM_API_URL=${LITEM_API_URL:-http://agsvclitellm:12380/v1}
+            - FIRECRAWL_API_URL=${FCRW_API_URL:-http://agsvcfastcrw:12360}
+            - FIRECRAWL_API_KEY=${LITEM_API_KEY}
             # enable the API server
             - API_SERVER_ENABLED=true
-            - API_SERVER_KEY=${LITEM_APIKEY}
+            - API_SERVER_KEY=${LITEM_API_KEY}
             - API_SERVER_PORT=12330
             - API_SERVER_HOST=0.0.0.0
         healthcheck:
@@ -69,7 +69,7 @@ services:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
-            - LLM_MASTER_KEY=${LITEM_APIKEY}
+            - LLM_MASTER_KEY=${LITEM_API_KEY}
             - DATABASE_URL=postgresql://${SQLDB_USER}:${SQLDB_PASS}@${PGRSQL_HOST}:${PGRSQL_PORT}/${LITEM_DBNAME}
             - UI_PORT=12380
             - UI_USERNAME=${LITEM_ADMUSR}
@@ -85,7 +85,7 @@ services:
             - LITEM_CLOUD_API_BASE=${LITEM_PRM_APIBASE}
             - LITEM_CLOUD_API_KEY=${LITEM_PRM_APIKEY}
         healthcheck:
-            test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${LITEM_APIKEY}", "http://localhost:12380/health/liveliness" ]
+            test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${LITEM_API_KEY}", "http://localhost:12380/health/liveliness" ]
             interval: 60s
             timeout: 5s
             retries: 3
@@ -185,7 +185,7 @@ services:
             - CRW_CRAWLER__REQUESTS_PER_SECOND=5.0
             # renderer urls, search url, and auth key are all set in
             # config.docker.toml and substituted by entrypoint.sh at startup.
-            - FIRECRAWL_API_KEY=${LITEM_APIKEY}
+            - FIRECRAWL_API_KEY=${LITEM_API_KEY}
         image: agsvcfastcrw:latest
         networks:
             - subnet
@@ -238,7 +238,7 @@ services:
             # TOKEN is required by browserless v2 — clients must pass `?token=...`.
             # Default is a published placeholder; override via `.env` in production:
             #   echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env
-            - TOKEN=${LITEM_APIKEY:-agsvcfcrwche}
+            - TOKEN=${LITEM_API_KEY:-agsvcfcrwche}
             - PORT=12363
             - CONCURRENT=15
             - MAX_QUEUE_LENGTH=30
@@ -282,7 +282,7 @@ services:
             - SEARXNG_PORT=12361
             - SEARXNG_BIND_ADDRESS=0.0.0.0
             - SEARXNG_BASE_URL=http://agsvcsearxng:12361
-            - SEARXNG_SECRET=${LITEM_APIKEY:-agsvcsearxng}
+            - SEARXNG_SECRET=${LITEM_API_KEY:-agsvcsearxng}
         image: agsvcsearxng:latest
         networks:
             - subnet

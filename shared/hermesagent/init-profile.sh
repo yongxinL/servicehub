@@ -6,12 +6,12 @@
 #
 #   Host mode — invoked from the ServiceHub project root on the host:
 #     ./shared/hermesagent/init-profile.sh <profile-name> [OPTIONS]
-#   Reads LITEM_APIKEY, LITEM_APIBASE, FCRW_APIURL, APPS_DATA from the root
+#   Reads LITEM_API_KEY, LITEM_API_URL, FCRW_API_URL, APPS_DATA from the root
 #   .env and writes the profile to ${APPS_DATA}/hermesagent/profiles/<name>/.
 #
 #   Container mode — invoked inside the agsvchermagt container:
 #     docker compose exec agsvchermagt init-profile.sh <profile-name> [OPTIONS]
-#   Reads LITELLM_API_KEY, LITELLM_API_BASE, FIRECRAWL_API_URL, FIRECRAWL_API_KEY
+#   Reads LITELLM_API_KEY, LITELLM_API_URL, FIRECRAWL_API_URL, FIRECRAWL_API_KEY
 #   from process env (populated by compose/agent.yml) and writes the profile to
 #   /opt/data/profiles/<name>/.
 #
@@ -126,22 +126,22 @@ read_env_file() {
 }
 
 # Process env wins; root .env supplies upstream (LITEM_*/FCRW_*) names on host.
-LITELLM_API_KEY="${LITELLM_API_KEY:-$(read_env_file LITEM_APIKEY)}"
-LITELLM_API_BASE="${LITELLM_API_BASE:-$(read_env_file LITEM_APIBASE)}"
-FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-$(read_env_file FCRW_APIURL)}"
+LITELLM_API_KEY="${LITELLM_API_KEY:-$(read_env_file LITEM_API_KEY)}"
+LITELLM_API_URL="${LITELLM_API_URL:-$(read_env_file LITEM_API_URL)}"
+FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-$(read_env_file FCRW_API_URL)}"
 FIRECRAWL_API_KEY="${FIRECRAWL_API_KEY:-${LITELLM_API_KEY}}"
 
 # In-stack defaults if neither source supplied a value
-LITELLM_API_BASE="${LITELLM_API_BASE:-http://agsvclitellm:12380/v1}"
+LITELLM_API_URL="${LITELLM_API_URL:-http://agsvclitellm:12380/v1}"
 FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-http://agsvcfastcrw:12360}"
 
 if [[ -z "${LITELLM_API_KEY}" || "${LITELLM_API_KEY}" == *"YOUR_"* || "${LITELLM_API_KEY}" == *"your-"* ]]; then
     echo "Error: LiteLLM master key is not set or still a placeholder."
     if [[ "${CONTEXT}" == "container" ]]; then
         echo "  Inside container: ensure LITELLM_API_KEY is exported."
-        echo "  (compose/agent.yml sets it from LITEM_APIKEY in the root .env.)"
+        echo "  (compose/agent.yml sets it from LITEM_API_KEY in the root .env.)"
     else
-        echo "  On host: set LITEM_APIKEY in ${ENV_FILE}."
+        echo "  On host: set LITEM_API_KEY in ${ENV_FILE}."
         echo "  Generate one with: python3 -c \"import secrets; print(secrets.token_urlsafe(32))\""
     fi
     exit 1
@@ -188,7 +188,7 @@ seed_file "${DEFAULTS_DIR}/SOUL.md"      "${PROFILE_DIR}/SOUL.md"
 # so a profile created via this script is immediately usable without a restart.
 for f in "${PROFILE_DIR}/config.yaml" "${PROFILE_DIR}/.env"; do
     [[ -f "${f}" ]] || continue
-    sed_inplace "s|<your-litellm-api-base>|${LITELLM_API_BASE}|g"   "${f}"
+    sed_inplace "s|<your-litellm-api-base>|${LITELLM_API_URL}|g"   "${f}"
     sed_inplace "s|<your-litellm-master-key>|${LITELLM_API_KEY}|g"  "${f}"
     sed_inplace "s|<your-firecrawl-api-url>|${FIRECRAWL_API_URL}|g" "${f}"
     sed_inplace "s|<your-firecrawl-api-key>|${FIRECRAWL_API_KEY}|g" "${f}"

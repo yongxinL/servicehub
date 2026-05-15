@@ -63,7 +63,7 @@ Files changed:
 
 ### 2. Shared API key — no separate credential needed
 
-`FIRECRAWL_API_KEY` in `compose/agent.yml` defaults to `${LITEM_APIKEY}` via shell fallback (`:-`). This means you do not need to set a separate key in `.env`; FastCRW and the Hermes agent share the same master key automatically. Set `FIRECRAWL_API_KEY` in `.env` explicitly only if you need a distinct credential.
+`FIRECRAWL_API_KEY` in `compose/agent.yml` defaults to `${LITEM_API_KEY}` via shell fallback (`:-`). This means you do not need to set a separate key in `.env`; FastCRW and the Hermes agent share the same master key automatically. Set `FIRECRAWL_API_KEY` in `.env` explicitly only if you need a distinct credential.
 
 ### 3. Port
 
@@ -86,10 +86,10 @@ Global RPS cap is disabled (`rate_limit_rps = 0`) to avoid throttling under benc
 
 ## Testing
 
-All commands below run against the published port on the host. Replace `$KEY` with your `LITEM_APIKEY` value, or export it first:
+All commands below run against the published port on the host. Replace `$KEY` with your `LITEM_API_KEY` value, or export it first:
 
 ```bash
-KEY=$(grep LITEM_APIKEY .env | cut -d= -f2 | tr -d '"')
+KEY=$(grep LITEM_API_KEY .env | cut -d= -f2 | tr -d '"')
 ```
 
 ### Health check
@@ -159,7 +159,7 @@ curl -s http://localhost:12360/v1/scrape \
   | jq '{renderer: .data.renderDecision, bytes: (.data.markdown | length)}'
 ```
 
-Chrome communicates with `agsvcchromum` on the internal Docker network using `LITEM_APIKEY` as the browserless `TOKEN`. If Chrome fails, check:
+Chrome communicates with `agsvcchromum` on the internal Docker network using `LITEM_API_KEY` as the browserless `TOKEN`. If Chrome fails, check:
 
 ```bash
 docker compose logs agsvcchromum --tail 30
