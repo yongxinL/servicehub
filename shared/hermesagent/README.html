@@ -455,6 +455,7 @@
     <a href="#s37">3.7 Open WebUI &amp; API</a>
     <a href="#s38">3.8 Security Hardening</a>
     <a href="#s39">3.9 Hermes CLI Reference</a>
+    <a href="#overlay">3.10 Overlay System</a>
   </nav>
 </aside>
 
@@ -486,10 +487,11 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │  agsvchermagt  (Docker container — tini PID 1)                      │
 │                                                                     │
-│  Gateway (default)    : 8642  ──→  Discord / WhatsApp  (outbound)  │
-│  Gateway (alice)      : 8643  ──→  Discord / WhatsApp  (outbound)  │
-│  Dashboard            : 12329 ──→  LAN browser UI                  │
-│  API Server           : 12330 ──→  Open WebUI / HTTP clients       │
+│  Workspace           : 12328 ──→  Web UI (browser)                 │
+│  Dashboard           : 12329 ──→  LAN browser UI                   │
+│  Gateway (default)   : 8642  ──→  Discord / WhatsApp  (outbound)   │
+│  Gateway (alice)     : 8643  ──→  Discord / WhatsApp  (outbound)   │
+│  API Server          : 12330 ──→  Open WebUI / HTTP clients        │
 └────────────────────────────┬────────────────────────────────────────┘
                              │
               ┌──────────────▼─────────────────┐
@@ -516,6 +518,11 @@
   <h3>Published ports</h3>
   <div class="port-grid">
     <div class="port-card">
+      <div class="pnum">12328</div>
+      <div class="plabel">Workspace</div>
+      <div class="pdesc">Web UI — login with HERMES_SPACE_PASSWD</div>
+    </div>
+    <div class="port-card">
       <div class="pnum">12329</div>
       <div class="plabel">Dashboard</div>
       <div class="pdesc">LAN only — browser UI for chat, pairing &amp; monitoring</div>
@@ -539,7 +546,7 @@
 
   <div class="callout note">
     <span class="callout-icon">ℹ</span>
-    <p><strong>Data persistence:</strong> <code>${APPS_DATA}/hermesagent</code> is mounted at <code>/opt/data</code> (also <code>$HOME</code>). Default profile files live in <code>/opt/data/</code>; per-profile files in <code>/opt/data/profiles/&lt;name&gt;/</code>. Default files are seeded from the image on first start and <strong>never overwritten</strong>.</p>
+    <p><strong>Data persistence:</strong> <code>${APPS_DATA}/hermesagent/data</code> is mounted at <code>/opt/data</code> (also <code>$HOME</code>). Default profile files live in <code>/opt/data/</code>; per-profile files in <code>/opt/data/profiles/&lt;name&gt;/</code>. Default files are seeded from the image on first start and <strong>never overwritten</strong>. Source-code edits to <code>/opt/hermes</code> can be persisted via the <a href="#overlay">overlay system</a>.</p>
   </div>
 
   <hr />
@@ -590,7 +597,8 @@
 <span class="var">LITEM_API_KEY</span>=<span class="str">"&lt;YOUR_LITELLM_MASTER_API_KEY&gt;"</span>
 
 <span class="cm"># Space-separated profile names — empty starts a single default gateway</span>
-<span class="var">HERMES_PROFILES</span>=<span class="str">""</span>
+<span class="var">HERMES_AGENT_PROFILES</span>=<span class="str">""</span>
+<span class="var">HERMES_SPACE_PASSWD</span>=<span class="str">"&lt;YOUR_HERMES_WORKSPACE_PASSWORD&gt;"</span>
 
 <span class="cm"># LiteLLM cloud backend</span>
 <span class="var">LITEM_MMAX_BASE</span>=<span class="str">"https://api.minimax.chat/v1"</span>
@@ -613,7 +621,7 @@
       <div class="step-num">2</div>
       <div class="step-body">
         <h4>Start the stack</h4>
-        <p>On first start, <code>start-gateways.sh</code> seeds <code>config.yaml</code>, <code>.env</code>, and <code>SOUL.md</code> into <code>${APPS_DATA}/hermesagent/</code> and substitutes all <code>&lt;your-…&gt;</code> placeholders automatically.</p>
+        <p>On first start, <code>start-gateways.sh</code> seeds <code>config.yaml</code>, <code>.env</code>, and <code>SOUL.md</code> into <code>${APPS_DATA}/hermesagent/data/</code> and substitutes all <code>&lt;your-…&gt;</code> placeholders automatically.</p>
       </div>
     </div>
     <div class="step">
@@ -646,8 +654,8 @@ python3 -c <span class="str">"import secrets; print(secrets.token_urlsafe(32))"<
 docker compose up -d agsvchermagt
 
 <span class="cm"># Step 3 — verify no placeholders remain</span>
-grep <span class="str">'your-'</span> <span class="var">${APPS_DATA}</span>/hermesagent/config.yaml &amp;&amp; echo <span class="warn">"WARN: unfilled"</span> || echo <span class="ok">"OK"</span>
-grep <span class="str">'your-'</span> <span class="var">${APPS_DATA}</span>/hermesagent/.env        &amp;&amp; echo <span class="warn">"WARN: unfilled"</span> || echo <span class="ok">"OK"</span>
+grep <span class="str">'your-'</span> <span class="var">${APPS_DATA}</span>/hermesagent/data/config.yaml &amp;&amp; echo <span class="warn">"WARN: unfilled"</span> || echo <span class="ok">"OK"</span>
+grep <span class="str">'your-'</span> <span class="var">${APPS_DATA}</span>/hermesagent/data/.env        &amp;&amp; echo <span class="warn">"WARN: unfilled"</span> || echo <span class="ok">"OK"</span>
 
 <span class="cm"># Step 4 — startup log</span>
 docker compose logs agsvchermagt | head -40</code></pre>
@@ -875,7 +883,7 @@ curl -sf <span class="str">"http://localhost:12363/json/version?token=<span clas
   </div>
 
   <h4>Set the token and access control (default profile)</h4>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/.env
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/.env
 <span class="cm"># Add (get your Discord User ID via Settings → Advanced → Developer Mode → right-click username):</span>
 <span class="var">DISCORD_BOT_TOKEN</span>=&lt;your-discord-bot-token&gt;
 <span class="var">DISCORD_ALLOWED_USERS</span>=&lt;your-discord-user-id&gt;
@@ -894,7 +902,7 @@ docker compose logs agsvchermagt | grep -i discord</code></pre>
   </div>
 
   <h4>Step 1 — Set env vars (default profile)</h4>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/.env
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/.env
 <span class="cm"># Add:</span>
 <span class="var">WHATSAPP_ENABLED</span>=<span class="str">true</span>
 <span class="var">WHATSAPP_MODE</span>=<span class="str">bot</span>                  <span class="cm"># dedicated number (recommended)</span>
@@ -911,13 +919,13 @@ docker compose exec -it agsvchermagt hermes whatsapp</code></pre>
     <li>The wizard confirms pairing and saves the session.</li>
   </ol>
 
-  <p>Session credentials persist at <code>${APPS_DATA}/hermesagent/whatsapp-session/</code> across restarts.</p>
+  <p>Session credentials persist at <code>${APPS_DATA}/hermesagent/data/whatsapp-session/</code> across restarts.</p>
 
   <pre><span class="lang-tag">bash</span><code><span class="cm"># Verify connection</span>
 docker compose logs agsvchermagt | grep -i whatsapp
 
 <span class="cm"># Force re-pair (delete session and restart wizard)</span>
-rm -rf <span class="var">${APPS_DATA}</span>/hermesagent/whatsapp-session/
+rm -rf <span class="var">${APPS_DATA}</span>/hermesagent/data/whatsapp-session/
 docker compose restart agsvchermagt
 docker compose exec -it agsvchermagt hermes whatsapp</code></pre>
 
@@ -928,7 +936,7 @@ docker compose exec -it agsvchermagt hermes whatsapp</code></pre>
 
   <h3>Quick configuration audit</h3>
   <pre><span class="lang-tag">bash</span><code><span class="cm"># 1. No unfilled placeholders</span>
-grep -r <span class="str">'&lt;your-'</span> <span class="var">${APPS_DATA}</span>/hermesagent/ 2&gt;/dev/null \
+grep -r <span class="str">'&lt;your-'</span> <span class="var">${APPS_DATA}</span>/hermesagent/data/ 2&gt;/dev/null \
   &amp;&amp; echo <span class="warn">"WARN: placeholders remain"</span> || echo <span class="ok">"OK: no placeholders"</span>
 
 <span class="cm"># 2. Container status</span>
@@ -938,11 +946,19 @@ docker compose ps agsvchermagt agsvclitellm agsvcfastcrw agsvcsearxng agsvcchatl
 curl -sf http://localhost:12330/health &amp;&amp; echo <span class="ok">"API OK"</span>
 
 <span class="cm"># 4. Dashboard</span>
-curl -sf http://localhost:12329 -o /dev/null &amp;&amp; echo <span class="ok">"Dashboard OK"</span></code></pre>
+curl -sf http://localhost:12329 -o /dev/null &amp;&amp; echo <span class="ok">"Dashboard OK"</span>
+
+<span class="cm"># 5. Hermes Workspace</span>
+curl -sf http://localhost:12328 -o /dev/null &amp;&amp; echo <span class="ok">"Workspace OK"</span></code></pre>
 
   <h3>Full service health matrix</h3>
 
   <div class="health-grid">
+    <div class="health-item">
+      <div class="h-name">Hermes Workspace</div>
+      <div class="h-port">:12328</div>
+      <div class="h-cmd">curl -sf http://localhost:12328 -o /dev/null</div>
+    </div>
     <div class="health-item">
       <div class="h-name">Hermes API</div>
       <div class="h-port">:12330</div>
@@ -1021,7 +1037,7 @@ curl -s http://localhost:12330/v1/chat/completions \
     <div>
       <p><strong>Shortcut:</strong> <code>init-profile.sh</code> automates Steps 1–6 in one command. It seeds all config files from defaults, substitutes API keys and base URLs, and writes Discord/WhatsApp credentials directly — no manual file editing needed.</p>
       <p style="margin-top:8px;">The script auto-detects whether it is running on the host or inside the <code>agsvchermagt</code> container, and resolves env vars + paths accordingly. Both invocations are equivalent:</p>
-      <p style="margin-top:8px;"><strong>Host</strong> (reads <code>LITEM_API_KEY</code>, <code>LITEM_API_URL</code>, <code>FCRW_API_URL</code>, <code>APPS_DATA</code> from root <code>.env</code>; writes to <code>${APPS_DATA}/hermesagent/profiles/&lt;name&gt;/</code>):<br>
+      <p style="margin-top:8px;"><strong>Host</strong> (reads <code>LITEM_API_KEY</code>, <code>LITEM_API_URL</code>, <code>FCRW_API_URL</code>, <code>APPS_DATA</code> from root <code>.env</code>; writes to <code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/</code>):<br>
       <code>./shared/hermesagent/init-profile.sh alice --port 8643 --discord-token "&lt;token&gt;" --discord-user "12345678" --whatsapp-number "61412123456"</code></p>
       <p style="margin-top:8px;"><strong>Container</strong> (reads <code>LITELLM_API_KEY</code>, <code>LITELLM_API_URL</code>, <code>FIRECRAWL_API_URL</code>, <code>FIRECRAWL_API_KEY</code> from process env set by <code>compose/agent.yml</code>; writes to <code>/opt/data/profiles/&lt;name&gt;/</code>):<br>
       <code>docker compose exec agsvchermagt init-profile.sh alice --port 8643 --discord-token "&lt;token&gt;" --discord-user "12345678" --whatsapp-number "61412123456"</code></p>
@@ -1045,12 +1061,12 @@ docker compose exec agsvchermagt hermes profile create alice --clone --clone-fro
   <p>After creation, Hermes registers a convenience alias at <code>~/.local/bin/alice</code> inside the container, so you can use shorthand commands like <code>alice chat</code>, <code>alice setup</code>, and <code>alice gateway start</code>.</p>
 
   <h3>Step 2 — Declare the profile in the root <code>.env</code></h3>
-  <p>Add <code>HERMES_PROFILES</code> to the <strong>root <code>.env</code></strong> at the ServiceHub project root — this is the Docker Compose environment file, not the hermesagent data <code>.env</code>. Docker Compose injects it into the container via <code>compose/agent.yml</code>, where <code>start-gateways.sh</code> reads it to know which gateway processes to launch on container start.</p>
+  <p>Add <code>HERMES_AGENT_PROFILES</code> to the <strong>root <code>.env</code></strong> at the ServiceHub project root — this is the Docker Compose environment file, not the hermesagent data <code>.env</code>. Docker Compose injects it into the container via <code>compose/agent.yml</code>, where <code>start-gateways.sh</code> reads it to know which gateway processes to launch on container start.</p>
   <pre><span class="lang-tag">root .env</span><code><span class="cm"># Single profile</span>
-<span class="var">HERMES_PROFILES</span>=<span class="str">"alice"</span>
+<span class="var">HERMES_AGENT_PROFILES</span>=<span class="str">"alice"</span>
 
 <span class="cm"># Multiple profiles (space-separated)</span>
-<span class="var">HERMES_PROFILES</span>=<span class="str">"alice bob charles"</span></code></pre>
+<span class="var">HERMES_AGENT_PROFILES</span>=<span class="str">"alice bob charles"</span></code></pre>
 
   <h3>Step 3 — Run interactive setup</h3>
   <p>The <code>setup</code> command walks through API keys, model selection, and bot token configuration interactively. Run it once per profile immediately after creation.</p>
@@ -1067,7 +1083,7 @@ docker compose exec -it agsvchermagt hermes -p alice setup</code></pre>
 
   <h3>Step 4 — Set messaging credentials manually (if skipped in setup)</h3>
   <p>If the setup wizard was skipped or credentials need updating, append them directly to Alice's <code>.env</code> on the host.</p>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/.env
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/.env
 <span class="cm"># Append — Discord (one bot per profile, Alice's user ID only):</span>
 <span class="var">DISCORD_BOT_TOKEN</span>=&lt;alice-aria-bot-token&gt;
 <span class="var">DISCORD_ALLOWED_USERS</span>=&lt;alice-discord-user-id&gt;
@@ -1078,12 +1094,12 @@ docker compose exec -it agsvchermagt hermes -p alice setup</code></pre>
 <span class="var">WHATSAPP_ALLOWED_USERS</span>=61412123456   <span class="cm"># Alice's personal number (country code, no +)</span></code></pre>
 
   <h3>Step 5 — Assign Alice a unique API server port</h3>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/config.yaml</code></pre>
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/config.yaml</code></pre>
   <pre><span class="lang-tag">yaml</span><code>api_server:
   port: 8643    <span class="cm"># 8643 = first profile, 8644 = second, 8645 = third, etc.</span></code></pre>
 
   <h3>Step 6 — Personalise Alice's SOUL.md</h3>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/SOUL.md</code></pre>
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/SOUL.md</code></pre>
   <pre><span class="lang-tag">markdown</span><code>## Identity
 You are Aria, Alice's personal AI assistant. You are warm, encouraging, and organised.
 You remember Alice's preferences and help her stay on top of her schedule and family tasks.
@@ -1111,7 +1127,7 @@ docker compose logs -f agsvchermagt
 <span class="cm"># Verify Alice's gateway process is running (one per named profile)</span>
 docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
 
-  <p>Expected log lines with <code>HERMES_PROFILES="alice"</code>:</p>
+  <p>Expected log lines with <code>HERMES_AGENT_PROFILES="alice"</code>:</p>
   <pre><code>[hermes] Starting gateway for profile 'alice'
 [hermes] Starting dashboard on port 12329</code></pre>
 
@@ -1120,11 +1136,11 @@ docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
     <div>
       <p><strong>How <code>start-gateways.sh</code> decides what to launch</strong> — important if you expected the default gateway to keep running alongside named profiles:</p>
       <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; line-height: 1.8;">
-        <li><code>HERMES_PROFILES</code> <strong>empty</strong> → one default gateway only (uses <code>/opt/data</code> directly, no per-profile subdirectory).</li>
-        <li><code>HERMES_PROFILES="alice bob"</code> → one gateway per named profile; the default gateway is <strong>not</strong> started.</li>
+        <li><code>HERMES_AGENT_PROFILES</code> <strong>empty</strong> → one default gateway only (uses <code>/opt/data</code> directly, no per-profile subdirectory).</li>
+        <li><code>HERMES_AGENT_PROFILES="alice bob"</code> → one gateway per named profile; the default gateway is <strong>not</strong> started.</li>
         <li>The dashboard always starts on port <code>12329</code> regardless.</li>
       </ul>
-      <p style="margin-top:8px;">To keep a "shared" agent running alongside per-user profiles, declare it as a named profile too — e.g. <code>HERMES_PROFILES="shared alice bob"</code> and create a <code>shared</code> profile with its own port. The default profile's <code>/opt/data</code> root is a single-user fallback and is intentionally skipped once named profiles are declared.</p>
+      <p style="margin-top:8px;">To keep a "shared" agent running alongside per-user profiles, declare it as a named profile too — e.g. <code>HERMES_AGENT_PROFILES="shared alice bob"</code> and create a <code>shared</code> profile with its own port. The default profile's <code>/opt/data</code> root is a single-user fallback and is intentionally skipped once named profiles are declared.</p>
     </div>
   </div>
 
@@ -1211,7 +1227,7 @@ discord:
     <li>Get Alice's Discord User ID: in Discord <strong>Settings → Advanced → Developer Mode</strong>, then right-click Alice's username → <strong>Copy User ID</strong>.</li>
   </ol>
 
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/.env
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/.env
 <span class="cm"># Add (DISCORD_ALLOWED_USERS locks the bot to Alice only — required):</span>
 <span class="var">DISCORD_BOT_TOKEN</span>=&lt;alice-aria-bot-token&gt;
 <span class="var">DISCORD_ALLOWED_USERS</span>=12345678901234567
@@ -1227,7 +1243,7 @@ docker compose logs agsvchermagt | grep -i "alice\|discord" | tail -20</code></p
   </div>
 
   <h4>Step 1 — Set env vars in Alice's .env</h4>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/.env
+  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/.env
 <span class="cm"># Add (Alice's personal number — she messages this bot number and only she gets replies):</span>
 <span class="var">WHATSAPP_ENABLED</span>=<span class="str">true</span>
 <span class="var">WHATSAPP_MODE</span>=<span class="str">bot</span>
@@ -1247,7 +1263,7 @@ docker compose exec -it agsvchermagt hermes -p alice whatsapp</code></pre>
 docker compose logs agsvchermagt | grep -i "alice\|whatsapp" | tail -20
 
 <span class="cm"># Force re-pair if session expires</span>
-rm -rf <span class="var">${APPS_DATA}</span>/hermesagent/profiles/alice/whatsapp-session/
+rm -rf <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/whatsapp-session/
 docker compose restart agsvchermagt
 docker compose exec -it agsvchermagt hermes -p alice whatsapp</code></pre>
 
@@ -1326,7 +1342,7 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Discord bot tokens are per-profile secrets — store only in <code>${APPS_DATA}/hermesagent/profiles/&lt;name&gt;/.env</code>, never in <code>agent.yml</code> or git.</div>
+      <div class="check-label">Discord bot tokens are per-profile secrets — store only in <code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/.env</code>, never in <code>agent.yml</code> or git.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
@@ -1378,15 +1394,15 @@ curl -s http://localhost:12330/v1/chat/completions \
 
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Each profile has a unique <code>DISCORD_BOT_TOKEN</code>. Verify: <code>grep DISCORD_BOT_TOKEN ${APPS_DATA}/hermesagent/profiles/*/.env</code>.</div>
+      <div class="check-label">Each profile has a unique <code>DISCORD_BOT_TOKEN</code>. Verify: <code>grep DISCORD_BOT_TOKEN ${APPS_DATA}/hermesagent/data/profiles/*/.env</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Profile data directories owned by hermes uid 10000: <code>ls -lan ${APPS_DATA}/hermesagent/profiles/</code>.</div>
+      <div class="check-label">Profile data directories owned by hermes uid 10000: <code>ls -lan ${APPS_DATA}/hermesagent/data/profiles/</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Every profile's <code>SOUL.md</code> contains the boundary instruction: <code>grep -r "other family" ${APPS_DATA}/hermesagent/</code></div>
+      <div class="check-label">Every profile's <code>SOUL.md</code> contains the boundary instruction: <code>grep -r "other family" ${APPS_DATA}/hermesagent/data/</code></div>
     </li>
 
     <div class="check-cat">Container Hardening</div>
@@ -1430,7 +1446,7 @@ curl -s http://localhost:12330/v1/chat/completions \
   <!-- ── 3.9 ────────────────────────────────────────────────────────── -->
   <h2 id="s39">3.9 Using the Hermes CLI</h2>
 
-  <p>The <code>hermes</code> binary is available inside the <code>agsvchermagt</code> container. Use <code>docker compose exec</code> to run commands directly, or <code>docker compose exec -it</code> for interactive sessions. All commands run as the <code>hermes</code> user (uid 10000); profile data lives at <code>/opt/data/profiles/&lt;name&gt;/</code> inside the container (<code>${APPS_DATA}/hermesagent/profiles/&lt;name&gt;/</code> on the host).</p>
+  <p>The <code>hermes</code> binary is available inside the <code>agsvchermagt</code> container. Use <code>docker compose exec</code> to run commands directly, or <code>docker compose exec -it</code> for interactive sessions. All commands run as the <code>hermes</code> user (uid 10000); profile data lives at <code>/opt/data/profiles/&lt;name&gt;/</code> inside the container (<code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/</code> on the host).</p>
 
   <h3>Profile management</h3>
   <div class="table-wrap">
@@ -1589,7 +1605,7 @@ docker compose exec agsvchermagt bash -c \
   </div>
 
   <h4>What launches automatically</h4>
-  <p>On container start, <code>start-gateways.sh</code> seeds defaults, substitutes API-key placeholders, and launches one gateway per name listed in <code>HERMES_PROFILES</code> (or a single default gateway if the list is empty). The dashboard always starts on port <code>12329</code>. See <a href="#s35">§3.5 Step 7</a> for the full rule.</p>
+  <p>On container start, <code>start-gateways.sh</code> seeds defaults, substitutes API-key placeholders, and launches one gateway per name listed in <code>HERMES_AGENT_PROFILES</code> (or a single default gateway if the list is empty). The dashboard always starts on port <code>12329</code>. See <a href="#s35">§3.5 Step 7</a> for the full rule.</p>
 
   <h4>Common operations</h4>
   <div class="table-wrap">
@@ -1609,7 +1625,7 @@ docker compose exec agsvchermagt bash -c \
         <tr>
           <td>Start the whole stack</td>
           <td><code>docker compose up -d agsvchermagt</code></td>
-          <td>Same as boot: launches one gateway per <code>HERMES_PROFILES</code> entry, plus the dashboard.</td>
+          <td>Same as boot: launches one gateway per <code>HERMES_AGENT_PROFILES</code> entry, plus the dashboard.</td>
         </tr>
         <tr>
           <td>Restart only Alice's gateway</td>
@@ -1673,6 +1689,122 @@ docker compose exec agsvchermagt hermes profile list</code></pre>
     <span class="callout-icon">✓</span>
     <p>Full CLI reference: <a href="https://hermes-agent.nousresearch.com/docs/user-guide/profiles">hermes-agent.nousresearch.com/docs/user-guide/profiles</a> &nbsp;|&nbsp; <a href="https://hermes-agent.nousresearch.com/docs/user-guide/cli">user-guide/cli</a></p>
   </div>
+
+  <hr />
+
+  <!-- ── 3.10 Overlay System ──────────────────────────────────────── -->
+  <h2 id="overlay">3.10 Overlay System — Persist <code>/opt/hermes</code> Edits</h2>
+
+  <p>Hermes (or you) can modify files under <code>/opt/hermes</code> inside the container to patch behaviour, tune prompts, or apply a hotfix. Those edits normally live only in the container's writable layer and disappear on <code>docker compose down</code>/<code>up</code> or <code>--build</code>. The overlay system stores edits on the host and replays them onto <code>/opt/hermes</code> at every container start, without duplicating the ~1.4&nbsp;GB upstream tree anywhere.</p>
+
+  <div class="callout note">
+    <span class="callout-icon">ℹ</span>
+    <p><strong>When you don't need this:</strong> <code>docker compose restart agsvchermagt</code> keeps the container's filesystem intact — it only sends <code>SIGTERM</code> and re-runs <code>start-gateways.sh</code>. The overlay only matters when the container is <em>recreated</em> (<code>down</code>/<code>up</code>, <code>--force-recreate</code>, image rebuild, host reboot).</p>
+  </div>
+
+  <h3>Layout</h3>
+  <p>Overlay lives under the existing data mount — no new bind mount required.</p>
+  <pre><code>${APPS_DATA}/hermesagent/data/overlay/
+├── files/      <span class="cm"># sparse mirror of /opt/hermes — saved files replayed at start</span>
+├── originals/  <span class="cm"># pristine "before" copies for diff generation</span>
+└── patches/    <span class="cm"># *.patch files applied after files/, in lexical order</span></code></pre>
+
+  <h3>Apply flow (at container start)</h3>
+  <p><code>start-gateways.sh</code> calls <code>apply-overlay.sh</code> before launching any hermes process:</p>
+  <ol style="padding-left:24px;line-height:1.9;">
+    <li><code>rsync overlay/files/ → /opt/hermes/</code> — bulk file overlays first.</li>
+    <li><code>patch -p1</code> each <code>overlay/patches/*.patch</code> in lexical order.</li>
+  </ol>
+  <p>Excludes <code>__pycache__/</code>, <code>*.pyc</code>, <code>.venv/</code>. Already-applied patches are detected and skipped silently (idempotent). Conflicting patches <strong>abort startup</strong> — half-patched state is worse than no state.</p>
+
+  <h3>Tools (on <code>PATH</code> inside the container)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Command</th><th>When</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>overlay-track &lt;path&gt;</code></td>
+          <td><strong>Before</strong> editing</td>
+          <td>Snapshots current <code>/opt/hermes/&lt;path&gt;</code> into <code>overlay/originals/&lt;path&gt;</code>. Idempotent — never overwrites an existing baseline.</td>
+        </tr>
+        <tr>
+          <td><code>overlay-save &lt;path&gt;</code></td>
+          <td><strong>After</strong> editing</td>
+          <td>Copies current <code>/opt/hermes/&lt;path&gt;</code> into <code>overlay/files/&lt;path&gt;</code> so it replays at next start. Auto-tracks a baseline if none exists.</td>
+        </tr>
+        <tr>
+          <td><code>overlay-patch &lt;name&gt;</code></td>
+          <td>Anytime</td>
+          <td>Diffs <code>originals/</code> vs <code>files/</code> and writes <code>overlay/patches/&lt;name&gt;.patch</code> — a portable, reviewable diff.</td>
+        </tr>
+        <tr>
+          <td><code>apply-overlay.sh</code></td>
+          <td>Auto at start</td>
+          <td>Replays <code>files/</code> then <code>patches/</code> onto <code>/opt/hermes</code>. Aborts on patch conflict.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>All accept paths either absolute (<code>/opt/hermes/foo/bar.py</code>) or relative (<code>foo/bar.py</code>).</p>
+
+  <h3>Typical workflow</h3>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># 1. Before editing — snapshot the baseline</span>
+docker compose exec agsvchermagt overlay-track /opt/hermes/agent/router.py
+
+<span class="cm"># 2. Edit the file (you, or hand the task to the agent)</span>
+docker compose exec -it agsvchermagt nano /opt/hermes/agent/router.py
+
+<span class="cm"># 3. After editing — persist the change</span>
+docker compose exec agsvchermagt overlay-save /opt/hermes/agent/router.py
+
+<span class="cm"># 4. Recreate the container — your edit comes back automatically</span>
+docker compose up -d --force-recreate agsvchermagt
+docker compose logs agsvchermagt | grep <span class="str">'\[overlay\]'</span>
+<span class="cm"># [overlay] Applying 1 file overlay(s) from /opt/data/overlay/files/</span>
+<span class="cm"># [overlay] Overlay applied.</span></code></pre>
+
+  <h3>Generating a portable patch</h3>
+  <p>When you want a reviewable diff (to share, version-control, or hand to the AI):</p>
+  <pre><span class="lang-tag">bash</span><code>docker compose exec agsvchermagt overlay-patch fix-router-timeout
+<span class="cm"># → ${APPS_DATA}/hermesagent/data/overlay/patches/fix-router-timeout.patch</span></code></pre>
+  <p>The patch has <code>a/&lt;relpath&gt;</code> / <code>b/&lt;relpath&gt;</code> headers and applies cleanly to <code>/opt/hermes</code> with <code>patch -p1</code>. Once captured, you can delete the corresponding <code>files/&lt;relpath&gt;</code> and <code>originals/&lt;relpath&gt;</code> entries — the patch alone will reproduce the change.</p>
+
+  <h3>Recovering a baseline you forgot to track</h3>
+  <p>If you edited a file without running <code>overlay-track</code> first, <code>overlay-save</code> captured the edited version as the baseline — diffing it against itself produces an empty patch. To recover the true upstream baseline:</p>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># Pull the original file from the upstream image without touching anything</span>
+docker run --rm nousresearch/hermes-agent:latest \
+    cat /opt/hermes/path/to/file.py \
+    &gt; <span class="var">${APPS_DATA}</span>/hermesagent/data/overlay/originals/path/to/file.py</code></pre>
+  <p>Then re-run <code>overlay-patch &lt;name&gt;</code> and you'll get the real diff.</p>
+
+  <h3>Upstream updates &amp; trade-offs</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Mode</th><th>When upstream is unchanged</th><th>When upstream conflicts</th><th>Use for</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>files/</code></td>
+          <td>Replayed unchanged</td>
+          <td><strong>Silently shadows new upstream version</strong> — a security fix upstream is hidden by your override</td>
+          <td>Quick experiments, full-file replacements</td>
+        </tr>
+        <tr>
+          <td><code>patches/</code></td>
+          <td>Applies cleanly</td>
+          <td><strong>Fails loud</strong> — startup aborts, forcing you to rebase</td>
+          <td>Long-lived modifications, AI-generated fixes, anything you'd share</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout warn">
+    <span class="callout-icon">⚠</span>
+    <p>For long-lived modifications prefer <code>patches/</code> over <code>files/</code>. When upstream changes, a <code>files/</code> overlay silently masks the new version — a <code>patch</code> rejects cleanly so you know to review.</p>
+  </div>
+
+  <h3>Disabling the overlay</h3>
+  <p>The overlay folder is auto-created empty on first start. To disable entirely, leave it empty — <code>apply-overlay.sh</code> no-ops when both <code>files/</code> and <code>patches/</code> are empty. To remove the overlay step altogether, comment out the <code>/usr/local/bin/apply-overlay.sh</code> line in <code>start-gateways.sh</code>.</p>
 
 </main>
 
