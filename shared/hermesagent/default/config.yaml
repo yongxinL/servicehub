@@ -38,30 +38,27 @@ api_server:
 # The hermes container needs /var/run/docker.sock mounted (see agent.yml).
 # ---------------------------------------------------------------------------
 terminal:
-  backend: docker
-  docker_image: "nikolaik/python-nodejs:python3.11-nodejs20"
-  docker_mount_cwd_to_workspace: false  # Mount launch dir into /workspace
-  docker_run_as_host_user: false   # See "Running container as host user" below
-  docker_forward_env:              # Env vars to forward into container
-    - FIRECRAWL_API_URL
-    - FIRECRAWL_API_KEY
-  docker_volumes:
-    - "/opt/containerd/serviceHub/sandbox:/home"
-
-  # Resource limits
-  container_cpu: 1.0
-  container_memory: 2048
-  container_disk: 10240
-  container_persistent: true
-
-  # Connect sandbox to servicehub_subnet so it can reach FastCRW/LiteLLM
-  docker_network: "servicehub_subnet"
+  backend: local
+  modal_mode: auto
+  cwd: /home
+  timeout: 180
+  env_passthrough: []
+  shell_init_files: []
+  auto_source_bashrc: true
 
 # Browser — CDP connection to the Chromium renderer in the same stack.
 # token= uses the same key as FastCRW auth, substituted at startup.
 # Switch cdp_url to ws://agsvclighpda:9222/ for the lighter LightPanda renderer.
 browser:
+  inactivity_timeout: 120
+  command_timeout: 30
+  record_sessions: false
+  allow_private_urls: false
+  engine: auto
+  auto_local_for_private_urls: true
   cdp_url: "ws://agsvcchromum:12363/chromium?token=<your-firecrawl-api-key>&stealth=true"
+  dialog_policy: must_respond
+  dialog_timeout_s: 300
 
 # Web — FastCRW handles both search (/v1/search → SearXNG internally) and
 # scraping (/v1/scrape). No separate SearXNG connection needed.
@@ -71,7 +68,15 @@ web:
   backend: firecrawl
   base_url: <your-firecrawl-api-url>
   api_key: <your-firecrawl-api-key>
+  search_backend: ''
+  extract_backend: ''
+  use_gateway: false
+  provider: firecrawl
 
 # Memory
 memory:
-  provider: local
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+  provider: holographic
