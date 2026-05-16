@@ -320,12 +320,13 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 |---|---|
 | Dashboard port | 12329 (LAN only, direct access) |
 | Gateway port | 8642 (internal, outbound WebSocket to Discord/WhatsApp) |
-| Data persistence | `${APPS_DATA}/hermesagent` (mounted as `/opt/data`, also set as `$HOME`) |
+| Data persistence | `${APPS_DATA}/hermesagent/data` (mounted as `/opt/data`, also set as `$HOME`) |
+| Source overlay | `${APPS_DATA}/hermesagent/data/overlay/` — persist edits to `/opt/hermes` across container recreation (see [shared/hermesagent/README.md](shared/hermesagent/README.md)) |
 | LLM backend | LiteLLM proxy via `model: hermes` |
 | Terminal sandbox | Docker (`/var/run/docker.sock` mounted read-only) |
 | Web search | Firecrawl + SearXNG |
 
-**Profiles:** Set `HERMES_PROFILES` (space-separated) in `.env` to auto-start named profiles on boot. Each profile gets its own gateway process and data directory under `/opt/data/profiles/<name>/`. Without profiles, a single default gateway starts on port 8642.
+**Profiles:** Set `HERMES_AGENT_PROFILES` (space-separated) in `.env` to auto-start named profiles on boot. Each profile gets its own gateway process and data directory under `/opt/data/profiles/<name>/`. Without profiles, a single default gateway starts on port 8642.
 
 **LLM routing from Hermes:** All requests use `model: hermes`. The LiteLLM proxy automatically routes to hephaestus (local Gemma-4-4B) or prometheus (MiniMax 2.7) based on content. Users can override by prefixing their message:
 
@@ -734,7 +735,7 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 
 | Variable | Default | Description |
 |---|---|---|
-| `HERMES_PROFILES` | *(empty)* | Space-separated profile names to auto-start on boot. Leave empty for a single default gateway on port 8642. |
+| `HERMES_AGENT_PROFILES` | *(empty)* | Space-separated profile names to auto-start on boot. Leave empty for a single default gateway on port 8642. |
 | `LITEM_API_KEY` | Auto-generated | Passed as `LITELLM_KEY` to Hermes for authenticating with the LiteLLM proxy |
 | `FIRECRAWL_API_KEY` | | API key for the Firecrawl web-scraping backend (used by Hermes web search) |
 
