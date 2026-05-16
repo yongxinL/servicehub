@@ -8,24 +8,48 @@
 # Behaviour:
 #   1. Seeds /opt/data (and per-profile dirs) from /opt/hermes-defaults/ on
 #      first run — copies only files that do not already exist, never overwrites.
-#   2. HERMES_PROFILES empty  → single default gateway  (hermes gateway)
-#      HERMES_PROFILES set    → one gateway per named profile (hermes -p <name> gateway)
+#   2. HERMES_AGENT_PROFILES empty  → single default gateway  (hermes gateway)
+#      HERMES_AGENT_PROFILES set    → one gateway per named profile (hermes -p <name> gateway)
 #      Port per profile is set via api_server.port in each profile's config.yaml.
 #   3. Dashboard starts on HERMES_DASHBOARD_PORT (default 12329).
 #
 # Env vars:
-#   HERMES_PROFILES         space-separated profile names  (default: empty)
+#   HERMES_AGENT_PROFILES  space-separated profile names  (default: empty)
 #   HERMES_DASHBOARD_PORT   dashboard listen port          (default: 12329)
+#   HERMES_WORKSPACE_PORT   workspace listen port          (default: 12328)
 #   GATEWAY_HEALTH_URL      override health check URL      (default: http://localhost:8642)
 # =============================================================================
 set -euo pipefail
+
+# Force a UTF-8 locale so sed preserves multi-byte chars (em-dashes etc.) in
+# seeded comment lines. Without this, container shells with LANG=C or POSIX
+# corrupt UTF-8 bytes when substitute_placeholders rewrites files in place.
+export LC_ALL="${LC_ALL:-C.UTF-8}"
+export LANG="${LANG:-C.UTF-8}"
+
+# ---------------------------------------------------------------------------
+# Drop to hermes user (uid 10000) if we're running as root.
+# The official base image uses gosu for this — we need it here because tini
+# starts as PID 1 as root, so all our child processes inherit root.
+# Gateway refuses to run as root (security check), while dashboard is fine.
+# ---------------------------------------------------------------------------
+drop_privileges() {
+    if [[ "$(id -u)" == "0" ]]; then
+        echo "[hermes] Dropping root privileges (hermes user)"
+        exec gosu hermes "$0" "$@"
+        exit 1  # should never reach here
+    fi
+}
+drop_privileges
 
 DATA_DIR="/opt/data"
 DEFAULTS_DIR="/opt/hermes-defaults"
 HERMES_BIN="hermes"
 DASHBOARD_PORT="${HERMES_DASHBOARD_PORT:-12329}"
+WORKSPACE_PORT="${HERMES_WORKSPACE_PORT:-12328}"
 
 GATEWAY_PIDS=()
+WORKSPACE_PID=""
 
 # ---------------------------------------------------------------------------
 # seed_defaults <target-dir>
@@ -72,6 +96,29 @@ warn_placeholders() {
 }
 
 # ---------------------------------------------------------------------------
+# substitute_in_file <placeholder> <value> <file>
+# Python-based literal in-place substitution. Used instead of sed so that:
+#   1. multi-byte UTF-8 chars (em-dashes etc.) in unrelated comment lines are
+#      not corrupted by locale-sensitive byte handling in sed,
+#   2. arbitrary characters in the replacement value (slashes, pipes, ampersands,
+#      backslashes) cannot break sed delimiter or backreference parsing.
+# Mirrors the python3 pattern used in scripts/setup.sh::merge_env.
+# ---------------------------------------------------------------------------
+substitute_in_file() {
+    local placeholder="$1"
+    local value="$2"
+    local file="$3"
+    python3 - "$placeholder" "$value" "$file" <<'PYEOF'
+import sys
+placeholder, value, fname = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(fname, 'r', encoding='utf-8') as f:
+    content = f.read()
+with open(fname, 'w', encoding='utf-8') as f:
+    f.write(content.replace(placeholder, value))
+PYEOF
+}
+
+# ---------------------------------------------------------------------------
 # substitute_placeholders <target-file>
 # Replaces <your-litellm-api-base>, <your-litellm-master-key>,
 # <your-firecrawl-api-url>, and <your-firecrawl-api-key> in the target file
@@ -95,7 +142,7 @@ substitute_placeholders() {
     if grep -q '<your-litellm-api-base>' "${file}" 2>/dev/null; then
         local litellm_base="${LITELLM_API_URL:-}"
         if [[ -n "${litellm_base}" ]]; then
-            sed -i "s|<your-litellm-api-base>|${litellm_base}|g" "${file}"
+            substitute_in_file "<your-litellm-api-base>" "${litellm_base}" "${file}"
             echo "[hermes] Substituted LITELLM_API_URL in ${file}"
         fi
     fi
@@ -104,7 +151,7 @@ substitute_placeholders() {
     if grep -q '<your-litellm-master-key>' "${file}" 2>/dev/null; then
         local litellm_key="${LITELLM_API_KEY:-}"
         if [[ -n "${litellm_key}" ]]; then
-            sed -i "s|<your-litellm-master-key>|${litellm_key}|g" "${file}"
+            substitute_in_file "<your-litellm-master-key>" "${litellm_key}" "${file}"
             echo "[hermes] Substituted LITELLM_API_KEY in ${file}"
         fi
     fi
@@ -113,7 +160,7 @@ substitute_placeholders() {
     if grep -q '<your-firecrawl-api-url>' "${file}" 2>/dev/null; then
         local firecrawl_url="${FIRECRAWL_API_URL:-}"
         if [[ -n "${firecrawl_url}" ]]; then
-            sed -i "s|<your-firecrawl-api-url>|${firecrawl_url}|g" "${file}"
+            substitute_in_file "<your-firecrawl-api-url>" "${firecrawl_url}" "${file}"
             echo "[hermes] Substituted FIRECRAWL_API_URL in ${file}"
         fi
     fi
@@ -122,7 +169,7 @@ substitute_placeholders() {
     if grep -q '<your-firecrawl-api-key>' "${file}" 2>/dev/null; then
         local firecrawl_key="${FIRECRAWL_API_KEY:-}"
         if [[ -n "${firecrawl_key}" ]]; then
-            sed -i "s|<your-firecrawl-api-key>|${firecrawl_key}|g" "${file}"
+            substitute_in_file "<your-firecrawl-api-key>" "${firecrawl_key}" "${file}"
             echo "[hermes] Substituted FIRECRAWL_API_KEY in ${file}"
         fi
     fi
@@ -131,12 +178,19 @@ substitute_placeholders() {
 
 # ---------------------------------------------------------------------------
 # Seed the default data directory and warn about placeholders
-# This always runs, even when HERMES_PROFILES is empty.
+# This always runs, even when HERMES_AGENT_PROFILES is empty.
 # ---------------------------------------------------------------------------
 seed_defaults "${DATA_DIR}"
 warn_placeholders "${DATA_DIR}/.env"
 substitute_placeholders "${DATA_DIR}/.env"
 substitute_placeholders "${DATA_DIR}/config.yaml"
+
+# ---------------------------------------------------------------------------
+# Overlay — replay persisted /opt/hermes edits from /opt/data/overlay/
+# Must run BEFORE any hermes process starts. Aborts on patch conflicts so
+# we never launch in a half-patched state.
+# ---------------------------------------------------------------------------
+/usr/local/bin/apply-overlay.sh
 
 # ---------------------------------------------------------------------------
 # Per-profile gateway — hermes -p <name> gateway
@@ -165,8 +219,8 @@ start_default_gateway() {
 # ---------------------------------------------------------------------------
 # Launch gateway(s)
 # ---------------------------------------------------------------------------
-if [[ -n "${HERMES_PROFILES:-}" ]]; then
-    for profile in ${HERMES_PROFILES}; do
+if [[ -n "${HERMES_AGENT_PROFILES:-}" ]]; then
+    for profile in ${HERMES_AGENT_PROFILES}; do
         start_profile_gateway "${profile}"
     done
 fi
@@ -185,10 +239,49 @@ GATEWAY_HEALTH_URL="${HEALTH_URL}" \
 DASHBOARD_PID=$!
 
 # ---------------------------------------------------------------------------
+# Hermes Workspace (web UI)
+# ---------------------------------------------------------------------------
+WORKSPACE_DIR="/opt/lib/workspace"
+
+start_workspace() {
+    local port="$1"
+
+    if [[ ! -f "${WORKSPACE_DIR}/server-entry.js" ]]; then
+        echo "[hermes] Workspace not bundled — skipping"
+        return
+    fi
+
+    echo "[hermes] Starting Hermes Workspace on port ${port}"
+    cd "${WORKSPACE_DIR}"
+
+    # Workspace connects to gateway (12330) and dashboard (12329) on localhost.
+    # HERMES_WORKSPACE_PASSWORD is passed from compose (sourced from HERMES_SPACE_PASSWD).
+    # Fallback to API_SERVER_KEY if not set (for migration from older configs).
+    local ws_password="${HERMES_WORKSPACE_PASSWORD:-${API_SERVER_KEY:-}}"
+    if [[ -z "${ws_password}" ]]; then
+        echo "[hermes] ERROR: HERMES_WORKSPACE_PASSWORD not set. Workspace requires auth."
+        return 1
+    fi
+
+    HERMES_API_URL="http://localhost:12330" \
+    HERMES_DASHBOARD_URL="http://localhost:12329" \
+    HERMES_API_TOKEN="${API_SERVER_KEY:-}" \
+    HERMES_PASSWORD="${ws_password}" \
+    PORT="${port}" \
+    HOST="0.0.0.0" \
+    COOKIE_SECURE=0 \
+    node --max-old-space-size=2048 server-entry.js &
+    WORKSPACE_PID=$!
+}
+
+start_workspace "${WORKSPACE_PORT}"
+
+# ---------------------------------------------------------------------------
 # Shutdown handler
 # ---------------------------------------------------------------------------
 shutdown() {
     echo "[hermes] Shutting down..."
+    kill "${WORKSPACE_PID}" 2>/dev/null || true
     kill "${DASHBOARD_PID}" 2>/dev/null || true
     for pid in "${GATEWAY_PIDS[@]}"; do kill "${pid}" 2>/dev/null || true; done
     wait
