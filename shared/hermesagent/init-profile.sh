@@ -7,7 +7,7 @@
 #   Host mode — invoked from the ServiceHub project root on the host:
 #     ./shared/hermesagent/init-profile.sh <profile-name> [OPTIONS]
 #   Reads LITEM_API_KEY, LITEM_API_URL, FCRW_API_URL, APPS_DATA from the root
-#   .env and writes the profile to ${APPS_DATA}/hermesagent/profiles/<name>/.
+#   .env and writes the profile to ${APPS_DATA}/hermesagent/data/profiles/<name>/.
 #
 #   Container mode — invoked inside the agsvchermagt container:
 #     docker compose exec agsvchermagt init-profile.sh <profile-name> [OPTIONS]
@@ -51,6 +51,12 @@
 # =============================================================================
 set -euo pipefail
 
+# Force a UTF-8 locale so sed/grep preserve multi-byte chars (em-dashes etc.)
+# in seeded comment lines. Without this, container shells with LANG=C or
+# POSIX corrupt UTF-8 bytes when sed rewrites the file in place.
+export LC_ALL="${LC_ALL:-C.UTF-8}"
+export LANG="${LANG:-C.UTF-8}"
+
 # ── Detect execution context ──────────────────────────────────────────────────
 # /opt/hermes-defaults is baked into the image by the Dockerfile, so its
 # presence is a reliable container-mode signal.
@@ -68,13 +74,42 @@ else
     ENV_FILE="${PROJECT_ROOT}/.env"
 fi
 
-# ── Portable sed -i (BSD/macOS vs GNU/Linux) ──────────────────────────────────
-sed_inplace() {
-    if [[ "$(uname)" == "Darwin" ]]; then
-        sed -i '' "$@"
-    else
-        sed -i "$@"
-    fi
+# ── Python-based literal substitution ─────────────────────────────────────────
+# Used for placeholder replacement instead of sed so that:
+#   1. multi-byte UTF-8 chars (em-dashes etc.) in unrelated comment lines are
+#      not corrupted by locale-sensitive byte handling in sed,
+#   2. arbitrary characters in the replacement value (slashes, pipes, ampersands,
+#      backslashes) cannot break sed delimiter or backreference parsing.
+# Mirrors the python3 pattern used in scripts/setup.sh::merge_env.
+substitute_in_file() {
+    local placeholder="$1"
+    local value="$2"
+    local file="$3"
+    python3 - "$placeholder" "$value" "$file" <<'PYEOF'
+import sys
+placeholder, value, fname = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(fname, 'r', encoding='utf-8') as f:
+    content = f.read()
+with open(fname, 'w', encoding='utf-8') as f:
+    f.write(content.replace(placeholder, value))
+PYEOF
+}
+
+# ── Python-based regex substitution (BSD sed replacement) ────────────────────
+# Used for port substitution so that multi-byte UTF-8 chars (em-dashes etc.)
+# in unrelated lines are not corrupted by BSD sed -i '' in-place edits.
+substitute_regex_in_file() {
+    local pattern="$1"
+    local replacement="$2"
+    local file="$3"
+    python3 - "$pattern" "$replacement" "$file" <<'PYEOF'
+import sys, re
+pattern, replacement, fname = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(fname, 'r', encoding='utf-8') as f:
+    content = f.read()
+with open(fname, 'w', encoding='utf-8') as f:
+    f.write(re.sub(pattern, replacement, content, count=1))
+PYEOF
 }
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
@@ -157,7 +192,7 @@ else
         echo "Error: APPS_DATA is not set in ${ENV_FILE} (required for host execution)."
         exit 1
     fi
-    PROFILE_DIR="${APPS_DATA}/hermesagent/profiles/${PROFILE_NAME}"
+    PROFILE_DIR="${APPS_DATA}/hermesagent/data/profiles/${PROFILE_NAME}"
 fi
 mkdir -p "${PROFILE_DIR}"
 
@@ -188,16 +223,16 @@ seed_file "${DEFAULTS_DIR}/SOUL.md"      "${PROFILE_DIR}/SOUL.md"
 # so a profile created via this script is immediately usable without a restart.
 for f in "${PROFILE_DIR}/config.yaml" "${PROFILE_DIR}/.env"; do
     [[ -f "${f}" ]] || continue
-    sed_inplace "s|<your-litellm-api-base>|${LITELLM_API_URL}|g"   "${f}"
-    sed_inplace "s|<your-litellm-master-key>|${LITELLM_API_KEY}|g"  "${f}"
-    sed_inplace "s|<your-firecrawl-api-url>|${FIRECRAWL_API_URL}|g" "${f}"
-    sed_inplace "s|<your-firecrawl-api-key>|${FIRECRAWL_API_KEY}|g" "${f}"
+    substitute_in_file "<your-litellm-api-base>"   "${LITELLM_API_URL}"   "${f}"
+    substitute_in_file "<your-litellm-master-key>" "${LITELLM_API_KEY}"   "${f}"
+    substitute_in_file "<your-firecrawl-api-url>"  "${FIRECRAWL_API_URL}" "${f}"
+    substitute_in_file "<your-firecrawl-api-key>"  "${FIRECRAWL_API_KEY}" "${f}"
 done
 echo "[init-profile] Substituted LiteLLM + FastCRW base URLs and API keys in config.yaml and .env"
 
 # ── api_server.port ───────────────────────────────────────────────────────────
 if [[ -n "${OPT_PORT}" ]]; then
-    sed_inplace "s|^  port: [0-9]*|  port: ${OPT_PORT}|" "${PROFILE_DIR}/config.yaml"
+    substitute_regex_in_file "^  port: [0-9]*" "  port: ${OPT_PORT}" "${PROFILE_DIR}/config.yaml"
     echo "[init-profile] Set api_server.port = ${OPT_PORT}"
 fi
 
@@ -275,8 +310,8 @@ step=$((step+1))
     echo "  ${step}. Add WHATSAPP_ENABLED, WHATSAPP_MODE, WHATSAPP_ALLOWED_USERS to .env"
     step=$((step+1))
 }
-echo "  ${step}. Add '${PROFILE_NAME}' to HERMES_PROFILES in the root .env:"
-echo "     HERMES_PROFILES=\"... ${PROFILE_NAME}\""
+echo "  ${step}. Add '${PROFILE_NAME}' to HERMES_AGENT_PROFILES in the root .env:"
+echo "     HERMES_AGENT_PROFILES=\"... ${PROFILE_NAME}\""
 step=$((step+1))
 echo "  ${step}. Restart and run the interactive setup wizard:"
 echo "     docker compose restart agsvchermagt"
