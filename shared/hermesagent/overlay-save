@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# =============================================================================
+# overlay-save — Copy the CURRENT state of a /opt/hermes file into the overlay
+#
+# After you (or the agent) edit a file in /opt/hermes, run this to persist
+# the modified version into overlay/files/<relpath>. apply-overlay.sh replays
+# it onto /opt/hermes on next container start.
+#
+# Also auto-runs overlay-track on first save (captures the BASELINE before
+# overwrite — but only if the baseline doesn't already exist). If you forgot
+# to track before editing, the captured baseline will be your edited version
+# and overlay-patch will produce an empty diff. To recover the true baseline,
+# fetch from the upstream image (see README).
+#
+# Usage:
+#   overlay-save <path> [<path>...]
+# =============================================================================
+set -euo pipefail
+
+OVERLAY_DIR="${OVERLAY_DIR:-/opt/data/overlay}"
+HERMES_DIR="${HERMES_DIR:-/opt/hermes}"
+
+if [[ $# -lt 1 ]]; then
+    cat <<EOF
+usage: overlay-save <path> [<path>...]
+
+  Copies current /opt/hermes/<path> into overlay/files/<path> so it persists
+  across container recreation. Replayed at start by apply-overlay.sh.
+
+  Paths may be absolute (/opt/hermes/foo/bar.py) or relative (foo/bar.py).
+EOF
+    exit 1
+fi
+
+mkdir -p "${OVERLAY_DIR}/files" "${OVERLAY_DIR}/originals"
+
+for arg in "$@"; do
+    rel="${arg#${HERMES_DIR}/}"
+    rel="${rel#/}"
+    src="${HERMES_DIR}/${rel}"
+    dest="${OVERLAY_DIR}/files/${rel}"
+    baseline="${OVERLAY_DIR}/originals/${rel}"
+
+    if [[ ! -f "${src}" ]]; then
+        echo "[overlay-save] WARNING: ${src} not found — skipping"
+        continue
+    fi
+
+    # Lazy-track: if no baseline yet, capture current state as baseline.
+    # Best effort — only useful if user hadn't yet edited the file.
+    if [[ ! -f "${baseline}" ]]; then
+        mkdir -p "$(dirname "${baseline}")"
+        cp -p "${src}" "${baseline}"
+        echo "[overlay-save] auto-tracked baseline: originals/${rel}"
+    fi
+
+    mkdir -p "$(dirname "${dest}")"
+    cp -p "${src}" "${dest}"
+    echo "[overlay-save] saved: files/${rel}"
+done

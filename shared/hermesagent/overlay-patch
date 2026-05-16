@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# =============================================================================
+# overlay-patch — Generate a unified .patch from originals/ vs files/
+#
+# Produces overlay/patches/<name>.patch with `a/<relpath>` → `b/<relpath>`
+# headers so it applies cleanly to /opt/hermes with  patch -p1.
+#
+# Use this when you want a portable, reviewable diff (to share, version-control,
+# or replace bulk file overlays with surgical edits). overlay-save by itself
+# is enough for "persist my changes" — patches are for portability.
+#
+# Usage:
+#   overlay-patch <name>
+#     writes overlay/patches/<name>.patch
+# =============================================================================
+set -euo pipefail
+
+OVERLAY_DIR="${OVERLAY_DIR:-/opt/data/overlay}"
+
+if [[ $# -lt 1 ]]; then
+    echo "usage: overlay-patch <name>"
+    echo "  writes a unified diff (originals/ vs files/) to overlay/patches/<name>.patch"
+    exit 1
+fi
+
+name="$1"
+out="${OVERLAY_DIR}/patches/${name}.patch"
+
+mkdir -p "${OVERLAY_DIR}/patches"
+
+if [[ ! -d "${OVERLAY_DIR}/files" ]] || [[ -z "$(ls -A "${OVERLAY_DIR}/files" 2>/dev/null || true)" ]]; then
+    echo "[overlay-patch] No files/ to diff — nothing saved yet."
+    exit 1
+fi
+
+tmp="$(mktemp)"
+trap 'rm -f "${tmp}"' EXIT
+
+# Walk every file under files/ and diff against the matching baseline.
+# Skip __pycache__, .pyc, .venv.
+( cd "${OVERLAY_DIR}" && \
+  find files -type f \
+        ! -name '*.pyc' \
+        ! -path '*/__pycache__/*' \
+        ! -path '*/.venv/*' \
+        -print0 \
+) | while IFS= read -r -d '' file; do
+    rel="${file#files/}"
+    new="${OVERLAY_DIR}/files/${rel}"
+    base="${OVERLAY_DIR}/originals/${rel}"
+    if [[ -f "${base}" ]]; then
+        diff -u --label "a/${rel}" --label "b/${rel}" "${base}" "${new}" >> "${tmp}" || true
+    else
+        # New file (no baseline) — diff against /dev/null
+        diff -uN --label "a/${rel}" --label "b/${rel}" /dev/null "${new}" >> "${tmp}" || true
+    fi
+done
+
+if [[ ! -s "${tmp}" ]]; then
+    echo "[overlay-patch] No differences between originals/ and files/ — nothing to write."
+    exit 0
+fi
+
+mv "${tmp}" "${out}"
+trap - EXIT
+
+hunks=$(grep -c '^@@' "${out}" || true)
+changed_files=$(grep -c '^+++ b/' "${out}" || true)
+echo "[overlay-patch] wrote ${out}"
+echo "[overlay-patch] ${changed_files} file(s), ${hunks} hunk(s)"
