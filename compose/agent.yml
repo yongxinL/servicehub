@@ -22,6 +22,8 @@ services:
         build:
             context: ../shared/hermesagent/
         depends_on:
+            agsvchermint:
+                condition: service_completed_successfully
             agsvclitellm:
                 condition: service_healthy
             agsvcfastcrw:
@@ -61,6 +63,16 @@ services:
             - ${APPS_DATA}/hermesagent/data:/opt/data
             # Docker socket — required for terminal.backend=docker sandbox
             - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    agsvchermint:
+        command: >
+            sh -c '[ "$(stat -c %u /opt/data 2>/dev/null)" != "10000" ] && chown -R 10000:10000 /opt/data || true chmod -R 775 /opt/data'
+        image: busybox:latest
+        networks:
+            - subnet
+        user: root
+        volumes:
+            - ${APPS_DATA}/hermesagent/data:/opt/data
 
     # =========================================================================
     # LiteLLM Proxy — complexity-based routing + SearXNG web search
@@ -137,7 +149,6 @@ services:
         volumes:
             - ${APPS_DATA}/openwebui:/app/backend/data
 
-
     # Fast chat inference — Gemma 4 2B, 64K context, 2 concurrent slots
     # https://github.com/ggerganov/llama.cpp
     agsvcchatllm:
@@ -195,8 +206,6 @@ services:
         image: agsvcfastcrw:latest
         networks:
             - subnet
-        ports:
-            - 12360:12360
         restart: unless-stopped
         healthcheck:
             test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12360"]
@@ -292,8 +301,6 @@ services:
         image: agsvcsearxng:latest
         networks:
             - subnet
-        ports:
-            - 12361:12361
         restart: unless-stopped
         healthcheck:
             test: ["CMD", "/usr/sbin/wget", "-qO", "/dev/null", "http://localhost:12361/healthz"]
