@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# =============================================================================
+# overlay-track — Snapshot the CURRENT state of a /opt/hermes file as baseline
+#
+# Run this BEFORE editing a file. Captures the as-is content into
+# overlay/originals/<relpath> so overlay-patch later has a clean diff baseline.
+# Idempotent: skips files already tracked (will never overwrite a baseline).
+#
+# Usage:
+#   overlay-track <path> [<path>...]
+#     <path> may be absolute (/opt/hermes/foo/bar.py) or relative (foo/bar.py).
+# =============================================================================
+set -euo pipefail
+
+OVERLAY_DIR="${OVERLAY_DIR:-/opt/data/overlay}"
+HERMES_DIR="${HERMES_DIR:-/opt/hermes}"
+
+if [[ $# -lt 1 ]]; then
+    cat <<EOF
+usage: overlay-track <path> [<path>...]
+
+  Snapshots the current /opt/hermes/<path> into overlay/originals/<path>.
+  Run BEFORE editing the file. Idempotent — won't overwrite an existing baseline.
+
+  Paths may be absolute (/opt/hermes/foo/bar.py) or relative (foo/bar.py).
+EOF
+    exit 1
+fi
+
+mkdir -p "${OVERLAY_DIR}/originals"
+
+for arg in "$@"; do
+    rel="${arg#${HERMES_DIR}/}"
+    rel="${rel#/}"
+    src="${HERMES_DIR}/${rel}"
+    dest="${OVERLAY_DIR}/originals/${rel}"
+
+    if [[ ! -f "${src}" ]]; then
+        echo "[overlay-track] WARNING: ${src} not found — skipping"
+        continue
+    fi
+    if [[ -f "${dest}" ]]; then
+        echo "[overlay-track] originals/${rel} already exists — leaving baseline intact"
+        continue
+    fi
+    mkdir -p "$(dirname "${dest}")"
+    cp -p "${src}" "${dest}"
+    echo "[overlay-track] tracked: ${rel}"
+done

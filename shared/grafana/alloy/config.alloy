@@ -232,3 +232,18 @@ loki.write "vlogs" {
         url = "http://secobviclogs:9428/insert/loki/api/v1/push"
     }
 }
+
+// =============================================
+// LITELLM METRICS — scrape from LiteLLM's Prometheus endpoint
+// =============================================
+prometheus.scrape "litellm" {
+    targets = [{
+        __address__ = "agsvclitellm:12380",
+        job         = "litellm",
+        instance    = constants.hostname,
+    }]
+    metrics_path    = "/metrics/"
+    forward_to      = [prometheus.remote_write.vm.receiver]
+    scrape_interval = "30s"
+    scrape_timeout  = "15s"
+}
