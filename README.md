@@ -121,8 +121,8 @@ servicehub/
 │   │   └── entrypoint.sh       # Reads LLAMA_MODEL / LLAMA_PORT / LLAMA_ARGS env vars
 │   ├── grafana/
 │   │   ├── Dockerfile
-│   │   ├── alloy/                 # Grafana Alloy config
-│   │   ├── dashboards/            # Pre-built observability dashboards
+│   │   ├── alloy/                 # Grafana Alloy config (host/container metrics + LiteLLM scraping)
+│   │   ├── dashboards/            # Pre-built observability dashboards (numbered JSON files)
 │   │   ├── geoip/                 # GeoIP database for log enrichment
 │   │   └── provisioning/          # Grafana datasources + dashboard provisioning
 │   ├── victoriametrics/
@@ -314,12 +314,14 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 
 ### Hermes Agent
 
-[Hermes Agent](https://hermes-agent.nousresearch.com) is a self-hosted AI agent platform by Nous Research. Gateway and dashboard run as a single consolidated container under tini for correct signal forwarding.
+[Hermes Agent](https://hermes-agent.nousresearch.com) is a self-hosted AI agent platform by Nous Research. Gateway, dashboard, and workspace run as a single consolidated container under tini for correct signal forwarding.
 
 | Detail | Value |
 |---|---|
+| Workspace port | 12328 (web UI, login with `HERMES_SPACE_PASSWD`) |
 | Dashboard port | 12329 (LAN only, direct access) |
 | Gateway port | 8642 (internal, outbound WebSocket to Discord/WhatsApp) |
+| API server port | 12330 (internal, for Open WebUI/HTTP clients) |
 | Data persistence | `${APPS_DATA}/hermesagent/data` (mounted as `/opt/data`, also set as `$HOME`) |
 | Source overlay | `${APPS_DATA}/hermesagent/data/overlay/` — persist edits to `/opt/hermes` across container recreation (see [shared/hermesagent/README.md](shared/hermesagent/README.md)) |
 | LLM backend | LiteLLM proxy via `model: hermes` |
@@ -735,6 +737,7 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 
 | Variable | Default | Description |
 |---|---|---|
+| `HERMES_SPACE_PASSWD` | Auto-generated | Password for Hermes Workspace web UI login at `http://<host>:12328` |
 | `HERMES_AGENT_PROFILES` | *(empty)* | Space-separated profile names to auto-start on boot. Leave empty for a single default gateway on port 8642. |
 | `LITEM_API_KEY` | Auto-generated | Passed as `LITELLM_KEY` to Hermes for authenticating with the LiteLLM proxy |
 | `FIRECRAWL_API_KEY` | | API key for the Firecrawl web-scraping backend (used by Hermes web search) |
