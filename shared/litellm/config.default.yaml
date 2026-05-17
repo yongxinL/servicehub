@@ -117,6 +117,7 @@ litellm_settings:
   # LiteLLM's get_instance_fn returns getattr(module, name) without instantiating.
   callbacks:
     - smartrouter.smart_router_callback
+    - prometheus
 
   # Enable Prometheus metrics at /metrics endpoint on UI port
   prometheus_metrics: true
