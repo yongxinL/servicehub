@@ -24,10 +24,6 @@ services:
         depends_on:
             agsvchermint:
                 condition: service_completed_successfully
-            agsvclitellm:
-                condition: service_healthy
-            agsvcfastcrw:
-                condition: service_started
         environment:
             - TZ=${TIME_ZONE}
             - HOME=/opt/data
@@ -52,12 +48,25 @@ services:
             retries: 3
             start_period: 15s
         image: agsvchermagt:latest
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.agsvchermagt.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.agsvchermagt.rule=Host(`${HERMES_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.agsvchermagt.service=agsvchermagt"
+            # Define the internal container port for routing
+            - "traefik.http.services.agsvchermagt.loadbalancer.server.port=12328"
+            # Enable TLS on this router
+            - "traefik.http.routers.agsvchermagt.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.agsvchermagt.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         ports:
-            - "12328:12328"    # Hermes Workspace (web UI)
             - "12329:12329"    # Hermes Dashboard
-            - "12330:12330"    # Hermes Gateway API server
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/hermesagent/data:/opt/data

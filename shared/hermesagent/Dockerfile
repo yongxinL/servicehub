@@ -60,7 +60,7 @@ COPY --from=build /tmp/hermes-workspace/server-entry.js /opt/lib/workspace/serve
 COPY --from=build /tmp/hermes-workspace/skills /opt/lib/workspace/skills
 
 # Hermes defaults + overlay helpers
-COPY default/ /opt/hermes-defaults/
+COPY default/ /opt/hermes/defaults/
 COPY start-gateways.sh /usr/local/bin/start-gateways.sh
 COPY init-profile.sh   /usr/local/bin/init-profile.sh
 COPY apply-overlay.sh  /usr/local/bin/apply-overlay.sh
