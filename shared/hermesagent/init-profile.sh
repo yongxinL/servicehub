@@ -15,7 +15,7 @@
 #   from process env (populated by compose/agent.yml) and writes the profile to
 #   /opt/data/profiles/<name>/.
 #
-# Detection: presence of /opt/hermes-defaults (baked into the image by the
+# Detection: presence of /opt/hermes/defaults (baked into the image by the
 # Dockerfile) marks container mode. Anything else is treated as host mode.
 #
 # What it does:
@@ -58,11 +58,11 @@ export LC_ALL="${LC_ALL:-C.UTF-8}"
 export LANG="${LANG:-C.UTF-8}"
 
 # ── Detect execution context ──────────────────────────────────────────────────
-# /opt/hermes-defaults is baked into the image by the Dockerfile, so its
+# /opt/hermes/defaults is baked into the image by the Dockerfile, so its
 # presence is a reliable container-mode signal.
-if [[ -d /opt/hermes-defaults ]]; then
+if [[ -d /opt/hermes/defaults ]]; then
     CONTEXT="container"
-    DEFAULTS_DIR="/opt/hermes-defaults"
+    DEFAULTS_DIR="/opt/hermes/defaults"
     DATA_ROOT="/opt/data"
     ENV_FILE=""
 else

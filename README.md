@@ -339,7 +339,7 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 [e] translate this paragraph                       → hephaestus / Gemma-4-4B (shorthand)
 ```
 
-> **Default profile files:** `shared/hermesagent/default/` is baked into the image at `/opt/hermes-defaults/`. On first start, `start-gateways.sh` seeds these into `/opt/data/` (and per-profile dirs) only when files are absent — it never overwrites existing configuration.
+> **Default profile files:** `shared/hermesagent/default/` is baked into the image at `/opt/hermes/defaults/`. On first start, `start-gateways.sh` seeds these into `/opt/data/` (and per-profile dirs) only when files are absent — it never overwrites existing configuration.
 
 ### Open WebUI
 

@@ -6,7 +6,7 @@
 # tini (PID 1) handles signal forwarding and zombie reaping.
 #
 # Behaviour:
-#   1. Seeds /opt/data (and per-profile dirs) from /opt/hermes-defaults/ on
+#   1. Seeds /opt/data (and per-profile dirs) from /opt/hermes/defaults/ on
 #      first run — copies only files that do not already exist, never overwrites.
 #   2. HERMES_AGENT_PROFILES empty  → single default gateway  (hermes gateway)
 #      HERMES_AGENT_PROFILES set    → one gateway per named profile (hermes -p <name> gateway)
@@ -43,7 +43,7 @@ drop_privileges() {
 drop_privileges
 
 DATA_DIR="/opt/data"
-DEFAULTS_DIR="/opt/hermes-defaults"
+DEFAULTS_DIR="/opt/hermes/defaults"
 HERMES_BIN="hermes"
 DASHBOARD_PORT="${HERMES_DASHBOARD_PORT:-12329}"
 WORKSPACE_PORT="${HERMES_WORKSPACE_PORT:-12328}"
