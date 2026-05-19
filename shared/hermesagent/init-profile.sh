@@ -85,14 +85,16 @@ substitute_in_file() {
     local placeholder="$1"
     local value="$2"
     local file="$3"
-    python3 - "$placeholder" "$value" "$file" <<'PYEOF'
+    python3 -c "
 import sys
-placeholder, value, fname = sys.argv[1], sys.argv[2], sys.argv[3]
+placeholder = sys.argv[1]
+value = sys.argv[2]
+fname = sys.argv[3]
 with open(fname, 'r', encoding='utf-8') as f:
     content = f.read()
 with open(fname, 'w', encoding='utf-8') as f:
     f.write(content.replace(placeholder, value))
-PYEOF
+" "$placeholder" "$value" "$file"
 }
 
 # ── Python-based regex substitution (BSD sed replacement) ────────────────────
@@ -102,14 +104,16 @@ substitute_regex_in_file() {
     local pattern="$1"
     local replacement="$2"
     local file="$3"
-    python3 - "$pattern" "$replacement" "$file" <<'PYEOF'
+    python3 -c "
 import sys, re
-pattern, replacement, fname = sys.argv[1], sys.argv[2], sys.argv[3]
+pattern = sys.argv[1]
+replacement = sys.argv[2]
+fname = sys.argv[3]
 with open(fname, 'r', encoding='utf-8') as f:
     content = f.read()
 with open(fname, 'w', encoding='utf-8') as f:
     f.write(re.sub(pattern, replacement, content, count=1))
-PYEOF
+" "$pattern" "$replacement" "$file"
 }
 
 # ── Argument parsing ──────────────────────────────────────────────────────────

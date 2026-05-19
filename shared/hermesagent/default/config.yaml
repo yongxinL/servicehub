@@ -1,10 +1,10 @@
 # =============================================================================
-# Hermes Agent — default profile config.yaml
+# Hermes Agent-default profile config.yaml
 # Copy to /opt/data/hermesagent/profiles/<name>/config.yaml and edit.
 # Full reference: https://hermes-agent.nousresearch.com/docs/user-guide/configuration
 # =============================================================================
 
-# LLM — routes through LiteLLM proxy (complexity-based routing).
+# LLM-routes through LiteLLM proxy (complexity-based routing).
 # <your-litellm-api-base> and <your-litellm-master-key> are substituted at
 # container start by start-gateways.sh from the LITELLM_API_URL and
 # LITELLM_API_KEY env vars (set in compose/agent.yml).
@@ -21,7 +21,7 @@ model:
   api_key: <your-litellm-master-key>
 
 # ---------------------------------------------------------------------------
-# API server port — set a unique port per profile when running multiple profiles
+# API server port-set a unique port per profile when running multiple profiles
 # in the same container. The default profile uses 12330; named profiles start at 8643.
 # Default profile:            12330  (no change needed)
 # Profile 1 (e.g. alice):    8643
@@ -32,7 +32,7 @@ api_server:
   port: 12330
 
 # ---------------------------------------------------------------------------
-# Terminal sandbox — Docker isolation
+# Terminal sandbox-Docker isolation
 # Hermes runs agent commands inside a fresh Docker container, not on the host.
 # docker_forward_env: variables passed from Hermes env into the sandbox.
 # The hermes container needs /var/run/docker.sock mounted (see agent.yml).
@@ -46,7 +46,7 @@ terminal:
   shell_init_files: []
   auto_source_bashrc: true
 
-# Browser — CDP connection to the Chromium renderer in the same stack.
+# Browser-CDP connection to the Chromium renderer in the same stack.
 # token= uses the same key as FastCRW auth, substituted at startup.
 # Switch cdp_url to ws://agsvclighpda:9222/ for the lighter LightPanda renderer.
 browser:
@@ -60,7 +60,7 @@ browser:
   dialog_policy: must_respond
   dialog_timeout_s: 300
 
-# Web — FastCRW handles both search (/v1/search → SearXNG internally) and
+# Web-FastCRW handles both search (/v1/search → SearXNG internally) and
 # scraping (/v1/scrape). No separate SearXNG connection needed.
 # base_url and api_key placeholders are substituted at container start by
 # start-gateways.sh from the FIRECRAWL_API_URL and FIRECRAWL_API_KEY env vars.
