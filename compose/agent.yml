@@ -62,7 +62,7 @@ services:
             # Enable TLS on this router
             - "traefik.http.routers.agsvchermagt.tls=true"
             # uncomment when Domain Level Forward Authentication enabled in Authentik
-            # - "traefik.http.routers.agsvchermagt.middlewares=authentik-forwardauth@file"
+            - "traefik.http.routers.agsvchermagt.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.agsvchermagt.tls.certresolver=${CERTRESOLVER}"
         networks:
