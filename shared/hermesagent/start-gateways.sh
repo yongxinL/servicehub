@@ -8,16 +8,19 @@
 # Behaviour:
 #   1. Seeds /opt/data (and per-profile dirs) from /opt/hermes/defaults/ on
 #      first run — copies only files that do not already exist, never overwrites.
-#   2. HERMES_AGENT_PROFILES empty  → single default gateway  (hermes gateway)
-#      HERMES_AGENT_PROFILES set    → one gateway per named profile (hermes -p <name> gateway)
-#      Port per profile is set via api_server.port in each profile's config.yaml.
-#   3. Dashboard starts on HERMES_DASHBOARD_PORT (default 12329).
+#   2. Default gateway always starts on port 12330 — used by cron scheduler,
+#      async tasks, and Nous portal tool.
+#   3. Named profiles (HERMES_AGENT_PROFILES) start alongside the default gateway
+#      on ports starting at 12335. Ports are auto-assigned to avoid collisions
+#      (e.g. from cloned profiles). Duplicates and 12330 conflicts are resolved.
+#   4. Dashboard starts on HERMES_DASHBOARD_PORT (default 12329).
 #
 # Env vars:
 #   HERMES_AGENT_PROFILES  space-separated profile names  (default: empty)
 #   HERMES_DASHBOARD_PORT   dashboard listen port          (default: 12329)
 #   HERMES_WORKSPACE_PORT   workspace listen port          (default: 12328)
-#   GATEWAY_HEALTH_URL      override health check URL      (default: http://localhost:8642)
+#   GATEWAY_HEALTH_URL      override health check URL      (default: http://localhost:12330)
+#   BASE_GATEWAY_PORT       first port for named profiles   (default: 12335)
 # =============================================================================
 set -euo pipefail
 
@@ -108,14 +111,16 @@ substitute_in_file() {
     local placeholder="$1"
     local value="$2"
     local file="$3"
-    python3 - "$placeholder" "$value" "$file" <<'PYEOF'
+    python3 -c "
 import sys
-placeholder, value, fname = sys.argv[1], sys.argv[2], sys.argv[3]
+placeholder = sys.argv[1]
+value = sys.argv[2]
+fname = sys.argv[3]
 with open(fname, 'r', encoding='utf-8') as f:
     content = f.read()
 with open(fname, 'w', encoding='utf-8') as f:
     f.write(content.replace(placeholder, value))
-PYEOF
+" "$placeholder" "$value" "$file"
 }
 
 # ---------------------------------------------------------------------------
@@ -192,18 +197,129 @@ substitute_placeholders "${DATA_DIR}/config.yaml"
 # ---------------------------------------------------------------------------
 /usr/local/bin/apply-overlay.sh
 
+# Activate hermes venv so yaml module is available for config patching
+if [[ -f /opt/hermes/.venv/bin/activate ]]; then
+    source /opt/hermes/.venv/bin/activate
+fi
+HERMES_PYTHON="${HERMES_PYTHON:-/opt/hermes/.venv/bin/python3}"
+export VIRTUAL_ENV="${VIRTUAL_ENV:-/opt/hermes/.venv}"
+export PATH="/opt/hermes/.venv/bin:$PATH"
+
 # ---------------------------------------------------------------------------
 # Per-profile gateway — hermes -p <name> gateway
+# Ports are assigned sequentially from BASE_GATEWAY_PORT so that multiple
+# profiles in the same container never collide on api_server.port.
+# Detects and corrects ports already in use (e.g. after a profile clone).
 # ---------------------------------------------------------------------------
+BASE_GATEWAY_PORT="${BASE_GATEWAY_PORT:-12335}"
+
+find_free_port() {
+    local used_ports_json
+    used_ports_json=$(scan_profile_ports)
+    local port="${BASE_GATEWAY_PORT}"
+    while printf '%s\n' "${used_ports_json}" | grep -qx "${port}"; do
+        port=$((port + 1))
+    done
+    echo "${port}"
+}
+
+_assign_unique_port() {
+    local profile_dir="$1"
+    local assigned_port="$2"
+    # yaml module is in hermes venv — use the venv python
+    "${HERMES_PYTHON}" - "$profile_dir/config.yaml" "$assigned_port" <<'PYEOF'
+import sys, yaml, pathlib
+fname, new_port = sys.argv[1], int(sys.argv[2])
+with open(fname) as f:
+    cfg = yaml.safe_load(f)
+cfg.setdefault('api_server', {})['port'] = new_port
+with open(fname, 'w') as f:
+    yaml.safe_dump(cfg, f, default_flow_style=False)
+PYEOF
+}
+
+# ---------------------------------------------------------------------------
+# scan_profile_ports
+# Reads all profile config.yaml files and the default config to collect ports
+# already in use. Returns a newline-separated list of used ports on stdout.
+# ---------------------------------------------------------------------------
+scan_profile_ports() {
+    local used_ports=()
+
+    # Always include default gateway port
+    used_ports+=("12330")
+
+    # Scan each named profile's config.yaml
+    if [[ -d "${DATA_DIR}/profiles" ]]; then
+        for cfg in "${DATA_DIR}/profiles"/*/config.yaml; do
+            [[ -f "${cfg}" ]] || continue
+            local port
+            port=$("${HERMES_PYTHON}" - "$cfg" <<'PYEOF'
+import sys, yaml
+with open(sys.argv[1]) as f:
+    cfg = yaml.safe_load(f)
+port = cfg.get('api_server', {}).get('port', '')
+print(port if port else '')
+PYEOF
+)
+            port="${port// /}"
+            [[ -n "${port}" ]] && used_ports+=("${port}")
+        done
+    fi
+
+    printf '%s\n' "${used_ports[@]}"
+}
+
 start_profile_gateway() {
     local profile="$1"
     local profile_dir="${DATA_DIR}/profiles/${profile}"
+    local assigned_port
+    assigned_port=$(find_free_port)
+
     seed_defaults "${profile_dir}"
     warn_placeholders "${profile_dir}/.env"
     substitute_placeholders "${profile_dir}/.env"
     substitute_placeholders "${profile_dir}/config.yaml"
-    echo "[hermes] Starting gateway for profile '${profile}'"
-    ${HERMES_BIN} -p "${profile}" gateway &
+
+    # Read current port from config.yaml (may have been set by clone/clone-profile)
+    local current_port
+    current_port=$("${HERMES_PYTHON}" - "$profile_dir/config.yaml" <<'PYEOF'
+import sys, yaml
+fname = sys.argv[1]
+try:
+    with open(fname) as f:
+        cfg = yaml.safe_load(f)
+    print(str(cfg.get('api_server', {}).get('port', '')))
+except Exception:
+    print('')
+PYEOF
+)
+    current_port="${current_port// /}"
+
+    # Skip if port already matches what we'd assign (no duplicate check needed)
+    # Reassign if port is the default (12330, conflicts with default gateway) or
+    # if port is already used by another profile
+    local needs_assign=false
+    if [[ -z "${current_port}" ]]; then
+        needs_assign=true
+    elif [[ "${current_port}" == "12330" ]]; then
+        needs_assign=true
+        echo "[hermes] Profile '${profile}' uses default-gateway port 12330 — reassigning"
+    elif printf '%s\n' "$(scan_profile_ports)" | grep -qx "${current_port}"; then
+        needs_assign=true
+        echo "[hermes] Profile '${profile}' port ${current_port} is already in use — reassigning"
+    fi
+
+    if [[ "${needs_assign}" == true ]]; then
+        _assign_unique_port "$profile_dir" "$assigned_port"
+        echo "[hermes] Assigned api_server.port=${assigned_port} to profile '${profile}'"
+    fi
+
+    echo "[hermes] Starting gateway for profile '${profile}' on port ${assigned_port}"
+    # Set API_SERVER_PORT to match the per-profile port that start-gateways.sh
+    # assigned via _assign_unique_port. Without this, the container-level env var
+    # (12330) would override the config.yaml port for each profile.
+    API_SERVER_PORT="${assigned_port}" ${HERMES_BIN} -p "${profile}" gateway &
     GATEWAY_PIDS+=($!)
 }
 
@@ -212,6 +328,7 @@ start_profile_gateway() {
 # ---------------------------------------------------------------------------
 start_default_gateway() {
     echo "[hermes] Starting default gateway"
+    # API_SERVER_PORT is intentionally kept as-is (12330) for the default profile
     ${HERMES_BIN} gateway &
     GATEWAY_PIDS+=($!)
 }
@@ -219,20 +336,20 @@ start_default_gateway() {
 # ---------------------------------------------------------------------------
 # Launch gateway(s)
 # ---------------------------------------------------------------------------
+# Default gateway always runs — needed for cron scheduler, async tasks,
+# and Nous portal tool even when named profiles are configured.
+start_default_gateway
+
 if [[ -n "${HERMES_AGENT_PROFILES:-}" ]]; then
     for profile in ${HERMES_AGENT_PROFILES}; do
         start_profile_gateway "${profile}"
     done
 fi
 
-if [[ ${#GATEWAY_PIDS[@]} -eq 0 ]]; then
-    start_default_gateway
-fi
-
 # ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
-HEALTH_URL="${GATEWAY_HEALTH_URL:-http://localhost:8642}"
+HEALTH_URL="${GATEWAY_HEALTH_URL:-http://localhost:12330}"
 echo "[hermes] Starting dashboard on port ${DASHBOARD_PORT} (health → ${HEALTH_URL})"
 GATEWAY_HEALTH_URL="${HEALTH_URL}" \
     ${HERMES_BIN} dashboard --host 0.0.0.0 --port "${DASHBOARD_PORT}" --insecure &

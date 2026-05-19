@@ -61,11 +61,14 @@ services:
             - "traefik.http.services.agsvchermagt.loadbalancer.server.port=12328"
             # Enable TLS on this router
             - "traefik.http.routers.agsvchermagt.tls=true"
+            # uncomment when Domain Level Forward Authentication enabled in Authentik
+            # - "traefik.http.routers.agsvchermagt.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.agsvchermagt.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         ports:
+            - "12328:12328"    # Hermes workspace
             - "12329:12329"    # Hermes Dashboard
         restart: unless-stopped
         volumes:
@@ -75,7 +78,7 @@ services:
 
     agsvchermint:
         command: >
-            sh -c '[ "$(stat -c %u /opt/data 2>/dev/null)" != "10000" ] && chown -R 10000:10000 /opt/data || true chmod -R 775 /opt/data'
+            sh -c 'chown -R 10000:10000 /opt/data; chmod -R 775 /opt/data'
         image: busybox:latest
         networks:
             - subnet
