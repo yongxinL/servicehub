@@ -448,14 +448,12 @@
     <div class="section-label">Instructions</div>
     <a href="#s31">3.1 Configure Hermes Agent</a>
     <a href="#s32">3.2 AI Provider &amp; Search</a>
-    <a href="#s33">3.3 Discord &amp; WhatsApp</a>
-    <a href="#s34">3.4 Verify &amp; Test</a>
-    <a href="#s35">3.5 Family User Profiles</a>
-    <a href="#s36">3.6 Configure Alice</a>
-    <a href="#s37">3.7 Open WebUI &amp; API</a>
-    <a href="#s38">3.8 Security Hardening</a>
-    <a href="#s39">3.9 Hermes CLI Reference</a>
-    <a href="#overlay">3.10 Overlay System</a>
+    <a href="#s33">3.3 Verify &amp; Test</a>
+    <a href="#s34">3.4 Create User Profiles</a>
+    <a href="#s35">3.5 Open WebUI &amp; API</a>
+    <a href="#s36">3.6 Security Hardening</a>
+    <a href="#s37">3.7 Hermes CLI Reference</a>
+    <a href="#overlay">3.8 Overlay System</a>
   </nav>
 </aside>
 
@@ -465,17 +463,17 @@
   <!-- Hero -->
   <div class="hero">
     <h1>Hermes Agent</h1>
-    <p class="tagline">A self-hosted, multi-profile AI agent platform that brings intelligent assistants to Discord, WhatsApp, and a web API — routed through a privacy-first, complexity-aware LLM proxy.</p>
+    <p class="tagline">4 isolated hermesagent containers with private workspaces, internal user profiles, and shared LLM infrastructure.</p>
     <div class="badges">
       <span class="badge badge-blue">Nous Research</span>
-      <span class="badge badge-purple">Multi-profile</span>
+      <span class="badge badge-purple">4 Containers</span>
       <span class="badge badge-green">Privacy-first routing</span>
       <span class="badge badge-blue">Docker Compose</span>
     </div>
   </div>
 
   <p>
-    Hermes Agent is an open-source AI agent platform by <a href="https://nousresearch.com">Nous Research</a>. In ServiceHub it runs as a single Docker container (<code>agsvchermagt</code>) that consolidates one or more gateway processes and a web dashboard under <code>tini</code> for correct signal forwarding. Each gateway connects <strong>outbound</strong> via WebSocket to its configured messaging platform — no inbound firewall ports required. All LLM calls pass through the LiteLLM proxy (<code>agsvclitellm</code>), which routes requests between the on-device Gemma 4B edge model and the MiniMax 2.7 cloud model based on content complexity and explicit user tags.
+    Hermes Agent is an open-source AI agent platform by <a href="https://nousresearch.com">Nous Research</a>. In ServiceHub it runs as <strong>4 separate containers</strong> (<code>agsvcherme00</code>, <code>agsvcherme01</code>, <code>agsvcherme02</code>, <code>agsvcherme03</code>), each with its own workspace, gateway, and data directory. Internal user profiles (code, research, etc.) are available via <code>hermes profile create</code>. No messaging platform setup needed.
   </p>
 
   <hr />
@@ -485,68 +483,52 @@
 
   <div class="arch-box"><pre>
 ┌─────────────────────────────────────────────────────────────────────┐
-│  agsvchermagt  (Docker container — tini PID 1)                      │
-│                                                                     │
-│  Workspace           : 12328 ──→  Web UI (browser)                 │
-│  Dashboard           : 12329 ──→  LAN browser UI                   │
-│  Gateway (default)   : 8642  ──→  Discord / WhatsApp  (outbound)   │
-│  Gateway (alice)     : 8643  ──→  Discord / WhatsApp  (outbound)   │
-│  API Server          : 12330 ──→  Open WebUI / HTTP clients        │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-              ┌──────────────▼─────────────────┐
+│  agsvcherme00        agsvcherme01        agsvcherme02        agsvcherme03
+│  ──────────────      ──────────────      ──────────────      ──────────────
+│  Workspace :12320     Workspace :12321     Workspace :12322     Workspace :12323
+│  Gateway   :12330     Gateway   :12330     Gateway   :12330     Gateway   :12330
+│  API       :12330      API       :12330      API       :12330      API       :12330
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────▼─────────────────┐
               │  agsvclitellm  (LiteLLM Proxy)  │
               │  Port 12380                     │
               │  Smart Router (smart_router.py) │
-              └─────────────┬────────┬──────────┘
+              └─────────────┬────────┬─────────────┘
                             │        │
              ┌──────────────▼──┐  ┌──▼──────────────────┐
-             │  agsvcchatllm   │  │  MiniMax 2.7 API     │
-             │  Gemma-4-4B     │  │  (cloud, 200K ctx)   │
-             │  Port 12326     │  └──────────────────────┘
-             │  (edge, local)  │
-             └─────────────────┘
-
-             ┌──────────────────────────────────────┐
-             │  agsvcfastcrw  (FastCRW)             │
-             │  Port 12360 — scrape + search API    │
-             │  ├─→ agsvclighpda  (LightPanda :9222)│
-             │  ├─→ agsvcchromum  (Chromium :12363) │
-             │  └─→ agsvcsearxng  (SearXNG  :12361) │
-             └──────────────────────────────────────┘</pre></div>
+             │  agsvcchatllm  │  │  MiniMax 2.7 API    │
+             │  Gemma-4-4B    │  │  (cloud, 200K ctx)  │
+             │  Port 12386    │  └────────────────────┘
+             └────────────────┘</pre></div>
 
   <h3>Published ports</h3>
   <div class="port-grid">
     <div class="port-card">
-      <div class="pnum">12328</div>
-      <div class="plabel">Workspace</div>
-      <div class="pdesc">Web UI — login with HERMES_SPACE_PASSWD</div>
+      <div class="pnum">12320</div>
+      <div class="plabel">agsvcherme00 Workspace</div>
+      <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_00</div>
     </div>
     <div class="port-card">
-      <div class="pnum">12329</div>
-      <div class="plabel">Dashboard</div>
-      <div class="pdesc">LAN only — browser UI for chat, pairing &amp; monitoring</div>
+      <div class="pnum">12321</div>
+      <div class="plabel">agsvcherme01 Workspace</div>
+      <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_01</div>
     </div>
     <div class="port-card">
-      <div class="pnum">12330</div>
-      <div class="plabel">API Server</div>
-      <div class="pdesc">OpenAI-compatible HTTP API consumed by Open WebUI</div>
+      <div class="pnum">12322</div>
+      <div class="plabel">agsvcherme02 Workspace</div>
+      <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_02</div>
     </div>
     <div class="port-card">
-      <div class="pnum">8642</div>
-      <div class="plabel">Gateway (default)</div>
-      <div class="pdesc">Internal only — outbound WebSocket to Discord/WhatsApp</div>
-    </div>
-    <div class="port-card">
-      <div class="pnum">8643+</div>
-      <div class="plabel">Gateway (profiles)</div>
-      <div class="pdesc">Internal only — one port per named profile</div>
+      <div class="pnum">12323</div>
+      <div class="plabel">agsvcherme03 Workspace</div>
+      <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_03</div>
     </div>
   </div>
 
   <div class="callout note">
     <span class="callout-icon">ℹ</span>
-    <p><strong>Data persistence:</strong> <code>${APPS_DATA}/hermesagent/data</code> is mounted at <code>/opt/data</code> (also <code>$HOME</code>). Default profile files live in <code>/opt/data/</code>; per-profile files in <code>/opt/data/profiles/&lt;name&gt;/</code>. Default files are seeded from the image on first start and <strong>never overwritten</strong>. Source-code edits to <code>/opt/hermes</code> can be persisted via the <a href="#overlay">overlay system</a>.</p>
+    <p><strong>Data persistence:</strong> Each container has its own data directory (<code>${HERMES_DATA_00}</code>, etc., defaults to <code>${APPS_DATA}/hermesagent/data/00</code>, etc.). Files are seeded from the image on first start and <strong>never overwritten</strong>. Source-code edits to <code>/opt/hermes</code> can be persisted via the <a href="#overlay">overlay system</a>.</p>
   </div>
 
   <hr />
@@ -585,9 +567,8 @@
     <table>
       <thead><tr><th>Account</th><th>Required for</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td>Discord Developer account</td><td>Discord gateway</td><td>Create bot app at <code>discord.com/developers</code></td></tr>
-        <tr><td>WhatsApp (personal or Business API)</td><td>WhatsApp gateway</td><td>QR-scan pairing or Business API token</td></tr>
         <tr><td>MiniMax API key</td><td>Cloud LLM tier</td><td>Sign up at <code>api.minimax.chat</code></td></tr>
+        <tr><td>Hugging Face account</td><td>Gemma 4B edge model</td><td>Required for gated model downloads — set <code>HF_TOKEN</code> in root <code>.env</code></td></tr>
       </tbody>
     </table>
   </div>
@@ -635,14 +616,7 @@
       <div class="step-num">4</div>
       <div class="step-body">
         <h4>Inspect the startup log</h4>
-        <p>Confirm seeding, substitution, and gateway/dashboard start messages appear.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">5</div>
-      <div class="step-body">
-        <h4>Open the dashboard</h4>
-        <p>Navigate to <code>http://&lt;host-ip&gt;:12329</code> from a browser on your LAN.</p>
+        <p>Confirm seeding, substitution, and gateway start messages appear.</p>
       </div>
     </div>
   </div>
@@ -668,13 +642,12 @@ docker compose logs agsvchermagt | head -40</code></pre>
 [hermes] Substituted LITELLM_API_KEY in /opt/data/.env
 [hermes] Substituted FIRECRAWL_API_URL in /opt/data/.env
 [hermes] Substituted FIRECRAWL_API_KEY in /opt/data/.env
-[hermes] Starting default gateway
-[hermes] Starting dashboard on port 12329</code></pre>
+</code></pre>
 
   <hr />
 
   <!-- ── 3.2 ────────────────────────────────────────────────────────── -->
-  <h2 id="s32">3.2 Configure and Verify AI Provider, Search, and Browser</h2>
+  <h2 id="s32">3.2 AI Provider &amp; Search</h2>
 
   <h3>LiteLLM proxy</h3>
   <p>The LiteLLM proxy (<code>agsvclitellm</code>) is the single AI endpoint Hermes uses. It routes between local and cloud models transparently based on message content.</p>
@@ -756,183 +729,12 @@ curl -sf <span class="str">"http://localhost:12363/json/version?token=<span clas
 
   <div class="callout tip">
     <span class="callout-icon">✓</span>
-    <p>Browser tool verification: in the dashboard (<code>http://&lt;host-ip&gt;:12329</code>), send <em>"open https://example.com and tell me the page title"</em>. A successful CDP call returns the page title in the agent trace.</p>
   </div>
 
   <hr />
 
   <!-- ── 3.3 ────────────────────────────────────────────────────────── -->
-  <h2 id="s33">3.3 Configure and Verify Messaging Platforms</h2>
-
-  <h3>How Hermes connects to chat platforms</h3>
-  <p>Each Hermes profile runs <strong>its own gateway process with its own bot credentials</strong> — gateways are per-profile, not per-host. That single fact drives every design choice below: there is no front-door router that demultiplexes one shared Discord bot or one shared WhatsApp number into different profiles based on sender. If you want isolated agents (separate memory, SOUL, skills, cron jobs) per person, each profile needs its own bot.</p>
-
-  <h3>Discord — configuration options</h3>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Pattern</th><th>How it works</th><th>Pros</th><th>Cons</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>One bot per profile</strong><br><em>(recommended for families)</em></td>
-          <td>Each profile has its own Discord application and bot token. Family members <code>@mention</code> their own bot. <code>DISCORD_ALLOWED_USERS</code> locks each bot to a single Discord user ID.</td>
-          <td>Full state isolation — each user gets their own memory, personality, skills. No risk of cross-talk.</td>
-          <td>One Discord application per profile to create in the Developer Portal.</td>
-        </tr>
-        <tr>
-          <td><strong>One shared bot for everyone</strong></td>
-          <td>Single bot/profile. Add all family Discord IDs to <code>DISCORD_ALLOWED_USERS</code>. Enable <code>group_sessions_per_user: true</code> in <code>config.yaml</code> so each Discord user gets a separate <em>session</em> in shared channels.</td>
-          <td>Cheapest setup; per-user session histories are still kept apart inside the shared profile.</td>
-          <td>Memory, SOUL, skills, and cron jobs are all shared across users — one agent, multiple chat threads.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>WhatsApp — configuration options</h3>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Mode</th><th>Phone number</th><th>How people message Hermes</th><th>Intended for</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong><code>WHATSAPP_MODE=bot</code></strong><br><em>(recommended)</em></td>
-          <td>A <em>dedicated</em> number not yet registered with WhatsApp — Google Voice (free, US), prepaid SIM ($5–15), or a VoIP number.</td>
-          <td>Anyone on <code>WHATSAPP_ALLOWED_USERS</code> messages the bot's number directly, like any contact.</td>
-          <td>Real, multi-user, or family-member use.</td>
-        </tr>
-        <tr>
-          <td><strong><code>WHATSAPP_MODE=self</code></strong></td>
-          <td>Your own existing WhatsApp account.</td>
-          <td>You message <em>yourself</em> — WhatsApp's "Note to Self" thread is the agent channel.</td>
-          <td>Solo testing only — cannot be shared with another person.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="callout warn">
-    <span class="callout-icon">⚠</span>
-    <div>
-      <p><strong>WhatsApp limitations that drive the design</strong></p>
-      <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; line-height: 1.8;">
-        <li>One WhatsApp account can have at most <strong>~4 linked devices</strong> — a hard cap from WhatsApp itself.</li>
-        <li>Pairing the <em>same</em> WhatsApp account on multiple Hermes profiles via Linked Devices is technically possible but practically broken: every paired profile receives every incoming message, so every agent replies. WhatsApp has no per-profile routing key. Don't do it.</li>
-        <li>There is no allowlist semantic that routes message X to profile A and message Y to profile B. <code>WHATSAPP_ALLOWED_USERS</code> only gates <em>who can talk to this one profile's bot</em>.</li>
-        <li>Self-chat mode is inherently single-user — only the account owner can open their own "Note to Self".</li>
-      </ul>
-    </div>
-  </div>
-
-  <h3>Practical patterns — pick one</h3>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>#</th><th>Pattern</th><th>WhatsApp cost</th><th>Discord cost</th><th>Isolation</th><th>Use when</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>1</strong></td>
-          <td><strong>Dedicated number + Discord bot per profile</strong><br><em>✓ recommended</em></td>
-          <td>One number per family member (Google Voice / prepaid / VoIP).</td>
-          <td>One Discord application per family member.</td>
-          <td>Full — separate memory, SOUL, skills, cron jobs.</td>
-          <td>Each family member should have <em>their own</em> assistant.</td>
-        </tr>
-        <tr>
-          <td><strong>2</strong></td>
-          <td><strong>Shared profile, allowlisted family</strong></td>
-          <td>One number total. Add every family member to <code>WHATSAPP_ALLOWED_USERS</code>.</td>
-          <td>One bot total. Add every Discord user ID to <code>DISCORD_ALLOWED_USERS</code>; set <code>group_sessions_per_user: true</code>.</td>
-          <td>Discord: separate sessions per user. WhatsApp: shared.</td>
-          <td>Single family assistant; cost-sensitive; shared memory acceptable.</td>
-        </tr>
-        <tr>
-          <td><strong>3</strong></td>
-          <td><strong>Self-chat — testing only</strong></td>
-          <td>Your own personal WhatsApp account.</td>
-          <td>N/A.</td>
-          <td>None — you only.</td>
-          <td>Solo testing before committing to a dedicated number.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="callout tip">
-    <span class="callout-icon">✓</span>
-    <p><strong>This guide uses Pattern #1.</strong> The default profile gets the first dedicated WhatsApp number and first Discord bot; each additional family profile (Alice, Bob, …) gets its <em>own</em> dedicated WhatsApp number and its <em>own</em> Discord bot application. Default-profile setup follows immediately below; per-profile setup follows in <a href="#s36">§3.6</a>.</p>
-  </div>
-
-  <hr style="margin: 18px 0; border-color: var(--border);" />
-
-  <h3>Default profile — Discord</h3>
-
-  <h4>Create a Discord bot</h4>
-  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
-    <li>Go to <code>discord.com/developers/applications</code> → <strong>New Application</strong>.</li>
-    <li>Under <strong>Bot</strong>, enable <strong>Message Content Intent</strong> and <strong>Server Members Intent</strong>. Copy the <strong>Bot Token</strong>. <em>Failing to enable Message Content Intent is the #1 reason Discord bots don't respond.</em></li>
-    <li>Under <strong>OAuth2 → URL Generator</strong>: scopes <code>bot</code> + <code>applications.commands</code>; minimum permissions: View Channels, Send Messages, Read Message History, Attach Files. Recommended additions: Send Messages in Threads, Add Reactions, Embed Links (permission integer <code>274878286912</code>). Copy the URL and invite the bot to your server.</li>
-  </ol>
-
-  <div class="callout warn">
-    <span class="callout-icon">⚠</span>
-    <p>Without <code>DISCORD_BOT_TOKEN</code> <strong>and</strong> <code>DISCORD_ALLOWED_USERS</code> (or <code>DISCORD_ALLOWED_ROLES</code>), the gateway starts but <strong>denies all users by default</strong>. Both variables are required for the bot to respond.</p>
-  </div>
-
-  <h4>Set the token and access control (default profile)</h4>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/.env
-<span class="cm"># Add (get your Discord User ID via Settings → Advanced → Developer Mode → right-click username):</span>
-<span class="var">DISCORD_BOT_TOKEN</span>=&lt;your-discord-bot-token&gt;
-<span class="var">DISCORD_ALLOWED_USERS</span>=&lt;your-discord-user-id&gt;
-
-docker compose restart agsvchermagt
-docker compose logs agsvchermagt | grep -i discord</code></pre>
-
-  <p>Expected: <code>Gateway connected</code> or <code>Discord gateway ready</code>. Send the bot a DM to confirm it replies.</p>
-
-  <h3>Default profile — WhatsApp</h3>
-  <p>Hermes connects outbound — no inbound port or public IP needed. Use a <strong>dedicated phone number</strong> per profile (Google Voice, prepaid SIM, or VoIP), not a personal number. Pairing a personal account exposes private messages to the server.</p>
-
-  <div class="callout warn">
-    <span class="callout-icon">⚠</span>
-    <p>Without <code>WHATSAPP_ALLOWED_USERS</code>, the gateway starts but <strong>denies all incoming messages by default</strong>. Set it to the phone number(s) allowed to message this bot (country code, no <code>+</code>).</p>
-  </div>
-
-  <h4>Step 1 — Set env vars (default profile)</h4>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/.env
-<span class="cm"># Add:</span>
-<span class="var">WHATSAPP_ENABLED</span>=<span class="str">true</span>
-<span class="var">WHATSAPP_MODE</span>=<span class="str">bot</span>                  <span class="cm"># dedicated number (recommended)</span>
-<span class="var">WHATSAPP_ALLOWED_USERS</span>=&lt;your-phone-number-no-plus&gt;  <span class="cm"># e.g. 61412123456</span></code></pre>
-
-  <h4>Step 2 — Run the pairing wizard</h4>
-  <pre><span class="lang-tag">bash</span><code>docker compose restart agsvchermagt
-<span class="cm"># Launch the interactive WhatsApp setup wizard</span>
-docker compose exec -it agsvchermagt hermes whatsapp</code></pre>
-
-  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
-    <li>The wizard displays a QR code in the terminal.</li>
-    <li>On the bot's dedicated phone: <strong>WhatsApp → Settings → Linked Devices → Link a Device</strong> — scan the QR code.</li>
-    <li>The wizard confirms pairing and saves the session.</li>
-  </ol>
-
-  <p>Session credentials persist at <code>${APPS_DATA}/hermesagent/data/whatsapp-session/</code> across restarts.</p>
-
-  <pre><span class="lang-tag">bash</span><code><span class="cm"># Verify connection</span>
-docker compose logs agsvchermagt | grep -i whatsapp
-
-<span class="cm"># Force re-pair (delete session and restart wizard)</span>
-rm -rf <span class="var">${APPS_DATA}</span>/hermesagent/data/whatsapp-session/
-docker compose restart agsvchermagt
-docker compose exec -it agsvchermagt hermes whatsapp</code></pre>
-
-  <hr />
-
-  <!-- ── 3.4 ────────────────────────────────────────────────────────── -->
-  <h2 id="s34">3.4 Verify Configuration Files and Test</h2>
+  <h2 id="s33">3.3 Verify Configuration Files and Test</h2>
 
   <h3>Quick configuration audit</h3>
   <pre><span class="lang-tag">bash</span><code><span class="cm"># 1. No unfilled placeholders</span>
@@ -945,29 +747,21 @@ docker compose ps agsvchermagt agsvclitellm agsvcfastcrw agsvcsearxng agsvcchatl
 <span class="cm"># 3. API server</span>
 curl -sf http://localhost:12330/health &amp;&amp; echo <span class="ok">"API OK"</span>
 
-<span class="cm"># 4. Dashboard</span>
-curl -sf http://localhost:12329 -o /dev/null &amp;&amp; echo <span class="ok">"Dashboard OK"</span>
-
-<span class="cm"># 5. Hermes Workspace</span>
-curl -sf http://localhost:12328 -o /dev/null &amp;&amp; echo <span class="ok">"Workspace OK"</span></code></pre>
+<span class="cm"># 4. Hermes Workspace</span>
+curl -sf http://localhost:12320 -o /dev/null &amp;&amp; echo <span class="ok">"Workspace OK"</span></code></pre>
 
   <h3>Full service health matrix</h3>
 
   <div class="health-grid">
     <div class="health-item">
       <div class="h-name">Hermes Workspace</div>
-      <div class="h-port">:12328</div>
-      <div class="h-cmd">curl -sf http://localhost:12328 -o /dev/null</div>
+      <div class="h-port">:12320</div>
+      <div class="h-cmd">curl -sf http://localhost:12320 -o /dev/null</div>
     </div>
     <div class="health-item">
       <div class="h-name">Hermes API</div>
       <div class="h-port">:12330</div>
       <div class="h-cmd">curl -sf http://localhost:12330/health</div>
-    </div>
-    <div class="health-item">
-      <div class="h-name">Dashboard</div>
-      <div class="h-port">:12329</div>
-      <div class="h-cmd">curl -sf http://localhost:12329 -o /dev/null</div>
     </div>
     <div class="health-item">
       <div class="h-name">LiteLLM</div>
@@ -1014,10 +808,10 @@ curl -s http://localhost:12330/v1/chat/completions \
 
   <hr />
 
-  <!-- ── 3.5 ────────────────────────────────────────────────────────── -->
-  <h2 id="s35">3.5 Create Family User Profiles — Alice Example</h2>
+  <!-- ── 3.4 ────────────────────────────────────────────────────────── -->
+  <h2 id="s34">3.4 Create User Profiles</h2>
 
-  <p>Family members each get an isolated profile: a separate gateway process, data directory, Discord connection, WhatsApp session, memory store, and agent personality. Profiles share the same container but are fully isolated at filesystem and process level.</p>
+  <p>Family members each get an isolated profile: a separate gateway process with its own API server port, data directory, memory store, and agent personality. Profiles share the same container but are fully isolated at filesystem and process level.</p>
 
   <div class="profile-card">
     <div class="profile-avatar">👩</div>
@@ -1025,8 +819,6 @@ curl -s http://localhost:12330/v1/chat/completions \
       <h3>Alice</h3>
       <div class="meta">
         <span>Profile name: <strong>alice</strong></span>
-        <span>Discord User ID: <strong>12345678</strong></span>
-        <span>WhatsApp: <strong>+61 412 123 456</strong></span>
         <span>Gateway port: <strong>8643</strong></span>
       </div>
     </div>
@@ -1035,12 +827,11 @@ curl -s http://localhost:12330/v1/chat/completions \
   <div class="callout tip">
     <span class="callout-icon">✓</span>
     <div>
-      <p><strong>Shortcut:</strong> <code>init-profile.sh</code> automates Steps 1–6 in one command. It seeds all config files from defaults, substitutes API keys and base URLs, and writes Discord/WhatsApp credentials directly — no manual file editing needed.</p>
-      <p style="margin-top:8px;">The script auto-detects whether it is running on the host or inside the <code>agsvchermagt</code> container, and resolves env vars + paths accordingly. Both invocations are equivalent:</p>
+      <p><strong>Shortcut:</strong> <code>init-profile.sh</code> automates profile setup. It seeds all config files from defaults, substitutes API keys and base URLs. Both invocations are equivalent:</p>
       <p style="margin-top:8px;"><strong>Host</strong> (reads <code>LITEM_API_KEY</code>, <code>LITEM_API_URL</code>, <code>FCRW_API_URL</code>, <code>APPS_DATA</code> from root <code>.env</code>; writes to <code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/</code>):<br>
-      <code>./shared/hermesagent/init-profile.sh alice --port 8643 --discord-token "&lt;token&gt;" --discord-user "12345678" --whatsapp-number "61412123456"</code></p>
+      <code>./shared/hermesagent/init-profile.sh alice --port 8643</code></p>
       <p style="margin-top:8px;"><strong>Container</strong> (reads <code>LITELLM_API_KEY</code>, <code>LITELLM_API_URL</code>, <code>FIRECRAWL_API_URL</code>, <code>FIRECRAWL_API_KEY</code> from process env set by <code>compose/agent.yml</code>; writes to <code>/opt/data/profiles/&lt;name&gt;/</code>):<br>
-      <code>docker compose exec agsvchermagt init-profile.sh alice --port 8643 --discord-token "&lt;token&gt;" --discord-user "12345678" --whatsapp-number "61412123456"</code></p>
+      <code>docker compose exec agsvchermagt init-profile.sh alice --port 8643</code></p>
     </div>
   </div>
 
@@ -1078,27 +869,15 @@ docker compose exec -it agsvchermagt hermes -p alice setup</code></pre>
 
   <div class="callout note">
     <span class="callout-icon">ℹ</span>
-    <p>The setup wizard will prompt for <code>DISCORD_BOT_TOKEN</code> (Alice's bot token), the preferred model, and any other provider keys. Each profile requires its <strong>own</strong> Discord bot application — do not reuse the default profile's token. Create a new app at <code>discord.com/developers/applications</code> — see §3.6 for the full steps.</p>
+    <p>The setup wizard will prompt for the preferred model and any provider keys. Profile configuration is automatically handled by <code>init-profile.sh</code> and the container startup scripts.</p>
   </div>
 
-  <h3>Step 4 — Set messaging credentials manually (if skipped in setup)</h3>
-  <p>If the setup wizard was skipped or credentials need updating, append them directly to Alice's <code>.env</code> on the host.</p>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/.env
-<span class="cm"># Append — Discord (one bot per profile, Alice's user ID only):</span>
-<span class="var">DISCORD_BOT_TOKEN</span>=&lt;alice-aria-bot-token&gt;
-<span class="var">DISCORD_ALLOWED_USERS</span>=&lt;alice-discord-user-id&gt;
-
-<span class="cm"># Append — WhatsApp (bot's dedicated number; Alice's personal number is the allowed sender):</span>
-<span class="var">WHATSAPP_ENABLED</span>=<span class="str">true</span>
-<span class="var">WHATSAPP_MODE</span>=<span class="str">bot</span>
-<span class="var">WHATSAPP_ALLOWED_USERS</span>=61412123456   <span class="cm"># Alice's personal number (country code, no +)</span></code></pre>
-
-  <h3>Step 5 — Assign Alice a unique API server port</h3>
+  <h3>Step 4 — Assign Alice a unique API server port</h3>
   <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/config.yaml</code></pre>
   <pre><span class="lang-tag">yaml</span><code>api_server:
   port: 8643    <span class="cm"># 8643 = first profile, 8644 = second, 8645 = third, etc.</span></code></pre>
 
-  <h3>Step 6 — Personalise Alice's SOUL.md</h3>
+  <h3>Step 5 — Personalise Alice's SOUL.md</h3>
   <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/SOUL.md</code></pre>
   <pre><span class="lang-tag">markdown</span><code>## Identity
 You are Aria, Alice's personal AI assistant. You are warm, encouraging, and organised.
@@ -1120,7 +899,7 @@ You remember Alice's preferences and help her stay on top of her schedule and fa
 - Keep medical, financial, and personal information strictly private.
 - Decline requests that could cause harm.</code></pre>
 
-  <h3>Step 7 — Restart to launch Alice's gateway</h3>
+  <h3>Step 6 — Restart to launch Alice's gateway</h3>
   <pre><span class="lang-tag">bash</span><code>docker compose restart agsvchermagt
 docker compose logs -f agsvchermagt
 
@@ -1128,8 +907,7 @@ docker compose logs -f agsvchermagt
 docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
 
   <p>Expected log lines with <code>HERMES_AGENT_PROFILES="alice"</code>:</p>
-  <pre><code>[hermes] Starting gateway for profile 'alice'
-[hermes] Starting dashboard on port 12329</code></pre>
+</code></pre>
 
   <div class="callout warn">
     <span class="callout-icon">⚠</span>
@@ -1138,146 +916,17 @@ docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
       <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; line-height: 1.8;">
         <li><code>HERMES_AGENT_PROFILES</code> <strong>empty</strong> → one default gateway only (uses <code>/opt/data</code> directly, no per-profile subdirectory).</li>
         <li><code>HERMES_AGENT_PROFILES="alice bob"</code> → one gateway per named profile; the default gateway is <strong>not</strong> started.</li>
-        <li>The dashboard always starts on port <code>12329</code> regardless.</li>
-      </ul>
+              </ul>
       <p style="margin-top:8px;">To keep a "shared" agent running alongside per-user profiles, declare it as a named profile too — e.g. <code>HERMES_AGENT_PROFILES="shared alice bob"</code> and create a <code>shared</code> profile with its own port. The default profile's <code>/opt/data</code> root is a single-user fallback and is intentionally skipped once named profiles are declared.</p>
     </div>
   </div>
 
   <hr />
 
-  <!-- ── 3.6 ────────────────────────────────────────────────────────── -->
-  <h2 id="s36">3.6 Configure AI Provider and Messaging for Alice</h2>
+  <!-- ── 3.5 ────────────────────────────────────────────────────────── -->
+  <h2 id="s35">3.5 Connect Open WebUI to Hermes via API</h2>
 
-  <div class="callout tip">
-    <span class="callout-icon">✓</span>
-    <div>
-      <p><strong>Pattern in use: <a href="#s33">§3.3</a> Pattern #1 — dedicated WhatsApp number + dedicated Discord bot per profile.</strong> Alice gets her own bot identity ("Aria"), her own Discord application, and her own dedicated WhatsApp number (<code>+61 412 123 456</code>) — fully isolated from the default profile and from any future profile (Bob, Charles, …).</p>
-      <p style="margin-top:8px;">For each additional family member, repeat this section after <a href="#s35">§3.5</a>, substituting their profile name, gateway port, Discord bot, and WhatsApp number.</p>
-    </div>
-  </div>
-
-  <h4>Per-profile checklist</h4>
-  <ol style="padding-left:20px; margin: 8px 0 16px; font-size:13.5px; line-height:2;">
-    <li>Provision a <strong>dedicated WhatsApp number</strong> for the profile (Google Voice / prepaid SIM / VoIP) and register a WhatsApp account on it.</li>
-    <li>Create a <strong>new Discord application</strong> for the profile in the Developer Portal and copy its bot token.</li>
-    <li>Write Alice's <code>config.yaml</code> (model, ports, Discord behaviour) — see below.</li>
-    <li>Set Discord credentials in Alice's <code>.env</code> and restart the container.</li>
-    <li>Set WhatsApp env vars in Alice's <code>.env</code> and run the pairing wizard — scan the QR from <em>Alice's dedicated phone</em>.</li>
-    <li>Verify Alice's gateway connects on both platforms.</li>
-  </ol>
-
-  <h3>Alice's config.yaml</h3>
-  <div class="callout note">
-    <span class="callout-icon">ℹ</span>
-    <p>Leave <code>&lt;your-litellm-api-base&gt;</code>, <code>&lt;your-litellm-master-key&gt;</code>, <code>&lt;your-firecrawl-api-url&gt;</code>, and <code>&lt;your-firecrawl-api-key&gt;</code> as placeholders. <code>start-gateways.sh</code> substitutes them from the <code>LITELLM_API_URL</code>, <code>LITELLM_API_KEY</code>, <code>FIRECRAWL_API_URL</code>, and <code>FIRECRAWL_API_KEY</code> environment variables (sourced from <code>LITEM_API_URL</code>, <code>LITEM_API_KEY</code>, and <code>FCRW_API_URL</code> in the root <code>.env</code>) at container start.</p>
-  </div>
-  <pre><span class="lang-tag">yaml</span><code>custom_providers:
-- name: LiteLLM
-  base_url: &lt;your-litellm-api-base&gt;
-  api_key: &lt;your-litellm-master-key&gt;
-  model: smartrouter
-
-model:
-  default: cloudai          <span class="cm"># Alice prefers MiniMax 2.7</span>
-  provider: custom
-  base_url: &lt;your-litellm-api-base&gt;
-  api_key: &lt;your-litellm-master-key&gt;
-
-api_server:
-  port: 8643
-
-terminal:
-  backend: docker
-  modal_mode: auto
-  docker_forward_env:
-    - LITELLM_API_URL
-    - LITELLM_API_KEY
-    - FIRECRAWL_API_URL
-    - FIRECRAWL_API_KEY
-
-browser:
-  cdp_url: "ws://agsvcchromum:12363/chromium?token=&lt;your-firecrawl-api-key&gt;&amp;stealth=true"
-
-web:
-  backend: firecrawl
-  base_url: &lt;your-firecrawl-api-url&gt;
-  api_key: &lt;your-firecrawl-api-key&gt;
-
-memory:
-  provider: local
-
-# Discord gateway behaviour
-discord:
-  require_mention: true    <span class="cm"># @mention required in server channels; DMs always work</span>
-  auto_thread: true        <span class="cm"># each conversation gets its own thread</span>
-  reactions: true
-  allow_mentions:
-    everyone: false
-    roles: false
-    users: true
-    replied_user: true</code></pre>
-
-  <h3>Alice's Discord setup</h3>
-
-  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
-    <li>Create a new Discord application named <strong>"Aria"</strong> at <code>discord.com/developers/applications</code>.</li>
-    <li>Under <strong>Bot</strong>, copy Alice's <strong>Bot Token</strong>. Enable <strong>Message Content Intent</strong> and <strong>Server Members Intent</strong>.</li>
-    <li>Invite Aria to the family Discord server via the OAuth2 URL Generator (permission integer <code>274878286912</code>).</li>
-    <li>Get Alice's Discord User ID: in Discord <strong>Settings → Advanced → Developer Mode</strong>, then right-click Alice's username → <strong>Copy User ID</strong>.</li>
-  </ol>
-
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/.env
-<span class="cm"># Add (DISCORD_ALLOWED_USERS locks the bot to Alice only — required):</span>
-<span class="var">DISCORD_BOT_TOKEN</span>=&lt;alice-aria-bot-token&gt;
-<span class="var">DISCORD_ALLOWED_USERS</span>=12345678901234567
-
-docker compose restart agsvchermagt
-docker compose logs agsvchermagt | grep -i "alice\|discord" | tail -20</code></pre>
-
-  <h3>Alice's WhatsApp setup (dedicated bot number: <code>+61 412 123 456</code>)</h3>
-
-  <div class="callout note">
-    <span class="callout-icon">ℹ</span>
-    <p>Use a <strong>dedicated phone number</strong> for this bot — not Alice's personal number. Options: Google Voice (free, US), prepaid SIM ($5–15), or a VoIP number. Register a WhatsApp account on that number first.</p>
-  </div>
-
-  <h4>Step 1 — Set env vars in Alice's .env</h4>
-  <pre><span class="lang-tag">bash</span><code>nano <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/.env
-<span class="cm"># Add (Alice's personal number — she messages this bot number and only she gets replies):</span>
-<span class="var">WHATSAPP_ENABLED</span>=<span class="str">true</span>
-<span class="var">WHATSAPP_MODE</span>=<span class="str">bot</span>
-<span class="var">WHATSAPP_ALLOWED_USERS</span>=61412123456   <span class="cm"># Alice's personal number (country code, no +)</span></code></pre>
-
-  <h4>Step 2 — Run the pairing wizard for Alice's profile</h4>
-  <pre><span class="lang-tag">bash</span><code>docker compose restart agsvchermagt
-docker compose exec -it agsvchermagt hermes -p alice whatsapp</code></pre>
-
-  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
-    <li>The wizard displays a QR code in the terminal.</li>
-    <li>On the <strong>bot's dedicated phone</strong> (<code>+61 412 123 456</code>): <strong>WhatsApp → Settings → Linked Devices → Link a Device</strong> → scan the QR code.</li>
-    <li>The wizard confirms pairing and saves the session under <code>/opt/data/profiles/alice/whatsapp-session/</code>.</li>
-  </ol>
-
-  <pre><span class="lang-tag">bash</span><code><span class="cm"># Verify</span>
-docker compose logs agsvchermagt | grep -i "alice\|whatsapp" | tail -20
-
-<span class="cm"># Force re-pair if session expires</span>
-rm -rf <span class="var">${APPS_DATA}</span>/hermesagent/data/profiles/alice/whatsapp-session/
-docker compose restart agsvchermagt
-docker compose exec -it agsvchermagt hermes -p alice whatsapp</code></pre>
-
-  <div class="callout tip">
-    <span class="callout-icon">✓</span>
-    <p>Alice messages the bot's dedicated number from her personal phone. The bot replies only to <code>WHATSAPP_ALLOWED_USERS</code> — no other family member's messages reach this profile.</p>
-  </div>
-
-  <hr />
-
-  <!-- ── 3.7 ────────────────────────────────────────────────────────── -->
-  <h2 id="s37">3.7 Connect Open WebUI to Hermes via API</h2>
-
-  <p>Open WebUI (<code>wbsvcwebchat</code>) is accessible at <code>https://${OWEBUI_DOMAIN}</code>. Adding Hermes as an OpenAI-compatible connection lets family members chat via the browser alongside Discord and WhatsApp.</p>
+  <p>Open WebUI (<code>wbsvcwebchat</code>) is accessible at <code>https://${OWEBUI_DOMAIN}</code>. Adding Hermes as an OpenAI-compatible connection lets family members chat via the browser.</p>
 
   <h3>Connection details</h3>
   <div class="table-wrap">
@@ -1317,7 +966,7 @@ curl -s http://localhost:12330/v1/chat/completions \
   <hr />
 
   <!-- ── 3.8 ────────────────────────────────────────────────────────── -->
-  <h2 id="s38">3.8 Security and Hardening Checklist</h2>
+  <h2 id="s36">3.6 Security Hardening</h2>
 
   <p>Click each item to mark it complete. Your progress is saved for this browser session.</p>
 
@@ -1342,7 +991,7 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Discord bot tokens are per-profile secrets — store only in <code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/.env</code>, never in <code>agent.yml</code> or git.</div>
+      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs agsvclitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
@@ -1357,7 +1006,7 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Restrict dashboard (port 12329) to LAN: <code>ufw deny 12329 && ufw allow from 192.168.0.0/16 to any port 12329</code>.</div>
+      
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
@@ -1444,7 +1093,7 @@ curl -s http://localhost:12330/v1/chat/completions \
   <hr />
 
   <!-- ── 3.9 ────────────────────────────────────────────────────────── -->
-  <h2 id="s39">3.9 Using the Hermes CLI</h2>
+  <h2 id="s37">3.7 Hermes CLI Reference</h2>
 
   <p>The <code>hermes</code> binary is available inside the <code>agsvchermagt</code> container. Use <code>docker compose exec</code> to run commands directly, or <code>docker compose exec -it</code> for interactive sessions. All commands run as the <code>hermes</code> user (uid 10000); profile data lives at <code>/opt/data/profiles/&lt;name&gt;/</code> inside the container (<code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/</code> on the host).</p>
 
@@ -1542,7 +1191,7 @@ docker compose exec agsvchermagt alice run <span class="str">"[cloud] Write a sh
 docker compose exec agsvchermagt alice run <span class="str">"[local] Review this private document: …"</span></code></pre>
 
   <h3>Routing tags</h3>
-  <p>Prefix any message with a routing tag to override the smart router. Works in terminal chat, <code>run</code>, Discord, WhatsApp, and API calls.</p>
+  <p>Prefix any message with a routing tag to override the smart router. Works in terminal chat, <code>run</code>, and API calls.</p>
   <div class="route-tags">
     <div class="route-row">
       <span class="route-tag rt-cloud">[cloud] / [c]</span>
@@ -1605,7 +1254,7 @@ docker compose exec agsvchermagt bash -c \
   </div>
 
   <h4>What launches automatically</h4>
-  <p>On container start, <code>start-gateways.sh</code> seeds defaults, substitutes API-key placeholders, and launches one gateway per name listed in <code>HERMES_AGENT_PROFILES</code> (or a single default gateway if the list is empty). The dashboard always starts on port <code>12329</code>. See <a href="#s35">§3.5 Step 7</a> for the full rule.</p>
+  <p>On container start, <code>start-gateways.sh</code> seeds defaults, substitutes API-key placeholders, and launches one gateway per name listed in <code>HERMES_AGENT_PROFILES</code> (or a single default gateway if the list is empty). See <a href="#s35">§3.5 Step 7</a> for the full rule.</p>
 
   <h4>Common operations</h4>
   <div class="table-wrap">
@@ -1615,17 +1264,17 @@ docker compose exec agsvchermagt bash -c \
         <tr>
           <td>Restart <em>all</em> gateways</td>
           <td><code>docker compose restart agsvchermagt</code></td>
-          <td>tini → SIGTERM → <code>start-gateways.sh</code> shutdown handler → re-runs the script. Cleanest reset; every profile and the dashboard restart together.</td>
+          <td>tini → SIGTERM → <code>start-gateways.sh</code> shutdown handler → re-runs the script. Cleanest reset; every profile restarts together.</td>
         </tr>
         <tr>
           <td>Stop the whole stack</td>
           <td><code>docker compose stop agsvchermagt</code></td>
-          <td>Graceful shutdown of every gateway and the dashboard.</td>
+          <td>Graceful shutdown of every gateway.</td>
         </tr>
         <tr>
           <td>Start the whole stack</td>
           <td><code>docker compose up -d agsvchermagt</code></td>
-          <td>Same as boot: launches one gateway per <code>HERMES_AGENT_PROFILES</code> entry, plus the dashboard.</td>
+          <td>Same as boot: launches one gateway per <code>HERMES_AGENT_PROFILES</code> entry.</td>
         </tr>
         <tr>
           <td>Restart only Alice's gateway</td>
@@ -1636,7 +1285,7 @@ docker compose exec agsvchermagt bash -c \
         <tr>
           <td>Stop only Alice's gateway</td>
           <td><code>docker compose exec agsvchermagt pkill -f 'hermes -p alice gateway'</code></td>
-          <td>Leaves other profile gateways and the dashboard running. Alice's API port goes offline until restarted.</td>
+          <td>Leaves other profile gateways running. Alice's API port goes offline until restarted.</td>
         </tr>
         <tr>
           <td>Start Alice's gateway ad-hoc</td>
@@ -1663,10 +1312,10 @@ docker compose exec agsvchermagt bash -c \
   </div>
 
   <h4>Inspect what's running</h4>
-  <pre><span class="lang-tag">bash</span><code><span class="cm"># All hermes processes inside the container (one line per gateway + dashboard)</span>
+  <pre><span class="lang-tag">bash</span><code><span class="cm"># All hermes processes inside the container (one line per gateway)</span>
 docker compose exec agsvchermagt ps aux | grep hermes
 
-<span class="cm"># Live logs (all profiles + dashboard)</span>
+<span class="cm"># Live logs (all profiles)</span>
 docker compose logs -f agsvchermagt
 
 <span class="cm"># Filter logs by profile name</span>
@@ -1680,10 +1329,8 @@ curl -sf http://localhost:8644/health  &amp;&amp; echo <span class="ok">"bob OK"
 <span class="cm"># Confirm port mapping for each gateway</span>
 docker compose exec agsvchermagt hermes profile list</code></pre>
 
-  <h4>Dashboard</h4>
-  <p>The Hermes dashboard runs on port <code>12329</code> (started unconditionally by <code>start-gateways.sh</code>). It surfaces per-profile status, model and provider configuration, sessions, skills, and recent logs across every gateway in the container. Open at:</p>
-  <pre><span class="lang-tag">url</span><code>http://localhost:12329</code></pre>
-  <p>Gateway start/stop is <strong>not</strong> exposed in the dashboard — use the CLI commands in the table above. The dashboard is read-mostly: useful for confirming "is Alice's gateway green?" and "what model is each profile on?", not for lifecycle control.</p>
+  <h4>CLI Reference</h4>
+  <p>Use <code>docker compose exec agsvchermagt hermes profile list</code> to check profile status, and <code>hermes -p <name> doctor</code> for per-profile diagnostics.</p>
 
   <div class="callout tip">
     <span class="callout-icon">✓</span>
