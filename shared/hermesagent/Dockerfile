@@ -76,9 +76,8 @@ RUN chmod +x /usr/local/bin/start-gateways.sh \
              /usr/local/bin/overlay-patch
 
 # Ports:
-#   12328  Hermes Workspace (web UI)
-#   12329  Hermes Dashboard
+#   12320  Hermes Workspace (web UI)
 #   12330  Hermes Gateway API server (internal; not exposed)
-EXPOSE 12328 12329
+EXPOSE 12320 12330
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/start-gateways.sh"]
