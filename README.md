@@ -318,7 +318,7 @@ The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so 
 
 | Detail | Value |
 |---|---|
-| Workspace port | 12328 (web UI, login with `HERMES_SPACE_PASSWD`) |
+| Workspace port | 12320 (web UI, login with `HERMES_SPACE_PASSWD`) |
 | Dashboard port | 12329 (LAN only, direct access) |
 | Gateway port | 8642 (internal, outbound WebSocket to Discord/WhatsApp) |
 | API server port | 12330 (internal, for Open WebUI/HTTP clients) |
@@ -737,7 +737,7 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 
 | Variable | Default | Description |
 |---|---|---|
-| `HERMES_SPACE_PASSWD` | Auto-generated | Password for Hermes Workspace web UI login at `http://<host>:12328` |
+| `HERMES_SPACE_PASSWD` | Auto-generated | Password for Hermes Workspace web UI login at `http://<host>:12320` |
 | `HERMES_AGENT_PROFILES` | *(empty)* | Space-separated profile names to auto-start on boot. Leave empty for a single default gateway on port 8642. |
 | `LITEM_API_KEY` | Auto-generated | Passed as `LITELLM_KEY` to Hermes for authenticating with the LiteLLM proxy |
 | `FIRECRAWL_API_KEY` | | API key for the Firecrawl web-scraping backend (used by Hermes web search) |
