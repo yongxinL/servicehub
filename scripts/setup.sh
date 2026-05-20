@@ -33,7 +33,10 @@ inject_secrets() {
     AUTHK_PASS=$(openssl rand -base64 36 | tr -d '\n')
     AUTHK_SECRET=$(openssl rand -base64 60 | tr -d '\n')
     LITELLM_APIKEY="sk-$(openssl rand -hex 24)"
-    HERMES_WORKSPACE_PASSWD=$(openssl rand -base64 24 | tr -d '\n')
+    HERMES_WORKSPACE_PASSWD_00=$(openssl rand -base64 24 | tr -d '\n')
+    HERMES_WORKSPACE_PASSWD_01=$(openssl rand -base64 24 | tr -d '\n')
+    HERMES_WORKSPACE_PASSWD_02=$(openssl rand -base64 24 | tr -d '\n')
+    HERMES_WORKSPACE_PASSWD_03=$(openssl rand -base64 24 | tr -d '\n')
 
     # Only replace if the current value matches the placeholder (not already set)
     sed -i.bak \
@@ -42,7 +45,10 @@ inject_secrets() {
         -e "s|<YOUR_STRONG_AUTHENTIK_PASSWORD>|${AUTHK_PASS}|g" \
         -e "s|<YOUR_STRONG_AUTHENTIK_SECRETKEY>|${AUTHK_SECRET}|g" \
         -e "s|<YOUR_LITELLM_MASTER_API_KEY>|${LITELLM_APIKEY}|g" \
-        -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD>|${HERMES_WORKSPACE_PASSWD}|g" \
+        -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_00>|${HERMES_WORKSPACE_PASSWD_00}|g" \
+        -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_01>|${HERMES_WORKSPACE_PASSWD_01}|g" \
+        -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_02>|${HERMES_WORKSPACE_PASSWD_02}|g" \
+        -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_03>|${HERMES_WORKSPACE_PASSWD_03}|g" \
         "$ENV_FILE" && rm "${ENV_FILE}.bak"
 }
 
