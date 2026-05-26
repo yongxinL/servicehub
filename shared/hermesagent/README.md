@@ -18,8 +18,9 @@ This file documents the overlay system and environment variables.
 - Own data directory (configurable via `HERMES_DATA_0X` in `.env`)
 - Hermes Gateway on port 12330 (container-internal)
 - Hermes Workspace on unique host port (12320-12323)
+- Hermes Dashboard on port 9119 (internal; Enhancement API)
 - Internal user profiles (code, research, etc.) via `hermes profile create`
-- No dashboard (Hermes CLI and Workspace cover all dashboard functionality)
+- No messaging platform setup needed
 
 | Container | Workspace Port | Data Directory |
 |-----------|---------------|----------------|
@@ -100,6 +101,36 @@ docker compose logs agsvcherme00 | grep '\[overlay\]'
 The overlay folder is auto-created empty on first start. To disable
 entirely, leave it empty — `apply-overlay.sh` no-ops when both `files/`
 and `patches/` are empty.
+
+---
+
+## Hermes Dashboard (Enhancement API)
+
+The Hermes Agent provides the **Enhancement API** accessible via the `hermes dashboard`
+command (running on port 9119 by default). This FastAPI server exposes endpoints for
+managing configuration, environment variables, sessions, plugins, and more.
+
+**Internal port:** `9119` (container-internal, not exposed to host)
+
+**Environment variables (per container):**
+
+| Variable | Default | Description |
+|---|---|---|
+| `HERMES_DASHBOARD_PORT` | `9119` | Dashboard listen port |
+
+> **Note:** The Enhancement API is for internal ServiceHub automation.
+> Access from other containers within the Docker network using the internal port.
+
+**Key API endpoints:**
+
+- `GET /api/status` — Gateway and platform status
+- `GET /api/config` — Current configuration
+- `PUT /api/config` — Update configuration
+- `GET/POST/PUT/DELETE /api/env` — Environment variable management
+- `GET /api/sessions` — Session list and messages
+- `GET /api/cron/jobs` — Cron job management
+- `GET /api/dashboard/plugins` — Dashboard plugin registry
+- `POST /api/gateway/restart` — Gateway restart
 
 ---
 

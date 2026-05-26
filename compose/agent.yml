@@ -6,8 +6,8 @@ services:
     # Each container has:
     #   - Own data directory (configured via HERMES_DATA_0X in .env)
     #   - Hermes Workspace on unique port (12320-12323)
+    #   - Hermes Dashboard on unique port (12321-12324) for Enhancement API
     #   - Internal user profiles (code, research, etc.) via hermes profile create
-    #   - No dashboard (Hermes CLI covers all dashboard functionality)
     #
     # Docker sandbox: /var/run/docker.sock is mounted read-only so Hermes can
     # spin up terminal sandbox containers (terminal.backend=docker in config).

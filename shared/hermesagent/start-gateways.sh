@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# start-gateways.sh — Hermes Agent startup: seed defaults, gateway, workspace
+# start-gateways.sh — Hermes Agent startup: seed defaults, gateway, workspace, dashboard
 #
 # Runs as 'hermes' user (uid 10000, pre-exists in base image).
 # tini (PID 1) handles signal forwarding and zombie reaping.
@@ -10,10 +10,13 @@
 #      files that do not already exist, never overwrites.
 #   2. Gateway starts on port 12330 (container-internal).
 #   3. Hermes Workspace starts on HERMES_WORKSPACE_PORT (default 12320).
+#   4. Hermes Dashboard starts on HERMES_DASHBOARD_PORT (default 9119)
+#      providing the enhancement API and web interface.
 #
 # Env vars:
 #   HERMES_WORKSPACE_PORT   workspace listen port       (default: 12320)
 #   HERMES_WORKSPACE_PASSWORD workspace login password (required)
+#   HERMES_DASHBOARD_PORT   dashboard listen port      (default: 9119)
 #
 # Internal user profiles (code, research, etc.) are available via:
 #   hermes profile create <name>
@@ -49,6 +52,7 @@ WORKSPACE_PORT="${HERMES_WORKSPACE_PORT:-12320}"
 
 WORKSPACE_PID=""
 GATEWAY_PID=""
+DASHBOARD_PID=""
 
 # ---------------------------------------------------------------------------
 # seed_defaults <target-dir>
@@ -210,12 +214,27 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Hermes Dashboard — FastAPI server providing the enhancement API and web UI
+# ---------------------------------------------------------------------------
+DASHBOARD_PORT="${HERMES_DASHBOARD_PORT:-9119}"
+
+if command -v hermes &>/dev/null; then
+    echo "[hermes] Starting Hermes Dashboard on port ${DASHBOARD_PORT}"
+    hermes dashboard &
+    DASHBOARD_PID=$!
+else
+    echo "[hermes] hermes not found in PATH — skipping Dashboard"
+    DASHBOARD_PID=""
+fi
+
+# ---------------------------------------------------------------------------
 # Shutdown handler
 # ---------------------------------------------------------------------------
 shutdown() {
     echo "[hermes] Shutting down..."
     [[ -n "${WORKSPACE_PID}" ]] && kill "${WORKSPACE_PID}" 2>/dev/null || true
     [[ -n "${GATEWAY_PID}" ]] && kill "${GATEWAY_PID}" 2>/dev/null || true
+    [[ -n "${DASHBOARD_PID}" ]] && kill "${DASHBOARD_PID}" 2>/dev/null || true
     wait
     exit 0
 }

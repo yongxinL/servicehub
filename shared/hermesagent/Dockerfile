@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1.6
 # =============================================================================
-# Hermes Agent — custom image with bundled Hermes Workspace
+# Hermes Agent — custom image with bundled Hermes Workspace & Dashboard
 #
 # Build stage: clones hermes-workspace from GitHub, builds with Node 22.
 # Runtime stage: uses nousresearch/hermes-agent base, copies only built artifacts.
 # Workspace runs on Node 20 (compatible with pre-built server-entry.js).
+#
+# Dashboard: runs hermes dashboard for the Enhancement API + web interface.
 #
 # Build arg:
 #   HERMES_WORKSPACE_REF  git ref to build (default: main)
@@ -17,12 +19,18 @@ FROM node:22-slim AS build
 ARG HERMES_WORKSPACE_REF=main
 WORKDIR /tmp/hermes-workspace
 
-# Install pnpm + build deps + CA certs for git HTTPS
+# Install pnpm + bun + build deps + CA certs for git HTTPS
 RUN corepack enable \
  && apt-get update \
- && apt-get install -y --no-install-recommends git ca-certificates \
+ && apt-get install -y --no-install-recommends git ca-certificates curl unzip \
  && rm -rf /var/lib/apt/lists/* \
- && git config --global http.sslCAinfo /etc/ssl/certs/ca-certificates.crt
+ && curl -fsSL https://bun.sh/install | bash
+
+ENV BUN_INSTALL="/root/.bun"
+ENV PATH="$BUN_INSTALL/bin:$PATH"
+
+# Git HTTPS config
+RUN git config --global http.sslCAinfo /etc/ssl/certs/ca-certificates.crt
 
 # Clone hermes-workspace at specified ref
 RUN git clone --depth 1 --branch "${HERMES_WORKSPACE_REF}" \
@@ -78,6 +86,7 @@ RUN chmod +x /usr/local/bin/start-gateways.sh \
 # Ports:
 #   12320  Hermes Workspace (web UI)
 #   12330  Hermes Gateway API server (internal; not exposed)
-EXPOSE 12320 12330
+#   9119   Hermes Dashboard (Enhancement API, internal)
+EXPOSE 12320 12330 9119
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/start-gateways.sh"]
