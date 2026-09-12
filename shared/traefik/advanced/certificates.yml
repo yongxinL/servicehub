@@ -18,5 +18,5 @@ tls:
     stores:
         default:
             defaultCertificate:
-                certFile: /letsencrypt/selfsigncert/selfcert.pem
-                keyFile: /letsencrypt/selfsigncert/selfcert.key
+                certFile: /traefik/config/advanced/selfsigncert/selfcert.pem
+                keyFile: /traefik/config/advanced/selfsigncert/selfcert.key

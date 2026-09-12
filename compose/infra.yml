@@ -114,13 +114,13 @@ services:
             # all dollar signs in the hash need to be double for escaping.
             # to create a user:password pair, the following command can be used
             # echo $(htpasswd -nb user "password") | sed -e s/\\$/\\$\\$/g
-            # - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
-            # - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAFIK_BAAUTH}"
+            - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
+            - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAFIK_BAAUTH}"
             # uncomment for middleware-limiting clients to specific IPs, disabled when Forward-Auth enabled.
             # - "traefik.http.routers.dashboard.middlewares=dashboard-whitelist"
             # - "traefik.http.middlewares.dashboard-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
             # uncomment when Domain Level Forward Authentication enabled in Authentik
-            - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
+            # - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.dashboard.tls.certresolver=${CERTRESOLVER}"
         networks:
@@ -133,4 +133,4 @@ services:
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro
             - ../shared/traefik/advanced:/traefik/config/advanced:ro
-            - ../shared/letsencrypt:/letsencrypt
+            - ${APPS_DATA}/letsencrypt:/letsencrypt
