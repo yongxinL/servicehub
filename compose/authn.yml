@@ -11,7 +11,7 @@ services:
         depends_on:
             infratraefik:
                 condition: service_healthy
-            wbsvcauthwok:
+            infrapgsqldb:
                 condition: service_started
         environment:
             # authentick settings
@@ -56,8 +56,8 @@ services:
         restart: unless-stopped
         shm_size: 512mb
         volumes:
-            - ${APPS_DATA}/authentik/media:/media
-            - ${APPS_DATA}/authentik/templates:/templates
+            - ${APPS_DATA}/wbsvcauthtik/media:/data
+            - ${APPS_DATA}/wbsvcauthtik/templates:/templates
 
     # Authentik worker - background processing for authentik
     wbsvcauthwok:
@@ -95,5 +95,5 @@ services:
         user: root
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
-            - ${APPS_DATA}/authentik/media:/media
-            - ${APPS_DATA}/authentik/templates:/templates
+            - ${APPS_DATA}/wbsvcauthtik/media:/data
+            - ${APPS_DATA}/wbsvcauthtik/templates:/templates
