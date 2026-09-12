@@ -11,41 +11,27 @@ services:
             - ${APPS_DATA}/repbuk/data:/data
             - ${APPS_DATA}/repbuk/config:/config
 
-    # Gitea: self-hosted software development service
+    # Forgejo: self-hosted software development service
     wbsvcrepobuk:
         build:
-            context: ../shared/gitea/
+            context: ../shared/forgejo/server/
         depends_on:
-            wbsvcrepoint:
-                condition: service_completed_successfully
             infratraefik:
                 condition: service_healthy
             infrapgsqldb:
                 condition: service_healthy
         environment:
+            - USER_UID=1000
+            - USER_GID=1000
             # Using MySQL for databases
-            - GITEA__database__DB_TYPE=postgres
-            - GITEA__database__HOST=${PGRSQL_HOST}:${PGRSQL_PORT}
-            - GITEA__database__NAME=${REPBUK_DBNAME}
-            - GITEA__database__USER=${SQLDB_USER}
-            - GITEA__database__PASSWD=${SQLDB_PASS}
+            - FORGEJO__database__DB_TYPE=postgres
+            - FORGEJO__database__HOST=${PGRSQL_HOST}:${PGRSQL_PORT}
+            - FORGEJO__database__NAME=${REPBUK_DBNAME}
+            - FORGEJO__database__USER=${SQLDB_USER}
+            - FORGEJO__database__PASSWD=${SQLDB_PASS}
             # Disable openID authentication and login
-            - GITEA__openid__ENABLE_OPENID_SIGNIN=false
-            - GITEA__openid__ENABLE_OPENID_SIGNUP=false
-            # Changing the global default branch
-            - GITEA__repository__DEFAULT_BRANCH=master
-            # Disable SSH feature
-            - GITEA__server__DISABLE_SSH=true
-            # Enable this to force users to log in to view any page or to use API
-            - GITEA__service__REQUIRE_SIGNIN_VIEW=true
-            # Disable registration, only admin can create accounts for users.
-            - GITEA__service__DISABLE_REGISTRATION=true
-            # Disable passkey login
-            - GITEA__service__ENABLE_PASSKEY_AUTHENTICATION=false
-            # Show the password login form, set to true when linking oAuth user
-            - EGITEA__service__ENABLE_PASSWORD_SIGNIN_FORM=false
-            # default Gitea custom folder
-            - GITEA_CUSTOM=/var/lib/custom
+            - FORGEJO__openid__ENABLE_OPENID_SIGNIN=false
+            - FORGEJO__openid__ENABLE_OPENID_SIGNUP=false
         healthcheck:
             test: [ "CMD", "curl", "-f", "http://localhost:3000/" ]
             start_period: 20s
@@ -73,9 +59,7 @@ services:
         restart: unless-stopped
         volumes:
             - /etc/localtime:/etc/localtime:ro
-            - ${APPS_DATA}/repbuk/data:/var/lib/gitea
-            - ${APPS_DATA}/repbuk/config:/etc/gitea
-            - ../shared/gitea/custom:/var/lib/custom
+            - ${APPS_DATA}/wbsvcrepobuk/data:/var/lib/gitea
 
     # Gitea Act Runner - executes CI/CD workflows
     # https://codeberg.org/gitea/act_runner
@@ -99,22 +83,35 @@ services:
             # Runner data persistence
             - ${APPS_DATA}/repbuk/runner:/data
 
-    # WordPress - CMS and blogging platform
+    # Confluence - CMS and blogging platform
     wbsvcwebhome:
         build:
-            context: ../shared/wordpress/
+            context: ../shared/confluence/
         depends_on:
-            infratraefik:
-                condition: service_healthy
-            inframariadb:
-                condition: service_healthy
             wbsvcauthtik:
-                condition: service_started
+                condition: service_healthy
         environment:
-            - WORDPRESS_DB_HOST=${MySQL_HOST}
-            - WORDPRESS_DB_NAME=${WEBHOM_DBNAME:-wordpress}
-            - WORDPRESS_DB_USER=${SQLDB_USER}
-            - WORDPRESS_DB_PASSWORD=${SQLDB_PASS}
+            - ATL_PROXY_NAME=${WEBHOM_DOMAIN}
+            - ATL_PROXY_PORT=443
+            - JVM_MAXIMUM_MEMORY=3072m
+            - JVM_MINIMUM_MEMORY=1024m
+            - ATL_TOMCAT_PORT=8090
+            - ATL_TOMCAT_SCHEME=https
+            - ATL_TOMCAT_MAXTHREADS=48
+            - ATL_TOMCAT_MINSPARETHREAD=6
+            - ATL_TOMCAT_MAXHTTPHEADERSIZE=8192
+            - ATL_DB_POOLMAXSIZE=125
+            - ATL_DB_TYPE=postgresql
+            - ATL_JDBC_URL=jdbc:postgresql://${PGRSQL_HOST}:${PGRSQL_PORT}/${WEBHOM_DBNAME}
+            - ATL_JDBC_USER=${SQLDB_USER}
+            - ATL_JDBC_PASSWORD=${SQLDB_PASS}
+            - JVM_SUPPORT_RECOMMENDED_ARGS=-Dmail.smtp.ssl.protocols=TLSv1.2 -Dupm.pac.disable=true --Datlassian.upm.signature.check.disabled=true
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:8090/status"]
+            start_period: 60s
+            interval: 30s
+            retries: 5
+            timeout: 5s
         image: wbsvcwebhome:latest
         labels:
             # Enable Traefik for this container
@@ -126,13 +123,17 @@ services:
             # Assign the router to a named Traefik service
             - "traefik.http.routers.wbsvcwebhome.service=wbsvcwebhome"
             # Define the internal container port for routing
-            - "traefik.http.services.wbsvcwebhome.loadbalancer.server.port=80"
+            - "traefik.http.services.wbsvcwebhome.loadbalancer.server.port=8090"
             # Enable TLS on this router
             - "traefik.http.routers.wbsvcwebhome.tls=true"
+            # Apply a compression middleware
+            - "traefik.http.routers.wbsvcwebhome.middlewares=confserv-compress"
+            # Define settings for the compression middleware
+            - "traefik.http.middlewares.confserv-compress.compress=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.wbsvcwebhome.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/webhome:/var/www/html
+            - ${APPS_DATA}/wbsvcwebhome:/var/atlassian/application-data/confluence
