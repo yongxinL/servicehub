@@ -2,7 +2,7 @@
 
 > A quiet harbor where HomeLab services arrive, find their place, and don't get lost again
 
-ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. It provides a curated stack of infrastructure and developer tools behind a single Traefik reverse proxy with automatic TLS — deployable to staging or production via a one-click Gitea Actions workflow.
+ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. It provides a curated stack of infrastructure, developer tools, an AI agent platform and an observability stack behind a single Traefik reverse proxy with automatic TLS — deployable to staging or production via a one-click Gitea Actions workflow.
 
 ## Table of Contents
 
@@ -13,8 +13,13 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
     - [Chat Inference — agsvcchatllm](#chat-inference--agsvcchatllm)
     - [LiteLLM Proxy — agsvclitellm](#litellm-proxy--agsvclitellm)
 - [Web Applications](#web-applications)
+    - [Authentik (Identity Provider)](#authentik-identity-provider)
+    - [Forgejo](#forgejo)
+    - [Forgejo / Gitea Runner](#forgejo--gitea-runner)
+    - [Confluence](#confluence)
     - [Hermes Agent](#hermes-agent)
     - [Open WebUI](#open-webui)
+    - [FastCRW Web Search](#fastcrw-web-search)
 - [Security Observability Stack](#security-observability-stack)
     - [VictoriaMetrics](#victoriametrics)
     - [VictoriaLogs](#victorialogs)
@@ -33,36 +38,47 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 
 All traffic enters through Traefik on ports 80/443. HTTP is redirected to HTTPS. Traefik routes requests to the appropriate service by hostname and terminates TLS using either Let's Encrypt (production) or a self-signed certificate (staging). All services communicate over an isolated Docker bridge network (`subnet`). Databases are not exposed outside the network.
 
+Compose files are split by functional domain, and every service is prefixed with the domain it belongs to:
+
+| File | Prefix | Purpose |
+|---|---|---|
+| `compose/route.yml` | `route*` | Edge routing + TLS termination (Traefik) |
+| `compose/dbsvc.yml` | `dbsvc*` | Relational databases (MariaDB + PostgreSQL) |
+| `compose/authn.yml` | `authn*` | Authentication / SSO (Authentik) |
+| `compose/wbsvc.yml` | `wbsvc*` | Web services (Forgejo, runner, Confluence) |
+| `compose/agent.yml` | `agsvc*` | AI agents + LLM inference + web search |
+| `compose/secob.yml` | `secob*` | Security observability (metrics + logs + Grafana) |
+
 ```mermaid
 graph TD
     Internet((Internet\n:80 / :443))
     Internet --> Traefik
 
     subgraph subnet[Docker Network: subnet]
-        Traefik[Traefik\nReverse Proxy + TLS]
-        Traefik -->|git.domain| Gitea[Gitea\nGit + Web UI]
+        Traefik[routetraefik\nReverse Proxy + TLS]
         Traefik -->|traefik.domain| Dashboard[Traefik Dashboard]
-        Traefik -->|accounts.domain| Authentik[Authentik\nIdP / SSO]
-        Traefik -->|www.domain| WordPress[WordPress\nCMS]
-        Traefik -->|hermes.domain| Hermes[Hermes Agent\nGateway + Dashboard]
-        Traefik -->|chats.domain| OpenWebUI[Open WebUI
-LLM Web Interface]
-        Traefik -->|stats.domain| Grafana[Grafana
-Dashboards + Metrics + Logs]
-        Authentik -->|forward-auth| Dashboard
-        Gitea -->|depends on| PostgreSQL[(PostgreSQL\npgsqldb)]
+        Traefik -->|login.domain| Authentik[authnservice\nIdP / SSO]
+        Traefik -->|git.domain| Forgejo[wbsvcrepobuk\nForgejo]
+        Traefik -->|www.domain + apex| Confluence[wbsvcwebhome\nConfluence]
+        Traefik -->|chats.domain| OpenWebUI[wbsvcwebchat\nOpen WebUI]
+        Traefik -->|space0-3.domain| Hermes[agsvcherme00-03\n4x Hermes Agent]
+        Traefik -->|stats.domain| Grafana[secobgrafana\nGrafana]
+        Authentik -->|forward-auth| Grafana
+        Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
-        Gitea -->|triggers| Runner[Act Runner\nCI/CD Executor]
-        WordPress -->|depends on| MariaDB[(MariaDB)]
-        Hermes -->|hermes| LiteLLM[LiteLLM Proxy\nComplexity Router]
-        LiteLLM -->|hephaestus| Gemma[llama.cpp\nGemma-4-4B local]
+        Confluence -->|depends on| PostgreSQL
+        Forgejo -->|actions| Runner[wbsvcreporun\nForgejo / Gitea Runner]
+        Hermes -->|hermes| LiteLLM[agsvclitellm\nComplexity Router]
+        LiteLLM -->|depends on| PostgreSQL
+        LiteLLM -->|hephaestus| Gemma[agsvcchatllm\nllama.cpp Gemma-4 local]
         LiteLLM -->|prometheus| MiniMax[MiniMax 2.7\nCloud API]
-        Grafana -.->|metrics| VM[VictoriaMetrics
-Metrics DB]
-        Grafana -.->|logs| VL[VictoriaLogs
-Log Aggregation]
-        VM -.->|scrapes| Alloy[Grafana Alloy
-Host/Container Metrics]
+        Hermes -->|web search| FastCRW[agsvcfastcrw\nFirecrawl-compatible]
+        FastCRW --> LightPanda[agsvclighpda\nLightPanda JS]
+        FastCRW --> Chromium[agsvcchromum\nBrowserless Chromium]
+        FastCRW --> SearXNG[agsvcsearxng\nSearXNG]
+        Grafana -.->|metrics| VM[secobvicmtrx\nVictoriaMetrics]
+        Grafana -.->|logs| VL[secobviclogs\nVictoriaLogs]
+        VM -.->|scrapes| Alloy[secobgrafaly\nGrafana Alloy]
         VL -.->|receives| Alloy
     end
 
@@ -70,8 +86,8 @@ Host/Container Metrics]
 ```
 
 **TLS strategy:**
-- **Staging:** self-signed certificate via `shared/traefik/advanced/certificates.yml`
-- **Production:** Let's Encrypt ACME challenge; `acme.json` restored from an encrypted Gitea secret
+- **Staging:** self-signed certificate from `shared/traefik/advanced/selfsigncert/` (git-crypt encrypted, referenced by `shared/traefik/advanced/certificates.yml`)
+- **Production:** Let's Encrypt ACME TLS challenge; `acme.json` is stored at `${APPS_DATA}/certs/acme.json` and restored from an encrypted Gitea secret on deploy
 
 ---
 
@@ -82,63 +98,73 @@ servicehub/
 ├── .gitea/
 │   └── workflows/
 │       └── deploy.yml          # Gitea Actions deployment workflow
-├── compose/                    # Per-service Docker Compose files
-│   ├── infra.yml               # Traefik + MariaDB + PostgreSQL
-│   ├── authn.yml               # Authentik server + worker
-│   ├── wbsvc.yml               # Gitea + Act Runner + WordPress
-│   ├── agent.yml               # Hermes Agent + LiteLLM + llama.cpp + Open WebUI
+├── compose/                    # Per-domain Docker Compose files
+│   ├── route.yml               # Traefik (routetraefik)
+│   ├── dbsvc.yml               # MariaDB + PostgreSQL
+│   ├── authn.yml               # Authentik server + worker + init
+│   ├── wbsvc.yml               # Forgejo + runner + Confluence
+│   ├── agent.yml               # Hermes agents + LiteLLM + llama.cpp + Open WebUI + FastCRW
 │   └── secob.yml               # Security observability stack
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
+│   │   ├── README.md                     # Traefik service documentation
 │   │   ├── Dockerfile
 │   │   └── advanced/
 │   │       ├── certificates.yml          # Self-signed TLS config (staging)
 │   │       ├── middlewares-authentik.yml # Authentik forward-auth middleware
-│   │       └── metrics.yml              # Traefik Prometheus metrics config
+│   │       ├── metrics.yml               # Traefik Prometheus metrics config
+│   │       └── selfsigncert/             # git-crypt encrypted cert/key material
 │   ├── authentik/
+│   │   ├── README.md                     # Authentik service documentation
 │   │   └── Dockerfile
+│   ├── forgejo/
+│   │   └── server/
+│   │       └── Dockerfile
 │   ├── gitea/
-│   │   ├── Dockerfile
-│   │   ├── custom/             # Custom Gitea landing page assets
 │   │   └── runner/
-│   │       └── Dockerfile      # Act Runner image
+│   │       └── Dockerfile      # Gitea / Forgejo Act Runner image
+│   ├── confluence/
+│   │   └── Dockerfile          # Confluence + Atlassian agent
 │   ├── hermesagent/
 │   │   ├── Dockerfile
-│   │   ├── start-gateways.sh   # Entrypoint: seeds defaults, starts gateway(s) + dashboard
+│   │   ├── start-gateways.sh   # Entrypoint: seeds defaults, starts gateway + workspace
+│   │   ├── apply-overlay.sh    # Replays persisted /opt/hermes edits at startup
+│   │   ├── overlay-*           # Overlay tooling (track / save / patch)
 │   │   └── default/            # Default profile files baked into the image
-│   │       ├── config.yaml     # Hermes profile config (LiteLLM endpoint, terminal backend)
-│   │       ├── env.example     # Profile secrets template (Discord token, etc.)
-│   │       └── SOUL.md         # Agent personality / system prompt
 │   ├── litellm/
 │   │   ├── Dockerfile
 │   │   ├── config.default.yaml # LiteLLM routing config (baked into image)
 │   │   ├── smartrouter.py      # Content-based routing hook (privacy + complexity)
 │   │   └── entrypoint.sh
-│   ├── openwebui/
-│   │   └── Dockerfile
 │   ├── llamacpp/
 │   │   ├── Dockerfile
-│   │   └── entrypoint.sh       # Reads LLAMA_MODEL / LLAMA_PORT / LLAMA_ARGS env vars
+│   │   └── entrypoint.sh       # Reads LLAMA_* env vars
+│   ├── openwebui/
+│   │   └── Dockerfile
+│   ├── fastcrw/                # Firecrawl-compatible crawler / search
+│   │   ├── Dockerfile
+│   │   ├── config.docker.toml
+│   │   ├── entrypoint.sh
+│   │   ├── chromium/           # Browserless stealth renderer
+│   │   └── lightpanda/         # LightPanda JS renderer
+│   ├── searxng/                # SearXNG search backend
 │   ├── grafana/
 │   │   ├── Dockerfile
-│   │   ├── alloy/                 # Grafana Alloy config (host/container metrics + LiteLLM scraping)
-│   │   ├── dashboards/            # Pre-built observability dashboards (numbered JSON files)
-│   │   ├── geoip/                 # GeoIP database for log enrichment
-│   │   └── provisioning/          # Grafana datasources + dashboard provisioning
+│   │   ├── alloy/              # Grafana Alloy config (host/container metrics + logs)
+│   │   ├── dashboards/         # Pre-built observability dashboards
+│   │   ├── geoip/              # GeoIP database for log enrichment
+│   │   └── provisioning/       # Grafana datasources + dashboard provisioning
 │   ├── victoriametrics/
 │   │   ├── Dockerfile
-│   │   └── scrape.yaml            # Metrics scrape configuration
+│   │   └── scrape.yaml         # Metrics scrape configuration
 │   ├── victorialogs/
 │   │   └── Dockerfile
-│   ├── wordpress/
-│   │   ├── Dockerfile          # Nginx + PHP-FPM + WordPress (Alpine)
-│   │   └── etc/
-│   │       ├── nginx/          # Nginx configuration
-│   │       └── supervisord.conf
 │   ├── mariadb/
+│   │   ├── README.md                     # MariaDB service documentation
 │   │   ├── Dockerfile
 │   │   └── create-multiple-databases.sh
 │   └── postgresql/
+│       ├── README.md                     # PostgreSQL service documentation
 │       ├── Dockerfile
 │       └── create-multiple-databases.sh
 ├── scripts/
@@ -148,72 +174,40 @@ servicehub/
 └── LICENSE
 ```
 
+> Legacy directories `shared/wordpress/` and `shared/gitea/custom/` remain in the tree but are no longer referenced by any service.
+
 ---
 
 ## Core Services
 
-### Traefik (Reverse Proxy)
+| Service | Runs as | Full documentation |
+|---|---|---|
+| Traefik v3 — edge router + TLS termination | `routetraefik` | [shared/traefik/README.md](shared/traefik/README.md) |
+| MariaDB 11.8 — MySQL-compatible database | `dbsvcmariadb` | [shared/mariadb/README.md](shared/mariadb/README.md) |
+| PostgreSQL 16 — primary database | `dbsvcpgsqldb` | [shared/postgresql/README.md](shared/postgresql/README.md) |
 
-[Traefik v3](https://traefik.io/) is the single entry point for all web traffic.
-
-| Detail | Value |
-|---|---|
-| HTTP port | 80 (redirects to HTTPS) |
-| HTTPS port | 443 |
-| Dashboard | `https://${TRAFIK_DOMAIN}` |
-| TLS (prod) | Let's Encrypt via ACME |
-| TLS (stag) | Self-signed from `shared/traefik/advanced/certificates.yml` |
-
-Key behaviours:
-- Automatic HTTP → HTTPS redirect for all services
-- Docker provider: services opt in to routing via container labels
-- Forward-auth and IP allowlist middleware stubs are in `compose/infra.yml` (commented out) for easy activation
-
-### MariaDB
-
-[MariaDB 11.8](https://mariadb.org/) provides a MySQL-compatible relational database.
-
-| Detail | Value |
-|---|---|
-| Internal port | 3306 (not exposed externally) |
-| Multiple databases | Set `MARIADB_DB_LIST` (comma-separated) in `.env` |
-| Data persistence | `${APPS_DATA}/mariadb` |
-| Health check | `innodb_initialized` every 10 s |
-
-The init script `shared/mariadb/create-multiple-databases.sh` creates all databases listed in `MARIADB_DB_LIST` on first start.
-
-### PostgreSQL
-
-[PostgreSQL 16](https://www.postgresql.org/) is the primary relational database, used by Gitea, Authentik, and LiteLLM.
-
-| Detail | Value |
-|---|---|
-| Internal port | 5432 (not exposed externally) |
-| Multiple databases | Set `PGRSQL_DBLIST` (comma-separated) in `.env` |
-| Data persistence | `${APPS_DATA}/pgsqldb` |
-| Health check | `pg_isready` every 30 s (20 s startup delay) |
-
-The init script `shared/postgresql/create-multiple-databases.sh` creates all databases listed in `PGRSQL_DBLIST` on first start.
+> Service-specific configuration, data layout, first-boot steps and operations notes live in each service's own `README.md` under `shared/`. Services not yet split out are still documented inline below.
 
 ---
 
 ## LLM Inference Services
 
-Local and cloud LLM services power the Hermes AI agent. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers.
+Local and cloud LLM services power the Hermes AI agents. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers.
 
-Models are auto-downloaded on first start via the `-hf` flag and cached locally. A `HF_TOKEN` is required for gated models (e.g. Gemma 4 from Google's organisation).
+Models are auto-downloaded on first start via the `-hf` flag and cached locally. A `HF_TOKEN` is required for gated models.
 
 ### Chat Inference — agsvcchatllm
 
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with Gemma 4 4B for fast, private, on-device chat. This is the `edge` tier in LiteLLM — used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host.
+[llama.cpp server](https://github.com/ggerganov/llama.cpp) with a Gemma 4 GGUF model for fast, private, on-device chat. This is the local tier in LiteLLM (`hephaestus`) — used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host.
 
 | Detail | Value |
 |---|---|
-| Port | 12386 (internal only) |
-| Model | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` (default) |
-| Context | 128K tokens |
-| Concurrent slots | 1 |
-| LiteLLM alias | `edge` |
+| Port | 12386 |
+| Model | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` (default, via `LLAMA_CHTMDL`) |
+| Context | Configurable via `LLAMA_CHTARG` (default `--ctx-size 65536`, 64K) |
+| Concurrent slots | `--parallel 4` (default) |
+| Memory | `--mlock` + `IPC_LOCK`/unlimited memlock so the model stays in RAM |
+| LiteLLM alias | `hephaestus` (env prefix `LITEM_EDGE_*`) |
 
 ### LiteLLM Proxy — agsvclitellm
 
@@ -223,9 +217,10 @@ Models are auto-downloaded on first start via the `-hf` flag and cached locally.
 |---|---|
 | Admin UI | `http://<host>:12380/ui` |
 | Database | PostgreSQL (`${LITEM_DBNAME}`) |
-| Local tier | `hephaestus` → agsvcchatllm (Gemma-4-4B, 128K ctx) |
-| Cloud tier | `prometheus` → MiniMax 2.7 (200K ctx, Anthropic-compatible API) |
+| Local tier | `hephaestus` → `agsvcchatllm` (Gemma-4, via `LITEM_HPH_*`) |
+| Cloud tier | `prometheus` → MiniMax 2.7 (via `LITEM_PRM_*`) |
 | Health check | `GET /health/liveliness` with Bearer token |
+| Metrics | Prometheus `/metrics` on the UI port (scraped by VictoriaMetrics) |
 
 **Routing logic** (first match wins):
 
@@ -233,12 +228,13 @@ Models are auto-downloaded on first start via the `-hf` flag and cached locally.
 |---|---|
 | `[cloud]` or `[c]` prefix in message | prometheus — explicit user override |
 | `[edge]` or `[e]` prefix in message | hephaestus — explicit user override |
+| Local tier unhealthy | prometheus — auto-failover |
 | Privacy keywords (`IEP`, `tax return`, `bank statement`, `medical record`, etc.) | hephaestus — data never leaves the host |
 | Input > 50K tokens (~200 pages) | prometheus — large-document workload |
-| Complexity keywords (root cause, academic essay, curriculum map, certification exam, etc.) | prometheus — formal / logic-heavy task |
+| Complexity keywords (root cause, system architecture, academic essay, curriculum map, etc.) | prometheus — formal / logic-heavy task |
 | Default | hephaestus |
 
-The explicit tags are stripped from the message before forwarding so the model never sees the routing instruction. `context_window_fallbacks` in `config.default.yaml` provides an additional safety net: any request that overflows Gemma's 128K context window is automatically escalated to prometheus (MiniMax).
+The explicit tags are stripped from the message before forwarding so the model never sees the routing instruction. `context_window_fallbacks` in `config.default.yaml` provides an additional safety net: any request that overflows the local model's context window is automatically escalated to prometheus (MiniMax). Provider-failure `fallbacks` route each tier to the other on timeout or error.
 
 ---
 
@@ -246,110 +242,103 @@ The explicit tags are stripped from the message before forwarding so the model n
 
 ### Authentik (Identity Provider)
 
-[Authentik](https://goauthentik.io/) is an open-source Identity Provider (IdP) and SSO solution. It provides forward-authentication for Traefik-protected services (e.g. the Traefik dashboard) and can be extended to cover any service in the stack.
+[Authentik](https://goauthentik.io/) is the open-source Identity Provider (IdP) and SSO server: `authnservice` (web) and `authnworkers` (background), with a one-shot `authnsvrinit` permission fixer. It provides forward-authentication for Traefik-protected services such as Grafana and is reachable at `https://${AUTHN_DOMAIN}`.
 
-| Detail | Value |
-|---|---|
-| URL | `https://${AUTHK_DOMAIN}` |
-| Initial setup | Navigate to `https://${AUTHK_DOMAIN}/if/flow/initial-setup/` on first boot |
-| Database | PostgreSQL (`${AUTHK_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/authn/media` and `.../templates` |
-| Image tag | Controlled by `AUTHK_TAG` (e.g. `2025.12`) |
-| Forward-auth middleware | Defined in `shared/traefik/advanced/middlewares-authentik.yml` |
+Full setup, configuration and operations: **[shared/authentik/README.md](shared/authentik/README.md)**.
 
-The stack runs two Authentik containers:
+### Forgejo
 
-- **`wbsvcauthtik`** — the web server, started after the worker is running
-- **`wbsvcauthwok`** — the background worker (handles flows, policies, notifications)
-
-> **Note:** The Traefik dashboard is protected by Authentik forward-auth. It will be inaccessible until the Authentik initial setup flow is completed and a forward-auth outpost is configured in Authentik.
-
-### WordPress
-
-[WordPress](https://wordpress.org/) is served as a custom image bundling Nginx (reverse proxy) and PHP-FPM in a single Alpine-based container managed by Supervisord.
-
-| Detail | Value |
-|---|---|
-| URL | `https://${WEBHOM_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
-| Database | MariaDB (`${WEBHOM_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/wwhome` (mounted as `/var/www/html`) |
-| PHP extensions | `intl`, `zip`, `gd`, `opcache`, `imagick`, `exif`, `fileinfo` |
-| Upload limit | 768 MB (configured in both PHP and Nginx) |
-| www-data UID/GID | Matches host UID/GID via `WWW_DATA_UID`/`WWW_DATA_GID` build args (default `1000:1000`) |
-
-> **Permissions:** The data directory must be owned by the same UID/GID as `WWW_DATA_UID`/`WWW_DATA_GID` (default `1000:1000`):
-> ```bash
-> mkdir -p ${APPS_DATA}/wwhome
-> chown -R 1000:1000 ${APPS_DATA}/wwhome
-> ```
-
-### Gitea
-
-[Gitea](https://gitea.io/) is a self-hosted Git service with a GitHub-compatible web UI, issue tracker, and pull requests.
+[Forgejo](https://forgejo.org/) (a community fork of Gitea) is the self-hosted Git service, running as `wbsvcrepobuk`.
 
 | Detail | Value |
 |---|---|
 | URL | `https://${REPBUK_DOMAIN}` |
 | Database | PostgreSQL (`${REPBUK_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/repbuk/data` |
-| Config persistence | `${APPS_DATA}/repbuk/config` |
-| Volume ownership | **`1000:1000`** — required; Gitea runs rootless |
-| Registration | Disabled (admin-only account creation) |
-| Auth | Local accounts only (OpenID and passkeys disabled) |
-| Default branch | `master` |
+| Data persistence | `${APPS_DATA}/wbsvcrepobuk/data` (mounted as `/var/lib/gitea`) |
+| Config persistence init | `${APPS_DATA}/repbuk/data`, `${APPS_DATA}/repbuk/config` (chowned by `wbsvcrepoint`) |
+| Volume ownership | **`1000:1000`** — required |
+| Registration / SSO | OpenID signin and signup disabled |
 | Health check | HTTP GET on port 3000 every 30 s (20 s startup delay) |
 
-### Gitea Act Runner
+> **Permissions:** The host data directories must be writable by UID/GID `1000`. `wbsvcrepoint` normalises ownership on each boot, but you can also prepare them ahead of time (see [Installation](#installation)).
 
-The Act Runner executes Gitea Actions workflows. It mounts the Docker socket so workflows can build and run containers.
+### Forgejo / Gitea Runner
+
+The Act Runner (`wbsvcreporun`) executes Forgejo/Gitea Actions workflows. It mounts the Docker socket so workflows can build and run containers.
 
 | Detail | Value |
 |---|---|
 | Registration | Token set via `REPBUK_RUNTOKEN` in `.env` |
 | Instance URL | `https://${REPBUK_DOMAIN}` |
 | Runner data | `${APPS_DATA}/repbuk/runner` |
-| Labels | Inherit from Gitea runner registration |
+| Labels | Inherit from runner registration |
 
-> **Note:** The runner must be registered in Gitea (`Site Administration → Actions → Runners`) before the first workflow can execute. Set the registration token as `REPBUK_RUNTOKEN` in your `.env`.
+> **Note:** The runner must be registered in Forgejo (`Site Administration → Actions → Runners`) before the first workflow can execute. Set the registration token as `REPBUK_RUNTOKEN` in your `.env`.
 
-### Hermes Agent
+### Confluence
 
-[Hermes Agent](https://hermes-agent.nousresearch.com) is a self-hosted AI agent platform by Nous Research. Gateway, dashboard, and workspace run as a single consolidated container under tini for correct signal forwarding.
+[Confluence](https://www.atlassian.com/software/confluence) is served as a custom Data Center image as the team wiki/CMS, running as `wbsvcwebhome`.
 
 | Detail | Value |
 |---|---|
-| Workspace port | 12320 (web UI, login with `HERMES_SPACE_PASSWD`) |
-| Dashboard port | 12329 (LAN only, direct access) |
-| Gateway port | 8642 (internal, outbound WebSocket to Discord/WhatsApp) |
-| API server port | 12330 (internal, for Open WebUI/HTTP clients) |
-| Data persistence | `${APPS_DATA}/hermesagent/data` (mounted as `/opt/data`, also set as `$HOME`) |
-| Source overlay | `${APPS_DATA}/hermesagent/data/overlay/` — persist edits to `/opt/hermes` across container recreation (see [shared/hermesagent/README.md](shared/hermesagent/README.md)) |
+| URL | `https://${WEBHOM_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
+| Internal port | 8090 (Tomcat, TLS-terminated by Traefik) |
+| Database | PostgreSQL (`${WEBHOM_DBNAME}`) |
+| Data persistence | `${APPS_DATA}/wbsvcwebhome` (mounted as `/var/atlassian/application-data/confluence`) |
+| JVM memory | 1024m min / 3072m max |
+| Middleware | `confserv-compress` (Traefik gzip compression) |
+| Image extras | Bundled `atlassian-agent`, SAML SSO / Table Filter / Questions plugins |
+
+### Hermes Agent
+
+[Hermes Agent](https://hermes-agent.nousresearch.com) is a self-hosted AI agent platform by Nous Research. The workspace/gateway runs as **four isolated containers**, one per user (`agsvcherme00` … `agsvcherme03`), each under tini for correct signal forwarding.
+
+| Detail | Value |
+|---|---|
+| Workspace ports | 12320 / 12321 / 12322 / 12323 (web UI, login with `HERMES_WORKSPACE_PASSWD_0X`) |
+| Gateway API port | 12330 (internal, used by Open WebUI / HTTP clients) |
+| Data persistence | `${HERMES_DATA_0X}` (default `${APPS_DATA}/hermesagent/0X`, mounted as `/opt/data` and set as `$HOME`) |
+| Overlay | `${HERMES_DATA_0X}/overlay/` — persist edits to `/opt/hermes` across container recreation (see [shared/hermesagent/README.md](shared/hermesagent/README.md)) |
 | LLM backend | LiteLLM proxy via `model: hermes` |
+| Web search | FastCRW (Firecrawl-compatible) + SearXNG |
 | Terminal sandbox | Docker (`/var/run/docker.sock` mounted read-only) |
-| Web search | Firecrawl + SearXNG |
 
-**Profiles:** Set `HERMES_AGENT_PROFILES` (space-separated) in `.env` to auto-start named profiles on boot. Each profile gets its own gateway process and data directory under `/opt/data/profiles/<name>/`. Without profiles, a single default gateway starts on port 8642.
+A shared one-shot container (`agsvchermint`) chowns all four data directories to UID/GID `10000` before the agents start.
 
-**LLM routing from Hermes:** All requests use `model: hermes`. The LiteLLM proxy automatically routes to hephaestus (local Gemma-4-4B) or prometheus (MiniMax 2.7) based on content. Users can override by prefixing their message:
+**Profiles:** Each container supports internal user profiles (code, research, etc.) via `hermes profile create`. These are separate from the per-container isolation and require no messaging-platform configuration.
+
+**LLM routing from Hermes:** All requests use `model: hermes`. The LiteLLM proxy automatically routes to hephaestus (local Gemma) or prometheus (MiniMax 2.7) based on content. Users can override by prefixing their message:
 
 ```
 [cloud] write a grant proposal for the school...   → prometheus / MiniMax 2.7
 [c] debug this system architecture...              → prometheus / MiniMax 2.7 (shorthand)
-[edge] summarise my tax return                    → hephaestus / Gemma-4-4B (stays private)
-[e] translate this paragraph                       → hephaestus / Gemma-4-4B (shorthand)
+[edge] summarise my tax return                    → hephaestus / Gemma (stays private)
+[e] translate this paragraph                       → hephaestus / Gemma (shorthand)
 ```
 
-> **Default profile files:** `shared/hermesagent/default/` is baked into the image at `/opt/hermes/defaults/`. On first start, `start-gateways.sh` seeds these into `/opt/data/` (and per-profile dirs) only when files are absent — it never overwrites existing configuration.
+> **Overlay system:** `/opt/hermes` ships read-only with the image. The overlay tools (`overlay-track`, `overlay-save`, `overlay-patch`) persist source edits on the host and replay them at container start via `apply-overlay.sh`.
 
 ### Open WebUI
 
-[Open WebUI](https://docs.openwebui.com/) is a web-based interface for interacting with Large Language Models (LLMs). It provides a chat UI, model management, and RAG capabilities.
+[Open WebUI](https://docs.openwebui.com/) is a web-based interface for interacting with Large Language Models (LLMs). It runs as `wbsvcwebchat`.
 
 | Detail | Value |
 |---|---|
 | URL | `https://${OWEBUI_DOMAIN}` |
 | Internal port | 8080 |
 | Data persistence | `${APPS_DATA}/openwebui` |
+
+### FastCRW Web Search
+
+[FastCRW](shared/fastcrw/README.md) is a self-hosted, Firecrawl-compatible crawler and search service in Rust, running as `agsvcfastcrw`. It backs Hermes' `web.backend: firecrawl` tool loop.
+
+| Detail | Value |
+|---|---|
+| Internal port | 12360 |
+| API key | `FIRECRAWL_API_KEY` (defaults to `${LITEM_API_KEY}`) |
+| JS renderers | `agsvclighpda` (LightPanda, port 12362) and `agsvcchromum` (Browserless Chromium, port 12363) |
+| Search backend | `agsvcsearxng` (SearXNG, port 12361) |
+| Hermes URL | `FCRW_API_URL` (default `http://agsvcfastcrw:12360`) |
 
 ---
 
@@ -360,14 +349,14 @@ A full metrics and log observability stack built on Grafana, VictoriaMetrics, Vi
 ```mermaid
 graph LR
     subgraph Collectors[Collection]
-        Alloy[Grafana Alloy\nHost + Container + Traefik]
+        Alloy[secobgrafaly\nHost + Container + Traefik]
     end
     subgraph Storage[Storage]
-        VM[VictoriaMetrics\nTime-series metrics]
-        VL[VictoriaLogs\nLog aggregation]
+        VM[secobvicmtrx\nTime-series metrics]
+        VL[secobviclogs\nLog aggregation]
     end
     subgraph Visualization[Visualization]
-        Grafana[Grafana\nDashboards]
+        Grafana[secobgrafana\nDashboards]
     end
     Alloy -->|metrics push| VM
     Alloy -->|logs push| VL
@@ -381,9 +370,9 @@ graph LR
 
 | Detail | Value |
 |---|---|
-| HTTP API port | 8428 (not exposed externally) |
+| HTTP API port | 8428 (published to host for remote Alloy/metrics push) |
 | Data persistence | `${APPS_DATA}/victoriametrics` |
-| Scrape target | Grafana Alloy (host + container + Traefik metrics) |
+| Scrape targets | Grafana Alloy (secobgrafaly:9080) and LiteLLM (agsvclitellm:12380/metrics) |
 | Health check | `curl` on port 8428 every 30 s |
 
 ### VictoriaLogs
@@ -392,34 +381,35 @@ graph LR
 
 | Detail | Value |
 |---|---|
-| HTTP API port | 9428 (not exposed externally) |
+| HTTP API port | 9428 (published to host for remote Alloy/log push) |
 | Data persistence | `${APPS_DATA}/victorialogs` |
 | Log source | Grafana Alloy (Docker logs, container stats, Traefik access logs) |
 | Health check | `curl` on port 9428 every 30 s |
 
 ### Grafana Alloy
 
-[Grafana Alloy](https://grafana.com/docs/alloy/) is a telemetry collector that gathers host metrics, container metrics, and logs. It runs a built-in UNIX exporter for host metrics and cAdvisor for container metrics.
+[Grafana Alloy](https://grafana.com/docs/alloy/) is a telemetry collector that gathers host metrics, container metrics, and logs. It runs as `secobgrafaly`.
 
 | Detail | Value |
 |---|---|
 | HTTP API port | 9080 (internal only) |
 | Collectors | unix_exporter (CPU, memory, disk, network), cAdvisor (containers), Loki (logs) |
 | Data sources | Docker socket, containerd socket, procfs, sysfs, cgroupfs |
+| Scrape target | `routetraefik:8080` — Traefik Prometheus metrics |
 | Depends on | VictoriaMetrics, VictoriaLogs (healthy) |
 
 > **Privileged access:** The Alloy container runs in privileged mode (`--privileged`) because cAdvisor requires access to the host's `/proc`, `/sys`, and Docker socket to collect container metrics.
 
 ### Grafana
 
-[Grafana](https://grafana.com/) provides dashboards for visualizing metrics and logs. Dashboards are pre-provisioned for VictoriaMetrics, VictoriaLogs, Traefik, Docker, cAdvisor, and node exporter.
+[Grafana](https://grafana.com/) provides dashboards for visualizing metrics and logs, running as `secobgrafana`.
 
 | Detail | Value |
 |---|---|
 | URL | `https://${SECOB_DOMAIN}` |
-| Port | 3000 (mapped to host) |
 | Database | SQLite (embedded, persisted to `${APPS_DATA}/grafana`) |
 | Data sources | VictoriaMetrics (metrics), VictoriaLogs (logs) |
+| Auth | Authentik forward-auth (`authentik-forwardauth@file`) |
 | Dashboards | Node Exporter Full, Docker Dashboard, cAdvisor Explorer, Traefik Dashboard, VictoriaLogs Explorer, and more |
 | Plugins | `victoriametrics-logs-datasource` |
 
@@ -461,36 +451,39 @@ Edit `.env` to match your environment:
 
 ```bash
 # Required — set these before first start
-DOMAIN_NAME=example.com        # Your primary domain
-REPBUK_DOMAIN=git.example.com     # Gitea hostname
-TRAFIK_DOMAIN=traefik.example.com
-ACME_EMAIL=you@example.com     # Let's Encrypt registration email
-APPS_DATA=/opt/containerd      # Host path for persistent data
+DOMAIN_NAME=example.com          # Your primary domain
+TRAEFIK_DOMAIN=traefik.example.com
+REPBUK_DOMAIN=git.example.com    # Forgejo hostname
+AUTHN_DOMAIN=login.example.com   # Authentik hostname
+TRAEFIK_ACMEMAIL=you@example.com # Let's Encrypt registration email
+APPS_DATA=/opt/containerd        # Host path for persistent data
 TIME_ZONE=Australia/Sydney
 ```
 
 See [Configuration](#configuration) for the full variable reference.
 
-### 4. Prepare the Let's Encrypt Directory
+### 4. Prepare TLS
 
-The `shared/letsencrypt/` directory is already included in the repository. Traefik will create `acme.json` automatically on the first successful Let's Encrypt certificate issuance — you do not need to create it manually.
-
-> **Important:** After Traefik starts and `acme.json` is created, verify its permissions are restricted. Traefik will refuse to use the file if permissions are too open:
-> ```bash
-> chmod 600 shared/letsencrypt/acme.json
-> ```
-> For remote deployments via the Gitea Actions workflow, `acme.json` is restored automatically from the `*_B64ENC_ACME` secret (gzip+base64 encoded via `setup.sh --encode`) with the correct `600` permissions. The restore only overwrites the existing file if the secret is newer, preserving any certificates renewed by Traefik since the last encode.
-
-For staging (self-signed), place your `.pem` and `.key` files in `shared/letsencrypt/` and update `shared/traefik/advanced/certificates.yml` accordingly. No `acme.json` is needed.
-
-### 5. Prepare the Gitea Data Directory
-
-Gitea runs as a rootless container (UID/GID `1000:1000`). The data and config directories on the host **must** be owned by `1000:1000`, otherwise Gitea will fail to start or write data.
+For **production** (Let's Encrypt), Traefik creates `${APPS_DATA}/certs/acme.json` automatically on the first successful certificate issuance — no manual step is needed. Verify its permissions are restricted after it is created (Traefik refuses to use a world-readable file):
 
 ```bash
-mkdir -p ${APPS_DATA}/repbuk/data
-mkdir -p ${APPS_DATA}/repbuk/config
-mkdir -p ${APPS_DATA}/repbuk/runner
+chmod 600 ${APPS_DATA}/certs/acme.json
+```
+
+For **staging** (self-signed), place your `.pem` and `.key` files in `shared/traefik/advanced/selfsigncert/` matching `shared/traefik/advanced/certificates.yml`. These are encrypted with git-crypt before committing. No `acme.json` is needed.
+
+For remote deployments via the Gitea Actions workflow, `acme.json` is restored automatically from the `*_B64ENC_ACME` secret (gzip+base64 encoded via `setup.sh --encode`) with `600` permissions. The restore only overwrites the existing file if the secret is newer, preserving certificates renewed by Traefik since the last encode.
+
+### 5. Prepare Data Directories
+
+Service init containers (`authnsvrinit`, `wbsvcrepoint`, `agsvchermint`, `secobgrafint`) fix ownership on every boot. To prepare directories ahead of time:
+
+```bash
+mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
+mkdir -p ${APPS_DATA}/webapps/authentik/{media,templates}
+mkdir -p ${APPS_DATA}/certs
+mkdir -p ${APPS_DATA}/repbuk/{data,config,runner}
+mkdir -p ${APPS_DATA}/hermesagent/{00,01,02,03}
 chown -R 1000:1000 ${APPS_DATA}/repbuk
 ```
 
@@ -512,7 +505,7 @@ docker compose up -d wbsvcrepobuk
 
 ## Managing Encrypted Files (git-crypt)
 
-Self-signed certificates for staging are stored **encrypted** in `shared/letsencrypt/` using [git-crypt](https://github.com/AGWA/git-crypt). They appear as binary blobs to anyone without the key, making it safe to commit them to a public repository. The deploy workflow decrypts them automatically on the remote server.
+Self-signed certificates for staging are stored **encrypted** in `shared/traefik/advanced/selfsigncert/` using [git-crypt](https://github.com/AGWA/git-crypt). They appear as binary blobs to anyone without the key, making it safe to commit them. The deploy workflow decrypts them automatically on the remote server.
 
 ### One-time Setup (new repository)
 
@@ -528,22 +521,31 @@ git-crypt export-key ./servicehub.key
 cat .gitattributes
 ```
 
+`.gitattributes` encrypts every certificate file under the self-signed cert directory:
+
+```
+shared/traefik/advanced/selfsigncert/*.pem filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.key filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.crt filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.pfx filter=git-crypt diff=git-crypt
+```
+
 ### Add Your Staging Certificates
 
-Place your self-signed `.pem` and `.key` files in `shared/letsencrypt/` matching the filenames in `shared/traefik/advanced/certificates.yml`, then commit normally:
+Place your self-signed files in `shared/traefik/advanced/selfsigncert/` matching the names in `shared/traefik/advanced/certificates.yml`, then commit normally:
 
 ```bash
-cp /path/to/selfcert.pem shared/letsencrypt/
-cp /path/to/selfcert.key shared/letsencrypt/
-cp /path/to/selfcertCA.crt shared/letsencrypt/
-git add shared/letsencrypt/selfcert.pem shared/letsencrypt/selfcert.key shared/letsencrypt/selfcertCA.crt
+cp /path/to/selfcert.pem    shared/traefik/advanced/selfsigncert/
+cp /path/to/selfcert.key    shared/traefik/advanced/selfsigncert/
+cp /path/to/selfcertCA.crt  shared/traefik/advanced/selfsigncert/
+git add shared/traefik/advanced/selfsigncert/
 git commit -m "add staging self-signed certificates (encrypted)"
 ```
 
 git-crypt encrypts the files transparently on commit. Verify with:
 ```bash
 # Should print non-text (encrypted) output — not your cert content
-git show HEAD:shared/letsencrypt/selfcert.pem | file -
+git show HEAD:shared/traefik/advanced/selfsigncert/selfcert.pem | file -
 ```
 
 ### Encode the Key for Gitea
@@ -573,7 +575,7 @@ The Gitea Actions workflow at [.gitea/workflows/deploy.yml](.gitea/workflows/dep
 
 1. Resolves environment-specific secrets from Gitea repository settings
 2. Configures SSH known hosts from a stored secret (or falls back to `ssh-keyscan`)
-3. On the remote server: clones the repo on first deploy, or pulls `main` on subsequent runs
+3. On the remote server: clones the repo on first deploy, or pulls the selected branch on subsequent runs
 4. Installs git-crypt on the remote server if needed, then decrypts encrypted files (e.g. staging certs)
 5. Restores `.env` from the `*_B64ENC_ENVS` secret if the secret is newer than the existing file
 6. Runs `scripts/setup.sh` to merge any new variables from `env.example` into `.env`
@@ -614,9 +616,9 @@ Set these in **Repository Settings → Secrets → Add Secret**.
 | `STAG_SERVER_USER` | `deploy` | SSH login username on the staging server. |
 | `STAG_SERVER_PASS` | `••••••••` | SSH password for the above user. |
 | `STAG_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the staging server where the repo is cloned. Must include the repo directory name — git clones **into** this path. |
-| `STAG_B64ENC_ENVS` | *(output of `setup.sh --encode STAG`)* | Gzip+base64-encoded `.env` file. Generated by `bash scripts/setup.sh --encode STAG`. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
-| `STAG_B64ENC_ACME` | *(leave unset for staging)* | Gzip+base64-encoded `acme.json` (Let's Encrypt certificates). Leave **unset** for staging — Traefik uses the self-signed cert from `shared/letsencrypt/` instead. Only needed for production. |
-| `STAG_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The staging server's public SSH host key. Prevents man-in-the-middle attacks by verifying the server identity before connecting. Get it by running `ssh-keyscan <stag-host>` locally. **Optional** — if unset the workflow falls back to `ssh-keyscan` at runtime with a warning. |
+| `STAG_B64ENC_ENVS` | *(output of `setup.sh --encode STAG`)* | Gzip+base64-encoded `.env` file. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
+| `STAG_B64ENC_ACME` | *(leave unset for staging)* | Gzip+base64-encoded `acme.json` (Let's Encrypt certificates). Leave **unset** for staging — Traefik uses the self-signed cert from `shared/traefik/advanced/selfsigncert/` instead. |
+| `STAG_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The staging server's public SSH host key. Prevents man-in-the-middle attacks by verifying the server identity before connecting. **Optional** — if unset the workflow falls back to `ssh-keyscan` at runtime with a warning. |
 
 #### Production (`PROD_*`)
 
@@ -626,7 +628,7 @@ Set these in **Repository Settings → Secrets → Add Secret**.
 | `PROD_SERVER_USER` | `deploy` | SSH login username on the production server. |
 | `PROD_SERVER_PASS` | `••••••••` | SSH password for the above user. |
 | `PROD_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the production server where the repo is cloned. |
-| `PROD_B64ENC_ENVS` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded production `.env`. Generated by `bash scripts/setup.sh --encode PROD`. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
+| `PROD_B64ENC_ENVS` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded production `.env`. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
 | `PROD_B64ENC_ACME` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded `acme.json` containing your Let's Encrypt certificates. Generated by `setup.sh --encode PROD` when `acme.json` is larger than 1 KB (i.e. after Traefik has issued real certificates). Restored only if the secret is newer than the existing file. |
 | `PROD_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The production server's public SSH host key. Strongly recommended for production. Run `ssh-keyscan <prod-host>` locally to get the value. |
 
@@ -636,7 +638,7 @@ Set these in **Repository Settings → Secrets → Add Secret**.
 
 1. Navigate to **Repository → Actions → Deploy to Server**
 2. Click **Run workflow**
-3. Select the **service** (`all`, `agsvcchatllm`, `agsvclitellm`, `agsvchermagt`, `inframariadb`, `infrapgsqldb`, `infratraefik`, `wbsvcauthtik`, `wbsvcreporun`, `wbsvcrepobuk`, `wbsvcwebchat`, or `wbsvcwebhome`) and **environment** (`stag` or `prod`)
+3. Select the **service** (`all`, `routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `wbsvcrepobuk`, `wbsvcreporun`, `wbsvcwebchat`, `wbsvcwebhome`, `agsvclitellm`, `agsvcchatllm`, `agsvcherme00`–`agsvcherme03`, `agsvcfastcrw`, `agsvclighpda`, `agsvcchromum`, `agsvcsearxng`, `secobvicmtrx`, `secobviclogs`, `secobgrafaly`, or `secobgrafana`) and **environment** (`stag` or `prod`)
 4. Click **Run workflow**
 
 ---
@@ -671,9 +673,9 @@ docker compose up -d --build wbsvcrepobuk
 docker compose pull && docker compose up -d
 ```
 
-### Register the Act Runner
+### Register the Forgejo / Gitea Runner
 
-After Gitea starts, generate a runner token in Gitea (`Site Administration → Actions → Runners → Create new runner token`), add it to `.env` as `REPBUK_RUNTOKEN`, then restart the runner:
+After Forgejo starts, generate a runner token in Forgejo (`Site Administration → Actions → Runners → Create new runner token`), add it to `.env` as `REPBUK_RUNTOKEN`, then restart the runner:
 
 ```bash
 docker compose restart wbsvcreporun
@@ -684,6 +686,8 @@ docker compose restart wbsvcreporun
 ## Configuration
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
+
+> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md)) also document their own variables there.
 
 ### General
 
@@ -699,67 +703,72 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `DOMAIN_NAME` | Primary domain (e.g. `example.com`) |
 | `TRUSTED_IP` | CIDR ranges Traefik trusts for forwarded headers |
 
-### TLS / Traefik
+### TLS / Traefik (route)
 
 | Variable | Description |
 |---|---|
-| `TRAFIK_DOMAIN` | Traefik dashboard hostname |
-| `ACME_EMAIL` | Let's Encrypt registration email |
-| `TRAFIK_BAAUTH` | Dashboard basic-auth credentials (htpasswd format) |
+| `TRAEFIK_DOMAIN` | Traefik dashboard hostname |
+| `TRAEFIK_ACMEMAIL` | Let's Encrypt registration email |
+| `TRAEFIK_BAAUTH` | Dashboard basic-auth credentials (htpasswd format) |
 | `CERTRESOLVER` | Set to `letsencrypt` for ACME; leave empty for self-signed |
 
-### Authentik
+### Authentik (authn)
 
 | Variable | Description |
 |---|---|
-| `AUTHK_TAG` | Authentik image tag (e.g. `2025.12`) |
-| `AUTHK_DOMAIN` | Authentik hostname (e.g. `accounts.example.com`) |
-| `AUTHK_DBNAME` | PostgreSQL database name for Authentik |
-| `AUTHK_PASSWD` | Auto-generated by `setup.sh`; Authentik DB password |
-| `AUTHK_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
+| `AUTHN_TAG` | Authentik image tag (e.g. `2026.8`) |
+| `AUTHN_DOMAIN` | Authentik hostname (e.g. `login.example.com`) |
+| `AUTHN_DBNAME` | PostgreSQL database name for Authentik (default: `svchubauthtk`) |
+| `AUTHN_PASSWD` | Auto-generated by `setup.sh`; Authentik DB password |
+| `AUTHN_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
 
-### WordPress
-
-| Variable | Description |
-|---|---|
-| `WEBHOM_DOMAIN` | WordPress hostname (e.g. `www.example.com`) |
-| `WEBHOM_DBNAME` | MariaDB database name for WordPress (default: `wordpress`) |
-
-### Gitea
+### Forgejo
 
 | Variable | Description |
 |---|---|
-| `REPBUK_DOMAIN` | Gitea hostname |
-| `REPBUK_DBNAME` | PostgreSQL database name for Gitea |
+| `REPBUK_DOMAIN` | Forgejo hostname |
+| `REPBUK_DBNAME` | PostgreSQL database name for Forgejo |
 | `REPBUK_RUNTOKEN` | Act Runner registration token |
+
+### Confluence
+
+| Variable | Description |
+|---|---|
+| `WEBHOM_DOMAIN` | Confluence hostname (e.g. `www.example.com`) |
+| `WEBHOM_DBNAME` | PostgreSQL database name for Confluence (default: `wordpress`) |
 
 ### Hermes Agent
 
 | Variable | Default | Description |
 |---|---|---|
-| `HERMES_SPACE_PASSWD` | Auto-generated | Password for Hermes Workspace web UI login at `http://<host>:12320` |
-| `HERMES_AGENT_PROFILES` | *(empty)* | Space-separated profile names to auto-start on boot. Leave empty for a single default gateway on port 8642. |
-| `LITEM_API_KEY` | Auto-generated | Passed as `LITELLM_KEY` to Hermes for authenticating with the LiteLLM proxy |
-| `FIRECRAWL_API_KEY` | | API key for the Firecrawl web-scraping backend (used by Hermes web search) |
+| `HERMES_WORKSPACE_PASSWD_00`…`_03` | Auto-generated | Passwords for the Hermes Workspace web UI per container (ports 12320–12323) |
+| `HERMES_DATA_00`…`_03` | `${APPS_DATA}/hermesagent/0X` | Per-container data directories |
+| `HERMES_WORKSPACE_DOMAIN_00`…`_03` | `spaceX.${DOMAIN_NAME}` | Optional Traefik domains for HTTPS access (empty = IP:port only) |
+| `LITEM_API_KEY` | Auto-generated | Passed as `LITELLM_API_KEY`/`API_SERVER_KEY` to Hermes for authenticating with the LiteLLM proxy |
+| `FCRW_API_URL` | `http://agsvcfastcrw:12360` | FastCRW base URL used by Hermes web search |
 
 ### LiteLLM Proxy
 
 | Variable | Default | Description |
 |---|---|---|
-| `LITEM_API_KEY` | Auto-generated by `setup.sh` | Master API key (Bearer token format `sk-...`). Used by Hermes and any other service to authenticate with the proxy. |
+| `LITEM_API_KEY` | Auto-generated by `setup.sh` | Master API key (Bearer token format `sk-...`). Used by Hermes, FastCRW and other services. |
+| `LITEM_API_URL` | `http://agsvclitellm:12380/v1` | Base URL clients use to reach the proxy |
 | `LITEM_ADMUSR` | `admin` | Admin UI username for the LiteLLM dashboard |
 | `LITEM_ADMPWD` | | Admin UI password |
 | `LITEM_DBNAME` | `litellm` | PostgreSQL database name for LiteLLM usage tracking |
-| `LITEM_MMAX_BASE` | `https://api.minimax.io/anthropic` | MiniMax Anthropic-compatible API base URL (`remote` tier) |
-| `LITEM_MMAX_APIKEY` | | MiniMax API key |
+| `LITEM_HPH_APIURL` | `http://agsvcchatllm:12386/v1` | Local (hephaestus) inference base URL |
+| `LITEM_HPH_APIKEY` | `none` | Local inference API key |
+| `LITEM_HPH_HLTURL` | `http://agsvcchatllm:12386/health` | Local inference health-check URL |
+| `LITEM_PRM_APIBASE` | `https://api.minimax.io/anthropic` | MiniMax Anthropic-compatible API base URL (prometheus tier) |
+| `LITEM_PRM_APIKEY` | | MiniMax API key |
 
 ### LLM Inference (llama.cpp)
 
 | Variable | Default | Description |
 |---|---|---|
-| `LLAMA_CHTMDL` | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | Chat inference model (`edge` tier). Auto-downloaded from HuggingFace on first start. |
-| `LLAMA_CHTARG` | *(see env.example)* | Additional llama.cpp server flags (context size, thread count, batching, etc.) |
-| `HF_TOKEN` | *(empty)* | HuggingFace token — required for gated models (e.g. Gemma 4) |
+| `LLAMA_CHTMDL` | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | Chat inference model (hephaestus tier). Auto-downloaded from HuggingFace on first start. |
+| `LLAMA_CHTARG` | *(see env.example)* | Additional llama.cpp server flags (context size, threads, batching, etc.) |
+| `HF_TOKEN` | *(empty)* | HuggingFace token — required for gated models |
 
 ### Open WebUI
 
@@ -781,7 +790,9 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 |---|---|
 | `SQLDB_USER` | Shared DB username for both MariaDB and PostgreSQL |
 | `SQLDB_PASS` | Auto-generated by `setup.sh`; store securely |
-| `MARIADB_DB_LIST` | Comma-separated list of MariaDB databases to create |
+| `MySQL_HOST` / `MySQL_PORT` | MariaDB hostname / port (internal) |
+| `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL hostname / port (internal) |
+| `MARIADB_DB_LIST` | Comma-separated list of MariaDB databases to create (empty by default) |
 | `PGRSQL_DBLIST` | Comma-separated list of PostgreSQL databases to create |
 
 ### Email (SMTP)
@@ -791,7 +802,7 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `SMTP_HOST` | SMTP server hostname |
 | `SMTP_PORT` | SMTP port |
 | `SMTP_USER` / `SMTP_PASS` | SMTP credentials |
-| `SMTP_FROM` | From address for outbound email |
+| `SMTP_FROM` | From address for outbound email (display name + address) |
 
 ---
 
