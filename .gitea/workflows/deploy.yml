@@ -10,15 +10,25 @@ on:
         type: choice
         options:
           - all
-          - agsvchermagt
-          - inframariadb
-          - infrapgsqldb
-          - infratraefik
-          - wbsvcauthtik
-          - wbsvcreporun
+          - routetraefik
+          - dbsvcmariadb
+          - dbsvcpgsqldb
+          - authnservice
+          - authnworkers
           - wbsvcrepobuk
+          - wbsvcreporun
           - wbsvcwebchat
           - wbsvcwebhome
+          - agsvclitellm
+          - agsvcchatllm
+          - agsvcfastcrw
+          - agsvclighpda
+          - agsvcchromum
+          - agsvcsearxng
+          - agsvcherme00
+          - agsvcherme01
+          - agsvcherme02
+          - agsvcherme03
           - secobvicmtrx
           - secobviclogs
           - secobgrafaly
@@ -101,7 +111,7 @@ jobs:
               mkdir -p '$DEPLOY_PATH' && git clone --branch $BRANCH '$AUTH_REPO_URL' '$DEPLOY_PATH'
             fi"
 
-          # Decrypt git-crypt encrypted files (e.g. self-signed certs in shared/letsencrypt/).
+          # Decrypt git-crypt encrypted files (e.g. staging certs in shared/traefik/advanced/selfsigncert/).
           # Installs git-crypt on the remote server if not already present.
           # GIT_CRYPT_KEY must be the base64-encoded symmetric key: base64 -w0 servicehub.key
           if [ -n "$GIT_CRYPT_KEY" ]; then
@@ -141,6 +151,9 @@ jobs:
           ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
 
           # Restore acme.json only when the secret contains data.
+          # The ACME store lives at ${APPS_DATA}/certs/acme.json (the directory
+          # mounted at /letsencrypt by compose/route.yml), so APPS_DATA is read
+          # from the .env file restored above.
           # For STAG with self-signed certs, leave STAG_B64ENC_ACME unset in Gitea
           # and Traefik will fall back to the certificate defined in certificates.yml.
           #
@@ -152,8 +165,10 @@ jobs:
           if [ -n "$ACME_B64" ]; then
             echo "$ACME_B64" | ssh_exec "
               set -e
-              ACME_PATH='$DEPLOY_PATH/shared/letsencrypt/acme.json'
-              mkdir -p '$DEPLOY_PATH/shared/letsencrypt'
+              APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' | tail -1 | cut -d '=' -f2- | tr -d '\"')
+              APPS_DATA=\"\${APPS_DATA/#\\~/\$HOME}\"
+              ACME_PATH=\"\${APPS_DATA:-/opt/containerd}/certs/acme.json\"
+              sudo mkdir -p \"\$(dirname \"\$ACME_PATH\")\"
               base64 -d > /tmp/acme_restore.gz
               gunzip -f /tmp/acme_restore.gz
               if [ -f \"\$ACME_PATH\" ]; then

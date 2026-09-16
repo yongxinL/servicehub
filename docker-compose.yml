@@ -1,3 +1,15 @@
+############### PROJECT ###############
+# serviceHub — self-hosted service stack.
+#
+# Compose files are split by functional domain; every service is prefixed with
+# the domain it belongs to. The main file only declares the shared network and
+# pulls each domain file in via `include`.
+#
+#   compose/route.yml   route*  Edge routing + TLS termination (Traefik)
+#   compose/dbsvc.yml   dbsvc*  Relational databases (MariaDB + PostgreSQL)
+#
+# Deploy with:  docker compose up -d --build
+
 ############### NETWORKS ###############
 networks:
     subnet:
@@ -5,10 +17,13 @@ networks:
 
 ############### SERVICES ###############
 include:
-    # --> infrastructure (infra)
-    - compose/infra.yml
+    # --> routing + TLS termination (route)
+    - compose/route.yml
 
-    # --> authentication (authn)
+    # --> relational databases (dbsvc)
+    - compose/dbsvc.yml
+
+    # --> authentication / SSO (authn)
     - compose/authn.yml
 
     # --> web services (wbsvc)
