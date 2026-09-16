@@ -9,13 +9,14 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
 - [Core Services](#core-services)
+- [DevOps Stack](#devops-stack)
+    - [Forgejo](#forgejo)
+    - [Woodpecker CI](#woodpecker-ci)
 - [LLM Inference Services](#llm-inference-services)
     - [Chat Inference — agsvcchatllm](#chat-inference--agsvcchatllm)
     - [LiteLLM Proxy — agsvclitellm](#litellm-proxy--agsvclitellm)
 - [Web Applications](#web-applications)
     - [Authentik (Identity Provider)](#authentik-identity-provider)
-    - [Forgejo](#forgejo)
-    - [Forgejo / Gitea Runner](#forgejo--gitea-runner)
     - [Confluence](#confluence)
     - [Hermes Agent](#hermes-agent)
     - [Open WebUI](#open-webui)
@@ -45,8 +46,9 @@ Compose files are split by functional domain, and every service is prefixed with
 | `compose/route.yml` | `route*` | Edge routing + TLS termination (Traefik) |
 | `compose/dbsvc.yml` | `dbsvc*` | Relational databases (MariaDB + PostgreSQL) |
 | `compose/authn.yml` | `authn*` | Authentication / SSO (Authentik) |
-| `compose/wbsvc.yml` | `wbsvc*` | Web services (Forgejo, runner, Confluence) |
-| `compose/agent.yml` | `agsvc*` | AI agents + LLM inference + web search |
+| `compose/wbsvc.yml` | `wbsvc*` | Confluence (`wbsvcwebhome`) |
+| `compose/agent.yml` | `agsvc*` | AI agents + LLM inference + web search + Open WebUI |
+| `compose/devop.yml` | `devop*` | Source control + CI (Forgejo + Woodpecker) |
 | `compose/secob.yml` | `secob*` | Security observability (metrics + logs + Grafana) |
 
 ```mermaid
@@ -58,7 +60,8 @@ graph TD
         Traefik[routetraefik\nReverse Proxy + TLS]
         Traefik -->|traefik.domain| Dashboard[Traefik Dashboard]
         Traefik -->|login.domain| Authentik[authnservice\nIdP / SSO]
-        Traefik -->|git.domain| Forgejo[wbsvcrepobuk\nForgejo]
+        Traefik -->|git.domain| Forgejo[devopgitserv\nForgejo]
+        Traefik -->|run.domain| Woodpecker[devopbldserv\nWoodpecker CI]
         Traefik -->|www.domain + apex| Confluence[wbsvcwebhome\nConfluence]
         Traefik -->|chats.domain| OpenWebUI[wbsvcwebchat\nOpen WebUI]
         Traefik -->|space0-3.domain| Hermes[agsvcherme00-03\n4x Hermes Agent]
@@ -67,7 +70,8 @@ graph TD
         Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
         Confluence -->|depends on| PostgreSQL
-        Forgejo -->|actions| Runner[wbsvcreporun\nForgejo / Gitea Runner]
+        Woodpecker -->|OAuth + webhooks| Forgejo
+        Woodpecker -->|schedules| Agent[devopbldexec\nWoodpecker Agent]
         Hermes -->|hermes| LiteLLM[agsvclitellm\nComplexity Router]
         LiteLLM -->|depends on| PostgreSQL
         LiteLLM -->|hephaestus| Gemma[agsvcchatllm\nllama.cpp Gemma-4 local]
@@ -82,7 +86,7 @@ graph TD
         VL -.->|receives| Alloy
     end
 
-    Runner -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
+    Actions[Gitea / Forgejo Actions] -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
 ```
 
 **TLS strategy:**
@@ -102,8 +106,9 @@ servicehub/
 │   ├── route.yml               # Traefik (routetraefik)
 │   ├── dbsvc.yml               # MariaDB + PostgreSQL
 │   ├── authn.yml               # Authentik server + worker + init
-│   ├── wbsvc.yml               # Forgejo + runner + Confluence
+│   ├── wbsvc.yml               # Confluence (wbsvcwebhome)
 │   ├── agent.yml               # Hermes agents + LiteLLM + llama.cpp + Open WebUI + FastCRW
+│   ├── devop.yml               # Forgejo + Woodpecker CI server/agent
 │   └── secob.yml               # Security observability stack
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
@@ -118,11 +123,15 @@ servicehub/
 │   │   ├── README.md                     # Authentik service documentation
 │   │   └── Dockerfile
 │   ├── forgejo/
+│   │   ├── README.md                     # Forgejo service documentation
 │   │   └── server/
 │   │       └── Dockerfile
-│   ├── gitea/
-│   │   └── runner/
-│   │       └── Dockerfile      # Gitea / Forgejo Act Runner image
+│   ├── woodpecker/
+│   │   ├── README.md                     # Woodpecker CI service documentation
+│   │   ├── server/
+│   │   │   └── Dockerfile
+│   │   └── agent/
+│   │       └── Dockerfile
 │   ├── confluence/
 │   │   └── Dockerfile          # Confluence + Atlassian agent
 │   ├── hermesagent/
@@ -174,7 +183,7 @@ servicehub/
 └── LICENSE
 ```
 
-> Legacy directories `shared/wordpress/` and `shared/gitea/custom/` remain in the tree but are no longer referenced by any service.
+> Legacy `shared/wordpress/` remains in the tree but is no longer referenced by any service.
 
 ---
 
@@ -186,7 +195,39 @@ servicehub/
 | MariaDB 11.8 — MySQL-compatible database | `dbsvcmariadb` | [shared/mariadb/README.md](shared/mariadb/README.md) |
 | PostgreSQL 16 — primary database | `dbsvcpgsqldb` | [shared/postgresql/README.md](shared/postgresql/README.md) |
 
-> Service-specific configuration, data layout, first-boot steps and operations notes live in each service's own `README.md` under `shared/`. Services not yet split out are still documented inline below.
+> Service-specific configuration, data layout, first-boot steps and operations notes live in each service's own `README.md` under `shared/`.
+
+---
+
+## DevOps Stack
+
+Self-hosted source control and CI. [Forgejo](#forgejo) hosts the Git repositories and provides the OAuth2 provider; [Woodpecker CI](#woodpecker-ci) runs pipelines against them, with an agent executing every step in an ephemeral Docker container.
+
+```mermaid
+graph LR
+    Forgejo[devopgitserv\nForgejo] -->|OAuth2 + webhooks| Server[devopbldserv\nWoodpecker Server]
+    Server -->|gRPC| Agent[devopbldexec\nWoodpecker Agent]
+    Agent -->|Docker| Steps[Pipeline Steps]
+```
+
+| Service | Runs as | Full documentation |
+|---|---|---|
+| Forgejo — self-hosted Git service | `devopgitserv` | [shared/forgejo/README.md](shared/forgejo/README.md) |
+| Woodpecker CI — server + agent | `devopbldserv`, `devopbldexec` | [shared/woodpecker/README.md](shared/woodpecker/README.md) |
+
+A one-shot `devopbldinit` container fixes ownership of the DevOps data directories before startup. Data lives under `${APPS_DATA}/devops/` (`repos` for Forgejo, `buildserv` / `buildexec` for Woodpecker).
+
+### Forgejo
+
+[Forgejo](https://forgejo.org/) (a community fork of Gitea) is the self-hosted Git service, running as `devopgitserv` at `https://${GITREPO_DOMAIN}` and backed by PostgreSQL (`${GITREPO_DBNAME}`). Repository data is stored in `${APPS_DATA}/devops/repos`.
+
+Full setup, configuration and operations: **[shared/forgejo/README.md](shared/forgejo/README.md)**.
+
+### Woodpecker CI
+
+[Woodpecker CI](https://woodpecker-ci.org/) is a container-native CI/CD engine, running as `devopbldserv` (UI / API / scheduler at `https://${GITBLD_DOMAIN}`) with `devopbldexec` as the Docker-backed agent. State is stored in `${APPS_DATA}/devops/{buildserv,buildexec}`.
+
+Full setup, configuration and operations: **[shared/woodpecker/README.md](shared/woodpecker/README.md)**.
 
 ---
 
@@ -245,35 +286,6 @@ The explicit tags are stripped from the message before forwarding so the model n
 [Authentik](https://goauthentik.io/) is the open-source Identity Provider (IdP) and SSO server: `authnservice` (web) and `authnworkers` (background), with a one-shot `authnsvrinit` permission fixer. It provides forward-authentication for Traefik-protected services such as Grafana and is reachable at `https://${AUTHN_DOMAIN}`.
 
 Full setup, configuration and operations: **[shared/authentik/README.md](shared/authentik/README.md)**.
-
-### Forgejo
-
-[Forgejo](https://forgejo.org/) (a community fork of Gitea) is the self-hosted Git service, running as `wbsvcrepobuk`.
-
-| Detail | Value |
-|---|---|
-| URL | `https://${REPBUK_DOMAIN}` |
-| Database | PostgreSQL (`${REPBUK_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/wbsvcrepobuk/data` (mounted as `/var/lib/gitea`) |
-| Config persistence init | `${APPS_DATA}/repbuk/data`, `${APPS_DATA}/repbuk/config` (chowned by `wbsvcrepoint`) |
-| Volume ownership | **`1000:1000`** — required |
-| Registration / SSO | OpenID signin and signup disabled |
-| Health check | HTTP GET on port 3000 every 30 s (20 s startup delay) |
-
-> **Permissions:** The host data directories must be writable by UID/GID `1000`. `wbsvcrepoint` normalises ownership on each boot, but you can also prepare them ahead of time (see [Installation](#installation)).
-
-### Forgejo / Gitea Runner
-
-The Act Runner (`wbsvcreporun`) executes Forgejo/Gitea Actions workflows. It mounts the Docker socket so workflows can build and run containers.
-
-| Detail | Value |
-|---|---|
-| Registration | Token set via `REPBUK_RUNTOKEN` in `.env` |
-| Instance URL | `https://${REPBUK_DOMAIN}` |
-| Runner data | `${APPS_DATA}/repbuk/runner` |
-| Labels | Inherit from runner registration |
-
-> **Note:** The runner must be registered in Forgejo (`Site Administration → Actions → Runners`) before the first workflow can execute. Set the registration token as `REPBUK_RUNTOKEN` in your `.env`.
 
 ### Confluence
 
@@ -453,8 +465,9 @@ Edit `.env` to match your environment:
 # Required — set these before first start
 DOMAIN_NAME=example.com          # Your primary domain
 TRAEFIK_DOMAIN=traefik.example.com
-REPBUK_DOMAIN=git.example.com    # Forgejo hostname
 AUTHN_DOMAIN=login.example.com   # Authentik hostname
+GITREPO_DOMAIN=git.example.com   # Forgejo hostname
+GITBLD_DOMAIN=run.example.com    # Woodpecker CI hostname
 TRAEFIK_ACMEMAIL=you@example.com # Let's Encrypt registration email
 APPS_DATA=/opt/containerd        # Host path for persistent data
 TIME_ZONE=Australia/Sydney
@@ -476,15 +489,15 @@ For remote deployments via the Gitea Actions workflow, `acme.json` is restored a
 
 ### 5. Prepare Data Directories
 
-Service init containers (`authnsvrinit`, `wbsvcrepoint`, `agsvchermint`, `secobgrafint`) fix ownership on every boot. To prepare directories ahead of time:
+Service init containers (`authnsvrinit`, `devopbldinit`, `agsvchermint`, `secobgrafint`) fix ownership on every boot. To prepare directories ahead of time:
 
 ```bash
 mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
 mkdir -p ${APPS_DATA}/webapps/authentik/{media,templates}
 mkdir -p ${APPS_DATA}/certs
-mkdir -p ${APPS_DATA}/repbuk/{data,config,runner}
+mkdir -p ${APPS_DATA}/devops/{repos,buildserv,buildexec}
 mkdir -p ${APPS_DATA}/hermesagent/{00,01,02,03}
-chown -R 1000:1000 ${APPS_DATA}/repbuk
+chown -R 1000:1000 ${APPS_DATA}/devops
 ```
 
 Replace `${APPS_DATA}` with the actual path you set in `.env` (e.g. `/opt/containerd`).
@@ -498,7 +511,7 @@ docker compose up -d
 Or start a specific service:
 
 ```bash
-docker compose up -d wbsvcrepobuk
+docker compose up -d devopgitserv
 ```
 
 ---
@@ -638,7 +651,7 @@ Set these in **Repository Settings → Secrets → Add Secret**.
 
 1. Navigate to **Repository → Actions → Deploy to Server**
 2. Click **Run workflow**
-3. Select the **service** (`all`, `routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `wbsvcrepobuk`, `wbsvcreporun`, `wbsvcwebchat`, `wbsvcwebhome`, `agsvclitellm`, `agsvcchatllm`, `agsvcherme00`–`agsvcherme03`, `agsvcfastcrw`, `agsvclighpda`, `agsvcchromum`, `agsvcsearxng`, `secobvicmtrx`, `secobviclogs`, `secobgrafaly`, or `secobgrafana`) and **environment** (`stag` or `prod`)
+3. Select the **service** (`all`, `routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbsvcwebchat`, `wbsvcwebhome`, `agsvclitellm`, `agsvcchatllm`, `agsvcfastcrw`, `agsvclighpda`, `agsvcchromum`, `agsvcsearxng`, `agsvcherme00`–`agsvcherme03`, `secobvicmtrx`, `secobviclogs`, `secobgrafaly`, or `secobgrafana`) and **environment** (`stag` or `prod`)
 4. Click **Run workflow**
 
 ---
@@ -655,16 +668,16 @@ docker compose up -d
 docker compose down
 
 # Restart a single service
-docker compose restart wbsvcrepobuk
+docker compose restart devopgitserv
 
 # View logs
-docker compose logs -f wbsvcrepobuk
+docker compose logs -f devopgitserv
 ```
 
 ### Rebuild After a Config Change
 
 ```bash
-docker compose up -d --build wbsvcrepobuk
+docker compose up -d --build devopgitserv
 ```
 
 ### Update All Images
@@ -673,13 +686,9 @@ docker compose up -d --build wbsvcrepobuk
 docker compose pull && docker compose up -d
 ```
 
-### Register the Forgejo / Gitea Runner
+### Register the Woodpecker Agent
 
-After Forgejo starts, generate a runner token in Forgejo (`Site Administration → Actions → Runners → Create new runner token`), add it to `.env` as `REPBUK_RUNTOKEN`, then restart the runner:
-
-```bash
-docker compose restart wbsvcreporun
-```
+The agent authenticates with the shared `GITBLD_AGN_SECRET` and registers itself on first connection — no manual token is required. See [shared/woodpecker/README.md](shared/woodpecker/README.md) for the Forgejo OAuth2 setup and first-login steps.
 
 ---
 
@@ -687,7 +696,7 @@ docker compose restart wbsvcreporun
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
 
-> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md)) also document their own variables there.
+> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo](shared/forgejo/README.md), [Woodpecker CI](shared/woodpecker/README.md)) also document their own variables there.
 
 ### General
 
@@ -722,13 +731,20 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `AUTHN_PASSWD` | Auto-generated by `setup.sh`; Authentik DB password |
 | `AUTHN_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
 
-### Forgejo
+### DevOps (Forgejo + Woodpecker)
 
 | Variable | Description |
 |---|---|
-| `REPBUK_DOMAIN` | Forgejo hostname |
-| `REPBUK_DBNAME` | PostgreSQL database name for Forgejo |
-| `REPBUK_RUNTOKEN` | Act Runner registration token |
+| `GITREPO_DOMAIN` | Forgejo hostname |
+| `GITREPO_DBNAME` | PostgreSQL database name for Forgejo |
+| `GITREPO_VTAG` | Forgejo image tag (default: `16`) |
+| `GITBLD_DOMAIN` | Woodpecker CI hostname |
+| `GITBLD_VTAG` | Woodpecker image tag (default: `v3`) |
+| `GITBLD_OA_CLIENT` / `GITBLD_OA_SECRET` | Forgejo OAuth2 client credentials (mandatory) |
+| `GITBLD_AGN_SECRET` | Auto-generated by `setup.sh`; server/agent shared secret |
+| `GITBLD_GRPC_SECRET` | Auto-generated by `setup.sh`; gRPC JWT signing secret |
+| `GITBLD_ADMUSR` | Comma-separated Forgejo usernames granted Woodpecker admin |
+| `GITBLD_NETWORK` | Docker network build containers join (default: `servicehub_subnet`) |
 
 ### Confluence
 

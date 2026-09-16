@@ -7,8 +7,18 @@
 #
 #   compose/route.yml   route*  Edge routing + TLS termination (Traefik)
 #   compose/dbsvc.yml   dbsvc*  Relational databases (MariaDB + PostgreSQL)
+#   compose/authn.yml   authn*  Authentication / SSO (Authentik)
+#   compose/wbsvc.yml   wbsvc*  Web services (Confluence)
+#   compose/agent.yml   agsvc*  AI agents + LLM inference + Open WebUI
+#   compose/devop.yml   devop*  Source control + CI (Forgejo + Woodpecker)
+#   compose/secob.yml   secob*  Security observability (metrics + logs)
 #
 # Deploy with:  docker compose up -d --build
+#
+# The project name is pinned so the shared network is always
+# `servicehub_subnet`, which Woodpecker build containers reference by name
+# (see GITBLD_NETWORK).
+name: servicehub
 
 ############### NETWORKS ###############
 networks:
@@ -31,6 +41,9 @@ include:
 
     # --> agent services (agent)
     - compose/agent.yml
+
+    # --> source control + CI (devop)
+    - compose/devop.yml
 
     # --> security observability (secob)
     - compose/secob.yml

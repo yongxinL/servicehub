@@ -1,16 +1,6 @@
 services:
-    # =========================================================================
     # dbsvcmariadb — MariaDB 11.8 relational database (MySQL-compatible)
-    #
-    # Currently unused (all services use PostgreSQL). On first boot the init
-    # script creates every database listed in MARIADB_DB_LIST and grants the
-    # shared SQLDB_USER access. Leave the list empty if unused.
-    #
-    #   Port       : 3306 (internal only, not published to the host)
-    #   Databases  : ${MARIADB_DB_LIST} (comma-separated)
-    #   Data       : ${APPS_DATA}/databases/mariadb
-    #   Depends on : none
-    # =========================================================================
+    # Docs: shared/mariadb/README.md
     dbsvcmariadb:
         build:
             context: ../shared/mariadb/
@@ -32,18 +22,8 @@ services:
         volumes:
             - ${APPS_DATA}/databases/mariadb:/var/lib/mysql
 
-    # =========================================================================
     # dbsvcpgsqldb — PostgreSQL 16 relational database
-    #
-    # Primary database for Authentik, Forgejo, LiteLLM and Confluence. On first
-    # boot the init script creates every database listed in PGRSQL_DBLIST and
-    # grants the shared SQLDB_USER access.
-    #
-    #   Port       : 5432 (internal only, not published to the host)
-    #   Databases  : ${PGRSQL_DBLIST} (comma-separated)
-    #   Data       : ${APPS_DATA}/databases/pgsqldb
-    #   Depends on : none
-    # =========================================================================
+    # Docs: shared/postgresql/README.md
     dbsvcpgsqldb:
         build:
             context: ../shared/postgresql/

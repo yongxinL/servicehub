@@ -1,17 +1,6 @@
 services:
-    # =========================================================================
-    # routetraefik — Traefik v3 edge router / reverse proxy
-    #
-    # Single entry point for every inbound HTTP(S) request. Terminates TLS
-    # (Let's Encrypt ACME in production, self-signed in staging), forces the
-    # HTTP -> HTTPS redirect and discovers the remaining stack through Docker
-    # container labels (opt-in via traefik.enable=true).
-    #
-    #   Ports      : 80 (redirect to HTTPS), 443 (TLS)
-    #   Dashboard  : https://${TRAEFIK_DOMAIN}  (HTTP basic-auth protected)
-    #   Data       : ${APPS_DATA}/letsencrypt  (ACME certificate store)
-    #   Depends on : none (stack edge)
-    # =========================================================================
+    # routetraefik — Traefik v3 edge router / reverse proxy (TLS termination)
+    # Docs: shared/traefik/README.md
     routetraefik:
         build:
             context: ../shared/traefik/

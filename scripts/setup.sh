@@ -39,6 +39,9 @@ inject_secrets() {
     AUTHK_PASS=$(openssl rand -base64 36 | tr -d '\n')
     AUTHK_SECRET=$(openssl rand -base64 60 | tr -d '\n')
     LITELLM_APIKEY="sk-$(openssl rand -hex 24)"
+    LITELLM_ADMPWD=$(openssl rand -base64 24 | tr -d '\n')
+    WPKR_AGN_SECRET=$(openssl rand -hex 32)
+    WPKR_GRPC_SECRET=$(openssl rand -hex 32)
     HERMES_WORKSPACE_PASSWD_00=$(openssl rand -base64 24 | tr -d '\n')
     HERMES_WORKSPACE_PASSWD_01=$(openssl rand -base64 24 | tr -d '\n')
     HERMES_WORKSPACE_PASSWD_02=$(openssl rand -base64 24 | tr -d '\n')
@@ -51,11 +54,29 @@ inject_secrets() {
         -e "s|<YOUR_STRONG_AUTHENTIK_PASSWORD>|${AUTHK_PASS}|g" \
         -e "s|<YOUR_STRONG_AUTHENTIK_SECRETKEY>|${AUTHK_SECRET}|g" \
         -e "s|<YOUR_LITELLM_MASTER_API_KEY>|${LITELLM_APIKEY}|g" \
+        -e "s|<YOUR_STRONG_LITELLM_ADMIN_PASSWORD>|${LITELLM_ADMPWD}|g" \
+        -e "s|<YOUR_WOODPECKER_AGENT_SECRET>|${WPKR_AGN_SECRET}|g" \
+        -e "s|<YOUR_WOODPECKER_GRPC_SECRET>|${WPKR_GRPC_SECRET}|g" \
         -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_00>|${HERMES_WORKSPACE_PASSWD_00}|g" \
         -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_01>|${HERMES_WORKSPACE_PASSWD_01}|g" \
         -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_02>|${HERMES_WORKSPACE_PASSWD_02}|g" \
         -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_03>|${HERMES_WORKSPACE_PASSWD_03}|g" \
         "$ENV_FILE" && rm "${ENV_FILE}.bak"
+}
+
+# Function to rename legacy variables that were refactored between releases.
+# Must run before merge_env so that references in other values (e.g. the
+# PGRSQL_DBLIST composition) are rewritten too.
+migrate_env() {
+    if grep -q '^REPBUK_' "$ENV_FILE" 2>/dev/null; then
+        echo "Migrating legacy REPBUK_* variables to GITREPO_* ..."
+        sed -i.bak \
+            -e 's/REPBUK_DBNAME/GITREPO_DBNAME/g' \
+            -e 's/REPBUK_DOMAIN/GITREPO_DOMAIN/g' \
+            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+        # REPBUK_RUNTOKEN no longer exists (Woodpecker uses a shared secret)
+        sed -i.bak '/^REPBUK_RUNTOKEN=/d' "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+    fi
 }
 
 # Function to merge env.example with existing .env
@@ -188,10 +209,12 @@ decode_secrets() {
 
     echo "This will OVERWRITE your current .env file!"
     echo "Environment: $env"
-    read -p "Enter base64-encoded ${env}_B64ENC_ENVS content (or Ctrl+C to cancel): " -r
+    # The encoded secret has no trailing newline, so `read` returns non-zero at
+    # EOF; tolerate that (and an empty input) instead of aborting under `set -e`.
+    IFS= read -p "Enter base64-encoded ${env}_B64ENC_ENVS content (or Ctrl+C to cancel): " -r || true
 
     if [ -n "$REPLY" ]; then
-        echo "$REPLY" | base64 -d > "$ENV_FILE"
+        echo "$REPLY" | base64 -d | gunzip > "$ENV_FILE"
         chmod 600 "$ENV_FILE"
         echo ".env restored from provided base64 content."
     fi
@@ -217,6 +240,7 @@ if [ ! -f "$ENV_FILE" ]; then
     echo "✅ Setup complete! .env has been created with generated secrets."
 else
     echo "Existing .env found. Checking for new variables from env.example..."
+    migrate_env
     merge_env
     inject_secrets
     echo "✅ Merge complete! .env has been updated with new variables."

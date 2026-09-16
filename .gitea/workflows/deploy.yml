@@ -15,8 +15,9 @@ on:
           - dbsvcpgsqldb
           - authnservice
           - authnworkers
-          - wbsvcrepobuk
-          - wbsvcreporun
+          - devopgitserv
+          - devopbldserv
+          - devopbldexec
           - wbsvcwebchat
           - wbsvcwebhome
           - agsvclitellm
