@@ -1,8 +1,8 @@
 # https://github.com/goauthentik/authentik
 
-ARG AUTHK_TAG=2026.08
+ARG IMAGE_TAG=2026.08
 
-FROM ghcr.io/goauthentik/server:${AUTHK_TAG}
+FROM ghcr.io/goauthentik/server:${IMAGE_TAG}
 LABEL org.opencontainers.image.authors="yongxinL@outlook.com"
 
 # Add your setup here

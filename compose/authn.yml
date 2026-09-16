@@ -1,22 +1,54 @@
 services:
-    # Authentik - open source IdP and SSO
-    # start the initail setup, navigate to http://<server>:9000/if/flow/initial-setup/
-    # integration auth forward: > https://github.com/brokenscripts/authentik_traefik
-    wbsvcauthtik:
+    # =========================================================================
+    # authnsvrinit — authentik media/template permission one-shot
+    #
+    # Runs to completion before the authentik worker and normalises ownership of
+    # the bind-mounted data and config directories so the rootless (UID/GID
+    # 1000) authentik container can write to them.
+    #
+    #   Depends on : none (must complete before authnservice / authnworkers)
+    # =========================================================================
+    authnsvrinit:
+        command: >
+            sh -c 'chown -R 1000:1000 /data /templates 2>/dev/null; chmod -R 755 /data /templates 2>/dev/null || true'
+        image: busybox:latest
+        networks:
+            - subnet
+        user: root
+        volumes:
+            - ${APPS_DATA}/webapps/authentik/media:/data
+            - ${APPS_DATA}/webapps/authentik/templates:/templates
+
+    # =========================================================================
+    # authnservice — Authentik identity provider / SSO server
+    #
+    # Open-source IdP providing SSO and forward authentication for the stack
+    # (e.g. the Traefik dashboard and Grafana). First boot: open
+    # https://${AUTHN_DOMAIN}/if/flow/initial-setup/ to create the admin user.
+    #
+    #   URL        : https://${AUTHN_DOMAIN}
+    #   Port       : 9000 (internal, published through Traefik)
+    #   Database   : PostgreSQL (${AUTHN_DBNAME})
+    #   Data       : ${APPS_DATA}/webapps/authentik/{media,templates}
+    #   Depends on : routetraefik (healthy), dbsvcpgsqldb (started)
+    #
+    # Forward-auth integration: https://github.com/brokenscripts/authentik_traefik
+    # =========================================================================
+    authnservice:
         build:
             context: ../shared/authentik/
             args:
-                - AUTHK_TAG=${AUTHK_TAG}
+                - IMAGE_TAG=${AUTHN_TAG}
         command: server
         depends_on:
-            infratraefik:
+            routetraefik:
                 condition: service_healthy
-            infrapgsqldb:
+            authnworkers:
                 condition: service_started
         environment:
             # authentick settings
-            - PG_PASS=${AUTHK_PASSWD}
-            - AUTHENTIK_SECRET_KEY=${AUTHK_SECRET}
+            - PG_PASS=${AUTHN_PASSWD}
+            - AUTHENTIK_SECRET_KEY=${AUTHN_SECRET}
             # disable outbound analytics connections
             - AUTHENTIK_DISABLE_STARTUP_ANALYTICS=true
             - AUTHENTIK_DISABLE_UPDATE_CHECK=true
@@ -32,43 +64,53 @@ services:
             - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
             - AUTHENTIK_POSTGRESQL__USER=${SQLDB_USER}
             - AUTHENTIK_POSTGRESQL__PASSWORD=${SQLDB_PASS}
-            - AUTHENTIK_POSTGRESQL__NAME=${AUTHK_DBNAME}
+            - AUTHENTIK_POSTGRESQL__NAME=${AUTHN_DBNAME}
             # listen settings
             - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
-        image: wbsvcauthtik:latest
+        image: authnservice:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.wbsvcauthtik.entrypoints=websecure"
+            - "traefik.http.routers.authnservice.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.wbsvcauthtik.rule=Host(`${AUTHK_DOMAIN}`)"
+            - "traefik.http.routers.authnservice.rule=Host(`${AUTHN_DOMAIN}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.wbsvcauthtik.service=wbsvcauthtik"
+            - "traefik.http.routers.authnservice.service=authnservice"
             # Define the internal container port for routing
-            - "traefik.http.services.wbsvcauthtik.loadbalancer.server.port=9000"
+            - "traefik.http.services.authnservice.loadbalancer.server.port=9000"
             # Enable TLS on this router
-            - "traefik.http.routers.wbsvcauthtik.tls=true"
+            - "traefik.http.routers.authnservice.tls=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.wbsvcauthtik.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.authnservice.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
         shm_size: 512mb
         volumes:
-            - ${APPS_DATA}/wbsvcauthtik/media:/data
-            - ${APPS_DATA}/wbsvcauthtik/templates:/templates
+            - ${APPS_DATA}/webapps/authentik/media:/data
+            - ${APPS_DATA}/webapps/authentik/templates:/templates
 
-    # Authentik worker - background processing for authentik
-    wbsvcauthwok:
+    # =========================================================================
+    # authnworkers — Authentik background worker
+    #
+    # Processes flows, policies, outpost sync and notifications on behalf of
+    # authnservice. Shares the server image but runs the `worker` command.
+    #
+    #   Data       : ${APPS_DATA}/webapps/authentik/{media,templates}
+    #   Depends on : dbsvcpgsqldb (healthy)
+    # =========================================================================
+    authnworkers:
         command: worker
         depends_on:
-            infrapgsqldb:
+            authnsvrinit:
+                condition: service_completed_successfully
+            dbsvcpgsqldb:
                 condition: service_healthy
         environment:
             # authentick settings
-            - PG_PASS=${AUTHK_PASSWD}
-            - AUTHENTIK_SECRET_KEY=${AUTHK_SECRET}
+            - PG_PASS=${AUTHN_PASSWD}
+            - AUTHENTIK_SECRET_KEY=${AUTHN_SECRET}
             # disable outbound analytics connections
             - AUTHENTIK_DISABLE_STARTUP_ANALYTICS=true
             - AUTHENTIK_DISABLE_UPDATE_CHECK=true
@@ -84,10 +126,10 @@ services:
             - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
             - AUTHENTIK_POSTGRESQL__USER=${SQLDB_USER}
             - AUTHENTIK_POSTGRESQL__PASSWORD=${SQLDB_PASS}
-            - AUTHENTIK_POSTGRESQL__NAME=${AUTHK_DBNAME}
+            - AUTHENTIK_POSTGRESQL__NAME=${AUTHN_DBNAME}
             # listen settings
             - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
-        image: wbsvcauthtik:latest
+        image: authnservice:latest
         networks:
             - subnet
         restart: unless-stopped
@@ -95,5 +137,5 @@ services:
         user: root
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
-            - ${APPS_DATA}/wbsvcauthtik/media:/data
-            - ${APPS_DATA}/wbsvcauthtik/templates:/templates
+            - ${APPS_DATA}/webapps/authentik/media:/data
+            - ${APPS_DATA}/webapps/authentik/templates:/templates
