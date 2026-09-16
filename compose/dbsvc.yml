@@ -1,0 +1,66 @@
+services:
+    # =========================================================================
+    # dbsvcmariadb — MariaDB 11.8 relational database (MySQL-compatible)
+    #
+    # Currently unused (all services use PostgreSQL). On first boot the init
+    # script creates every database listed in MARIADB_DB_LIST and grants the
+    # shared SQLDB_USER access. Leave the list empty if unused.
+    #
+    #   Port       : 3306 (internal only, not published to the host)
+    #   Databases  : ${MARIADB_DB_LIST} (comma-separated)
+    #   Data       : ${APPS_DATA}/databases/mariadb
+    #   Depends on : none
+    # =========================================================================
+    dbsvcmariadb:
+        build:
+            context: ../shared/mariadb/
+        environment:
+            - MARIADB_USER=${SQLDB_USER}
+            - MARIADB_PASSWORD=${SQLDB_PASS}
+            - MARIADB_ROOT_PASSWORD=${SQLDB_PASS}
+            - MARIADB_DB_LIST=${MARIADB_DB_LIST}
+        healthcheck:
+            test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+            start_period: 10s
+            interval: 10s
+            timeout: 5s
+            retries: 3
+        image: dbsvcmariadb:latest
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/databases/mariadb:/var/lib/mysql
+
+    # =========================================================================
+    # dbsvcpgsqldb — PostgreSQL 16 relational database
+    #
+    # Primary database for Authentik, Forgejo, LiteLLM and Confluence. On first
+    # boot the init script creates every database listed in PGRSQL_DBLIST and
+    # grants the shared SQLDB_USER access.
+    #
+    #   Port       : 5432 (internal only, not published to the host)
+    #   Databases  : ${PGRSQL_DBLIST} (comma-separated)
+    #   Data       : ${APPS_DATA}/databases/pgsqldb
+    #   Depends on : none
+    # =========================================================================
+    dbsvcpgsqldb:
+        build:
+            context: ../shared/postgresql/
+        environment:
+            - POSTGRES_USER=${SQLDB_USER}
+            - POSTGRES_PASSWORD=${SQLDB_PASS}
+            - POSTGRES_DB_LIST=${PGRSQL_DBLIST:-defaultdb}
+        healthcheck:
+            test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB_LIST%%,*} -U $${POSTGRES_USER}" ]
+            start_period: 20s
+            interval: 30s
+            retries: 5
+            timeout: 5s
+        image: dbsvcpgsqldb:latest
+        networks:
+            - subnet
+        restart: unless-stopped
+        shm_size: 128mb
+        volumes:
+            - ${APPS_DATA}/databases/pgsqldb:/var/lib/postgresql/data
