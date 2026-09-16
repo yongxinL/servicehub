@@ -4,14 +4,15 @@
 #
 # NOTE: This file is used for self-signed certificates.
 # To use self-signed certificates instead of Let's Encrypt:
-#   1. Place your certificate files in shared/letsencrypt/ on the host
-#   2. The container path /letsencrypt is mapped to shared/letsencrypt
+#   1. Place your certificate files in shared/traefik/advanced/selfsigncert/
+#      (they are git-crypt encrypted in the repository)
+#   2. The directory is mounted into the container at
+#      /traefik/config/advanced/selfsigncert/
 #   3. Rename the files below to match your certificate names
-#   4. Ensure certresolver in traefik.yml is not set to "letsencrypt"
-#      for the routers that should use this self-signed certificate
+#   4. Ensure CERTRESOLVER is empty so routers fall back to this default cert
 #
-# Example: certFile: /letsencrypt/selfsigncert/selfcert.pem
-#          keyFile: /letsencrypt/selfsigncert/selfcert.key
+# Example: certFile: /traefik/config/advanced/selfsigncert/selfcert.pem
+#          keyFile: /traefik/config/advanced/selfsigncert/selfcert.key
 ################################################################
 
 tls:

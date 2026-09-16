@@ -245,16 +245,12 @@ Temporary Items
 
 # ACME and certificates — excluded globally until git-crypt is initialised.
 # After running `git-crypt init` and `git-crypt export-key`, uncomment the
-# negation lines below to allow encrypted certs in shared/letsencrypt/.
+# negation lines below to allow encrypted certs in shared/traefik/advanced/selfsigncert/.
 acme.json
 *.key
 *.pem
 *.crt
 *.pfx
-!shared/letsencrypt/selfsigncert/*.pem
-!shared/letsencrypt/selfsigncert/*.key
-!shared/letsencrypt/selfsigncert/*.crt
-!shared/letsencrypt/selfsigncert/*.pfx
 !shared/traefik/advanced/selfsigncert/*.pem
 !shared/traefik/advanced/selfsigncert/*.key
 !shared/traefik/advanced/selfsigncert/*.crt
