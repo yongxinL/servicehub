@@ -1,5 +1,6 @@
 # git-crypt: files matching these patterns are transparently encrypted at rest
 # in the repository. Run `git-crypt unlock <key-file>` to decrypt locally.
-shared/letsencrypt/selfsigncert/*.pem filter=git-crypt diff=git-crypt
-shared/letsencrypt/selfsigncert/*.key filter=git-crypt diff=git-crypt
-shared/letsencrypt/selfsigncert/*.crt filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.pem filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.key filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.crt filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.pfx filter=git-crypt diff=git-crypt
