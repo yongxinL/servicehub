@@ -99,7 +99,7 @@ services:
         build:
             context: ../shared/grafana/
         depends_on:
-            infratraefik:
+            routetraefik:
                 condition: service_healthy
             secobgrafint:
                 condition: service_completed_successfully

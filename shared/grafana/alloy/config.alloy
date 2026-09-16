@@ -72,7 +72,7 @@ prometheus.scrape "containers" {
 // =============================================
 prometheus.scrape "traefik" {
     targets = [{
-        __address__ = "infratraefik:8080",
+        __address__ = "routetraefik:8080",
         job         = "traefik",
         instance    = constants.hostname,
     }]

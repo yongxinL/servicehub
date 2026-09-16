@@ -16,9 +16,9 @@ services:
         build:
             context: ../shared/forgejo/server/
         depends_on:
-            infratraefik:
+            routetraefik:
                 condition: service_healthy
-            infrapgsqldb:
+            dbsvcpgsqldb:
                 condition: service_healthy
         environment:
             - USER_UID=1000
@@ -88,7 +88,7 @@ services:
         build:
             context: ../shared/confluence/
         depends_on:
-            wbsvcauthtik:
+            authnservice:
                 condition: service_healthy
         environment:
             - ATL_PROXY_NAME=${WEBHOM_DOMAIN}

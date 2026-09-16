@@ -216,7 +216,7 @@ services:
         build:
             context: ../shared/litellm/
         depends_on:
-            infrapgsqldb:
+            dbsvcpgsqldb:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
@@ -256,7 +256,7 @@ services:
         build:
             context: ../shared/openwebui/
         depends_on:
-            infratraefik:
+            routetraefik:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
