@@ -6,10 +6,10 @@
 #   compose/route.yml   route*  Edge routing + TLS termination (Traefik)
 #   compose/dbsvc.yml   dbsvc*  Relational databases (MariaDB + PostgreSQL)
 #   compose/authn.yml   authn*  Authentication / SSO (Authentik)
-#   compose/wbapp.yml   wbapp*  Homepage / CMS (Confluence)
-#   compose/agent.yml   agsvc*  AI agents + LLM inference + Open WebUI (wbsvcwebchat)
+#   compose/wbapp.yml   wbapp*  Homepage / CMS + Open WebUI (Confluence + Open WebUI)
+#   compose/aiagn.yml   aiagn*  AI agents + LLM inference (Hermes + LiteLLM + llama.cpp)
 #   compose/devop.yml   devop*  Source control + CI (Forgejo + Woodpecker)
-#   compose/secob.yml   secob*  Security observability (metrics + logs)
+#   compose/obsvc.yml   obsvc*  Observability (metrics + logs + Grafana)
 #
 # Deploy with: docker compose up -d --build
 #
@@ -40,8 +40,8 @@ include:
     # --> web applications (wbapp)
     - compose/wbapp.yml
 
-    # --> agent services (agent)
-    - compose/agent.yml
+    # --> AI agent platform (aiagn)
+    - compose/aiagn.yml
 
-    # --> security observability (secob)
-    - compose/secob.yml
+    # --> observability: metrics + logs + Grafana (obsvc)
+    - compose/obsvc.yml

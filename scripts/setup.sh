@@ -93,6 +93,16 @@ migrate_env() {
             -e 's/\${WBHOME_DOMAN}/${WBHOME_DOMAIN}/g' \
             "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
     fi
+
+    # The observability compose domain was renamed from secob to obsvc; its
+    # variables moved from SECOB_* to OBSVC_*.
+    if grep -q '^SECOB_' "$ENV_FILE" 2>/dev/null; then
+        echo "Migrating legacy SECOB_* variables to OBSVC_* ..."
+        sed -i.bak \
+            -e 's/^SECOB_/OBSVC_/' \
+            -e 's/\${SECOB_/${OBSVC_/g' \
+            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+    fi
 }
 
 # Function to merge env.example with existing .env
