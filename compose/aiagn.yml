@@ -1,0 +1,265 @@
+services:
+    # aiagnhermint — one-shot: set ownership of the 4 Hermes data dirs. Docs: shared/hermesagent/README.md
+    aiagnhermint:
+        command: >
+            sh -c 'chown -R 10000:10000 /data00 /data01 /data02 /data03;
+                   chmod -R 775 /data00 /data01 /data02 /data03'
+        image: busybox:latest
+        networks:
+            - subnet
+        user: root
+        volumes:
+            - ${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}:/data00
+            - ${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/data01
+            - ${HERMES_DATA_02:-${APPS_DATA}/hermesagent/02}:/data02
+            - ${HERMES_DATA_03:-${APPS_DATA}/hermesagent/03}:/data03
+
+    # aiagnherm00 — Hermes Agent (user 0). Docs: shared/hermesagent/README.md
+    # Note: /var/run/docker.sock is mounted read-only for the terminal sandbox.
+    # If the host docker group GID differs from 999, add group_add: [<host-gid>]
+    aiagnherm00:
+        build:
+            context: ../shared/hermesagent/
+        depends_on:
+            aiagnhermint:
+                condition: service_completed_successfully
+        environment:
+            - TZ=${TIME_ZONE}
+            - HOME=/opt/data
+            # Internal workspace port is always 12320; external port mapped via 'ports' below.
+            - HERMES_WORKSPACE_PORT=12320
+            - LITELLM_API_KEY=${LITEM_API_KEY}
+            - LITELLM_API_URL=${LITEM_API_URL:-http://aiagnlitellm:12380/v1}
+            - FIRECRAWL_API_URL=${FCRW_API_URL:-http://aiagnfastcrw:12360}
+            - FIRECRAWL_API_KEY=${LITEM_API_KEY}
+            - API_SERVER_ENABLED=true
+            - API_SERVER_KEY=${LITEM_API_KEY}
+            - API_SERVER_PORT=12330
+            - API_SERVER_HOST=0.0.0.0
+            - HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_00}
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:12330/health" ]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 30s
+        image: aiagnherm00:latest
+        networks:
+            - subnet
+        ports:
+            - "12320:12320"    # Hermes workspace
+        restart: unless-stopped
+        volumes:
+            - ${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}:/opt/data
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.aiagnherm00.enabled=${HERMES_WORKSPACE_DOMAIN_00:+true}"
+            - "traefik.http.routers.aiagnherm00.rule=Host(`${HERMES_WORKSPACE_DOMAIN_00}`)"
+            - "traefik.http.routers.aiagnherm00.tls=true"
+            - "traefik.http.routers.aiagnherm00.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.services.aiagnherm00.loadbalancer.server.port=12320"
+
+    # aiagnherm01 — Hermes Agent (user 1). Docs: shared/hermesagent/README.md
+    aiagnherm01:
+        build:
+            context: ../shared/hermesagent/
+        depends_on:
+            aiagnhermint:
+                condition: service_completed_successfully
+        environment:
+            - TZ=${TIME_ZONE}
+            - HOME=/opt/data
+            # Internal workspace port is always 12320; external port mapped via 'ports' below.
+            - HERMES_WORKSPACE_PORT=12320
+            - LITELLM_API_KEY=${LITEM_API_KEY}
+            - LITELLM_API_URL=${LITEM_API_URL:-http://aiagnlitellm:12380/v1}
+            - FIRECRAWL_API_URL=${FCRW_API_URL:-http://aiagnfastcrw:12360}
+            - FIRECRAWL_API_KEY=${LITEM_API_KEY}
+            - API_SERVER_ENABLED=true
+            - API_SERVER_KEY=${LITEM_API_KEY}
+            - API_SERVER_PORT=12330
+            - API_SERVER_HOST=0.0.0.0
+            - HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_01}
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:12330/health" ]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 30s
+        image: aiagnherm00:latest
+        networks:
+            - subnet
+        ports:
+            - "12321:12320"    # Hermes workspace
+        restart: unless-stopped
+        volumes:
+            - ${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/opt/data
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.aiagnherm01.enabled=${HERMES_WORKSPACE_DOMAIN_01:+true}"
+            - "traefik.http.routers.aiagnherm01.rule=Host(`${HERMES_WORKSPACE_DOMAIN_01}`)"
+            - "traefik.http.routers.aiagnherm01.tls=true"
+            - "traefik.http.routers.aiagnherm01.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.services.aiagnherm01.loadbalancer.server.port=12320"
+
+    # aiagnherm02 — Hermes Agent (user 2). Docs: shared/hermesagent/README.md
+    aiagnherm02:
+        build:
+            context: ../shared/hermesagent/
+        depends_on:
+            aiagnhermint:
+                condition: service_completed_successfully
+        environment:
+            - TZ=${TIME_ZONE}
+            - HOME=/opt/data
+            # Internal workspace port is always 12320; external port mapped via 'ports' below.
+            - HERMES_WORKSPACE_PORT=12320
+            - LITELLM_API_KEY=${LITEM_API_KEY}
+            - LITELLM_API_URL=${LITEM_API_URL:-http://aiagnlitellm:12380/v1}
+            - FIRECRAWL_API_URL=${FCRW_API_URL:-http://aiagnfastcrw:12360}
+            - FIRECRAWL_API_KEY=${LITEM_API_KEY}
+            - API_SERVER_ENABLED=true
+            - API_SERVER_KEY=${LITEM_API_KEY}
+            - API_SERVER_PORT=12330
+            - API_SERVER_HOST=0.0.0.0
+            - HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_02}
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:12330/health" ]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 30s
+        image: aiagnherm00:latest
+        networks:
+            - subnet
+        ports:
+            - "12322:12320"    # Hermes workspace
+        restart: unless-stopped
+        volumes:
+            - ${HERMES_DATA_02:-${APPS_DATA}/hermesagent/02}:/opt/data
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.aiagnherm02.enabled=${HERMES_WORKSPACE_DOMAIN_02:+true}"
+            - "traefik.http.routers.aiagnherm02.rule=Host(`${HERMES_WORKSPACE_DOMAIN_02}`)"
+            - "traefik.http.routers.aiagnherm02.tls=true"
+            - "traefik.http.routers.aiagnherm02.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.services.aiagnherm02.loadbalancer.server.port=12320"
+
+    # aiagnherm03 — Hermes Agent (user 3). Docs: shared/hermesagent/README.md
+    aiagnherm03:
+        build:
+            context: ../shared/hermesagent/
+        depends_on:
+            aiagnhermint:
+                condition: service_completed_successfully
+        environment:
+            - TZ=${TIME_ZONE}
+            - HOME=/opt/data
+            # Internal workspace port is always 12320; external port mapped via 'ports' below.
+            - HERMES_WORKSPACE_PORT=12320
+            - LITELLM_API_KEY=${LITEM_API_KEY}
+            - LITELLM_API_URL=${LITEM_API_URL:-http://aiagnlitellm:12380/v1}
+            - FIRECRAWL_API_URL=${FCRW_API_URL:-http://aiagnfastcrw:12360}
+            - FIRECRAWL_API_KEY=${LITEM_API_KEY}
+            - API_SERVER_ENABLED=true
+            - API_SERVER_KEY=${LITEM_API_KEY}
+            - API_SERVER_PORT=12330
+            - API_SERVER_HOST=0.0.0.0
+            - HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_03}
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:12330/health" ]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 30s
+        image: aiagnherm00:latest
+        networks:
+            - subnet
+        ports:
+            - "12323:12320"    # Hermes workspace
+        restart: unless-stopped
+        volumes:
+            - ${HERMES_DATA_03:-${APPS_DATA}/hermesagent/03}:/opt/data
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.aiagnherm03.enabled=${HERMES_WORKSPACE_DOMAIN_03:+true}"
+            - "traefik.http.routers.aiagnherm03.rule=Host(`${HERMES_WORKSPACE_DOMAIN_03}`)"
+            - "traefik.http.routers.aiagnherm03.tls=true"
+            - "traefik.http.routers.aiagnherm03.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.services.aiagnherm03.loadbalancer.server.port=12320"
+
+    # aiagnlitellm — LiteLLM complexity router (local Gemma + MiniMax).
+    # Docs: shared/litellm/README.md
+    aiagnlitellm:
+        build:
+            context: ../shared/litellm/
+        depends_on:
+            dbsvcpgsqldb:
+                condition: service_healthy
+        environment:
+            - TZ=${TIME_ZONE}
+            - LLM_MASTER_KEY=${LITEM_API_KEY}
+            - DATABASE_URL=postgresql://${SQLDB_USER}:${SQLDB_PASS}@${PGRSQL_HOST}:${PGRSQL_PORT}/${LITEM_DBNAME}
+            - UI_PORT=12380
+            - UI_USERNAME=${LITEM_ADMUSR}
+            - UI_PASSWORD=${LITEM_ADMPWD}
+            # Edge — local llama.cpp or remote edge service
+            - LITEM_EDGE_API_BASE=${LITEM_HPH_APIURL:-http://aiagnchatllm:12386/v1}
+            - LITEM_EDGE_API_KEY=${LITEM_HPH_APIKEY:-none}
+            # Health check for auto-failover routing (used by smartrouter.py)
+            - LITEM_EDGE_HEALTH_URL=${LITEM_HPH_HLTURL:-http://aiagnchatllm:12386/health}
+            - LITEM_EDGE_HEALTH_TIMEOUT=3
+            - LITEM_EDGE_HEALTH_CACHE_TTL=30
+            # Cloud — public or remote cloud provider
+            - LITEM_CLOUD_API_BASE=${LITEM_PRM_APIBASE}
+            - LITEM_CLOUD_API_KEY=${LITEM_PRM_APIKEY}
+        healthcheck:
+            test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${LITEM_API_KEY}", "http://localhost:12380/health/liveliness" ]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 30s
+        image: aiagnlitellm:latest
+        networks:
+            - subnet
+        ports:
+            - 12380:12380
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/litellm:/opt/litellm   # place config.yaml here to override default
+
+    # aiagnchatllm — llama.cpp Gemma chat inference.
+    # Docs: shared/llamacpp/README.md
+    aiagnchatllm:
+        build:
+            context: ../shared/llamacpp/
+        cap_add:
+            - IPC_LOCK           # required for --mlock to work inside Docker
+        environment:
+            - TZ=${TIME_ZONE}
+            - LLAMA_CACHE=/models
+            - LLAMA_MODEL=${LLAMA_CHTMDL}
+            - LLAMA_PORT=12386
+            - LLAMA_ARGS=${LLAMA_CHTARG}
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:12386/health" ]
+            interval: 60s
+            timeout: 10s
+            retries: 3
+            start_period: 120s   # 5.6 GB model + mmproj; ~60-90s to mlock into RAM
+        image: aiagnchatllm:latest
+        networks:
+            - subnet
+        restart: unless-stopped
+        ports:
+            - 12386:12386
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1         # unlimited memlock — needed alongside IPC_LOCK
+        volumes:
+            - ${APPS_DATA}/llamacpp:/models

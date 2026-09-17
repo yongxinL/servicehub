@@ -7,7 +7,7 @@
 # LLM-routes through LiteLLM proxy (complexity-based routing).
 # <your-litellm-api-base> and <your-litellm-master-key> are substituted at
 # container start by start-gateways.sh from the LITELLM_API_URL and
-# LITELLM_API_KEY env vars (set in compose/agent.yml).
+# LITELLM_API_KEY env vars (set in compose/aiagn.yml).
 custom_providers:
 - name: LiteLLM
   base_url: <your-litellm-api-base>
@@ -35,7 +35,7 @@ api_server:
 # Terminal sandbox-Docker isolation
 # Hermes runs agent commands inside a fresh Docker container, not on the host.
 # docker_forward_env: variables passed from Hermes env into the sandbox.
-# The hermes container needs /var/run/docker.sock mounted (see agent.yml).
+# The hermes container needs /var/run/docker.sock mounted (see aiagn.yml).
 # ---------------------------------------------------------------------------
 terminal:
   backend: local
@@ -48,7 +48,7 @@ terminal:
 
 # Browser-CDP connection to the Chromium renderer in the same stack.
 # token= uses the same key as FastCRW auth, substituted at startup.
-# Switch cdp_url to ws://agsvclighpda:9222/ for the lighter LightPanda renderer.
+# Switch cdp_url to ws://aiagnlighpda:9222/ for the lighter LightPanda renderer.
 browser:
   inactivity_timeout: 120
   command_timeout: 30
@@ -56,7 +56,7 @@ browser:
   allow_private_urls: false
   engine: auto
   auto_local_for_private_urls: true
-  cdp_url: "ws://agsvcchromum:12363/chromium?token=<your-firecrawl-api-key>&stealth=true"
+  cdp_url: "ws://aiagnchromum:12363/chromium?token=<your-firecrawl-api-key>&stealth=true"
   dialog_policy: must_respond
   dialog_timeout_s: 300
 

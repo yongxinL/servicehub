@@ -23,7 +23,7 @@
 |---|---|
 | Authentik (`authnservice` / `authnworkers`) | `AUTHN_DBNAME` |
 | Forgejo (`devopgitserv`) | `GITREPO_DBNAME` |
-| LiteLLM (`agsvclitellm`) | `LITEM_DBNAME` |
+| LiteLLM (`aiagnlitellm`) | `LITEM_DBNAME` |
 | Confluence (`wbappcmsconf`, default homepage) | `WBHOME_DBNAME` |
 
 ## Configuration

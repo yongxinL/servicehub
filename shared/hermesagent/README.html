@@ -473,7 +473,7 @@
   </div>
 
   <p>
-    Hermes Agent is an open-source AI agent platform by <a href="https://nousresearch.com">Nous Research</a>. In ServiceHub it runs as <strong>4 separate containers</strong> (<code>agsvcherme00</code>, <code>agsvcherme01</code>, <code>agsvcherme02</code>, <code>agsvcherme03</code>), each with its own workspace, gateway, and data directory. Internal user profiles (code, research, etc.) are available via <code>hermes profile create</code>. No messaging platform setup needed.
+    Hermes Agent is an open-source AI agent platform by <a href="https://nousresearch.com">Nous Research</a>. In ServiceHub it runs as <strong>4 separate containers</strong> (<code>aiagnherm00</code>, <code>aiagnherm01</code>, <code>aiagnherm02</code>, <code>aiagnherm03</code>), each with its own workspace, gateway, and data directory. Internal user profiles (code, research, etc.) are available via <code>hermes profile create</code>. No messaging platform setup needed.
   </p>
 
   <hr />
@@ -483,7 +483,7 @@
 
   <div class="arch-box"><pre>
 ┌─────────────────────────────────────────────────────────────────────┐
-│  agsvcherme00        agsvcherme01        agsvcherme02        agsvcherme03
+│  aiagnherm00        aiagnherm01        aiagnherm02        aiagnherm03
 │  ──────────────      ──────────────      ──────────────      ──────────────
 │  Workspace :12320     Workspace :12321     Workspace :12322     Workspace :12323
 │  Gateway   :12330     Gateway   :12330     Gateway   :12330     Gateway   :12330
@@ -491,13 +491,13 @@
 └─────────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────▼─────────────────┐
-              │  agsvclitellm  (LiteLLM Proxy)  │
+              │  aiagnlitellm  (LiteLLM Proxy)  │
               │  Port 12380                     │
               │  Smart Router (smart_router.py) │
               └─────────────┬────────┬─────────────┘
                             │        │
              ┌──────────────▼──┐  ┌──▼──────────────────┐
-             │  agsvcchatllm  │  │  MiniMax 2.7 API    │
+             │  aiagnchatllm  │  │  MiniMax 2.7 API    │
              │  Gemma-4-4B    │  │  (cloud, 200K ctx)  │
              │  Port 12386    │  └────────────────────┘
              └────────────────┘</pre></div>
@@ -506,22 +506,22 @@
   <div class="port-grid">
     <div class="port-card">
       <div class="pnum">12320</div>
-      <div class="plabel">agsvcherme00 Workspace</div>
+      <div class="plabel">aiagnherm00 Workspace</div>
       <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_00</div>
     </div>
     <div class="port-card">
       <div class="pnum">12321</div>
-      <div class="plabel">agsvcherme01 Workspace</div>
+      <div class="plabel">aiagnherm01 Workspace</div>
       <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_01</div>
     </div>
     <div class="port-card">
       <div class="pnum">12322</div>
-      <div class="plabel">agsvcherme02 Workspace</div>
+      <div class="plabel">aiagnherm02 Workspace</div>
       <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_02</div>
     </div>
     <div class="port-card">
       <div class="pnum">12323</div>
-      <div class="plabel">agsvcherme03 Workspace</div>
+      <div class="plabel">aiagnherm03 Workspace</div>
       <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_03</div>
     </div>
   </div>
@@ -650,17 +650,17 @@ docker compose logs agsvchermagt | head -40</code></pre>
   <h2 id="s32">3.2 AI Provider &amp; Search</h2>
 
   <h3>LiteLLM proxy</h3>
-  <p>The LiteLLM proxy (<code>agsvclitellm</code>) is the single AI endpoint Hermes uses. It routes between local and cloud models transparently based on message content.</p>
+  <p>The LiteLLM proxy (<code>aiagnlitellm</code>) is the single AI endpoint Hermes uses. It routes between local and cloud models transparently based on message content.</p>
 
   <pre><span class="lang-tag">bash</span><code><span class="cm"># Reachability check from inside the Hermes container</span>
 docker compose exec agsvchermagt \
   curl -sf -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_API_KEY}</span>"</span> \
-  http://agsvclitellm:12380/health/liveliness &amp;&amp; echo <span class="ok">"LiteLLM OK"</span>
+  http://aiagnlitellm:12380/health/liveliness &amp;&amp; echo <span class="ok">"LiteLLM OK"</span>
 
 <span class="cm"># List available models</span>
 docker compose exec agsvchermagt \
   curl -sf -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_API_KEY}</span>"</span> \
-  http://agsvclitellm:12380/v1/models | python3 -m json.tool</code></pre>
+  http://aiagnlitellm:12380/v1/models | python3 -m json.tool</code></pre>
 
   <p>Expected models: <code>smartrouter</code>, <code>edgeai</code>, <code>cloudai</code>. Admin UI at <code>http://&lt;host-ip&gt;:12380/ui</code>.</p>
 
@@ -702,7 +702,7 @@ curl -s http://localhost:12386/v1/chat/completions \
 
   <h3>FastCRW — web scraping and search</h3>
   <pre><span class="lang-tag">bash</span><code><span class="cm"># Health</span>
-docker compose exec agsvcfastcrw bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12360"</span> &amp;&amp; echo <span class="ok">"FastCRW OK"</span>
+docker compose exec aiagnfastcrw bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12360"</span> &amp;&amp; echo <span class="ok">"FastCRW OK"</span>
 
 <span class="cm"># Web search test</span>
 curl -s http://localhost:12360/v1/search \
@@ -724,7 +724,7 @@ curl -s <span class="str">"http://localhost:12361/search?q=test&amp;format=json"
   | python3 -c <span class="str">"import sys,json; d=json.load(sys.stdin); print(f'Results: {len(d[\"results\"])}')"</span></code></pre>
 
   <h3>Chromium renderer</h3>
-  <pre><span class="lang-tag">bash</span><code>docker compose exec agsvcchromum bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12363"</span> &amp;&amp; echo <span class="ok">"Chromium OK"</span>
+  <pre><span class="lang-tag">bash</span><code>docker compose exec aiagnchromum bash -c <span class="str">"exec 3&lt;&gt;/dev/tcp/127.0.0.1/12363"</span> &amp;&amp; echo <span class="ok">"Chromium OK"</span>
 curl -sf <span class="str">"http://localhost:12363/json/version?token=<span class="var">${LITEM_API_KEY}</span>"</span> | python3 -m json.tool</code></pre>
 
   <div class="callout tip">
@@ -742,7 +742,7 @@ grep -r <span class="str">'&lt;your-'</span> <span class="var">${APPS_DATA}</spa
   &amp;&amp; echo <span class="warn">"WARN: placeholders remain"</span> || echo <span class="ok">"OK: no placeholders"</span>
 
 <span class="cm"># 2. Container status</span>
-docker compose ps agsvchermagt agsvclitellm agsvcfastcrw agsvcsearxng agsvcchatllm
+docker compose ps agsvchermagt aiagnlitellm aiagnfastcrw aiagnsearxng aiagnchatllm
 
 <span class="cm"># 3. API server</span>
 curl -sf http://localhost:12330/health &amp;&amp; echo <span class="ok">"API OK"</span>
@@ -830,7 +830,7 @@ curl -s http://localhost:12330/v1/chat/completions \
       <p><strong>Shortcut:</strong> <code>init-profile.sh</code> automates profile setup. It seeds all config files from defaults, substitutes API keys and base URLs. Both invocations are equivalent:</p>
       <p style="margin-top:8px;"><strong>Host</strong> (reads <code>LITEM_API_KEY</code>, <code>LITEM_API_URL</code>, <code>FCRW_API_URL</code>, <code>APPS_DATA</code> from root <code>.env</code>; writes to <code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/</code>):<br>
       <code>./shared/hermesagent/init-profile.sh alice --port 8643</code></p>
-      <p style="margin-top:8px;"><strong>Container</strong> (reads <code>LITELLM_API_KEY</code>, <code>LITELLM_API_URL</code>, <code>FIRECRAWL_API_URL</code>, <code>FIRECRAWL_API_KEY</code> from process env set by <code>compose/agent.yml</code>; writes to <code>/opt/data/profiles/&lt;name&gt;/</code>):<br>
+      <p style="margin-top:8px;"><strong>Container</strong> (reads <code>LITELLM_API_KEY</code>, <code>LITELLM_API_URL</code>, <code>FIRECRAWL_API_URL</code>, <code>FIRECRAWL_API_KEY</code> from process env set by <code>compose/aiagn.yml</code>; writes to <code>/opt/data/profiles/&lt;name&gt;/</code>):<br>
       <code>docker compose exec agsvchermagt init-profile.sh alice --port 8643</code></p>
     </div>
   </div>
@@ -852,7 +852,7 @@ docker compose exec agsvchermagt hermes profile create alice --clone --clone-fro
   <p>After creation, Hermes registers a convenience alias at <code>~/.local/bin/alice</code> inside the container, so you can use shorthand commands like <code>alice chat</code>, <code>alice setup</code>, and <code>alice gateway start</code>.</p>
 
   <h3>Step 2 — Declare the profile in the root <code>.env</code></h3>
-  <p>Add <code>HERMES_AGENT_PROFILES</code> to the <strong>root <code>.env</code></strong> at the ServiceHub project root — this is the Docker Compose environment file, not the hermesagent data <code>.env</code>. Docker Compose injects it into the container via <code>compose/agent.yml</code>, where <code>start-gateways.sh</code> reads it to know which gateway processes to launch on container start.</p>
+  <p>Add <code>HERMES_AGENT_PROFILES</code> to the <strong>root <code>.env</code></strong> at the ServiceHub project root — this is the Docker Compose environment file, not the hermesagent data <code>.env</code>. Docker Compose injects it into the container via <code>compose/aiagn.yml</code>, where <code>start-gateways.sh</code> reads it to know which gateway processes to launch on container start.</p>
   <pre><span class="lang-tag">root .env</span><code><span class="cm"># Single profile</span>
 <span class="var">HERMES_AGENT_PROFILES</span>=<span class="str">"alice"</span>
 
@@ -926,7 +926,7 @@ docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
   <!-- ── 3.5 ────────────────────────────────────────────────────────── -->
   <h2 id="s35">3.5 Connect Open WebUI to Hermes via API</h2>
 
-  <p>Open WebUI (<code>wbsvcwebchat</code>) is accessible at <code>https://${OWEBUI_DOMAIN}</code>. Adding Hermes as an OpenAI-compatible connection lets family members chat via the browser.</p>
+  <p>Open WebUI (<code>wbappwebchat</code>) is accessible at <code>https://${OWEBUI_DOMAIN}</code>. Adding Hermes as an OpenAI-compatible connection lets family members chat via the browser.</p>
 
   <h3>Connection details</h3>
   <div class="table-wrap">
@@ -987,15 +987,15 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Set a separate <code>BROWSERLESS_TOKEN</code> for Chromium: <code>echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env</code>. Update <code>TOKEN=${BROWSERLESS_TOKEN}</code> in <code>agsvcchromum</code> in <code>agent.yml</code>.</div>
+      <div class="check-label">Set a separate <code>BROWSERLESS_TOKEN</code> for Chromium: <code>echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env</code>. Update <code>TOKEN=${BROWSERLESS_TOKEN}</code> in <code>aiagnchromum</code> in <code>aiagn.yml</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs agsvclitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
+      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs aiagnlitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">MiniMax API key stored only as <code>LITEM_MMAX_APIKEY</code> in root <code>.env</code>. Confirm it is not echoed in logs: <code>docker compose logs agsvclitellm | grep -i minimax</code>.</div>
+      <div class="check-label">MiniMax API key stored only as <code>LITEM_MMAX_APIKEY</code> in root <code>.env</code>. Confirm it is not echoed in logs: <code>docker compose logs aiagnlitellm | grep -i minimax</code>.</div>
     </li>
 
     <div class="check-cat">Network Isolation</div>
@@ -1014,7 +1014,7 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Internal service ports (12380, 12360, 12361, 12363, 12386) not bound to <code>0.0.0.0</code> on a public host. Remove their <code>ports:</code> entries in <code>agent.yml</code> for production.</div>
+      <div class="check-label">Internal service ports (12380, 12360, 12361, 12363, 12386) not bound to <code>0.0.0.0</code> on a public host. Remove their <code>ports:</code> entries in <code>aiagn.yml</code> for production.</div>
     </li>
 
     <div class="check-cat">Docker Socket</div>
@@ -1025,14 +1025,14 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Check host Docker group GID: <code>getent group docker | cut -d: -f3</code>. If not 999, add <code>group_add: [&lt;host-gid&gt;]</code> to <code>agsvchermagt</code> in <code>agent.yml</code>.</div>
+      <div class="check-label">Check host Docker group GID: <code>getent group docker | cut -d: -f3</code>. If not 999, add <code>group_add: [&lt;host-gid&gt;]</code> to <code>agsvchermagt</code> in <code>aiagn.yml</code>.</div>
     </li>
 
     <div class="check-cat">Privacy Routing</div>
 
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Privacy keywords route to edge model. Test with <em>"Summarise my medical record"</em> and confirm <code>docker compose logs agsvclitellm | grep route</code> shows <code>route=edgeai</code>.</div>
+      <div class="check-label">Privacy keywords route to edge model. Test with <em>"Summarise my medical record"</em> and confirm <code>docker compose logs aiagnlitellm | grep route</code> shows <code>route=edgeai</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
@@ -1058,7 +1058,7 @@ curl -s http://localhost:12330/v1/chat/completions \
 
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label"><code>restart: unless-stopped</code> is set in <code>agent.yml</code> so gateways reconnect after host reboots.</div>
+      <div class="check-label"><code>restart: unless-stopped</code> is set in <code>aiagn.yml</code> so gateways reconnect after host reboots.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
@@ -1066,18 +1066,18 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Add memory limits to <code>agsvchermagt</code> in <code>agent.yml</code>: <code>mem_limit: 2g</code> and <code>memswap_limit: 2g</code>.</div>
+      <div class="check-label">Add memory limits to <code>agsvchermagt</code> in <code>aiagn.yml</code>: <code>mem_limit: 2g</code> and <code>memswap_limit: 2g</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Enable log rotation in <code>agent.yml</code> under <code>agsvchermagt</code>:<br><code>logging: {driver: "json-file", options: {max-size: "50m", max-file: "5"}}</code></div>
+      <div class="check-label">Enable log rotation in <code>aiagn.yml</code> under <code>agsvchermagt</code>:<br><code>logging: {driver: "json-file", options: {max-size: "50m", max-file: "5"}}</code></div>
     </li>
 
     <div class="check-cat">Observability</div>
 
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs agsvclitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
+      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs aiagnlitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>

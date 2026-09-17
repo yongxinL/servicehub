@@ -1,7 +1,7 @@
 # Hermes Agent — ServiceHub image
 
-Build context for 4 hermesagent containers (`agsvcherme00`, `agsvcherme01`,
-`agsvcherme02`, `agsvcherme03`). Wraps the upstream
+Build context for 4 hermesagent containers (`aiagnherm00`, `aiagnherm01`,
+`aiagnherm02`, `aiagnherm03`). Wraps the upstream
 [`nousresearch/hermes-agent`](https://hermes-agent.nousresearch.com) image with
 ServiceHub-specific seeding, placeholder substitution, and an **overlay
 system** for persisting source-code edits to `/opt/hermes` across container
@@ -23,10 +23,10 @@ This file documents the overlay system and environment variables.
 
 | Container | Workspace Port | Data Directory |
 |-----------|---------------|----------------|
-| `agsvcherme00` | 12320 | `${HERMES_DATA_00:-${APPS_DATA}/hermesagent/data/00}` |
-| `agsvcherme01` | 12321 | `${HERMES_DATA_01:-${APPS_DATA}/hermesagent/data/01}` |
-| `agsvcherme02` | 12322 | `${HERMES_DATA_02:-${APPS_DATA}/hermesagent/data/02}` |
-| `agsvcherme03` | 12323 | `${HERMES_DATA_03:-${APPS_DATA}/hermesagent/data/03}` |
+| `aiagnherm00` | 12320 | `${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}` |
+| `aiagnherm01` | 12321 | `${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}` |
+| `aiagnherm02` | 12322 | `${HERMES_DATA_02:-${APPS_DATA}/hermesagent/02}` |
+| `aiagnherm03` | 12323 | `${HERMES_DATA_03:-${APPS_DATA}/hermesagent/03}` |
 
 ---
 
@@ -82,17 +82,17 @@ All accept paths absolute (`/opt/hermes/foo/bar.py`) or relative (`foo/bar.py`).
 
 ```bash
 # 1. Before editing — snapshot the baseline
-docker compose exec agsvcherme00 overlay-track /opt/hermes/agent/router.py
+docker compose exec aiagnherm00 overlay-track /opt/hermes/agent/router.py
 
 # 2. Edit the file (you, or hand the task to the agent)
-docker compose exec -it agsvcherme00 nano /opt/hermes/agent/router.py
+docker compose exec -it aiagnherm00 nano /opt/hermes/agent/router.py
 
 # 3. After editing — persist the change
-docker compose exec agsvcherme00 overlay-save /opt/hermes/agent/router.py
+docker compose exec aiagnherm00 overlay-save /opt/hermes/agent/router.py
 
 # 4. Recreate the container — your edit comes back automatically
-docker compose up -d --force-recreate agsvcherme00
-docker compose logs agsvcherme00 | grep '\[overlay\]'
+docker compose up -d --force-recreate aiagnherm00
+docker compose logs aiagnherm00 | grep '\[overlay\]'
 ```
 
 ### Disabling the overlay
@@ -108,7 +108,7 @@ and `patches/` are empty.
 The image bundles [Hermes Workspace](https://github.com/outsourc-e/hermes-workspace)
 (a web UI for Hermes Agent) alongside the gateway.
 
-**Access:** `http://<host-ip>:12320` (agsvcherme00), `12321` (agsvcherme01), etc.
+**Access:** `http://<host-ip>:12320` (aiagnherm00), `12321` (aiagnherm01), etc.
 
 **Login:** Use `HERMES_WORKSPACE_PASSWD_00`, `_01`, `_02`, `_03` from root `.env`.
 
@@ -118,7 +118,7 @@ The image bundles [Hermes Workspace](https://github.com/outsourc-e/hermes-worksp
 |---|---|---|
 | `HERMES_WORKSPACE_PORT` | `12320` | Workspace listen port (container-internal) |
 | `HERMES_WORKSPACE_PASSWORD` | (from `HERMES_WORKSPACE_PASSWD_0X`) | Login password |
-| `HERMES_DATA_0X` | `${APPS_DATA}/hermesagent/data/0X` | Data directory path |
+| `HERMES_DATA_0X` | `${APPS_DATA}/hermesagent/0X` | Data directory path |
 | `HERMES_WORKSPACE_DOMAIN_0X` | (empty) | Traefik domain for HTTPS access |
 
 **Internal user profiles:** Each container supports internal profiles
@@ -137,10 +137,10 @@ HERMES_WORKSPACE_PASSWD_02=<password>
 HERMES_WORKSPACE_PASSWD_03=<password>
 
 # Data directories (optional — defaults shown)
-HERMES_DATA_00=${APPS_DATA}/hermesagent/data/00
-HERMES_DATA_01=${APPS_DATA}/hermesagent/data/01
-HERMES_DATA_02=${APPS_DATA}/hermesagent/data/02
-HERMES_DATA_03=${APPS_DATA}/hermesagent/data/03
+HERMES_DATA_00=${APPS_DATA}/hermesagent/00
+HERMES_DATA_01=${APPS_DATA}/hermesagent/01
+HERMES_DATA_02=${APPS_DATA}/hermesagent/02
+HERMES_DATA_03=${APPS_DATA}/hermesagent/03
 
 # Optional: Traefik domains for HTTPS
 HERMES_WORKSPACE_DOMAIN_00=hermes00.local

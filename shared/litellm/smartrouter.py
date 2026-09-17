@@ -60,7 +60,7 @@ _CHARS_PER_TOKEN = 4
 _CLOUD_TOKEN_THRESHOLD = 50_000
 
 # Hephaestus (edge LLM) health check — URL configurable via LITEM_EDGE_HEALTH_URL env var
-_EDGE_HEALTH_URL = _os.environ.get("LITEM_EDGE_HEALTH_URL", "http://agsvcchatllm:12326/health")
+_EDGE_HEALTH_URL = _os.environ.get("LITEM_EDGE_HEALTH_URL", "http://aiagnchatllm:12386/health")
 _EDGE_HEALTH_TIMEOUT = int(_os.environ.get("LITEM_EDGE_HEALTH_TIMEOUT", "3"))  # seconds
 # Cache health for this many seconds to avoid hammering the endpoint
 _HEALTH_CACHE_TTL = int(_os.environ.get("LITEM_EDGE_HEALTH_CACHE_TTL", "30"))
