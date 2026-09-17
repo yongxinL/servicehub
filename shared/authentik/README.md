@@ -78,7 +78,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
     (defined in [`shared/traefik/advanced/middlewares-authentik.yml`](../traefik/advanced/middlewares-authentik.yml))
 
-5. Attach `authentik-forwardauth@file` to the target router's middleware chain. For example, Grafana already does this in `compose/secob.yml`.
+5. Attach `authentik-forwardauth@file` to the target router's middleware chain. For example, Grafana already does this in `compose/obsvc.yml`.
 
 > **Reference:** forward-auth integration pattern — <https://github.com/brokenscripts/authentik_traefik>
 

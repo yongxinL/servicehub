@@ -86,7 +86,7 @@ prometheus.scrape "traefik" {
 // =============================================
 prometheus.remote_write "vm" {
     endpoint {
-        url = "http://secobvicmtrx:8428/api/v1/write"
+        url = "http://obsvcvicmtrx:8428/api/v1/write"
     }
 }
 
@@ -229,7 +229,7 @@ loki.source.docker "container_logs" {
 
 loki.write "vlogs" {
     endpoint {
-        url = "http://secobviclogs:9428/insert/loki/api/v1/push"
+        url = "http://obsvcviclogs:9428/insert/loki/api/v1/push"
     }
 }
 
@@ -238,7 +238,7 @@ loki.write "vlogs" {
 // =============================================
 prometheus.scrape "litellm" {
     targets = [{
-        __address__ = "agsvclitellm:12380",
+        __address__ = "aiagnlitellm:12380",
         job         = "litellm",
         instance    = constants.hostname,
     }]
