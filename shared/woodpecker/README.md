@@ -10,11 +10,11 @@
 
 | Service | Role |
 |---|---|
-| `devopbldinit` | One-shot: `chown -R 1000:1000` on the Forgejo and Woodpecker data directories before the server starts |
+| `devopbldinit` | One-shot: create and `chown -R 1000:1000` the Forgejo and Woodpecker data directories before anything starts |
 | `devopbldserv` | Web UI, API, pipeline scheduler and gRPC endpoint; talks to Forgejo over OAuth2 + webhooks |
 | `devopbldexec` | Agent: pulls jobs over gRPC and runs each step as a Docker container on the host |
 
-Startup order: `devopbldinit` completes → `devopbldserv` starts (once Forgejo is healthy) → `devopbldexec` connects to the server's gRPC port.
+Startup order: `devopbldinit` completes → `devopbldserv` starts (once Forgejo is healthy) → `devopbldexec` starts (once the server is healthy) and connects to its gRPC port.
 
 ## Service details
 
@@ -29,6 +29,9 @@ Startup order: `devopbldinit` completes → `devopbldserv` starts (once Forgejo 
 | Agent network | joins `${GITBLD_NETWORK}` so pipeline containers can reach stack services |
 | Image tag | `GITBLD_VTAG` (default `v3`) |
 | Registration | Closed (`WOODPECKER_OPEN=false`); users come from Forgejo OAuth |
+| Server depends on | `devopbldinit` (completed), `devopgitserv` (healthy) |
+| Agent depends on | `devopbldserv` (healthy) |
+| Health checks | `woodpecker-server ping` / `woodpecker-agent ping` every 30 s |
 
 ## Configuration
 

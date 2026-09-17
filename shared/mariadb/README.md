@@ -1,6 +1,6 @@
 # MariaDB — ServiceHub
 
-> MySQL-compatible relational database (currently unused by the default stack).
+> MySQL-compatible relational database, unused by the default stack.
 
 ## Overview
 
@@ -26,7 +26,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 |---|---|
 | `SQLDB_USER` | Shared username created as the superuser |
 | `SQLDB_PASS` | Password for `SQLDB_USER` (also used as the root password) |
-| `MARIADB_DB_LIST` | Comma-separated databases to create on first start (empty by default) |
+| `MARIADB_DB_LIST` | Comma-separated databases to create on first start (default: `${WBHOME_DBNAME}`) |
 | `MySQL_HOST` / `MySQL_PORT` | In-network connection target exposed to other services (`dbsvcmariadb:3306`) |
 
 ## Multiple databases

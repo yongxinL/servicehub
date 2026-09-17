@@ -1,13 +1,5 @@
 services:
-    # =========================================================================
-    # authnsvrinit — authentik media/template permission one-shot
-    #
-    # Runs to completion before the authentik worker and normalises ownership of
-    # the bind-mounted data and config directories so the rootless (UID/GID
-    # 1000) authentik container can write to them.
-    #
-    #   Depends on : none (must complete before authnservice / authnworkers)
-    # =========================================================================
+    # authnsvrinit — one-shot: Authentik data dir ownership fix. Docs: shared/authentik/README.md
     authnsvrinit:
         command: >
             sh -c 'chown -R 1000:1000 /data /templates 2>/dev/null; chmod -R 755 /data /templates 2>/dev/null || true'
@@ -19,21 +11,8 @@ services:
             - ${APPS_DATA}/webapps/authentik/media:/data
             - ${APPS_DATA}/webapps/authentik/templates:/templates
 
-    # =========================================================================
-    # authnservice — Authentik identity provider / SSO server
-    #
-    # Open-source IdP providing SSO and forward authentication for the stack
-    # (e.g. the Traefik dashboard and Grafana). First boot: open
-    # https://${AUTHN_DOMAIN}/if/flow/initial-setup/ to create the admin user.
-    #
-    #   URL        : https://${AUTHN_DOMAIN}
-    #   Port       : 9000 (internal, published through Traefik)
-    #   Database   : PostgreSQL (${AUTHN_DBNAME})
-    #   Data       : ${APPS_DATA}/webapps/authentik/{media,templates}
-    #   Depends on : routetraefik (healthy), dbsvcpgsqldb (started)
-    #
-    # Forward-auth integration: https://github.com/brokenscripts/authentik_traefik
-    # =========================================================================
+    # authnservice — Authentik server (UI/API). Docs: shared/authentik/README.md
+    # First boot: https://${AUTHN_DOMAIN}/if/flow/initial-setup/
     authnservice:
         build:
             context: ../shared/authentik/
@@ -91,15 +70,7 @@ services:
             - ${APPS_DATA}/webapps/authentik/media:/data
             - ${APPS_DATA}/webapps/authentik/templates:/templates
 
-    # =========================================================================
-    # authnworkers — Authentik background worker
-    #
-    # Processes flows, policies, outpost sync and notifications on behalf of
-    # authnservice. Shares the server image but runs the `worker` command.
-    #
-    #   Data       : ${APPS_DATA}/webapps/authentik/{media,templates}
-    #   Depends on : dbsvcpgsqldb (healthy)
-    # =========================================================================
+    # authnworkers — Authentik background worker. Docs: shared/authentik/README.md
     authnworkers:
         command: worker
         depends_on:

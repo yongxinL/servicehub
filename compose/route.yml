@@ -1,6 +1,5 @@
 services:
-    # routetraefik — Traefik v3 edge router / reverse proxy (TLS termination)
-    # Docs: shared/traefik/README.md
+    # routetraefik — Traefik v3 edge router / reverse proxy + TLS. Docs: shared/traefik/README.md
     routetraefik:
         build:
             context: ../shared/traefik/

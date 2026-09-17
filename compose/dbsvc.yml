@@ -1,6 +1,5 @@
 services:
-    # dbsvcmariadb — MariaDB 11.8 relational database (MySQL-compatible)
-    # Docs: shared/mariadb/README.md
+    # dbsvcmariadb — MariaDB 11.8 (MySQL-compatible). Docs: shared/mariadb/README.md
     dbsvcmariadb:
         build:
             context: ../shared/mariadb/
@@ -22,8 +21,7 @@ services:
         volumes:
             - ${APPS_DATA}/databases/mariadb:/var/lib/mysql
 
-    # dbsvcpgsqldb — PostgreSQL 16 relational database
-    # Docs: shared/postgresql/README.md
+    # dbsvcpgsqldb — PostgreSQL 16. Docs: shared/postgresql/README.md
     dbsvcpgsqldb:
         build:
             context: ../shared/postgresql/

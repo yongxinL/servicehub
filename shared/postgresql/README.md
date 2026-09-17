@@ -24,7 +24,7 @@
 | Authentik (`authnservice` / `authnworkers`) | `AUTHN_DBNAME` |
 | Forgejo (`devopgitserv`) | `GITREPO_DBNAME` |
 | LiteLLM (`agsvclitellm`) | `LITEM_DBNAME` |
-| Confluence (`wbsvcwebhome`) | `WEBHOM_DBNAME` |
+| Confluence (`wbappcmsconf`, default homepage) | `WBHOME_DBNAME` |
 
 ## Configuration
 
@@ -40,7 +40,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 The default `PGRSQL_DBLIST` creates every service database:
 
 ```bash
-PGRSQL_DBLIST="${AUTHN_DBNAME},${GITREPO_DBNAME},${LITEM_DBNAME},${WEBHOM_DBNAME}"
+PGRSQL_DBLIST="${AUTHN_DBNAME},${GITREPO_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME}"
 ```
 
 ## Multiple databases

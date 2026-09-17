@@ -1,8 +1,5 @@
 services:
-    # =============================================
-    # VictoriaMetrics - Fast, cost-effective metrics storage
-    # https://victoriametrics.com/products/open-source/
-    # =============================================
+    # secobvicmtrx — VictoriaMetrics time-series database. Docs: README.md#victoriametrics
     secobvicmtrx:
         build:
             context: ../shared/victoriametrics/
@@ -28,10 +25,7 @@ services:
             - ${APPS_DATA}/victoriametrics:/storage
             - ../shared/victoriametrics/scrape.yaml:/etc/vm/scrape.yaml:ro
 
-    # =============================================
-    # VictoriaLogs - Fast, lightweight log aggregation
-    # https://victoriametrics.com/products/victorialogs/
-    # =============================================
+    # secobviclogs — VictoriaLogs log aggregation. Docs: README.md#victorialogs
     secobviclogs:
         build:
             context: ../shared/victorialogs/
@@ -53,11 +47,7 @@ services:
         volumes:
             - ${APPS_DATA}/victorialogs:/vlogs
 
-    # =============================================
-    # Grafana Alloy - Host metrics + container metrics + log collection
-    # Built-in unix exporter (host) + built-in cAdvisor (containers)
-    # Pattern: github.com/grafana/alloy-scenarios
-    # =============================================
+    # secobgrafaly — Grafana Alloy telemetry collector. Docs: README.md#grafana-alloy
     secobgrafaly:
         build:
             context: ../shared/grafana/alloy/
@@ -92,9 +82,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup:ro # cAdvisor — cgroup stats (standard in-container path)
             - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
 
-    # =============================================
-    # Grafana - Security observability dashboards
-    # =============================================
+    # secobgrafana — Grafana dashboards. Docs: README.md#grafana
     secobgrafana:
         build:
             context: ../shared/grafana/
@@ -139,9 +127,10 @@ services:
             - ../shared/grafana/provisioning:/etc/grafana/provisioning:ro
             - ../shared/grafana/dashboards:/var/lib/grafana/dashboards/observability:ro
 
+    # secobgrafint — one-shot: Grafana data dir ownership fix. Docs: README.md#grafana
     secobgrafint:
         command: >
-            sh -c '[ "$(stat -c %u /var/lib/grafana 2>/dev/null)" != "472" ] && chown -R 472:472 /var/lib/grafana || true chmod -R 775 /var/lib/grafana'
+            sh -c '[ "$(stat -c %u /var/lib/grafana 2>/dev/null)" != "472" ] && chown -R 472:472 /var/lib/grafana || true; chmod -R 775 /var/lib/grafana'
         image: busybox:latest
         networks:
             - subnet

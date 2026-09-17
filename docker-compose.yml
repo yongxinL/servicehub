@@ -1,19 +1,17 @@
 ############### PROJECT ###############
 # serviceHub — self-hosted service stack.
 #
-# Compose files are split by functional domain; every service is prefixed with
-# the domain it belongs to. The main file only declares the shared network and
-# pulls each domain file in via `include`.
+# Domain files are loaded via `include` (Compose 2.20+).
 #
 #   compose/route.yml   route*  Edge routing + TLS termination (Traefik)
 #   compose/dbsvc.yml   dbsvc*  Relational databases (MariaDB + PostgreSQL)
 #   compose/authn.yml   authn*  Authentication / SSO (Authentik)
-#   compose/wbsvc.yml   wbsvc*  Web services (Confluence)
-#   compose/agent.yml   agsvc*  AI agents + LLM inference + Open WebUI
+#   compose/wbapp.yml   wbapp*  Homepage / CMS (Confluence)
+#   compose/agent.yml   agsvc*  AI agents + LLM inference + Open WebUI (wbsvcwebchat)
 #   compose/devop.yml   devop*  Source control + CI (Forgejo + Woodpecker)
 #   compose/secob.yml   secob*  Security observability (metrics + logs)
 #
-# Deploy with:  docker compose up -d --build
+# Deploy with: docker compose up -d --build
 #
 # The project name is pinned so the shared network is always
 # `servicehub_subnet`, which Woodpecker build containers reference by name
@@ -36,14 +34,14 @@ include:
     # --> authentication / SSO (authn)
     - compose/authn.yml
 
-    # --> web services (wbsvc)
-    - compose/wbsvc.yml
+    # --> DevOps: source control + CI runners (devop)
+    - compose/devop.yml
+
+    # --> web applications (wbapp)
+    - compose/wbapp.yml
 
     # --> agent services (agent)
     - compose/agent.yml
-
-    # --> source control + CI (devop)
-    - compose/devop.yml
 
     # --> security observability (secob)
     - compose/secob.yml

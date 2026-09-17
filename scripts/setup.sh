@@ -6,12 +6,12 @@
 #
 # Usage:
 #   bash scripts/setup.sh                          # Setup or merge .env
-#   bash scripts/setup.sh --encode <STAG|PROD>     # Output base64-encoded secrets for Gitea
-#   bash scripts/setup.sh --decode <STAG|PROD>     # Restore .env from Gitea secret
+#   bash scripts/setup.sh --encode <STAG|PROD>     # Output base64-encoded secrets for Woodpecker
+#   bash scripts/setup.sh --decode <STAG|PROD>     # Restore .env from a Woodpecker secret
 #
 # Options:
 #   --encode <env>   Output base64-encoded .env and acme.json for specified environment
-#   --decode <env>   Decode and restore .env from Gitea secret (interactive)
+#   --decode <env>   Decode and restore .env from a Woodpecker secret (interactive)
 
 set -e
 
@@ -68,6 +68,7 @@ inject_secrets() {
 # Must run before merge_env so that references in other values (e.g. the
 # PGRSQL_DBLIST composition) are rewritten too.
 migrate_env() {
+    # Woodpecker CI replaces the old Gitea Actions workflow.
     if grep -q '^REPBUK_' "$ENV_FILE" 2>/dev/null; then
         echo "Migrating legacy REPBUK_* variables to GITREPO_* ..."
         sed -i.bak \
@@ -76,6 +77,21 @@ migrate_env() {
             "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
         # REPBUK_RUNTOKEN no longer exists (Woodpecker uses a shared secret)
         sed -i.bak '/^REPBUK_RUNTOKEN=/d' "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+    fi
+
+    # The homepage web service was renamed from wbsvc to wbapp and its variables
+    # from WEBHOM_* to WBHOME_*. WBHOME_DOMAN was a typo; the canonical name is
+    # WBHOME_DOMAIN.
+    if grep -qE '^(WEBHOM_|WBHOME_DOMAN=)' "$ENV_FILE" 2>/dev/null; then
+        echo "Migrating legacy WEBHOM_* / WBHOME_DOMAN variables ..."
+        sed -i.bak \
+            -e 's/^WEBHOM_DBNAME=/WBHOME_DBNAME=/' \
+            -e 's/^WEBHOM_DOMAIN=/WBHOME_DOMAIN=/' \
+            -e 's/^WBHOME_DOMAN=/WBHOME_DOMAIN=/' \
+            -e 's/\${WEBHOM_DBNAME}/${WBHOME_DBNAME}/g' \
+            -e 's/\${WEBHOM_DOMAIN}/${WBHOME_DOMAIN}/g' \
+            -e 's/\${WBHOME_DOMAN}/${WBHOME_DOMAIN}/g' \
+            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
     fi
 }
 
@@ -131,7 +147,7 @@ encode_secrets() {
     fi
 
     echo "=============================================="
-    echo "  Base64-encoded secrets for Gitea"
+    echo "  Base64-encoded secrets for Woodpecker"
     echo "  Environment: $env"
     echo "=============================================="
     echo ""
@@ -170,12 +186,12 @@ encode_secrets() {
     echo "  Files created:"
     echo "=============================================="
     echo ""
-    echo "  ${envs_file}  -> Gitea secret: ${env}_B64ENC_ENVS"
+    echo "  ${envs_file}  -> Woodpecker secret: ${env}_B64ENC_ENVS"
     if [ "$acme_encoded" = true ]; then
-        echo "  ${acme_b64_file}  -> Gitea secret: ${env}_B64ENC_ACME"
+        echo "  ${acme_b64_file}  -> Woodpecker secret: ${env}_B64ENC_ACME"
     fi
     echo ""
-    echo "To get content for Gitea secrets, run:"
+    echo "To get content for Woodpecker secrets, run:"
     echo "  cat ${envs_file}      # copy output to ${env}_B64ENC_ENVS"
     if [ "$acme_encoded" = true ]; then
         echo "  cat ${acme_b64_file}  # copy output to ${env}_B64ENC_ACME"
@@ -186,7 +202,7 @@ encode_secrets() {
     echo "Or pipe directly:"
     echo "  cat ${envs_file} | xclip -selection clipboard"
     echo ""
-    echo "Go to: Gitea -> Repository -> Settings -> Actions -> Secrets"
+    echo "Go to: Woodpecker -> Repository -> Settings -> Secrets"
     echo ""
 }
 

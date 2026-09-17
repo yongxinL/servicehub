@@ -1,14 +1,17 @@
 services:
-
-    # Confluence - CMS and blogging platform
-    wbsvcwebhome:
+    # wbappcmsconf — Confluence homepage / CMS. Docs: shared/confluence/README.md
+    wbappcmsconf:
         build:
             context: ../shared/confluence/
+            args:
+                - IMAGE_TAG=${WBCONF_TAG}
         depends_on:
-            authnservice:
+            routetraefik:
+                condition: service_healthy
+            dbsvcpgsqldb:
                 condition: service_healthy
         environment:
-            - ATL_PROXY_NAME=${WEBHOM_DOMAIN}
+            - ATL_PROXY_NAME=${WBHOME_DOMAIN}
             - ATL_PROXY_PORT=443
             - JVM_MAXIMUM_MEMORY=3072m
             - JVM_MINIMUM_MEMORY=1024m
@@ -19,7 +22,7 @@ services:
             - ATL_TOMCAT_MAXHTTPHEADERSIZE=8192
             - ATL_DB_POOLMAXSIZE=125
             - ATL_DB_TYPE=postgresql
-            - ATL_JDBC_URL=jdbc:postgresql://${PGRSQL_HOST}:${PGRSQL_PORT}/${WEBHOM_DBNAME}
+            - ATL_JDBC_URL=jdbc:postgresql://${PGRSQL_HOST}:${PGRSQL_PORT}/${WBHOME_DBNAME}
             - ATL_JDBC_USER=${SQLDB_USER}
             - ATL_JDBC_PASSWORD=${SQLDB_PASS}
             - JVM_SUPPORT_RECOMMENDED_ARGS=-Dmail.smtp.ssl.protocols=TLSv1.2 -Dupm.pac.disable=true --Datlassian.upm.signature.check.disabled=true
@@ -29,28 +32,28 @@ services:
             interval: 30s
             retries: 5
             timeout: 5s
-        image: wbsvcwebhome:latest
+        image: wbappcmsconf:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.wbsvcwebhome.entrypoints=websecure"
+            - "traefik.http.routers.wbappcmsconf.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.wbsvcwebhome.rule=Host(`${WEBHOM_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            - "traefik.http.routers.wbappcmsconf.rule=Host(`${WBHOME_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.wbsvcwebhome.service=wbsvcwebhome"
+            - "traefik.http.routers.wbappcmsconf.service=wbappcmsconf"
             # Define the internal container port for routing
-            - "traefik.http.services.wbsvcwebhome.loadbalancer.server.port=8090"
+            - "traefik.http.services.wbappcmsconf.loadbalancer.server.port=8090"
             # Enable TLS on this router
-            - "traefik.http.routers.wbsvcwebhome.tls=true"
+            - "traefik.http.routers.wbappcmsconf.tls=true"
             # Apply a compression middleware
-            - "traefik.http.routers.wbsvcwebhome.middlewares=confserv-compress"
+            - "traefik.http.routers.wbappcmsconf.middlewares=wbappcmsconf-compress"
             # Define settings for the compression middleware
-            - "traefik.http.middlewares.confserv-compress.compress=true"
+            - "traefik.http.middlewares.wbappcmsconf-compress.compress=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.wbsvcwebhome.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.wbappcmsconf.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/wbsvcwebhome:/var/atlassian/application-data/confluence
+            - ${APPS_DATA}/webapps/confluence:/var/atlassian/application-data/confluence

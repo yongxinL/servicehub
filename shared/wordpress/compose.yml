@@ -1,0 +1,46 @@
+# Optional WordPress homepage — NOT included by docker-compose.yml.
+#
+# To switch the default homepage from Confluence to WordPress:
+#   1. Stop wbappcmsconf:  docker compose stop wbappcmsconf
+#   2. In docker-compose.yml, replace `- compose/wbapp.yml` with `- shared/wordpress/compose.yml`
+#   3. Ensure MARIADB_DB_LIST="${WBHOME_DBNAME}" in .env, then: docker compose up -d --build
+#
+# Docs: shared/wordpress/README.md
+services:
+    # wbappcmswppv — WordPress homepage / CMS. Docs: shared/wordpress/README.md
+    wbappcmswppv:
+        build:
+            context: .
+        depends_on:
+            routetraefik:
+                condition: service_healthy
+            dbsvcmariadb:
+                condition: service_healthy
+            authnservice:
+                condition: service_started
+        environment:
+            - WORDPRESS_DB_HOST=${MySQL_HOST}
+            - WORDPRESS_DB_NAME=${WBHOME_DBNAME}
+            - WORDPRESS_DB_USER=${SQLDB_USER}
+            - WORDPRESS_DB_PASSWORD=${SQLDB_PASS}
+        image: wbappcmswppv:latest
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.wbappcmswppv.entrypoints=websecure"
+            # Match incoming requests on a specific hostname (plus the apex domain)
+            - "traefik.http.routers.wbappcmswppv.rule=Host(`${WBHOME_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.wbappcmswppv.service=wbappcmswppv"
+            # Define the internal container port for routing
+            - "traefik.http.services.wbappcmswppv.loadbalancer.server.port=80"
+            # Enable TLS on this router
+            - "traefik.http.routers.wbappcmswppv.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.wbappcmswppv.tls.certresolver=${CERTRESOLVER}"
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/webapps/wordpress:/var/www/html

@@ -20,8 +20,8 @@ Woodpecker CI integrates with it over OAuth2 + webhooks — see [Woodpecker](../
 | Data persistence | `${APPS_DATA}/devops/repos` (mounted at `/data`) |
 | Image tag | `GITREPO_VTAG` (default `16`) |
 | Volume ownership | `1000:1000` (normally by `devopbldinit`) |
-| Health check | `curl` on port 3000 every 30 s (20 s startup delay) |
-| Depends on | `routetraefik` (healthy), `dbsvcpgsqldb` (healthy) |
+| Health check | `curl -fsS http://localhost:3000/api/healthz` every 30 s (20 s startup delay) |
+| Depends on | `devopbldinit` (completed), `routetraefik` (healthy), `dbsvcpgsqldb` (healthy) |
 
 ## Configuration
 
@@ -41,10 +41,12 @@ Container settings applied by the compose file:
 
 | Setting | Value | Purpose |
 |---|---|---|
+| `FORGEJO__server__DOMAIN` | `${GITREPO_DOMAIN}` | Hostname Forgejo reports in generated URLs |
 | `FORGEJO__server__ROOT_URL` | `https://${GITREPO_DOMAIN}/` | Correct clone URLs, webhooks and OAuth redirects |
+| `FORGEJO__server__DISABLE_SSH` | `true` | The SSH port is not published; only HTTPS clones are advertised |
 | `FORGEJO__database__DB_TYPE` | `postgres` | PostgreSQL backend |
 | `FORGEJO__openid__ENABLE_OPENID_SIGNIN` / `SIGNUP` | `false` | Local accounts only |
-| `FORGEJO__webhook__ALLOWED_HOST_LIST` | `external,loopback` | Allow Woodpecker webhook callbacks |
+| `FORGEJO__webhook__ALLOWED_HOST_LIST` | `external,${GITBLD_DOMAIN}` | Allow Woodpecker webhook callbacks |
 
 > Forgejo environment variables use the `FORGEJO__<section>__<key>` form (for example `FORGEJO__webhook__ALLOWED_HOST_LIST` maps to `[webhook] ALLOWED_HOST_LIST` in `app.ini`).
 

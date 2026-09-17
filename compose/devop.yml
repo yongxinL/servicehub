@@ -1,9 +1,9 @@
 services:
-    # devopbldinit — one-shot ownership fix for the DevOps data directories
-    # Docs: shared/forgejo/README.md, shared/woodpecker/README.md
+    # devopbldinit — one-shot: create DevOps data dirs, chown 1000:1000. Docs: shared/woodpecker/README.md
     devopbldinit:
         command: >
-            sh -c 'chown -R 1000:1000 /data /var/lib/woodpecker /etc/woodpecker 2>/dev/null; chmod -R 755 /data /var/lib/woodpecker /etc/woodpecker 2>/dev/null || true'
+            sh -c 'mkdir -p /data /var/lib/woodpecker /etc/woodpecker &&
+                   chown -R 1000:1000 /data /var/lib/woodpecker /etc/woodpecker'
         image: busybox:latest
         networks:
             - subnet
@@ -13,14 +13,15 @@ services:
             - ${APPS_DATA}/devops/buildserv:/var/lib/woodpecker
             - ${APPS_DATA}/devops/buildexec:/etc/woodpecker
 
-    # devopgitserv — Forgejo self-hosted Git service
-    # Docs: shared/forgejo/README.md
+    # devopgitserv — Forgejo git server (HTTPS clone/webhooks via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
     devopgitserv:
         build:
             context: ../shared/forgejo/server/
             args:
                 - IMAGE_TAG=${GITREPO_VTAG}
         depends_on:
+            devopbldinit:
+                condition: service_completed_successfully
             routetraefik:
                 condition: service_healthy
             dbsvcpgsqldb:
@@ -29,21 +30,20 @@ services:
             - TZ=${TIME_ZONE}
             - USER_UID=1000
             - USER_GID=1000
-            # Public URL, used for clone URLs, webhooks and OAuth redirects
+            - FORGEJO__server__DOMAIN=${GITREPO_DOMAIN}
             - FORGEJO__server__ROOT_URL=https://${GITREPO_DOMAIN}/
-            # PostgreSQL
+            # SSH port is not published; advertise HTTPS clone URLs only
+            - FORGEJO__server__DISABLE_SSH=true
             - FORGEJO__database__DB_TYPE=postgres
             - FORGEJO__database__HOST=${PGRSQL_HOST}:${PGRSQL_PORT}
             - FORGEJO__database__NAME=${GITREPO_DBNAME}
             - FORGEJO__database__USER=${SQLDB_USER}
             - FORGEJO__database__PASSWD=${SQLDB_PASS}
-            # Disable OpenID authentication/signup; accounts are local
             - FORGEJO__openid__ENABLE_OPENID_SIGNIN=false
             - FORGEJO__openid__ENABLE_OPENID_SIGNUP=false
-            # Allow Woodpecker webhook callbacks to the public stack host
-            - FORGEJO__webhook__ALLOWED_HOST_LIST=external,loopback
+            - FORGEJO__webhook__ALLOWED_HOST_LIST=external,${GITBLD_DOMAIN}
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:3000/" ]
+            test: [ "CMD", "curl", "-fsS", "http://localhost:3000/api/healthz" ]
             start_period: 20s
             interval: 30s
             retries: 5
@@ -64,11 +64,7 @@ services:
             - /etc/localtime:/etc/localtime:ro
             - ${APPS_DATA}/devops/repos:/data
 
-    # devopbldserv — Woodpecker CI server (web UI, API, scheduler)
-    # Docs: shared/woodpecker/README.md
-    #
-    # Requires a Forgejo OAuth2 application (GITBLD_OA_CLIENT / GITBLD_OA_SECRET)
-    # with redirect URI https://${GITBLD_DOMAIN}/authorize before first login.
+    # devopbldserv — Woodpecker CI server (web UI, API, scheduler; OAuth app in Forgejo required first). Docs: shared/woodpecker/README.md
     devopbldserv:
         build:
             context: ../shared/woodpecker/server/
@@ -84,24 +80,24 @@ services:
             - WOODPECKER_HOST=https://${GITBLD_DOMAIN}
             - WOODPECKER_SERVER_ADDR=:8000
             - WOODPECKER_GRPC_ADDR=:9000
-            # Forgejo integration: internal API URL + public browser OAuth host
             - WOODPECKER_FORGEJO=true
             - WOODPECKER_FORGEJO_URL=http://devopgitserv:3000
             - WOODPECKER_EXPERT_FORGE_OAUTH_HOST=https://${GITREPO_DOMAIN}
-            - WOODPECKER_FORGEJO_SKIP_VERIFY=true
             - WOODPECKER_FORGEJO_CLIENT=${GITBLD_OA_CLIENT}
             - WOODPECKER_FORGEJO_SECRET=${GITBLD_OA_SECRET}
-            # Shared secret between server and agent; gRPC JWT signing secret
             - WOODPECKER_AGENT_SECRET=${GITBLD_AGN_SECRET}
             - WOODPECKER_GRPC_SECRET=${GITBLD_GRPC_SECRET}
-            # Forgejo admins granted Woodpecker admin (comma-separated)
             - WOODPECKER_ADMIN=${GITBLD_ADMUSR}
-            # Closed registration; users are managed via Forgejo OAuth + admins
             - WOODPECKER_OPEN=false
-            # SQLite persistence
             - WOODPECKER_DATABASE_DRIVER=sqlite3
             - WOODPECKER_DATABASE_DATASOURCE=/var/lib/woodpecker/woodpecker.sqlite
             - WOODPECKER_LOG_LEVEL=info
+        healthcheck:
+            test: [ "CMD", "/bin/woodpecker-server", "ping" ]
+            start_period: 30s
+            interval: 30s
+            retries: 5
+            timeout: 5s
         image: devopbldserv:latest
         labels:
             - "traefik.enable=true"
@@ -118,8 +114,7 @@ services:
             - /etc/localtime:/etc/localtime:ro
             - ${APPS_DATA}/devops/buildserv:/var/lib/woodpecker
 
-    # devopbldexec — Woodpecker CI agent (runs pipeline steps in Docker)
-    # Docs: shared/woodpecker/README.md
+    # devopbldexec — Woodpecker CI agent (docker backend on host daemon). Docs: shared/woodpecker/README.md
     devopbldexec:
         build:
             context: ../shared/woodpecker/agent/
@@ -127,26 +122,26 @@ services:
                 - IMAGE_TAG=${GITBLD_VTAG}
         depends_on:
             devopbldserv:
-                condition: service_started
+                condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
-            # Server gRPC endpoint (internal service name)
             - WOODPECKER_SERVER=devopbldserv:9000
             - WOODPECKER_AGENT_NAME=devopbldexec
-            # Must match WOODPECKER_AGENT_SECRET on devopbldserv
             - WOODPECKER_AGENT_SECRET=${GITBLD_AGN_SECRET}
-            # Run pipeline steps as Docker containers on the host daemon
             - WOODPECKER_BACKEND=docker
             - WOODPECKER_MAX_WORKFLOWS=2
-            # Network pipeline containers join so they can reach Forgejo by name
             - WOODPECKER_BACKEND_DOCKER_NETWORK=${GITBLD_NETWORK:-servicehub_subnet}
+        healthcheck:
+            test: [ "CMD", "/bin/woodpecker-agent", "ping" ]
+            start_period: 20s
+            interval: 30s
+            retries: 5
+            timeout: 5s
         image: devopbldexec:latest
         networks:
             - subnet
         restart: unless-stopped
         volumes:
             - /etc/localtime:/etc/localtime:ro
-            # Docker socket so pipelines can build/run containers
             - /var/run/docker.sock:/var/run/docker.sock
-            # Agent state persistence (agent.conf)
             - ${APPS_DATA}/devops/buildexec:/etc/woodpecker

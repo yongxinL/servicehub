@@ -1,22 +1,5 @@
 services:
-    # =========================================================================
-    # Hermes Agent — 4 isolated containers, one per user
-    # https://hermes-agent.nousresearch.com
-    #
-    # Each container has:
-    #   - Own data directory (configured via HERMES_DATA_0X in .env)
-    #   - Hermes Workspace on unique port (12320-12323)
-    #   - Internal user profiles (code, research, etc.) via hermes profile create
-    #   - No dashboard (Hermes CLI covers all dashboard functionality)
-    #
-    # Docker sandbox: /var/run/docker.sock is mounted read-only so Hermes can
-    # spin up terminal sandbox containers (terminal.backend=docker in config).
-    # The 'hermes' user is added to gid 999 (docker group) in the image.
-    # If your host docker group gid differs, add: group_add: [<host-gid>]
-    # =========================================================================
-
-    # ── Shared init container ───────────────────────────────────────────────
-    # Sets permissions for all 4 data directories before any hermesagent starts
+    # agsvchermint — one-shot: set ownership of the 4 Hermes data dirs. Docs: shared/hermesagent/README.md
     agsvchermint:
         command: >
             sh -c 'chown -R 10000:10000 /data00 /data01 /data02 /data03;
@@ -31,7 +14,9 @@ services:
             - ${HERMES_DATA_02:-${APPS_DATA}/hermesagent/02}:/data02
             - ${HERMES_DATA_03:-${APPS_DATA}/hermesagent/03}:/data03
 
-    # ── Hermes Agent 00 ─────────────────────────────────────────────────────
+    # agsvcherme00 — Hermes Agent (user 0). Docs: shared/hermesagent/README.md
+    # Note: /var/run/docker.sock is mounted read-only for the terminal sandbox.
+    # If the host docker group GID differs from 999, add group_add: [<host-gid>]
     agsvcherme00:
         build:
             context: ../shared/hermesagent/
@@ -75,7 +60,7 @@ services:
             - "traefik.http.routers.agsvcherme00.tls.certresolver=${CERTRESOLVER}"
             - "traefik.http.services.agsvcherme00.loadbalancer.server.port=12320"
 
-    # ── Hermes Agent 01 ─────────────────────────────────────────────────────
+    # agsvcherme01 — Hermes Agent (user 1). Docs: shared/hermesagent/README.md
     agsvcherme01:
         build:
             context: ../shared/hermesagent/
@@ -119,7 +104,7 @@ services:
             - "traefik.http.routers.agsvcherme01.tls.certresolver=${CERTRESOLVER}"
             - "traefik.http.services.agsvcherme01.loadbalancer.server.port=12320"
 
-    # ── Hermes Agent 02 ─────────────────────────────────────────────────────
+    # agsvcherme02 — Hermes Agent (user 2). Docs: shared/hermesagent/README.md
     agsvcherme02:
         build:
             context: ../shared/hermesagent/
@@ -163,7 +148,7 @@ services:
             - "traefik.http.routers.agsvcherme02.tls.certresolver=${CERTRESOLVER}"
             - "traefik.http.services.agsvcherme02.loadbalancer.server.port=12320"
 
-    # ── Hermes Agent 03 ─────────────────────────────────────────────────────
+    # agsvcherme03 — Hermes Agent (user 3). Docs: shared/hermesagent/README.md
     agsvcherme03:
         build:
             context: ../shared/hermesagent/
@@ -207,11 +192,8 @@ services:
             - "traefik.http.routers.agsvcherme03.tls.certresolver=${CERTRESOLVER}"
             - "traefik.http.services.agsvcherme03.loadbalancer.server.port=12320"
 
-    # =========================================================================
-    # LiteLLM Proxy — complexity-based routing + SearXNG web search
-    # SIMPLE → hephaestus (local Gemma), MEDIUM/COMPLEX → prometheus (MiniMax)
-    # Port 12380
-    # =========================================================================
+    # agsvclitellm — LiteLLM complexity router (local Gemma + MiniMax).
+    # Docs: README.md#litellm-proxy--agsvclitellm
     agsvclitellm:
         build:
             context: ../shared/litellm/
@@ -250,8 +232,7 @@ services:
         volumes:
             - ${APPS_DATA}/litellm:/opt/litellm   # place config.yaml here to override default
 
-    # Open WebUI - Web interface for interacting with LLMs
-    # https://docs.openwebui.com/
+    # wbsvcwebchat — Open WebUI. Docs: README.md#open-webui
     wbsvcwebchat:
         build:
             context: ../shared/openwebui/
@@ -282,8 +263,8 @@ services:
         volumes:
             - ${APPS_DATA}/openwebui:/app/backend/data
 
-    # Fast chat inference — Gemma 4 2B, 64K context, 2 concurrent slots
-    # https://github.com/ggerganov/llama.cpp
+    # agsvcchatllm — llama.cpp Gemma chat inference.
+    # Docs: README.md#chat-inference--agsvcchatllm
     agsvcchatllm:
         build:
             context: ../shared/llamacpp/
@@ -314,10 +295,7 @@ services:
         volumes:
             - ${APPS_DATA}/llamacpp:/models
 
-    # =========================================================================
-    # FastCRW— Fast, lightweight Firecrawl alternative in Rust.
-    # Port 12360
-    # =========================================================================
+    # agsvcfastcrw — Firecrawl-compatible crawler / search. Docs: shared/fastcrw/README.md
     agsvcfastcrw:
         build:
             context: ../shared/fastcrw/
@@ -349,15 +327,10 @@ services:
         volumes:
             - ../shared/fastcrw/config.docker.toml:/app/config.docker.toml:ro
 
-    # Primary JS renderer — lightweight (~64 MB), fast startup.
-    # Handles most static-JS sites. Falls back to Chrome for complex SPAs.
-    #
-    # `restart: unless-stopped` is load-bearing: LightPanda is known to OOM
-    # or segfault on adversarial pages (heavy SPA bundles, Cloudflare turnstile),
-    # and without auto-restart the breaker stays open forever and every JS
-    # request falls through to Chrome — defeating the lightweight tier.
-    # `mem_limit` keeps a runaway tab from dragging Chrome and the host into
-    # swap on small VPS instances.
+    # agsvclighpda — LightPanda JS renderer (lightweight tier). Docs: shared/fastcrw/README.md
+    # `restart: unless-stopped` is load-bearing: LightPanda can OOM/segfault on
+    # adversarial pages, and without auto-restart every JS request falls through
+    # to Chrome. `mem_limit` keeps a runaway tab from dragging the host into swap.
     agsvclighpda:
         build:
             context: ../shared/fastcrw/lightpanda/
@@ -374,11 +347,8 @@ services:
             - subnet
         restart: unless-stopped
 
-    # Stealth JS renderer — browserless/chromium with built-in anti-fingerprint
-    # plugin. Drop-in replacement for the `chrome` tier on hosts that ship
-    # bot-detection (Cloudflare Turnstile, DataDome, PerimeterX). On the 1000-URL
-    # Firecrawl bench (2026-05-04): +2.5pt success rate (87.1% → 89.6%) over
-    # vanilla chromedp/headless-shell, p50 1725ms.
+    # agsvcchromum — Browserless Chromium stealth renderer (fallback tier).
+    # Docs: shared/fastcrw/README.md
     agsvcchromum:
         build:
             context: ../shared/fastcrw/chromium/
@@ -422,6 +392,7 @@ services:
         tmpfs:
             - /tmp:size=512m
 
+    # agsvcsearxng — SearXNG search backend. Docs: shared/fastcrw/README.md
     agsvcsearxng:
         build:
             context: ../shared/searxng/

@@ -1,0 +1,197 @@
+# Woodpecker CI deployment workflow for ServiceHub.
+#
+# Deploys this repository to a remote Docker server over SSH. All deploy logic is
+# inline below so a single file drives the whole deployment.
+#
+# Triggers:
+#   - manual      -> deploy the selected branch to staging (all services)
+#   - deployment  -> deploy a chosen target (stag/prod) and, optionally, a single
+#                    compose service via the Deploy button's deploy task
+#
+# Secrets are read from the Woodpecker repository secret store; see README.md.
+# Enable every secret for the "manual" and "deployment" events.
+when:
+  event: [manual, deployment]
+
+# Never run two deployments at once.
+concurrency: 1
+
+steps:
+  - name: deploy
+    image: alpine:3.20
+    environment:
+      REPO_CLONE_URL: ${CI_REPO_CLONE_URL}
+      BRANCH: ${CI_COMMIT_BRANCH}
+      DEPLOY_TARGET: ${CI_PIPELINE_DEPLOY_TARGET}
+      DEPLOY_TASK: ${CI_PIPELINE_DEPLOY_TASK}
+      GITREPO_DEPLOY_TOKEN:
+        from_secret: GITREPO_DEPLOY_TOKEN
+      GIT_CRYPT_KEY:
+        from_secret: GIT_CRYPT_KEY
+      STAG_SERVER_HOST:
+        from_secret: STAG_SERVER_HOST
+      STAG_SERVER_USER:
+        from_secret: STAG_SERVER_USER
+      STAG_SERVER_PASS:
+        from_secret: STAG_SERVER_PASS
+      STAG_DEPLOY_PATH:
+        from_secret: STAG_DEPLOY_PATH
+      STAG_B64ENC_ENVS:
+        from_secret: STAG_B64ENC_ENVS
+      STAG_B64ENC_ACME:
+        from_secret: STAG_B64ENC_ACME
+      STAG_SSHKWN_KEYS:
+        from_secret: STAG_SSHKWN_KEYS
+      PROD_SERVER_HOST:
+        from_secret: PROD_SERVER_HOST
+      PROD_SERVER_USER:
+        from_secret: PROD_SERVER_USER
+      PROD_SERVER_PASS:
+        from_secret: PROD_SERVER_PASS
+      PROD_DEPLOY_PATH:
+        from_secret: PROD_DEPLOY_PATH
+      PROD_B64ENC_ENVS:
+        from_secret: PROD_B64ENC_ENVS
+      PROD_B64ENC_ACME:
+        from_secret: PROD_B64ENC_ACME
+      PROD_SSHKWN_KEYS:
+        from_secret: PROD_SSHKWN_KEYS
+    commands:
+      - apk add --no-cache openssh-client sshpass
+      - |
+        set -e
+
+        # --- resolve target and inputs ------------------------------------
+        [ -n "$DEPLOY_TARGET" ] || DEPLOY_TARGET=stag
+        DEPLOY_TARGET=$(printf '%s' "$DEPLOY_TARGET" | tr '[:upper:]' '[:lower:]')
+        [ -n "$DEPLOY_TASK" ] || DEPLOY_TASK=all
+        [ -n "$BRANCH" ] || BRANCH="$CI_COMMIT_BRANCH"
+        [ -n "$BRANCH" ] || BRANCH=main
+        [ -n "$GITREPO_DEPLOY_TOKEN" ] || GITREPO_DEPLOY_TOKEN=
+        [ -n "$GIT_CRYPT_KEY" ] || GIT_CRYPT_KEY=
+
+        case "$DEPLOY_TARGET" in
+          stag) PREFIX=STAG ;;
+          prod) PREFIX=PROD ;;
+          *) echo "Error: unknown DEPLOY_TARGET '$DEPLOY_TARGET' (expected stag or prod)" >&2; exit 1 ;;
+        esac
+
+        get() { printenv "$(printf '%s_%s' "$PREFIX" "$1")" 2>/dev/null || true; }
+        SERVER_HOST=$(get SERVER_HOST)
+        SERVER_USER=$(get SERVER_USER)
+        SERVER_PASSWORD=$(get SERVER_PASS)
+        DEPLOY_PATH=$(get DEPLOY_PATH)
+        ENV_B64=$(get B64ENC_ENVS)
+        ACME_B64=$(get B64ENC_ACME)
+        SSH_KNOWN_HOST=$(get SSHKWN_KEYS)
+
+        [ -n "$SERVER_HOST" ] || { echo "Error: $(printf '%s_SERVER_HOST' "$PREFIX") is not set" >&2; exit 1; }
+        [ -n "$SERVER_USER" ] || { echo "Error: $(printf '%s_SERVER_USER' "$PREFIX") is not set" >&2; exit 1; }
+        [ -n "$SERVER_PASSWORD" ] || { echo "Error: $(printf '%s_SERVER_PASS' "$PREFIX") is not set" >&2; exit 1; }
+        [ -n "$DEPLOY_PATH" ] || { echo "Error: $(printf '%s_DEPLOY_PATH' "$PREFIX") is not set" >&2; exit 1; }
+        [ -n "$REPO_CLONE_URL" ] || { echo "Error: REPO_CLONE_URL is not set" >&2; exit 1; }
+
+        for bin in ssh sshpass; do
+          command -v "$bin" >/dev/null 2>&1 || { echo "Error: required command '$bin' not found" >&2; exit 1; }
+        done
+
+        echo "Deploying '$DEPLOY_TASK' from branch '$BRANCH' to $DEPLOY_TARGET ($SERVER_USER@$SERVER_HOST:$DEPLOY_PATH)"
+
+        # --- SSH host verification ----------------------------------------
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        if [ -n "$SSH_KNOWN_HOST" ]; then
+          printf '%s\n' "$SSH_KNOWN_HOST" >> ~/.ssh/known_hosts
+        else
+          echo "WARNING: $(printf '%s_SSHKWN_KEYS' "$PREFIX") not set; falling back to ssh-keyscan" >&2
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+        fi
+        chmod 600 ~/.ssh/known_hosts
+
+        ssh_exec() {
+          SSHPASS="$SERVER_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=yes "$SERVER_USER@$SERVER_HOST" "$@"
+        }
+
+        # --- clone or pull -------------------------------------------------
+        if [ -n "$GITREPO_DEPLOY_TOKEN" ]; then
+          AUTH_REPO_URL=$(printf '%s' "$REPO_CLONE_URL" | sed "s|://|://oauth2:$GITREPO_DEPLOY_TOKEN@|")
+        else
+          echo "WARNING: GITREPO_DEPLOY_TOKEN not set; using unauthenticated clone URL" >&2
+          AUTH_REPO_URL="$REPO_CLONE_URL"
+        fi
+
+        ssh_exec "set -e
+        if [ -d '$DEPLOY_PATH/.git' ]; then
+          cd '$DEPLOY_PATH' && git remote set-url origin '$AUTH_REPO_URL' && git pull origin '$BRANCH'
+        else
+          mkdir -p '$DEPLOY_PATH' && git clone --branch '$BRANCH' '$AUTH_REPO_URL' '$DEPLOY_PATH'
+        fi"
+
+        # --- decrypt git-crypt files --------------------------------------
+        if [ -n "$GIT_CRYPT_KEY" ]; then
+          ssh_exec "command -v git-crypt >/dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y -qq git-crypt)"
+          ssh_exec "printf '%s' '$GIT_CRYPT_KEY' | base64 -d > /tmp/gcrypt.key && (git -C '$DEPLOY_PATH' crypt unlock /tmp/gcrypt.key 2>/dev/null || true); rm -f /tmp/gcrypt.key"
+        fi
+
+        # --- restore .env (newer file wins) -------------------------------
+        if [ -n "$ENV_B64" ]; then
+          printf '%s' "$ENV_B64" | ssh_exec "
+        set -e
+        ENV_PATH='$DEPLOY_PATH/.env'
+        base64 -d > /tmp/env_restore.gz
+        gunzip -f /tmp/env_restore.gz
+        if [ -f \"\$ENV_PATH\" ]; then
+          existing_time=\$(stat -c %Y \"\$ENV_PATH\")
+          restore_time=\$(stat -c %Y /tmp/env_restore)
+          if [ \"\$restore_time\" -gt \"\$existing_time\" ]; then
+            echo '.env: secret is newer - restoring from secret'
+            cp /tmp/env_restore \"\$ENV_PATH\" && chmod 600 \"\$ENV_PATH\"
+          else
+            echo '.env: existing file is newer - keeping'
+          fi
+        else
+          echo '.env: not found - restoring from secret'
+          cp /tmp/env_restore \"\$ENV_PATH\" && chmod 600 \"\$ENV_PATH\"
+        fi
+        rm -f /tmp/env_restore /tmp/env_restore.gz"
+        fi
+
+        # --- merge any new env.example variables --------------------------
+        ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
+
+        # --- restore acme.json (production, newer file wins) --------------
+        if [ -n "$ACME_B64" ]; then
+          printf '%s' "$ACME_B64" | ssh_exec "
+        set -e
+        APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' | tail -1 | cut -d '=' -f2- | tr -d '\"')
+        APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
+        [ -n \"\$APPS_DATA\" ] || APPS_DATA=/opt/containerd
+        ACME_PATH=\"\$APPS_DATA/certs/acme.json\"
+        sudo mkdir -p \"\$(dirname \"\$ACME_PATH\")\"
+        base64 -d > /tmp/acme_restore.gz
+        gunzip -f /tmp/acme_restore.gz
+        if [ -f \"\$ACME_PATH\" ]; then
+          existing_time=\$(stat -c %Y \"\$ACME_PATH\")
+          restore_time=\$(stat -c %Y /tmp/acme_restore)
+          if [ \"\$restore_time\" -gt \"\$existing_time\" ]; then
+            echo 'acme.json: secret is newer - restoring from secret'
+            sudo cp /tmp/acme_restore \"\$ACME_PATH\" && sudo chmod 600 \"\$ACME_PATH\"
+          else
+            echo 'acme.json: existing file is newer - keeping'
+          fi
+        else
+          echo 'acme.json: not found - restoring from secret'
+          sudo cp /tmp/acme_restore \"\$ACME_PATH\" && sudo chmod 600 \"\$ACME_PATH\"
+        fi
+        rm -f /tmp/acme_restore /tmp/acme_restore.gz"
+        fi
+
+        # --- deploy on the remote server ----------------------------------
+        if [ -z "$DEPLOY_TASK" ] || [ "$DEPLOY_TASK" = all ]; then
+          REMOTE_CMD="if command -v docker-compose >/dev/null 2>&1; then docker-compose up --build -d; else docker compose up --build -d; fi"
+        else
+          REMOTE_CMD="if command -v docker-compose >/dev/null 2>&1; then docker-compose up -d --build $DEPLOY_TASK; else docker compose up -d --build $DEPLOY_TASK; fi"
+        fi
+        ssh_exec "cd '$DEPLOY_PATH' && $REMOTE_CMD"
+
+        echo "Deployment of '$DEPLOY_TASK' from branch '$BRANCH' to $DEPLOY_TARGET completed"
