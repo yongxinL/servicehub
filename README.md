@@ -10,26 +10,16 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Project Structure](#project-structure)
 - [Core Services](#core-services)
 - [DevOps Stack](#devops-stack)
-- [LLM Inference Services](#llm-inference-services)
-    - [Chat Inference — agsvcchatllm](#chat-inference--agsvcchatllm)
-    - [LiteLLM Proxy — agsvclitellm](#litellm-proxy--agsvclitellm)
+- [AI Agent Platform (aiagn)](#ai-agent-platform-aiagn)
 - [Web Applications](#web-applications)
-    - [Authentik (Identity Provider)](#authentik-identity-provider)
-    - [Homepage](#homepage)
-    - [Hermes Agent](#hermes-agent)
-    - [Open WebUI](#open-webui)
-    - [FastCRW Web Search](#fastcrw-web-search)
-- [Security Observability Stack](#security-observability-stack)
-    - [VictoriaMetrics](#victoriametrics)
-    - [VictoriaLogs](#victorialogs)
-    - [Grafana Alloy](#grafana-alloy)
-    - [Grafana](#grafana)
+- [Observability Stack (obsvc)](#observability-stack-obsvc)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
 - [Deployment (Woodpecker CI)](#deployment-woodpecker-ci)
 - [Usage](#usage)
 - [Configuration](#configuration)
+- [License](#license)
 
 ---
 
@@ -37,17 +27,17 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 
 All traffic enters through Traefik on ports 80/443. HTTP is redirected to HTTPS. Traefik routes requests to the appropriate service by hostname and terminates TLS using either Let's Encrypt (production) or a self-signed certificate (staging). All services communicate over an isolated Docker bridge network (`subnet`). Databases are not exposed outside the network.
 
-Compose files are split by functional domain. Open WebUI retains the service name `wbsvcwebchat` in `compose/agent.yml`:
+Compose files are split by functional domain:
 
 | File | Prefix | Purpose |
 |---|---|---|
 | `compose/route.yml` | `route*` | Edge routing + TLS termination (Traefik) |
 | `compose/dbsvc.yml` | `dbsvc*` | Relational databases (MariaDB + PostgreSQL) |
 | `compose/authn.yml` | `authn*` | Authentication / SSO (Authentik) |
-| `compose/wbapp.yml` | `wbapp*` | Homepage / CMS: Confluence (`wbappcmsconf`) |
-| `compose/agent.yml` | `agsvc*` | AI agents + LLM inference + web search + Open WebUI |
+| `compose/wbapp.yml` | `wbapp*` | Homepage / CMS (Confluence) + Open WebUI |
+| `compose/aiagn.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
 | `compose/devop.yml` | `devop*` | Source control + CI (Forgejo + Woodpecker) |
-| `compose/secob.yml` | `secob*` | Security observability (metrics + logs + Grafana) |
+| `compose/obsvc.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
 
 ```mermaid
 graph TD
@@ -61,26 +51,22 @@ graph TD
         Traefik -->|git.domain| Forgejo[devopgitserv\nForgejo]
         Traefik -->|run.domain| Woodpecker[devopbldserv\nWoodpecker CI]
         Traefik -->|www.domain + apex| Confluence[wbappcmsconf\nConfluence]
-        Traefik -->|chats.domain| OpenWebUI[wbsvcwebchat\nOpen WebUI]
-        Traefik -->|space0-3.domain| Hermes[agsvcherme00-03\n4x Hermes Agent]
-        Traefik -->|stats.domain| Grafana[secobgrafana\nGrafana]
+        Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
+        Traefik -->|space0-3.domain| Hermes[aiagnherm00-03\n4x Hermes Agent]
+        Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
         Authentik -->|forward-auth| Grafana
         Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
         Confluence -->|depends on| PostgreSQL
         Woodpecker -->|OAuth + webhooks| Forgejo
         Woodpecker -->|schedules| Agent[devopbldexec\nWoodpecker Agent]
-        Hermes -->|hermes| LiteLLM[agsvclitellm\nComplexity Router]
+        Hermes -->|hermes| LiteLLM[aiagnlitellm\nComplexity Router]
         LiteLLM -->|depends on| PostgreSQL
-        LiteLLM -->|hephaestus| Gemma[agsvcchatllm\nllama.cpp Gemma-4 local]
+        LiteLLM -->|hephaestus| Gemma[aiagnchatllm\nllama.cpp Gemma-4 local]
         LiteLLM -->|prometheus| MiniMax[MiniMax 2.7\nCloud API]
-        Hermes -->|web search| FastCRW[agsvcfastcrw\nFirecrawl-compatible]
-        FastCRW --> LightPanda[agsvclighpda\nLightPanda JS]
-        FastCRW --> Chromium[agsvcchromum\nBrowserless Chromium]
-        FastCRW --> SearXNG[agsvcsearxng\nSearXNG]
-        Grafana -.->|metrics| VM[secobvicmtrx\nVictoriaMetrics]
-        Grafana -.->|logs| VL[secobviclogs\nVictoriaLogs]
-        VM -.->|scrapes| Alloy[secobgrafaly\nGrafana Alloy]
+        Grafana -.->|metrics| VM[obsvcvicmtrx\nVictoriaMetrics]
+        Grafana -.->|logs| VL[obsvcviclogs\nVictoriaLogs]
+        VM -.->|scrapes| Alloy[obsvcgrafaly\nGrafana Alloy]
         VL -.->|receives| Alloy
     end
 
@@ -103,10 +89,10 @@ servicehub/
 │   ├── route.yml               # Traefik (routetraefik)
 │   ├── dbsvc.yml               # MariaDB + PostgreSQL
 │   ├── authn.yml               # Authentik server + worker + init
-│   ├── wbapp.yml               # Homepage / CMS (Confluence)
-│   ├── agent.yml               # Hermes agents + LiteLLM + llama.cpp + Open WebUI + FastCRW
+│   ├── wbapp.yml               # Homepage / CMS (Confluence) + Open WebUI
+│   ├── aiagn.yml               # Hermes agents + LiteLLM + llama.cpp
 │   ├── devop.yml               # Forgejo + Woodpecker CI server/agent
-│   └── secob.yml               # Security observability stack
+│   └── obsvc.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
 │   │   ├── README.md                     # Traefik service documentation
@@ -121,60 +107,76 @@ servicehub/
 │   │   └── Dockerfile
 │   ├── forgejo/
 │   │   ├── README.md                     # Forgejo service documentation
-│   │   └── server/
-│   │       └── Dockerfile
+│   │   └── server/Dockerfile
 │   ├── woodpecker/
 │   │   ├── README.md                     # Woodpecker CI service documentation
-│   │   ├── server/
-│   │   │   └── Dockerfile
-│   │   └── agent/
-│   │       └── Dockerfile
+│   │   ├── server/Dockerfile
+│   │   └── agent/Dockerfile
 │   ├── confluence/
-│   │   ├── README.md           # Confluence service documentation
+│   │   ├── README.md                     # Confluence service documentation
 │   │   ├── Dockerfile
 │   │   └── plugins/
 │   ├── hermesagent/
+│   │   ├── README.md                     # Hermes Agent documentation
+│   │   ├── README.html                   # Full Hermes setup guide
 │   │   ├── Dockerfile
-│   │   ├── start-gateways.sh   # Entrypoint: seeds defaults, starts gateway + workspace
-│   │   ├── apply-overlay.sh    # Replays persisted /opt/hermes edits at startup
-│   │   ├── overlay-*           # Overlay tooling (track / save / patch)
-│   │   └── default/            # Default profile files baked into the image
+│   │   ├── start-gateways.sh             # Entrypoint: seeds defaults, starts gateway + workspace
+│   │   ├── apply-overlay.sh              # Replays persisted /opt/hermes edits at startup
+│   │   ├── overlay-*                     # Overlay tooling (track / save / patch)
+│   │   └── default/                      # Default profile files baked into the image
 │   ├── litellm/
+│   │   ├── README.md                     # LiteLLM service documentation
 │   │   ├── Dockerfile
-│   │   ├── config.default.yaml # LiteLLM routing config (baked into image)
-│   │   ├── smartrouter.py      # Content-based routing hook (privacy + complexity)
+│   │   ├── config.default.yaml           # LiteLLM routing config (baked into image)
+│   │   ├── smartrouter.py                # Content-based routing hook (privacy + complexity)
 │   │   └── entrypoint.sh
 │   ├── llamacpp/
+│   │   ├── README.md                     # llama.cpp chat inference documentation
 │   │   ├── Dockerfile
-│   │   └── entrypoint.sh       # Reads LLAMA_* env vars
+│   │   └── entrypoint.sh                 # Reads LLAMA_* env vars
 │   ├── openwebui/
+│   │   ├── README.md                     # Open WebUI service documentation
 │   │   └── Dockerfile
-│   ├── fastcrw/                # Firecrawl-compatible crawler / search
-│   │   ├── Dockerfile
+│   ├── fastcrw/                          # Optional web-search stack (not included by default)
+│   │   ├── README.md                     # FastCRW + renderers + SearXNG documentation
+│   │   ├── compose.yml                   # aiagnfastcrw
 │   │   ├── config.docker.toml
 │   │   ├── entrypoint.sh
-│   │   ├── chromium/           # Browserless stealth renderer
-│   │   └── lightpanda/         # LightPanda JS renderer
-│   ├── searxng/                # SearXNG search backend
+│   │   ├── chromium/                     # aiagnchromum — browserless stealth renderer
+│   │   │   ├── compose.yml
+│   │   │   └── Dockerfile
+│   │   └── lightpanda/                   # aiagnlighpda — LightPanda JS renderer
+│   │       ├── compose.yml
+│   │       └── Dockerfile
+│   ├── searxng/                          # Optional search backend
+│   │   ├── compose.yml                   # aiagnsearxng
+│   │   └── Dockerfile
 │   ├── grafana/
+│   │   ├── README.md                     # Grafana service documentation
 │   │   ├── Dockerfile
-│   │   ├── alloy/              # Grafana Alloy config (host/container metrics + logs)
-│   │   ├── dashboards/         # Pre-built observability dashboards
-│   │   ├── geoip/              # GeoIP database for log enrichment
-│   │   └── provisioning/       # Grafana datasources + dashboard provisioning
+│   │   ├── alloy/                        # Grafana Alloy config + README
+│   │   ├── dashboards/                   # Pre-built observability dashboards
+│   │   ├── geoip/                        # GeoIP database for log enrichment
+│   │   └── provisioning/                 # Grafana datasources + dashboard provisioning
 │   ├── victoriametrics/
+│   │   ├── README.md                     # VictoriaMetrics documentation
 │   │   ├── Dockerfile
-│   │   └── scrape.yaml         # Metrics scrape configuration
+│   │   └── scrape.yaml                   # Metrics scrape configuration
 │   ├── victorialogs/
+│   │   ├── README.md                     # VictoriaLogs documentation
 │   │   └── Dockerfile
 │   ├── mariadb/
 │   │   ├── README.md                     # MariaDB service documentation
 │   │   ├── Dockerfile
 │   │   └── create-multiple-databases.sh
-│   └── postgresql/
-│       ├── README.md                     # PostgreSQL service documentation
-│       ├── Dockerfile
-│       └── create-multiple-databases.sh
+│   ├── postgresql/
+│   │   ├── README.md                     # PostgreSQL service documentation
+│   │   ├── Dockerfile
+│   │   └── create-multiple-databases.sh
+│   └── wordpress/                        # Optional alternative homepage (not included by default)
+│       ├── README.md
+│       ├── compose.yml
+│       └── ...
 ├── scripts/
 │   └── setup.sh                 # Local setup, env merge and secret encoding helper
 ├── docker-compose.yml          # Main entry point (includes all compose/ files)
@@ -207,91 +209,27 @@ Setup, configuration, OAuth, agent registration and operations are documented in
 
 ---
 
-## LLM Inference Services
+## AI Agent Platform (aiagn)
 
-Local and cloud LLM services power the Hermes AI agents. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers.
+Local and cloud LLM services power the Hermes AI agents. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers. All AI services live in [`compose/aiagn.yml`](compose/aiagn.yml).
 
-Models are auto-downloaded on first start via the `-hf` flag and cached locally. A `HF_TOKEN` is required for gated models.
+| Service | Runs as | Full documentation |
+|---|---|---|
+| Hermes Agent — 4 isolated agent workspaces + gateways | `aiagnherm00` … `aiagnherm03` (+ one-shot `aiagnhermint`) | [shared/hermesagent/README.md](shared/hermesagent/README.md) |
+| LiteLLM Proxy — unified API gateway + complexity router | `aiagnlitellm` | [shared/litellm/README.md](shared/litellm/README.md) |
+| llama.cpp chat inference — local Gemma tier | `aiagnchatllm` | [shared/llamacpp/README.md](shared/llamacpp/README.md) |
 
-### Chat Inference — agsvcchatllm
-
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with a Gemma 4 GGUF model for fast, private, on-device chat. This is the local tier in LiteLLM (`hephaestus`) — used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host.
-
-| Detail | Value |
-|---|---|
-| Port | 12386 |
-| Model | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` (default, via `LLAMA_CHTMDL`) |
-| Context | Configurable via `LLAMA_CHTARG` (default `--ctx-size 65536`, 64K) |
-| Concurrent slots | `--parallel 4` (default) |
-| Memory | `--mlock` + `IPC_LOCK`/unlimited memlock so the model stays in RAM |
-| LiteLLM alias | `hephaestus` (env prefix `LITEM_EDGE_*`) |
-
-### LiteLLM Proxy — agsvclitellm
-
-[LiteLLM](https://github.com/BerriAI/litellm) is a unified LLM proxy and complexity router. All Hermes agent requests are sent to the `hermes` virtual model; `smartrouter.py` rewrites each request to either `hephaestus` (local Gemma) or `prometheus` (MiniMax) before the API call is made.
+**At a glance:**
 
 | Detail | Value |
 |---|---|
-| Admin UI | `http://<host>:12380/ui` |
-| Database | PostgreSQL (`${LITEM_DBNAME}`) |
-| Local tier | `hephaestus` → `agsvcchatllm` (Gemma-4, via `LITEM_HPH_*`) |
-| Cloud tier | `prometheus` → MiniMax 2.7 (via `LITEM_PRM_*`) |
-| Health check | `GET /health/liveliness` with Bearer token |
-| Metrics | Prometheus `/metrics` on the UI port (scraped by VictoriaMetrics) |
+| Hermes workspace ports | 12320 / 12321 / 12322 / 12323 (login with `HERMES_WORKSPACE_PASSWD_0X`) |
+| Hermes gateway API port | 12330 (internal) |
+| LiteLLM admin UI | `http://<host>:12380/ui` |
+| Local model | Gemma 4 GGUF on llama.cpp (`hephaestus`) |
+| Cloud model | MiniMax 2.7 (`prometheus`) |
 
-**Routing logic** (first match wins):
-
-| Signal | Destination |
-|---|---|
-| `[cloud]` or `[c]` prefix in message | prometheus — explicit user override |
-| `[edge]` or `[e]` prefix in message | hephaestus — explicit user override |
-| Local tier unhealthy | prometheus — auto-failover |
-| Privacy keywords (`IEP`, `tax return`, `bank statement`, `medical record`, etc.) | hephaestus — data never leaves the host |
-| Input > 50K tokens (~200 pages) | prometheus — large-document workload |
-| Complexity keywords (root cause, system architecture, academic essay, curriculum map, etc.) | prometheus — formal / logic-heavy task |
-| Default | hephaestus |
-
-The explicit tags are stripped from the message before forwarding so the model never sees the routing instruction. `context_window_fallbacks` in `config.default.yaml` provides an additional safety net: any request that overflows the local model's context window is automatically escalated to prometheus (MiniMax). Provider-failure `fallbacks` route each tier to the other on timeout or error.
-
----
-
-## Web Applications
-
-### Authentik (Identity Provider)
-
-[Authentik](https://goauthentik.io/) is the open-source Identity Provider (IdP) and SSO server: `authnservice` (web) and `authnworkers` (background), with a one-shot `authnsvrinit` permission fixer. It provides forward-authentication for Traefik-protected services such as Grafana and is reachable at `https://${AUTHN_DOMAIN}`.
-
-Full setup, configuration and operations: **[shared/authentik/README.md](shared/authentik/README.md)**.
-
-### Homepage
-
-[`compose/wbapp.yml`](compose/wbapp.yml) runs **Confluence Data Center** as the homepage / CMS. It serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`).
-
-| Service | Runs as | Database | Persistent data | Full documentation |
-|---|---|---|---|---|
-| Confluence Data Center (`WBCONF_TAG=10.2`) | `wbappcmsconf` | PostgreSQL: `${WBHOME_DBNAME}` | `${APPS_DATA}/webapps/confluence` | [shared/confluence/README.md](shared/confluence/README.md) |
-
-Database lists only initialize **empty** database data directories. Updating `PGRSQL_DBLIST` or `MARIADB_DB_LIST` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
-
-### Hermes Agent
-
-[Hermes Agent](https://hermes-agent.nousresearch.com) is a self-hosted AI agent platform by Nous Research. The workspace/gateway runs as **four isolated containers**, one per user (`agsvcherme00` … `agsvcherme03`), each under tini for correct signal forwarding.
-
-| Detail | Value |
-|---|---|
-| Workspace ports | 12320 / 12321 / 12322 / 12323 (web UI, login with `HERMES_WORKSPACE_PASSWD_0X`) |
-| Gateway API port | 12330 (internal, used by Open WebUI / HTTP clients) |
-| Data persistence | `${HERMES_DATA_0X}` (default `${APPS_DATA}/hermesagent/0X`, mounted as `/opt/data` and set as `$HOME`) |
-| Overlay | `${HERMES_DATA_0X}/overlay/` — persist edits to `/opt/hermes` across container recreation (see [shared/hermesagent/README.md](shared/hermesagent/README.md)) |
-| LLM backend | LiteLLM proxy via `model: hermes` |
-| Web search | FastCRW (Firecrawl-compatible) + SearXNG |
-| Terminal sandbox | Docker (`/var/run/docker.sock` mounted read-only) |
-
-A shared one-shot container (`agsvchermint`) chowns all four data directories to UID/GID `10000` before the agents start.
-
-**Profiles:** Each container supports internal user profiles (code, research, etc.) via `hermes profile create`. These are separate from the per-container isolation and require no messaging-platform configuration.
-
-**LLM routing from Hermes:** All requests use `model: hermes`. The LiteLLM proxy automatically routes to hephaestus (local Gemma) or prometheus (MiniMax 2.7) based on content. Users can override by prefixing their message:
+**LLM routing from Hermes:** all agent requests use `model: hermes`; the LiteLLM proxy routes to hephaestus (local Gemma) or prometheus (MiniMax 2.7) based on message content. Users can override by prefixing their message:
 
 ```
 [cloud] write a grant proposal for the school...   → prometheus / MiniMax 2.7
@@ -300,47 +238,48 @@ A shared one-shot container (`agsvchermint`) chowns all four data directories to
 [e] translate this paragraph                       → hephaestus / Gemma (shorthand)
 ```
 
-> **Overlay system:** `/opt/hermes` ships read-only with the image. The overlay tools (`overlay-track`, `overlay-save`, `overlay-patch`) persist source edits on the host and replay them at container start via `apply-overlay.sh`.
-
-### Open WebUI
-
-[Open WebUI](https://docs.openwebui.com/) is a web-based interface for interacting with Large Language Models (LLMs). It runs as `wbsvcwebchat`.
-
-| Detail | Value |
-|---|---|
-| URL | `https://${OWEBUI_DOMAIN}` |
-| Internal port | 8080 |
-| Data persistence | `${APPS_DATA}/openwebui` |
-
-### FastCRW Web Search
-
-[FastCRW](shared/fastcrw/README.md) is a self-hosted, Firecrawl-compatible crawler and search service in Rust, running as `agsvcfastcrw`. It backs Hermes' `web.backend: firecrawl` tool loop.
-
-| Detail | Value |
-|---|---|
-| Internal port | 12360 |
-| API key | `FIRECRAWL_API_KEY` (defaults to `${LITEM_API_KEY}`) |
-| JS renderers | `agsvclighpda` (LightPanda, port 12362) and `agsvcchromum` (Browserless Chromium, port 12363) |
-| Search backend | `agsvcsearxng` (SearXNG, port 12361) |
-| Hermes URL | `FCRW_API_URL` (default `http://agsvcfastcrw:12360`) |
+See [shared/litellm/README.md](shared/litellm/README.md#routing-logic) for the full routing rules, and [shared/hermesagent/README.md](shared/hermesagent/README.md) for the workspace, overlay system and profiles.
 
 ---
 
-## Security Observability Stack
+## Web Applications
 
-A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy.
+| Service | Runs as | Full documentation |
+|---|---|---|
+| Authentik — IdP / SSO | `authnservice`, `authnworkers` (+ one-shot `authnsvrinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
+| Confluence Data Center — homepage / CMS | `wbappcmsconf` | [shared/confluence/README.md](shared/confluence/README.md) |
+| Open WebUI — browser LLM chat interface | `wbappwebchat` | [shared/openwebui/README.md](shared/openwebui/README.md) |
+
+Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`.
+
+> **Database lists only initialize empty data directories.** Updating `PGRSQL_DBLIST` or `MARIADB_DB_LIST` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
+>
+> An optional [WordPress homepage](shared/wordpress/README.md) can replace Confluence; the two must never run together.
+
+---
+
+## Observability Stack (obsvc)
+
+A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy. All components live in [`compose/obsvc.yml`](compose/obsvc.yml).
+
+| Component | Runs as | Full documentation |
+|---|---|---|
+| VictoriaMetrics — time-series metrics store | `obsvcvicmtrx` | [shared/victoriametrics/README.md](shared/victoriametrics/README.md) |
+| VictoriaLogs — log aggregation | `obsvcviclogs` | [shared/victorialogs/README.md](shared/victorialogs/README.md) |
+| Grafana Alloy — host/container/metrics/log collector | `obsvcgrafaly` | [shared/grafana/alloy/README.md](shared/grafana/alloy/README.md) |
+| Grafana — dashboards for metrics and logs | `obsvcgrafana` (+ one-shot `obsvcgrafint`) | [shared/grafana/README.md](shared/grafana/README.md) |
 
 ```mermaid
 graph LR
     subgraph Collectors[Collection]
-        Alloy[secobgrafaly\nHost + Container + Traefik]
+        Alloy[obsvcgrafaly\nHost + Container + Traefik]
     end
     subgraph Storage[Storage]
-        VM[secobvicmtrx\nTime-series metrics]
-        VL[secobviclogs\nLog aggregation]
+        VM[obsvcvicmtrx\nTime-series metrics]
+        VL[obsvcviclogs\nLog aggregation]
     end
     subgraph Visualization[Visualization]
-        Grafana[secobgrafana\nDashboards]
+        Grafana[obsvcgrafana\nDashboards]
     end
     Alloy -->|metrics push| VM
     Alloy -->|logs push| VL
@@ -348,54 +287,7 @@ graph LR
     Grafana -->|query| VL
 ```
 
-### VictoriaMetrics
-
-[VictoriaMetrics](https://victoriametrics.com/products/open-source/) is a fast, cost-effective time-series database for Prometheus-format metrics.
-
-| Detail | Value |
-|---|---|
-| HTTP API port | 8428 (published to host for remote Alloy/metrics push) |
-| Data persistence | `${APPS_DATA}/victoriametrics` |
-| Scrape targets | Grafana Alloy (secobgrafaly:9080) and LiteLLM (agsvclitellm:12380/metrics) |
-| Health check | `curl` on port 8428 every 30 s |
-
-### VictoriaLogs
-
-[VictoriaLogs](https://victoriametrics.com/products/victorialogs/) is a lightweight log aggregation system with a simple query interface.
-
-| Detail | Value |
-|---|---|
-| HTTP API port | 9428 (published to host for remote Alloy/log push) |
-| Data persistence | `${APPS_DATA}/victorialogs` |
-| Log source | Grafana Alloy (Docker logs, container stats, Traefik access logs) |
-| Health check | `curl` on port 9428 every 30 s |
-
-### Grafana Alloy
-
-[Grafana Alloy](https://grafana.com/docs/alloy/) is a telemetry collector that gathers host metrics, container metrics, and logs. It runs as `secobgrafaly`.
-
-| Detail | Value |
-|---|---|
-| HTTP API port | 9080 (internal only) |
-| Collectors | unix_exporter (CPU, memory, disk, network), cAdvisor (containers), Loki (logs) |
-| Data sources | Docker socket, containerd socket, procfs, sysfs, cgroupfs |
-| Scrape target | `routetraefik:8080` — Traefik Prometheus metrics |
-| Depends on | VictoriaMetrics, VictoriaLogs (healthy) |
-
-> **Privileged access:** The Alloy container runs in privileged mode (`--privileged`) because cAdvisor requires access to the host's `/proc`, `/sys`, and Docker socket to collect container metrics.
-
-### Grafana
-
-[Grafana](https://grafana.com/) provides dashboards for visualizing metrics and logs, running as `secobgrafana`.
-
-| Detail | Value |
-|---|---|
-| URL | `https://${SECOB_DOMAIN}` |
-| Database | SQLite (embedded, persisted to `${APPS_DATA}/grafana`) |
-| Data sources | VictoriaMetrics (metrics), VictoriaLogs (logs) |
-| Auth | Authentik forward-auth (`authentik-forwardauth@file`) |
-| Dashboards | Node Exporter Full, Docker Dashboard, cAdvisor Explorer, Traefik Dashboard, VictoriaLogs Explorer, and more |
-| Plugins | `victoriametrics-logs-datasource` |
+Grafana is reachable at `https://${OBSVC_DOMAIN}` behind Authentik forward-auth and ships pre-built dashboards for node, Docker/cAdvisor, Traefik, VictoriaMetrics, LiteLLM and VictoriaLogs.
 
 ---
 
@@ -428,7 +320,7 @@ Run the setup script to create your `.env` from the template. It auto-generates 
 bash scripts/setup.sh
 ```
 
-If `.env` already exists (e.g., after pulling updates), the script merges new variables from `env.example` without overwriting existing values.
+If `.env` already exists (e.g., after pulling updates), the script merges new variables from `env.example` without overwriting existing values, and migrates renamed legacy variables (e.g. `SECOB_*` → `OBSVC_*`).
 
 ### 3. Configure Environment Variables
 
@@ -465,7 +357,7 @@ For remote deployments via the Woodpecker CI workflow, `acme.json` is restored a
 
 ### 5. Prepare Data Directories
 
-Service init containers (`authnsvrinit`, `devopbldinit`, `agsvchermint`, `secobgrafint`) fix ownership on every boot. To prepare directories ahead of time:
+Service init containers (`authnsvrinit`, `devopbldinit`, `aiagnhermint`, `obsvcgrafint`) fix ownership on every boot. To prepare directories ahead of time:
 
 ```bash
 mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
@@ -637,7 +529,7 @@ Set these in **Woodpecker → Repository → Settings → Secrets**.
 
 1. Open the repository in Woodpecker (`https://${GITBLD_DOMAIN}`) → **Pipelines**
 2. For **staging**: click **Run pipeline** on the `main` branch (or on a branch you want to deploy) — the `manual` event deploys all services to staging
-3. For **staging or production**: open a recent successful pipeline and click **Deploy** — set the **environment** to the deploy target (`stag` or `prod`) and, optionally, the **task** to a single compose service (`routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbappcmsconf`, `agsvclitellm`, `agsvcchatllm`, `agsvcfastcrw`, `agsvclighpda`, `agsvcchromum`, `agsvcsearxng`, `agsvcherme00`–`agsvcherme03`, `secobvicmtrx`, `secobviclogs`, `secobgrafaly`, or `secobgrafana`); leave the task empty to deploy **all** services
+3. For **staging or production**: open a recent successful pipeline and click **Deploy** — set the **environment** to the deploy target (`stag` or `prod`) and, optionally, the **task** to a single compose service (`routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbappcmsconf`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`–`aiagnherm03`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, or `obsvcgrafana`); leave the task empty to deploy **all** services
 
 ---
 
@@ -677,7 +569,7 @@ docker compose pull && docker compose up -d
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
 
-> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo](shared/forgejo/README.md), [Woodpecker CI](shared/woodpecker/README.md), [Confluence](shared/confluence/README.md)) also document their own variables there.
+> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo](shared/forgejo/README.md), [Woodpecker CI](shared/woodpecker/README.md), [Confluence](shared/confluence/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md)) also document their own variables there.
 
 ### General
 
@@ -712,60 +604,35 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `AUTHN_PASSWD` | Auto-generated by `setup.sh`; Authentik DB password |
 | `AUTHN_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
 
-### Homepage
+### Web Applications (wbapp)
 
 | Variable | Description |
 |---|---|
-| `WBHOME_DOMAIN` | Shared homepage hostname (default: `www.${DOMAIN_NAME}`); both alternatives also serve the apex |
+| `WBHOME_DOMAIN` | Shared homepage hostname (default: `www.${DOMAIN_NAME}`); the apex is served as well |
 | `WBHOME_DBNAME` | Homepage database name (default: `svchubwbhome`) |
 | `WBCONF_TAG` | Confluence image tag (default: `10.2`) |
-
-### Hermes Agent
-
-| Variable | Default | Description |
-|---|---|---|
-| `HERMES_WORKSPACE_PASSWD_00`…`_03` | Auto-generated | Passwords for the Hermes Workspace web UI per container (ports 12320–12323) |
-| `HERMES_DATA_00`…`_03` | `${APPS_DATA}/hermesagent/0X` | Per-container data directories |
-| `HERMES_WORKSPACE_DOMAIN_00`…`_03` | `spaceX.${DOMAIN_NAME}` | Optional Traefik domains for HTTPS access (empty = IP:port only) |
-| `LITEM_API_KEY` | Auto-generated | Passed as `LITELLM_API_KEY`/`API_SERVER_KEY` to Hermes for authenticating with the LiteLLM proxy |
-| `FCRW_API_URL` | `http://agsvcfastcrw:12360` | FastCRW base URL used by Hermes web search |
-
-### LiteLLM Proxy
-
-| Variable | Default | Description |
-|---|---|---|
-| `LITEM_API_KEY` | Auto-generated by `setup.sh` | Master API key (Bearer token format `sk-...`). Used by Hermes, FastCRW and other services. |
-| `LITEM_API_URL` | `http://agsvclitellm:12380/v1` | Base URL clients use to reach the proxy |
-| `LITEM_ADMUSR` | `admin` | Admin UI username for the LiteLLM dashboard |
-| `LITEM_ADMPWD` | | Admin UI password |
-| `LITEM_DBNAME` | `litellm` | PostgreSQL database name for LiteLLM usage tracking |
-| `LITEM_HPH_APIURL` | `http://agsvcchatllm:12386/v1` | Local (hephaestus) inference base URL |
-| `LITEM_HPH_APIKEY` | `none` | Local inference API key |
-| `LITEM_HPH_HLTURL` | `http://agsvcchatllm:12386/health` | Local inference health-check URL |
-| `LITEM_PRM_APIBASE` | `https://api.minimax.io/anthropic` | MiniMax Anthropic-compatible API base URL (prometheus tier) |
-| `LITEM_PRM_APIKEY` | | MiniMax API key |
-
-### LLM Inference (llama.cpp)
-
-| Variable | Default | Description |
-|---|---|---|
-| `LLAMA_CHTMDL` | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` | Chat inference model (hephaestus tier). Auto-downloaded from HuggingFace on first start. |
-| `LLAMA_CHTARG` | *(see env.example)* | Additional llama.cpp server flags (context size, threads, batching, etc.) |
-| `HF_TOKEN` | *(empty)* | HuggingFace token — required for gated models |
-
-### Open WebUI
-
-| Variable | Description |
-|---|---|
 | `OWEBUI_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
 
-### Grafana (Security Observability)
+### AI Agent Platform (aiagn)
+
+The agent platform variables are documented in the service READMEs — see [Hermes Agent](shared/hermesagent/README.md#configuration-in-env), [LiteLLM](shared/litellm/README.md#configuration) and [llama.cpp](shared/llamacpp/README.md#configuration). In short:
 
 | Variable | Description |
 |---|---|
-| `SECOB_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
-| `SECOB_ADMUSR` | Grafana admin username |
-| `SECOB_ADMPWD` | Grafana admin password |
+| `HERMES_WORKSPACE_PASSWD_00`…`_03` | Workspace web UI passwords (ports 12320–12323) |
+| `HERMES_DATA_00`…`_03` | Per-container data directories (default `${APPS_DATA}/hermesagent/0X`) |
+| `HERMES_WORKSPACE_DOMAIN_00`…`_03` | Optional Traefik domains (empty = IP:port only) |
+| `LITEM_API_KEY` | LiteLLM master API key, shared by Hermes and other in-stack clients |
+| `LITEM_*` | LiteLLM proxy, admin UI and provider routing settings |
+| `LLAMA_CHTMDL` / `LLAMA_CHTARG` / `HF_TOKEN` | llama.cpp model, server flags, HuggingFace token |
+
+### Observability (obsvc)
+
+| Variable | Description |
+|---|---|
+| `OBSVC_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
+| `OBSVC_ADMUSR` | Grafana admin username |
+| `OBSVC_ADMPWD` | Grafana admin password |
 
 ### Databases
 

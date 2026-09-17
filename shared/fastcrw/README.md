@@ -12,10 +12,12 @@ This deployment runs four containers together:
 
 | Container | Role | Internal address |
 |---|---|---|
-| `agsvcfastcrw` | FastCRW API server | `http://agsvcfastcrw:12360` |
-| `agsvclighpda` | LightPanda JS renderer (lightweight) | `ws://agsvclighpda:9222` |
-| `agsvcchromum` | Browserless/Chromium renderer (stealth) | `ws://agsvcchromum:12363` |
-| `agsvcsearxng` | SearXNG search engine sidecar | `http://agsvcsearxng:12361` |
+| `aiagnfastcrw` | FastCRW API server | `http://aiagnfastcrw:12360` |
+| `aiagnlighpda` | LightPanda JS renderer (lightweight) | `ws://aiagnlighpda:9222` |
+| `aiagnchromum` | Browserless/Chromium renderer (stealth) | `ws://aiagnchromum:12363` |
+| `aiagnsearxng` | SearXNG search engine sidecar | `http://aiagnsearxng:12361` |
+
+> **Optional stack:** These services are **not** included by the root `docker-compose.yml` by default. To enable Hermes web search, add all four files together to its `include` list: [`searxng/compose.yml`](../searxng/compose.yml), [`lightpanda/compose.yml`](lightpanda/compose.yml), [`chromium/compose.yml`](chromium/compose.yml) and [`compose.yml`](compose.yml).
 
 ---
 
@@ -63,7 +65,7 @@ Files changed:
 
 ### 2. Shared API key — no separate credential needed
 
-`FIRECRAWL_API_KEY` in `compose/agent.yml` defaults to `${LITEM_API_KEY}` via shell fallback (`:-`). This means you do not need to set a separate key in `.env`; FastCRW and the Hermes agent share the same master key automatically. Set `FIRECRAWL_API_KEY` in `.env` explicitly only if you need a distinct credential.
+`FIRECRAWL_API_KEY` in `shared/fastcrw/compose.yml` defaults to `${LITEM_API_KEY}` via shell fallback (`:-`). This means you do not need to set a separate key in `.env`; FastCRW and the Hermes agent share the same master key automatically. Set `FIRECRAWL_API_KEY` in `.env` explicitly only if you need a distinct credential.
 
 ### 3. Port
 
@@ -117,7 +119,7 @@ curl -si http://localhost:12360/v1/scrape \
 Confirm the entrypoint substituted the key correctly (should show the real key, not the placeholder):
 
 ```bash
-docker compose exec agsvcfastcrw \
+docker compose exec aiagnfastcrw \
   grep api_keys /app/config.active.toml
 ```
 
@@ -133,7 +135,7 @@ curl -s http://localhost:12360/v1/scrape \
 
 The `renderDecision.chain` field shows which tier(s) were tried.
 
-### Scrape — force LightPanda (agsvclighpda)
+### Scrape — force LightPanda (aiagnlighpda)
 
 ```bash
 curl -s http://localhost:12360/v1/scrape \
@@ -146,10 +148,10 @@ curl -s http://localhost:12360/v1/scrape \
 Check LightPanda logs if this fails:
 
 ```bash
-docker compose logs agsvclighpda --tail 30
+docker compose logs aiagnlighpda --tail 30
 ```
 
-### Scrape — force Chrome (agsvcchromum)
+### Scrape — force Chrome (aiagnchromum)
 
 ```bash
 curl -s http://localhost:12360/v1/scrape \
@@ -159,10 +161,10 @@ curl -s http://localhost:12360/v1/scrape \
   | jq '{renderer: .data.renderDecision, bytes: (.data.markdown | length)}'
 ```
 
-Chrome communicates with `agsvcchromum` on the internal Docker network using `LITEM_API_KEY` as the browserless `TOKEN`. If Chrome fails, check:
+Chrome communicates with `aiagnchromum` on the internal Docker network using `LITEM_API_KEY` as the browserless `TOKEN`. If Chrome fails, check:
 
 ```bash
-docker compose logs agsvcchromum --tail 30
+docker compose logs aiagnchromum --tail 30
 ```
 
 ### Search (via SearXNG)
