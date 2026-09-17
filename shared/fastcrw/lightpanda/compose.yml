@@ -1,0 +1,28 @@
+# LightPanda — lightweight JS renderer for FastCRW (aiagnlighpda).
+#
+# Part of the optional FastCRW web-search stack. NOT included by
+# docker-compose.yml by default — see shared/fastcrw/compose.yml for how to
+# enable the whole stack.
+#
+# Docs: shared/fastcrw/README.md
+#
+# `restart: unless-stopped` is load-bearing: LightPanda can OOM/segfault on
+# adversarial pages, and without auto-restart every JS request falls through
+# to Chrome. `mem_limit` keeps a runaway tab from dragging the host into swap.
+services:
+    # aiagnlighpda — LightPanda JS renderer (lightweight tier). Docs: shared/fastcrw/README.md
+    aiagnlighpda:
+        build:
+            context: .
+        healthcheck:
+            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12362"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 5s
+        image: aiagnlighpda:latest
+        mem_limit: 1g
+        memswap_limit: 1g
+        networks:
+            - subnet
+        restart: unless-stopped

@@ -1,0 +1,28 @@
+# SearXNG — search backend for FastCRW (aiagnsearxng).
+#
+# Part of the optional FastCRW web-search stack. NOT included by
+# docker-compose.yml by default — see shared/fastcrw/compose.yml for how to
+# enable the whole stack.
+#
+# Docs: shared/fastcrw/README.md
+services:
+    # aiagnsearxng — SearXNG search backend. Docs: shared/fastcrw/README.md
+    aiagnsearxng:
+        build:
+            context: .
+        environment:
+            - TZ=${TIME_ZONE}
+            - SEARXNG_PORT=12361
+            - SEARXNG_BIND_ADDRESS=0.0.0.0
+            - SEARXNG_BASE_URL=http://aiagnsearxng:12361
+            - SEARXNG_SECRET=${LITEM_API_KEY:-aiagnsearxng}
+        image: aiagnsearxng:latest
+        networks:
+            - subnet
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "/usr/sbin/wget", "-qO", "/dev/null", "http://localhost:12361/healthz"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+            start_period: 15s

@@ -54,7 +54,7 @@ chrome_intercept_resources = true
 chrome_nav_budget_ms = 12000
 
 [renderer.lightpanda]
-ws_url = "ws://agsvclighpda:12362/"
+ws_url = "ws://aiagnlighpda:12362/"
 
 [renderer.chrome]
 # browserless v2 endpoint on the Docker bridge. 
@@ -65,11 +65,11 @@ ws_url = "ws://agsvclighpda:12362/"
 # update this URL to match.
 # NOTE: keep this `token=` value in sync with `BROWSERLESS_TOKEN` in `.env`.
 # The two are not auto-linked — rotate one, rotate the other.
-ws_url = "ws://agsvcchromum:12363/chromium?token=${FIRECRAWL_API_KEY}&stealth=true"
+ws_url = "ws://aiagnchromum:12363/chromium?token=${FIRECRAWL_API_KEY}&stealth=true"
 
 [search]
 # SearXNG sidecar running in the same stack.
-searxng_url = "http://agsvcsearxng:12361"
+searxng_url = "http://aiagnsearxng:12361"
 
 # Auth — restrict access to FastCRW.
 # Value is substituted at container start from the FIRECRAWL_API_KEY env var

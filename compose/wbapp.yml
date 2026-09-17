@@ -57,3 +57,34 @@ services:
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/webapps/confluence:/var/atlassian/application-data/confluence
+
+    # wbappwebchat — Open WebUI LLM chat interface. Docs: shared/openwebui/README.md
+    wbappwebchat:
+        build:
+            context: ../shared/openwebui/
+        depends_on:
+            routetraefik:
+                condition: service_healthy
+        environment:
+            - TZ=${TIME_ZONE}
+        image: wbappwebchat:latest
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.wbappwebchat.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.wbappwebchat.rule=Host(`${OWEBUI_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.wbappwebchat.service=wbappwebchat"
+            # Define the internal container port for routing
+            - "traefik.http.services.wbappwebchat.loadbalancer.server.port=8080"
+            # Enable TLS on this router
+            - "traefik.http.routers.wbappwebchat.tls=true"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.wbappwebchat.tls.certresolver=${CERTRESOLVER}"
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/openwebui:/app/backend/data

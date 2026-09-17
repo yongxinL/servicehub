@@ -1,0 +1,51 @@
+# Browserless Chromium — stealth JS renderer for FastCRW (aiagnchromum).
+#
+# Part of the optional FastCRW web-search stack. NOT included by
+# docker-compose.yml by default — see shared/fastcrw/compose.yml for how to
+# enable the whole stack.
+#
+# Docs: shared/fastcrw/README.md
+services:
+    # aiagnchromum — Browserless Chromium stealth renderer (fallback tier). Docs: shared/fastcrw/README.md
+    aiagnchromum:
+        build:
+            context: .
+        environment:
+            # TOKEN is required by browserless v2 — clients must pass `?token=...`.
+            # Default is a published placeholder; override via `.env` in production:
+            #   echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env
+            - TOKEN=${LITEM_API_KEY:-aiagnchromum}
+            - PORT=12363
+            - CONCURRENT=15
+            - MAX_QUEUE_LENGTH=30
+            - TIMEOUT=30000
+            # Kill the container instead of accepting traffic in a degraded state;
+            # without this, browserless can wedge in "healthy but refusing CDP".
+            - EXIT_ON_HEALTH_FAILURE=true
+        healthcheck:
+            # TCP accept on browserless's listen port. App-level CDP failures
+            # (chromium pool wedged, /chromium routing broken) are caught by
+            # browserless's own supervision via `EXIT_ON_HEALTH_FAILURE=true`
+            # above — it kills the container and `restart: unless-stopped`
+            # brings it back up. A bash-based HTTP probe with token
+            # interpolation is fragile (compose-vs-runtime expansion of $TOKEN,
+            # and short-lived /dev/tcp FDs racing with HTTP/1.0 connection close)
+            # and gave us nothing this combo doesn't already.
+            test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12363"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 15s
+        image: aiagnchromum:latest
+        mem_limit: 3g
+        memswap_limit: 3g
+        networks:
+            - subnet
+        restart: unless-stopped
+        shm_size: "2g"
+        # Confine browserless's user-data-dirs and downloads to tmpfs so a
+        # runaway session can't fill the host disk (we hit ENOSPC during
+        # bench tuning when this was missing). Browserless v2 writes session
+        # state under /tmp by default, so a single bounded tmpfs is enough.
+        tmpfs:
+            - /tmp:size=512m
