@@ -33,12 +33,12 @@ services:
             - AUTHENTIK_DISABLE_UPDATE_CHECK=true
             - AUTHENTIK_ERROR_REPORTING__ENABLED=false
             # authentik email settings
-            - AUTHENTIK_EMAIL__HOST=${SMTP_HOST}
-            - AUTHENTIK_EMAIL__PORT=${SMTP_PORT}
-            - AUTHENTIK_EMAIL__USERNAME=${SMTP_USER}
-            - AUTHENTIK_EMAIL__PASSWORD=${SMTP_PASS}
+            - AUTHENTIK_EMAIL__HOST=${EMAIL_HOST}
+            - AUTHENTIK_EMAIL__PORT=${EMAIL_PORT}
+            - AUTHENTIK_EMAIL__USERNAME=${EMAIL_USER}
+            - AUTHENTIK_EMAIL__PASSWORD=${EMAIL_PASS}
             - AUTHENTIK_EMAIL__USE_TLS=true
-            - AUTHENTIK_EMAIL__FROM=${SMTP_FROM}
+            - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM}
             # PostgreSQL settings
             - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
             - AUTHENTIK_POSTGRESQL__USER=${SQLDB_USER}
@@ -87,12 +87,12 @@ services:
             - AUTHENTIK_DISABLE_UPDATE_CHECK=true
             - AUTHENTIK_ERROR_REPORTING__ENABLED=false
             # authentik email settings
-            - AUTHENTIK_EMAIL__HOST=${SMTP_HOST}
-            - AUTHENTIK_EMAIL__PORT=${SMTP_PORT}
-            - AUTHENTIK_EMAIL__USERNAME=${SMTP_USER}
-            - AUTHENTIK_EMAIL__PASSWORD=${SMTP_PASS}
+            - AUTHENTIK_EMAIL__HOST=${EMAIL_HOST}
+            - AUTHENTIK_EMAIL__PORT=${EMAIL_PORT}
+            - AUTHENTIK_EMAIL__USERNAME=${EMAIL_USER}
+            - AUTHENTIK_EMAIL__PASSWORD=${EMAIL_PASS}
             - AUTHENTIK_EMAIL__USE_TLS=true
-            - AUTHENTIK_EMAIL__FROM=${SMTP_FROM}
+            - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM}
             # PostgreSQL settings
             - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
             - AUTHENTIK_POSTGRESQL__USER=${SQLDB_USER}

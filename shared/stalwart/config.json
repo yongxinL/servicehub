@@ -1,0 +1,5 @@
+{
+  "@type": "Sqlite",
+  "path": "/var/lib/stalwart/sqlite",
+  "poolMaxConnections": 10
+}

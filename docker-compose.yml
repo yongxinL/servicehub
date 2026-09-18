@@ -10,6 +10,7 @@
 #   compose/aiagn.yml   aiagn*  AI agents + LLM inference (Hermes + LiteLLM + llama.cpp)
 #   compose/devop.yml   devop*  Source control + CI (Forgejo + Woodpecker)
 #   compose/obsvc.yml   obsvc*  Observability (metrics + logs + Grafana)
+#   compose/emsvc.yml   emsvc*  Email services (Stalwart mail + Bulwark webmail)
 #
 # Deploy with: docker compose up -d --build
 #
@@ -45,3 +46,6 @@ include:
 
     # --> observability: metrics + logs + Grafana (obsvc)
     - compose/obsvc.yml
+
+    # --> email services: mail server + webmail (emsvc)
+    - compose/emsvc.yml

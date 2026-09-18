@@ -13,6 +13,7 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [AI Agent Platform (aiagn)](#ai-agent-platform-aiagn)
 - [Web Applications](#web-applications)
 - [Observability Stack (obsvc)](#observability-stack-obsvc)
+- [Email Stack (emsvc)](#email-stack-emsvc)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
@@ -38,6 +39,7 @@ Compose files are split by functional domain:
 | `compose/aiagn.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
 | `compose/devop.yml` | `devop*` | Source control + CI (Forgejo + Woodpecker) |
 | `compose/obsvc.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
+| `compose/emsvc.yml` | `emsvc*` | Email services (Stalwart mail server + Bulwark webmail) |
 
 ```mermaid
 graph TD
@@ -54,7 +56,10 @@ graph TD
         Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
         Traefik -->|space0-3.domain| Hermes[aiagnherm00-03\n4x Hermes Agent]
         Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
-        Authentik -->|forward-auth| Grafana
+        Traefik -->|mail.domain| Stalwart[emsvcmailsrv\nStalwart Mail Server]
+        Traefik -->|webmail.domain| Bulwark[emsvcwebmail\nBulwark Webmail]
+        Bulwark -->|JMAP via Docker DNS| Stalwart
+        Authentik -.->|forward-auth| Grafana
         Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
         Confluence -->|depends on| PostgreSQL
@@ -92,7 +97,8 @@ servicehub/
 │   ├── wbapp.yml               # Homepage / CMS (Confluence) + Open WebUI
 │   ├── aiagn.yml               # Hermes agents + LiteLLM + llama.cpp
 │   ├── devop.yml               # Forgejo + Woodpecker CI server/agent
-│   └── obsvc.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
+│   ├── obsvc.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
+│   └── emsvc.yml               # Email services (Stalwart mail server + Bulwark webmail)
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
 │   │   ├── README.md                     # Traefik service documentation
@@ -173,6 +179,15 @@ servicehub/
 │   │   ├── README.md                     # PostgreSQL service documentation
 │   │   ├── Dockerfile
 │   │   └── create-multiple-databases.sh
+│   ├── stalwart/                          # Stalwart Mail Server (emsvcmailsrv)
+│   │   ├── README.md                      # Stalwart service documentation
+│   │   ├── Dockerfile
+│   │   ├── config.json                    # Minimal Stalwart SQLite config override
+│   │   ├── entrypoint.sh                  # Bootstrap cert + privilege drop
+│   │   └── acme-export.sh                 # Extracts certs from Traefik's acme.json
+│   ├── bulwark/                           # Bulwark Webmail (emsvcwebmail)
+│   │   ├── README.md                      # Bulwark service documentation
+│   │   └── Dockerfile
 │   └── wordpress/                        # Optional alternative homepage (not included by default)
 │       ├── README.md
 │       ├── compose.yml
@@ -291,6 +306,30 @@ Grafana is reachable at `https://${OBSVC_DOMAIN}` behind Authentik forward-auth 
 
 ---
 
+## Email Stack (emsvc)
+
+A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. All services live in [`compose/emsvc.yml`](compose/emsvc.yml).
+
+| Service | Runs as | Full documentation |
+|---|---|---|
+| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `emsvcmailsrv` | [shared/stalwart/README.md](shared/stalwart/README.md) |
+| Bulwark Webmail — JMAP webmail client | `emsvcwebmail` | [shared/bulwark/README.md](shared/bulwark/README.md) |
+
+**At a glance:**
+
+| Detail | Value |
+|---|---|
+| Mail server (Stalwart admin) | `https://${EMAIL_HOST}` — reachable from trusted IPs only |
+| Webmail (Bulwark) | `https://${WEBMAIL_DOMAIN}` |
+| Ports published to the host | 25 / 465 / 587 / 993 (SMTP server-to-server, submission ×2, IMAP) |
+| TLS | Reused from Traefik's shared `acme.json` via an in-container certificate exporter |
+| Webmail → Stalwart | JMAP over the Docker network, no CORS setup needed |
+| Single sign-on | Bulwark uses Authentik OIDC when `WEBMAIL_OIDC_ENABLED=true` |
+
+The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration).
+
+---
+
 ## Prerequisites
 
 - **Docker** 24+ with **Compose 2.20+** (`docker compose` or standalone `docker-compose` v2) for `include` support
@@ -365,6 +404,8 @@ mkdir -p ${APPS_DATA}/webapps/authentik/{media,templates}
 mkdir -p ${APPS_DATA}/certs
 mkdir -p ${APPS_DATA}/devops/{repos,buildserv,buildexec}
 mkdir -p ${APPS_DATA}/hermesagent/{00,01,02,03}
+mkdir -p ${APPS_DATA}/mailbox/{stalwart,bulwark}
+chown -R 1000:1000 ${APPS_DATA}/mailbox/bulwark
 chown -R 1000:1000 ${APPS_DATA}/devops
 ```
 
@@ -529,7 +570,7 @@ Set these in **Woodpecker → Repository → Settings → Secrets**.
 
 1. Open the repository in Woodpecker (`https://${GITBLD_DOMAIN}`) → **Pipelines**
 2. For **staging**: click **Run pipeline** on the `main` branch (or on a branch you want to deploy) — the `manual` event deploys all services to staging
-3. For **staging or production**: open a recent successful pipeline and click **Deploy** — set the **environment** to the deploy target (`stag` or `prod`) and, optionally, the **task** to a single compose service (`routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`–`aiagnherm03`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, or `obsvcgrafana`); leave the task empty to deploy **all** services
+3. For **staging or production**: open a recent successful pipeline and click **Deploy** — set the **environment** to the deploy target (`stag` or `prod`) and, optionally, the **task** to a single compose service (`routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`–`aiagnherm03`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `emsvcmailsrv`, or `emsvcwebmail`); leave the task empty to deploy **all** services
 
 ---
 
@@ -569,7 +610,7 @@ docker compose pull && docker compose up -d
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
 
-> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo](shared/forgejo/README.md), [Woodpecker CI](shared/woodpecker/README.md), [Confluence](shared/confluence/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md)) also document their own variables there.
+> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo](shared/forgejo/README.md), [Woodpecker CI](shared/woodpecker/README.md), [Confluence](shared/confluence/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md), [Stalwart](shared/stalwart/README.md), [Bulwark](shared/bulwark/README.md)) also document their own variables there.
 
 ### General
 
@@ -658,10 +699,22 @@ These lists only initialize empty database data directories. Preserve existing d
 
 | Variable | Description |
 |---|---|
-| `SMTP_HOST` | SMTP server hostname |
-| `SMTP_PORT` | SMTP port |
-| `SMTP_USER` / `SMTP_PASS` | SMTP credentials |
-| `SMTP_FROM` | From address for outbound email (display name + address) |
+| `EMAIL_HOST` | SMTP server hostname — also the Stalwart mail server hostname and its container hostname |
+| `EMAIL_PORT` | SMTP port (465 by default, Stalwart's implicit-TLS submission port) |
+| `EMAIL_USER` / `EMAIL_PASS` | SMTP credentials used by stack components to send mail through Stalwart |
+| `EMAIL_FROM` | From address for outbound email (display name + address) |
+
+### Email Services (emsvc)
+
+The webmail variables are documented in the service READMEs — see [Bulwark](shared/bulwark/README.md#configuration-env) and [Stalwart](shared/stalwart/README.md#configuration-env). In short:
+
+| Variable | Description |
+|---|---|
+| `WEBMAIL_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) |
+| `WEBMAIL_SESSION_SECRET` | Session cookie encryption; auto-generated by `setup.sh` |
+| `WEBMAIL_OIDC_ENABLED` / `WEBMAIL_OIDC_ONLY` | Enable Authentik OIDC; hide the local login form when `true` |
+| `WEBMAIL_OIDC_ISSUER` | Authentik issuer URL (default `https://${AUTHN_DOMAIN}`) |
+| `WEBMAIL_OIDC_CLIENT_ID` / `WEBMAIL_OIDC_CLIENT_SECRET` | OIDC client credentials registered in Authentik |
 
 ---
 
