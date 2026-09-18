@@ -1,32 +1,33 @@
 # Hermes Agent — ServiceHub image
 
-Build context for 4 hermesagent containers (`aiagnherm00`, `aiagnherm01`,
-`aiagnherm02`, `aiagnherm03`). Wraps the upstream
+Build context for the `aiagnherm00` hermesagent container. Wraps the upstream
 [`nousresearch/hermes-agent`](https://hermes-agent.nousresearch.com) image with
 ServiceHub-specific seeding, placeholder substitution, and an **overlay
 system** for persisting source-code edits to `/opt/hermes` across container
 recreation.
 
 The full setup guide lives in [README.html](README.html) (open in a browser).
-This file documents the overlay system and environment variables.
+This file documents the overlay system, environment variables, and how to scale
+the platform to more users.
 
 ---
 
 ## Architecture
 
-4 isolated hermesagent containers, one per user. Each container has:
-- Own data directory (configurable via `HERMES_DATA_0X` in `.env`)
+A single Hermes Agent container. It has:
+- Its own data directory (configurable via `HERMES_DATA_00` in `.env`)
 - Hermes Gateway on port 12330 (container-internal)
-- Hermes Workspace on unique host port (12320-12323)
+- Hermes Workspace on host port 12320
 - Internal user profiles (code, research, etc.) via `hermes profile create`
 - No dashboard (Hermes CLI and Workspace cover all dashboard functionality)
 
 | Container | Workspace Port | Data Directory |
 |-----------|---------------|----------------|
 | `aiagnherm00` | 12320 | `${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}` |
-| `aiagnherm01` | 12321 | `${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}` |
-| `aiagnherm02` | 12322 | `${HERMES_DATA_02:-${APPS_DATA}/hermesagent/02}` |
-| `aiagnherm03` | 12323 | `${HERMES_DATA_03:-${APPS_DATA}/hermesagent/03}` |
+
+> Hermes is **single-user / single-tenant**. Anyone who logs into the workspace
+> shares the same agent memory, sessions and skills. See
+> [Multi-user support](#multi-user-support) for how to serve more people.
 
 ---
 
@@ -34,8 +35,8 @@ This file documents the overlay system and environment variables.
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/opt/data` | `${HERMES_DATA_0X}` | Hermes data (`$HOME`: profiles, sessions, memory, `.env`, `config.yaml`) |
-| `/opt/data/overlay` | `${HERMES_DATA_0X}/overlay` | Persisted edits to `/opt/hermes` (see below) |
+| `/opt/data` | `${HERMES_DATA_00}` | Hermes data (`$HOME`: profiles, sessions, memory, `.env`, `config.yaml`) |
+| `/opt/data/overlay` | `${HERMES_DATA_00}/overlay` | Persisted edits to `/opt/hermes` (see below) |
 | `/var/run/docker.sock` | host docker socket (ro) | Terminal sandbox spawning |
 
 `/opt/hermes` (~1.4 GB) is **not** mounted — it ships with the image as a
@@ -53,7 +54,7 @@ storing the edits on the host and replaying them at startup.
 ### Layout
 
 ```
-${HERMES_DATA_0X}/overlay/
+${HERMES_DATA_00}/overlay/
 ├── files/      # sparse mirror of /opt/hermes — saved files replayed at start
 ├── originals/  # pristine "before" copies for diff generation
 └── patches/    # *.patch files applied after files/, in lexical order
@@ -108,18 +109,18 @@ and `patches/` are empty.
 The image bundles [Hermes Workspace](https://github.com/outsourc-e/hermes-workspace)
 (a web UI for Hermes Agent) alongside the gateway.
 
-**Access:** `http://<host-ip>:12320` (aiagnherm00), `12321` (aiagnherm01), etc.
+**Access:** `http://<host-ip>:12320`
 
-**Login:** Use `HERMES_WORKSPACE_PASSWD_00`, `_01`, `_02`, `_03` from root `.env`.
+**Login:** Use `HERMES_WORKSPACE_PASSWD_00` from the root `.env`.
 
 **Environment variables (per container):**
 
 | Variable | Default | Description |
 |---|---|---|
 | `HERMES_WORKSPACE_PORT` | `12320` | Workspace listen port (container-internal) |
-| `HERMES_WORKSPACE_PASSWORD` | (from `HERMES_WORKSPACE_PASSWD_0X`) | Login password |
-| `HERMES_DATA_0X` | `${APPS_DATA}/hermesagent/0X` | Data directory path |
-| `HERMES_WORKSPACE_DOMAIN_0X` | (empty) | Traefik domain for HTTPS access |
+| `HERMES_WORKSPACE_PASSWORD` | (from `HERMES_WORKSPACE_PASSWD_00`) | Login password |
+| `HERMES_DATA_00` | `${APPS_DATA}/hermesagent/00` | Data directory path |
+| `HERMES_WORKSPACE_DOMAIN_00` | (empty) | Traefik domain for HTTPS access |
 
 **Internal user profiles:** Each container supports internal profiles
 (code, research, etc.) via `hermes profile create`. These are separate
@@ -130,21 +131,83 @@ from messaging platform setup — no Discord/WhatsApp config needed.
 ## Configuration in .env
 
 ```bash
-# Workspace passwords (required for login)
+# Workspace password (required for login)
 HERMES_WORKSPACE_PASSWD_00=<password>
-HERMES_WORKSPACE_PASSWD_01=<password>
-HERMES_WORKSPACE_PASSWD_02=<password>
-HERMES_WORKSPACE_PASSWD_03=<password>
 
-# Data directories (optional — defaults shown)
+# Data directory (optional — default shown)
 HERMES_DATA_00=${APPS_DATA}/hermesagent/00
-HERMES_DATA_01=${APPS_DATA}/hermesagent/01
-HERMES_DATA_02=${APPS_DATA}/hermesagent/02
-HERMES_DATA_03=${APPS_DATA}/hermesagent/03
 
-# Optional: Traefik domains for HTTPS
-HERMES_WORKSPACE_DOMAIN_00=hermes00.local
-HERMES_WORKSPACE_DOMAIN_01=hermes01.local
-HERMES_WORKSPACE_DOMAIN_02=hermes02.local
-HERMES_WORKSPACE_DOMAIN_03=hermes03.local
+# Optional: Traefik domain for HTTPS
+HERMES_WORKSPACE_DOMAIN_00=space0.${DOMAIN_NAME}
 ```
+
+---
+
+## Multi-user support
+
+**Hermes Agent is single-user / single-tenant — one container, one login, one
+shared agent identity.** This is confirmed by upstream design:
+
+- There is **no account system and no per-end-user isolation**. Everyone who
+  logs into a container shares its `MEMORY.md`, `USER.md`, sessions, skills and
+  `state.db`. Upstream states plainly: *"Multiplexing isolates profiles; it does
+  not authenticate or authorize end users. A profile is a configuration, not a
+  person."*
+- The **Hermes Gateway** is OpenAI-compatible and authenticated by a **single
+  per-profile `API_SERVER_KEY`** (here `${LITEM_API_KEY}`). Session continuity
+  uses the `X-Hermes-Session-Id` header. There are no accounts.
+- **Profiles** (`hermes profile create`) create a separate `HERMES_HOME` with
+  its own `config.yaml`, `.env`, `SOUL.md`, memories and sessions. They are
+  per-persona/config separation for a **single operator**, not per-user
+  authentication — profiles do not sandbox the filesystem.
+- The **Hermes Workspace** web UI has one instance-wide password
+  (`HERMES_WORKSPACE_PASSWORD`) and one login. There are no per-user accounts.
+- Upstream's recommended way to serve multiple people is **one instance per
+  user / per data volume**, isolated at the OS/container boundary.
+
+> Do **not** treat profile multiplexing as multi-tenancy. Multiple people
+> sharing one Hermes container will overwrite or leak each other's memory and
+> session state.
+
+### When to add another agent
+
+| Need | Recommendation |
+|---|---|
+| A shared team assistant | Use the single `aiagnherm00` as-is (shared memory is intentional). |
+| A few people who each want a private agent | Add one `aiagnherm0X` container + data volume per person. |
+| Many users (dozens+) | Add per-user containers fronted by Authentik, or run Hermes per-user on the user's own machine / Portal account. |
+| Separate personas for one person (code, research, …) | Use internal `hermes profile create` profiles inside `aiagnherm00`. |
+
+### Scaling to more users
+
+The platform ships one agent because Hermes is single-user. To extend it, copy
+the `aiagnherm00` pattern in [`compose/aiagn.yml`](../../compose/aiagn.yml):
+
+1. **Add the data directory** to `aiagnhermint` (or add a sibling init
+   container) — e.g. `${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/data01`
+   with `chown -R 10000:10000 /data01`.
+2. **Duplicate the `aiagnherm00` service** as `aiagnherm01` with:
+   - its own volume `${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/opt/data`,
+   - its own `HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_01}`,
+   - a unique host port, e.g. `12321:12320`,
+   - optional Traefik labels using `HERMES_WORKSPACE_DOMAIN_01`.
+3. **Add matching variables** to `.env`:
+   ```bash
+   HERMES_WORKSPACE_PASSWD_01=<password>
+   HERMES_DATA_01=${APPS_DATA}/hermesagent/01
+   HERMES_WORKSPACE_DOMAIN_01=space1.${DOMAIN_NAME}
+   ```
+4. **Recreate only the new service:**
+   ```bash
+   docker compose up -d --build aiagnherm01
+   ```
+
+All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so
+model capacity is scaled centrally, not per agent. Isolate user data strictly at
+the volume boundary; never point two people at the same `HERMES_DATA_0X`.
+
+Sources: [Hermes multiplexing gateway](https://hermes-agent.nousresearch.com/docs/developer-guide/multiplexing-gateway),
+[profiles](https://hermes-agent.nousresearch.com/docs/user-guide/profiles),
+[multi-profile gateways](https://hermes-agent.nousresearch.com/docs/user-guide/multi-profile-gateways),
+[memory](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory),
+[Docker guide](https://hermes-agent.nousresearch.com/docs/user-guide/docker).

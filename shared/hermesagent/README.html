@@ -463,18 +463,23 @@
   <!-- Hero -->
   <div class="hero">
     <h1>Hermes Agent</h1>
-    <p class="tagline">4 isolated hermesagent containers with private workspaces, internal user profiles, and shared LLM infrastructure.</p>
+    <p class="tagline">A single shared Hermes agent container with a private workspace, internal user profiles, and shared LLM infrastructure.</p>
     <div class="badges">
       <span class="badge badge-blue">Nous Research</span>
-      <span class="badge badge-purple">4 Containers</span>
+      <span class="badge badge-purple">Single Agent</span>
       <span class="badge badge-green">Privacy-first routing</span>
       <span class="badge badge-blue">Docker Compose</span>
     </div>
   </div>
 
   <p>
-    Hermes Agent is an open-source AI agent platform by <a href="https://nousresearch.com">Nous Research</a>. In ServiceHub it runs as <strong>4 separate containers</strong> (<code>aiagnherm00</code>, <code>aiagnherm01</code>, <code>aiagnherm02</code>, <code>aiagnherm03</code>), each with its own workspace, gateway, and data directory. Internal user profiles (code, research, etc.) are available via <code>hermes profile create</code>. No messaging platform setup needed.
+    Hermes Agent is an open-source AI agent platform by <a href="https://nousresearch.com">Nous Research</a>. In ServiceHub it runs as a <strong>single container</strong> (<code>aiagnherm00</code>) with its own workspace, gateway, and data directory. Internal user profiles (code, research, etc.) are available via <code>hermes profile create</code>. No messaging platform setup needed.
   </p>
+
+  <div class="callout note">
+    <span class="callout-icon">ℹ</span>
+    <p><strong>Single-user by design:</strong> Hermes has no account system and does not isolate end users — everyone who logs in shares the same memory, sessions, and skills. Profiles are persona/config separation for one operator, not multi-tenancy. To give someone their own private agent, add another container. See <a href="#scaling">Scaling to more users</a>.</p>
+  </div>
 
   <hr />
 
@@ -483,11 +488,11 @@
 
   <div class="arch-box"><pre>
 ┌─────────────────────────────────────────────────────────────────────┐
-│  aiagnherm00        aiagnherm01        aiagnherm02        aiagnherm03
-│  ──────────────      ──────────────      ──────────────      ──────────────
-│  Workspace :12320     Workspace :12321     Workspace :12322     Workspace :12323
-│  Gateway   :12330     Gateway   :12330     Gateway   :12330     Gateway   :12330
-│  API       :12330      API       :12330      API       :12330      API       :12330
+│  aiagnherm00
+│  ──────────────
+│  Workspace :12320
+│  Gateway   :12330
+│  API       :12330
 └─────────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────▼─────────────────┐
@@ -509,26 +514,11 @@
       <div class="plabel">aiagnherm00 Workspace</div>
       <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_00</div>
     </div>
-    <div class="port-card">
-      <div class="pnum">12321</div>
-      <div class="plabel">aiagnherm01 Workspace</div>
-      <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_01</div>
-    </div>
-    <div class="port-card">
-      <div class="pnum">12322</div>
-      <div class="plabel">aiagnherm02 Workspace</div>
-      <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_02</div>
-    </div>
-    <div class="port-card">
-      <div class="pnum">12323</div>
-      <div class="plabel">aiagnherm03 Workspace</div>
-      <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_03</div>
-    </div>
   </div>
 
   <div class="callout note">
     <span class="callout-icon">ℹ</span>
-    <p><strong>Data persistence:</strong> Each container has its own data directory (<code>${HERMES_DATA_00}</code>, etc., defaults to <code>${APPS_DATA}/hermesagent/data/00</code>, etc.). Files are seeded from the image on first start and <strong>never overwritten</strong>. Source-code edits to <code>/opt/hermes</code> can be persisted via the <a href="#overlay">overlay system</a>.</p>
+    <p><strong>Data persistence:</strong> The container has its own data directory (<code>${HERMES_DATA_00}</code>, defaults to <code>${APPS_DATA}/hermesagent/00</code>). Files are seeded from the image on first start and <strong>never overwritten</strong>. Source-code edits to <code>/opt/hermes</code> can be persisted via the <a href="#overlay">overlay system</a>.</p>
   </div>
 
   <hr />
@@ -811,7 +801,7 @@ curl -s http://localhost:12330/v1/chat/completions \
   <!-- ── 3.4 ────────────────────────────────────────────────────────── -->
   <h2 id="s34">3.4 Create User Profiles</h2>
 
-  <p>Family members each get an isolated profile: a separate gateway process with its own API server port, data directory, memory store, and agent personality. Profiles share the same container but are fully isolated at filesystem and process level.</p>
+  <p>Profiles let one operator keep separate agent <em>personas</em> (code, research, etc.) inside a single container — each with its own data directory, memory store, and agent personality. Profiles are <strong>configuration, not people</strong>: they do not authenticate end users and do not sandbox the filesystem. To give a real person their own private agent, <a href="#scaling">add another container</a> instead.</p>
 
   <div class="profile-card">
     <div class="profile-avatar">👩</div>
@@ -919,6 +909,47 @@ docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
               </ul>
       <p style="margin-top:8px;">To keep a "shared" agent running alongside per-user profiles, declare it as a named profile too — e.g. <code>HERMES_AGENT_PROFILES="shared alice bob"</code> and create a <code>shared</code> profile with its own port. The default profile's <code>/opt/data</code> root is a single-user fallback and is intentionally skipped once named profiles are declared.</p>
     </div>
+  </div>
+
+  <hr />
+
+  <!-- ── Scaling ────────────────────────────────────────────────────── -->
+  <h2 id="scaling">Scaling to more users</h2>
+
+  <p>Hermes Agent is <strong>single-user / single-tenant</strong>. There is no account system and no per-end-user isolation: every login to a container shares its memory, sessions, skills, and <code>state.db</code>. Upstream is explicit that profiles are <em>"a configuration, not a person"</em> and that multiplexing <em>"does not authenticate or authorize end users"</em>.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Need</th><th>Recommended approach</th></tr></thead>
+      <tbody>
+        <tr><td>A shared team assistant</td><td>Use the single <code>aiagnherm00</code> as-is (shared memory is intentional).</td></tr>
+        <tr><td>A few people who each want a private agent</td><td>Add one <code>aiagnherm0X</code> container + data volume per person.</td></tr>
+        <tr><td>Many users (dozens+)</td><td>Per-user containers fronted by Authentik, or run Hermes per-user on each person's own machine / Portal account.</td></tr>
+        <tr><td>Separate personas for one person</td><td>Use internal <code>hermes profile create</code> profiles inside <code>aiagnherm00</code> (see 3.4).</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Add another agent container</h3>
+  <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
+    <li><strong>Add a data directory</strong> to <code>aiagnhermint</code> in <a href="../../compose/aiagn.yml"><code>compose/aiagn.yml</code></a> — mount <code>${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/data01</code> and <code>chown -R 10000:10000 /data01</code>.</li>
+    <li><strong>Duplicate the <code>aiagnherm00</code> service</strong> as <code>aiagnherm01</code> with its own <code>/opt/data</code> volume, its own <code>HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_01}</code>, a unique host port (<code>12321:12320</code>), and optional Traefik labels using <code>HERMES_WORKSPACE_DOMAIN_01</code>.</li>
+    <li><strong>Add the matching variables</strong> to the root <code>.env</code>:
+      <pre><span class="lang-tag">root .env</span><code><span class="var">HERMES_WORKSPACE_PASSWD_01</span>=<span class="str">&lt;password&gt;</span>
+<span class="var">HERMES_DATA_01</span>=<span class="str">${APPS_DATA}/hermesagent/01</span>
+<span class="var">HERMES_WORKSPACE_DOMAIN_01</span>=<span class="str">space1.${DOMAIN_NAME}</span></code></pre>
+    </li>
+    <li><strong>Recreate only the new service:</strong> <code>docker compose up -d --build aiagnherm01</code></li>
+  </ol>
+
+  <div class="callout tip">
+    <span class="callout-icon">✓</span>
+    <p>All agents share the same <code>aiagnlitellm</code> router and <code>aiagnchatllm</code> model, so model capacity is scaled centrally, not per agent. Isolate user data strictly at the volume boundary — never point two people at the same <code>HERMES_DATA_0X</code>.</p>
+  </div>
+
+  <div class="callout warn">
+    <span class="callout-icon">⚠</span>
+    <p><strong>Do not use profiles as multi-tenancy.</strong> Two people sharing one container will overwrite or leak each other's memory and session state.</p>
   </div>
 
   <hr />

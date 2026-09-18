@@ -54,7 +54,7 @@ graph TD
         Traefik -->|run.domain| Woodpecker[devopbldserv\nWoodpecker CI]
         Traefik -->|www.domain + apex| Confluence[wbappcmshome\nConfluence]
         Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
-        Traefik -->|space0-3.domain| Hermes[aiagnherm00-03\n4x Hermes Agent]
+        Traefik -->|space0.domain| Hermes[aiagnherm00\nHermes Agent]
         Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
         Traefik -->|mail.domain| Stalwart[emsvcmailsrv\nStalwart Mail Server]
         Traefik -->|webmail.domain| Bulwark[emsvcwebmail\nBulwark Webmail]
@@ -230,7 +230,7 @@ Local and cloud LLM services power the Hermes AI agents. The llama.cpp server pr
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Hermes Agent — 4 isolated agent workspaces + gateways | `aiagnherm00` … `aiagnherm03` (+ one-shot `aiagnhermint`) | [shared/hermesagent/README.md](shared/hermesagent/README.md) |
+| Hermes Agent — single shared agent workspace + gateway | `aiagnherm00` (+ one-shot `aiagnhermint`) | [shared/hermesagent/README.md](shared/hermesagent/README.md) |
 | LiteLLM Proxy — unified API gateway + complexity router | `aiagnlitellm` | [shared/litellm/README.md](shared/litellm/README.md) |
 | llama.cpp chat inference — local Gemma tier | `aiagnchatllm` | [shared/llamacpp/README.md](shared/llamacpp/README.md) |
 
@@ -238,7 +238,7 @@ Local and cloud LLM services power the Hermes AI agents. The llama.cpp server pr
 
 | Detail | Value |
 |---|---|
-| Hermes workspace ports | 12320 / 12321 / 12322 / 12323 (login with `HERMES_WORKSPACE_PASSWD_0X`) |
+| Hermes workspace port | 12320 (login with `HERMES_WORKSPACE_PASSWD_00`) |
 | Hermes gateway API port | 12330 (internal) |
 | LiteLLM admin UI | `http://<host>:12380/ui` |
 | Local model | Gemma 4 GGUF on llama.cpp (`hephaestus`) |
@@ -254,6 +254,22 @@ Local and cloud LLM services power the Hermes AI agents. The llama.cpp server pr
 ```
 
 See [shared/litellm/README.md](shared/litellm/README.md#routing-logic) for the full routing rules, and [shared/hermesagent/README.md](shared/hermesagent/README.md) for the workspace, overlay system and profiles.
+
+### Multi-user & scaling
+
+Hermes Agent is **single-user / single-tenant**: one container serves exactly one login and one agent identity. Everything under a Hermes home — sessions, `MEMORY.md`, `USER.md`, skills and `state.db` — is shared by anyone logged into that container. Upstream is explicit that profiles are *configuration, not a person* and that profile multiplexing "does not authenticate or authorize end users". See [shared/hermesagent/README.md](shared/hermesagent/README.md#multi-user-support) for the full findings.
+
+The stack therefore ships **one** Hermes Agent (`aiagnherm00`) that acts as a shared team assistant. When more people need their **own** private agent, add another isolated container rather than sharing one login. To scale to N users, replicate the `aiagnherm00` pattern in [`compose/aiagn.yml`](compose/aiagn.yml):
+
+1. **Add a data volume + init entry** — extend `aiagnhermint` with `/data0X`, or add a sibling init container, pointing at `${APPS_DATA}/hermesagent/0X`.
+2. **Duplicate the `aiagnherm00` service** as `aiagnherm0X`, with:
+   - its own `${HERMES_DATA_0X}:/opt/data` volume,
+   - its own `HERMES_WORKSPACE_PASSWD_0X` and (optionally) `HERMES_WORKSPACE_DOMAIN_0X`,
+   - a unique host port (`1232X:12320`).
+3. **Add the matching `HERMES_WORKSPACE_PASSWD_0X`, `HERMES_DATA_0X` and `HERMES_WORKSPACE_DOMAIN_0X`** variables to `.env` / [`env.example`](env.example).
+4. **Recreate** with `docker compose up -d --build aiagnherm0X`.
+
+All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so GPU/RAM scaling is handled centrally there — only per-user data and the workspace need duplicating. For identity-aware routing you can front the agents with Authentik and map each user to a container, but do **not** point multiple people at a single Hermes login.
 
 ---
 
@@ -403,7 +419,7 @@ mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
 mkdir -p ${APPS_DATA}/webapps/authentik/{media,templates}
 mkdir -p ${APPS_DATA}/certs
 mkdir -p ${APPS_DATA}/devops/{repos,buildserv,buildexec}
-mkdir -p ${APPS_DATA}/hermesagent/{00,01,02,03}
+mkdir -p ${APPS_DATA}/hermesagent/00
 mkdir -p ${APPS_DATA}/mailbox/{stalwart,bulwark}
 chown -R 1000:1000 ${APPS_DATA}/mailbox/bulwark
 chown -R 1000:1000 ${APPS_DATA}/devops
@@ -570,7 +586,7 @@ Set these in **Woodpecker → Repository → Settings → Secrets**.
 
 1. Open the repository in Woodpecker (`https://${GITBLD_DOMAIN}`) → **Pipelines**
 2. For **staging**: click **Run pipeline** on the `main` branch (or on a branch you want to deploy) — the `manual` event deploys all services to staging
-3. For **staging or production**: open a recent successful pipeline and click **Deploy** — set the **environment** to the deploy target (`stag` or `prod`) and, optionally, the **task** to a single compose service (`routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`–`aiagnherm03`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `emsvcmailsrv`, or `emsvcwebmail`); leave the task empty to deploy **all** services
+3. For **staging or production**: open a recent successful pipeline and click **Deploy** — set the **environment** to the deploy target (`stag` or `prod`) and, optionally, the **task** to a single compose service (`routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `emsvcmailsrv`, or `emsvcwebmail`); leave the task empty to deploy **all** services
 
 ---
 
@@ -660,9 +676,9 @@ The agent platform variables are documented in the service READMEs — see [Herm
 
 | Variable | Description |
 |---|---|
-| `HERMES_WORKSPACE_PASSWD_00`…`_03` | Workspace web UI passwords (ports 12320–12323) |
-| `HERMES_DATA_00`…`_03` | Per-container data directories (default `${APPS_DATA}/hermesagent/0X`) |
-| `HERMES_WORKSPACE_DOMAIN_00`…`_03` | Optional Traefik domains (empty = IP:port only) |
+| `HERMES_WORKSPACE_PASSWD_00` | Workspace web UI password (port 12320) |
+| `HERMES_DATA_00` | Agent data directory (default `${APPS_DATA}/hermesagent/00`) |
+| `HERMES_WORKSPACE_DOMAIN_00` | Optional Traefik domain (empty = IP:port only) |
 | `LITEM_API_KEY` | LiteLLM master API key, shared by Hermes and other in-stack clients |
 | `LITEM_*` | LiteLLM proxy, admin UI and provider routing settings |
 | `LLAMA_CHTMDL` / `LLAMA_CHTARG` / `HF_TOKEN` | llama.cpp model, server flags, HuggingFace token |
