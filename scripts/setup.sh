@@ -43,9 +43,6 @@ inject_secrets() {
     WPKR_AGN_SECRET=$(openssl rand -hex 32)
     WPKR_GRPC_SECRET=$(openssl rand -hex 32)
     HERMES_WORKSPACE_PASSWD_00=$(openssl rand -base64 24 | tr -d '\n')
-    HERMES_WORKSPACE_PASSWD_01=$(openssl rand -base64 24 | tr -d '\n')
-    HERMES_WORKSPACE_PASSWD_02=$(openssl rand -base64 24 | tr -d '\n')
-    HERMES_WORKSPACE_PASSWD_03=$(openssl rand -base64 24 | tr -d '\n')
     WEBMAIL_SESSION_SECRET=$(openssl rand -base64 32 | tr -d '\n')
 
     # Only replace if the current value matches the placeholder (not already set)
@@ -59,9 +56,6 @@ inject_secrets() {
         -e "s|<YOUR_WOODPECKER_AGENT_SECRET>|${WPKR_AGN_SECRET}|g" \
         -e "s|<YOUR_WOODPECKER_GRPC_SECRET>|${WPKR_GRPC_SECRET}|g" \
         -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_00>|${HERMES_WORKSPACE_PASSWD_00}|g" \
-        -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_01>|${HERMES_WORKSPACE_PASSWD_01}|g" \
-        -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_02>|${HERMES_WORKSPACE_PASSWD_02}|g" \
-        -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_03>|${HERMES_WORKSPACE_PASSWD_03}|g" \
         -e "s|<YOUR_STRONG_WEBMAIL_SESSION_SECRET>|${WEBMAIL_SESSION_SECRET}|g" \
         "$ENV_FILE" && rm "${ENV_FILE}.bak"
 }
