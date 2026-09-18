@@ -20,11 +20,9 @@ services:
             args:
                 - IMAGE_TAG=${GITREPO_VTAG}
         depends_on:
-            devopbldinit:
-                condition: service_completed_successfully
-            routetraefik:
+            authnservice:
                 condition: service_healthy
-            dbsvcpgsqldb:
+            devopbldserv:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
@@ -73,7 +71,7 @@ services:
         depends_on:
             devopbldinit:
                 condition: service_completed_successfully
-            devopgitserv:
+            devopbldexec:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
@@ -120,9 +118,6 @@ services:
             context: ../shared/woodpecker/agent/
             args:
                 - IMAGE_TAG=${GITBLD_VTAG}
-        depends_on:
-            devopbldserv:
-                condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
             - WOODPECKER_SERVER=devopbldserv:9000

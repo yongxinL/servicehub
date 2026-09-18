@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Confluence](https://www.atlassian.com/software/confluence) runs as a custom Data Center image and serves `WBHOME_DOMAIN` plus the apex `${DOMAIN_NAME}`. It is defined by the `wbappcmsconf` service in [`compose/wbapp.yml`](../../compose/wbapp.yml) and built from [`shared/confluence/Dockerfile`](Dockerfile) (`FROM atlassian/confluence:${IMAGE_TAG}`).
+[Confluence](https://www.atlassian.com/software/confluence) runs as a custom Data Center image and serves `WBHOME_DOMAIN` plus the apex `${DOMAIN_NAME}`. It is defined by the `wbappcmshome` service in [`compose/wbapp.yml`](../../compose/wbapp.yml) and built from [`shared/confluence/Dockerfile`](Dockerfile) (`FROM atlassian/confluence:${IMAGE_TAG}`).
 
 Confluence is the default homepage and is backed by [PostgreSQL](../postgresql/README.md).
 
@@ -12,7 +12,7 @@ Confluence is the default homepage and is backed by [PostgreSQL](../postgresql/R
 
 | Detail | Value |
 |---|---|
-| Service name | `wbappcmsconf` |
+| Service name | `wbappcmshome` |
 | Compose file | `compose/wbapp.yml` |
 | URL | `https://${WBHOME_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
 | Internal port | 8090 (Tomcat; TLS terminated by Traefik) |
@@ -20,7 +20,7 @@ Confluence is the default homepage and is backed by [PostgreSQL](../postgresql/R
 | Data persistence | `${APPS_DATA}/webapps/confluence` (mounted at `/var/atlassian/application-data/confluence`) |
 | Image tag | `WBCONF_TAG` (default `10.2`) |
 | JVM memory | `JVM_MINIMUM_MEMORY=1024m` / `JVM_MAXIMUM_MEMORY=3072m` |
-| Middleware | `wbappcmsconf-compress` (Traefik gzip compression) |
+| Middleware | `wbappcmshome-compress` (Traefik gzip compression) |
 | Image extras | Java agent (`com.custom.confluence.mcp.connector`) plus SAML SSO, Table Filter, Questions and Vault plugins |
 
 ## Configuration
@@ -58,7 +58,7 @@ Container settings applied by the compose file:
 1. Start Confluence (with Traefik and PostgreSQL healthy):
 
     ```bash
-    docker compose up -d wbappcmsconf
+    docker compose up -d wbappcmshome
     ```
 
 2. Open `https://${WBHOME_DOMAIN}` and complete the setup wizard, pointing it at the
@@ -70,13 +70,13 @@ Container settings applied by the compose file:
 
 ```bash
 # Start / restart
-docker compose up -d wbappcmsconf
+docker compose up -d wbappcmshome
 
 # Rebuild after a Dockerfile or plugin change
-docker compose up -d --build wbappcmsconf
+docker compose up -d --build wbappcmshome
 
 # Follow logs
-docker compose logs -f wbappcmsconf
+docker compose logs -f wbappcmshome
 ```
 
 ## Files

@@ -26,7 +26,7 @@ The service is kept ready to run in [`compose.yml`](compose.yml) but is **not** 
 1. Stop the running Confluence homepage:
 
     ```bash
-    docker compose stop wbappcmsconf
+    docker compose stop wbappcmshome
     ```
 
 2. In [`docker-compose.yml`](../../docker-compose.yml), replace `- compose/wbapp.yml` with `- shared/wordpress/compose.yml`.

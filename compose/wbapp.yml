@@ -1,14 +1,12 @@
 services:
-    # wbappcmsconf — Confluence homepage / CMS. Docs: shared/confluence/README.md
-    wbappcmsconf:
+    # wbappcmshome — Confluence homepage / CMS. Docs: shared/confluence/README.md
+    wbappcmshome:
         build:
             context: ../shared/confluence/
             args:
                 - IMAGE_TAG=${WBCONF_TAG}
         depends_on:
-            routetraefik:
-                condition: service_healthy
-            dbsvcpgsqldb:
+            authnservice:
                 condition: service_healthy
         environment:
             - ATL_PROXY_NAME=${WBHOME_DOMAIN}
@@ -32,26 +30,26 @@ services:
             interval: 30s
             retries: 5
             timeout: 5s
-        image: wbappcmsconf:latest
+        image: wbappcmshome:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.wbappcmsconf.entrypoints=websecure"
+            - "traefik.http.routers.wbappcmshome.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.wbappcmsconf.rule=Host(`${WBHOME_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            - "traefik.http.routers.wbappcmshome.rule=Host(`${WBHOME_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.wbappcmsconf.service=wbappcmsconf"
+            - "traefik.http.routers.wbappcmshome.service=wbappcmshome"
             # Define the internal container port for routing
-            - "traefik.http.services.wbappcmsconf.loadbalancer.server.port=8090"
+            - "traefik.http.services.wbappcmshome.loadbalancer.server.port=8090"
             # Enable TLS on this router
-            - "traefik.http.routers.wbappcmsconf.tls=true"
+            - "traefik.http.routers.wbappcmshome.tls=true"
             # Apply a compression middleware
-            - "traefik.http.routers.wbappcmsconf.middlewares=wbappcmsconf-compress"
+            - "traefik.http.routers.wbappcmshome.middlewares=wbappcmshome-compress"
             # Define settings for the compression middleware
-            - "traefik.http.middlewares.wbappcmsconf-compress.compress=true"
+            - "traefik.http.middlewares.wbappcmshome-compress.compress=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.wbappcmsconf.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.wbappcmshome.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped

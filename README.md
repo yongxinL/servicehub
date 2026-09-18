@@ -50,7 +50,7 @@ graph TD
         Traefik -->|login.domain| Authentik[authnservice\nIdP / SSO]
         Traefik -->|git.domain| Forgejo[devopgitserv\nForgejo]
         Traefik -->|run.domain| Woodpecker[devopbldserv\nWoodpecker CI]
-        Traefik -->|www.domain + apex| Confluence[wbappcmsconf\nConfluence]
+        Traefik -->|www.domain + apex| Confluence[wbappcmshome\nConfluence]
         Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
         Traefik -->|space0-3.domain| Hermes[aiagnherm00-03\n4x Hermes Agent]
         Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
@@ -247,7 +247,7 @@ See [shared/litellm/README.md](shared/litellm/README.md#routing-logic) for the f
 | Service | Runs as | Full documentation |
 |---|---|---|
 | Authentik — IdP / SSO | `authnservice`, `authnworkers` (+ one-shot `authnsvrinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
-| Confluence Data Center — homepage / CMS | `wbappcmsconf` | [shared/confluence/README.md](shared/confluence/README.md) |
+| Confluence Data Center — homepage / CMS | `wbappcmshome` | [shared/confluence/README.md](shared/confluence/README.md) |
 | Open WebUI — browser LLM chat interface | `wbappwebchat` | [shared/openwebui/README.md](shared/openwebui/README.md) |
 
 Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`.
@@ -529,7 +529,7 @@ Set these in **Woodpecker → Repository → Settings → Secrets**.
 
 1. Open the repository in Woodpecker (`https://${GITBLD_DOMAIN}`) → **Pipelines**
 2. For **staging**: click **Run pipeline** on the `main` branch (or on a branch you want to deploy) — the `manual` event deploys all services to staging
-3. For **staging or production**: open a recent successful pipeline and click **Deploy** — set the **environment** to the deploy target (`stag` or `prod`) and, optionally, the **task** to a single compose service (`routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbappcmsconf`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`–`aiagnherm03`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, or `obsvcgrafana`); leave the task empty to deploy **all** services
+3. For **staging or production**: open a recent successful pipeline and click **Deploy** — set the **environment** to the deploy target (`stag` or `prod`) and, optionally, the **task** to a single compose service (`routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`–`aiagnherm03`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, or `obsvcgrafana`); leave the task empty to deploy **all** services
 
 ---
 
