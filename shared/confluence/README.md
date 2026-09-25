@@ -18,10 +18,10 @@ Confluence is the default homepage and is backed by [PostgreSQL](../postgresql/R
 | Internal port | 8090 (Tomcat; TLS terminated by Traefik) |
 | Database | PostgreSQL (`${WBHOME_DBNAME}`) |
 | Data persistence | `${APPS_DATA}/webapps/confluence` (mounted at `/var/atlassian/application-data/confluence`) |
-| Image tag | `WBCONF_TAG` (default `10.2`) |
+| Image tag | `WBHOME_TAG` (default `10.2`) |
 | JVM memory | `JVM_MINIMUM_MEMORY=1024m` / `JVM_MAXIMUM_MEMORY=3072m` |
 | Middleware | `wbappcmshome-compress` (Traefik gzip compression) |
-| Image extras | Java agent (`com.custom.confluence.mcp.connector`) plus SAML SSO, Table Filter, Questions and Vault plugins |
+| Image extras | Java agent (`com.custom.confluence.mcp.connector`) plus SAML SSO, Draw.io, Table Filter, Questions and Aura (formatting) plugins |
 
 ## Configuration
 
@@ -31,7 +31,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 |---|---|
 | `WBHOME_DOMAIN` | Homepage hostname (default `www.${DOMAIN_NAME}`) |
 | `WBHOME_DBNAME` | PostgreSQL database name (must be in `PGRSQL_DBLIST`) |
-| `WBCONF_TAG` | Confluence image tag passed to the Dockerfile as `IMAGE_TAG` |
+| `WBHOME_TAG` | Confluence image tag passed to the Dockerfile as `IMAGE_TAG` |
 | `SQLDB_USER` / `SQLDB_PASS` | Shared PostgreSQL credentials |
 | `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL connection target (`dbsvcpgsqldb:5432`) |
 | `APPS_DATA` | Host path for the data bind mount |
