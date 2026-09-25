@@ -13,7 +13,7 @@ This deployment runs four containers together:
 | Container | Role | Internal address |
 |---|---|---|
 | `aiagnfastcrw` | FastCRW API server | `http://aiagnfastcrw:12360` |
-| `aiagnlighpda` | LightPanda JS renderer (lightweight) | `ws://aiagnlighpda:9222` |
+| `aiagnlighpda` | LightPanda JS renderer (lightweight) | `ws://aiagnlighpda:12362` |
 | `aiagnchromum` | Browserless/Chromium renderer (stealth) | `ws://aiagnchromum:12363` |
 | `aiagnsearxng` | SearXNG search engine sidecar | `http://aiagnsearxng:12361` |
 
