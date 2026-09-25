@@ -110,6 +110,7 @@ services:
             - LLAMA_MODEL=${LLAMA_CHTMDL}
             - LLAMA_PORT=12386
             - LLAMA_ARGS=${LLAMA_CHTARG}
+            - HF_TOKEN=${HF_TOKEN}
         healthcheck:
             test: [ "CMD", "curl", "-f", "http://localhost:12386/health" ]
             interval: 60s
