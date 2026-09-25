@@ -39,7 +39,7 @@ Certificates come from the shared Traefik ACME store — Stalwart does not run i
    - validates them with `openssl` and checks cert/key match,
    - on change, installs them into `/var/lib/stalwart/tls/` and restarts the server.
 
-This mirrors how the deploy workflow restores `acme.json` from the `*_B64ENC_ACME` Woodpecker secret.
+This mirrors how the deploy workflow restores `acme.json` from the `*_B64ENC_ACME` Forgejo Actions secret.
 
 ## Configuration (env)
 

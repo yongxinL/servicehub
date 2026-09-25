@@ -1,0 +1,41 @@
+# Forgejo Actions runner configuration for devopgitexec.
+# Bind-mounted read-only at /etc/forgejo-runner/config.yml by compose/devop.yml;
+# edit this file and restart devopgitexec to apply changes.
+# Full reference: https://code.forgejo.org/forgejo/runner (internal/pkg/config/config.example.yaml)
+# Generated defaults can be obtained with `forgejo-runner generate-config`.
+
+log:
+    level: info
+    job_level: info
+
+runner:
+    # Where to store the registration result; the compose entrypoint writes it
+    # here on first boot (delete this file to force re-registration).
+    file: /var/lib/forgejo-runner/.runner
+    # One job at a time, like the previous Woodpecker agent (MAX_WORKFLOWS=2 minus headroom).
+    capacity: 1
+    # Long deploy pipelines over SSH; Forgejo's own job timeout is 3h by default.
+    timeout: 3h
+    fetch_timeout: 30s
+    fetch_interval: 2s
+    report_interval: 1s
+    insecure: false
+    # Label advertised to Forgejo; "host" runs workflow jobs directly in the
+    # runner container (no job container, no Docker socket). Workflows declare
+    # `runs-on: ssh-deploy`. The name before ":" is what runs-on matches.
+    labels:
+        - ssh-deploy:host
+
+cache:
+    enabled: true
+    port: 0
+
+host:
+    workdir_parent: /workspace
+
+server:
+    # Connection to the stack's Forgejo instance. Left empty on purpose: the
+    # runner entrypoint (shared/forgejo/actions/entrypoint.sh) writes the
+    # connection (url + uuid + token) into the .runner file on first boot,
+    # using the GITBLD_AGN_SECRET shared with the Forgejo instance.
+    connections: {}

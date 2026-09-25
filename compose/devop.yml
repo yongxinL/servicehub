@@ -1,28 +1,27 @@
 services:
-    # devopbldinit — one-shot: create DevOps data dirs, chown 1000:1000. Docs: shared/woodpecker/README.md
+    # devopbldinit — one-shot: create DevOps data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
     devopbldinit:
         command: >
-            sh -c 'mkdir -p /data /var/lib/woodpecker /etc/woodpecker &&
-                   chown -R 1000:1000 /data /var/lib/woodpecker /etc/woodpecker'
+            sh -c 'mkdir -p /data /var/lib/forgejo-runner &&
+                   chown -R 1000:1000 /data /var/lib/forgejo-runner'
         image: busybox:latest
         networks:
             - subnet
         user: root
         volumes:
             - ${APPS_DATA}/devops/repos:/data
-            - ${APPS_DATA}/devops/buildserv:/var/lib/woodpecker
-            - ${APPS_DATA}/devops/buildexec:/etc/woodpecker
+            - ${APPS_DATA}/devops/buildexec:/var/lib/forgejo-runner
 
-    # devopgitserv — Forgejo git server (HTTPS clone/webhooks via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
+    # devopgitserv — Forgejo git server + Actions (HTTPS clone via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
     devopgitserv:
         build:
             context: ../shared/forgejo/server/
             args:
                 - IMAGE_TAG=${GITREPO_VTAG}
         depends_on:
-            authnservice:
+            dbsvcpgsqldb:
                 condition: service_healthy
-            devopbldserv:
+            authnservice:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
@@ -39,7 +38,7 @@ services:
             - FORGEJO__database__PASSWD=${SQLDB_PASS}
             - FORGEJO__openid__ENABLE_OPENID_SIGNIN=false
             - FORGEJO__openid__ENABLE_OPENID_SIGNUP=false
-            - FORGEJO__webhook__ALLOWED_HOST_LIST=external,${GITBLD_DOMAIN}
+            - FORGEJO__actions__ENABLED=true
         healthcheck:
             test: [ "CMD", "curl", "-fsS", "http://localhost:3000/api/healthz" ]
             start_period: 20s
@@ -62,81 +61,43 @@ services:
             - /etc/localtime:/etc/localtime:ro
             - ${APPS_DATA}/devops/repos:/data
 
-    # devopbldserv — Woodpecker CI server (web UI, API, scheduler; OAuth app in Forgejo required first). Docs: shared/woodpecker/README.md
-    devopbldserv:
+    # devopgitexec — Forgejo Actions runner using host-mode execution.
+    # Workflow jobs run inside this runner container and deploy to Docker hosts
+    # over SSH. No temporary job container or Docker socket is required.
+    # Docs: shared/forgejo/README.md
+    devopgitexec:
         build:
-            context: ../shared/woodpecker/server/
+            context: ../shared/forgejo/actions/
             args:
                 - IMAGE_TAG=${GITBLD_VTAG}
         depends_on:
             devopbldinit:
                 condition: service_completed_successfully
-            devopbldexec:
+            devopgitserv:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
-            - WOODPECKER_HOST=https://${GITBLD_DOMAIN}
-            - WOODPECKER_SERVER_ADDR=:8000
-            - WOODPECKER_GRPC_ADDR=:9000
-            - WOODPECKER_FORGEJO=true
-            - WOODPECKER_FORGEJO_URL=http://devopgitserv:3000
-            - WOODPECKER_EXPERT_FORGE_OAUTH_HOST=https://${GITREPO_DOMAIN}
-            - WOODPECKER_FORGEJO_CLIENT=${GITBLD_OA_CLIENT}
-            - WOODPECKER_FORGEJO_SECRET=${GITBLD_OA_SECRET}
-            - WOODPECKER_AGENT_SECRET=${GITBLD_AGN_SECRET}
-            - WOODPECKER_GRPC_SECRET=${GITBLD_GRPC_SECRET}
-            - WOODPECKER_ADMIN=${GITBLD_ADMUSR}
-            - WOODPECKER_OPEN=false
-            - WOODPECKER_DATABASE_DRIVER=sqlite3
-            - WOODPECKER_DATABASE_DATASOURCE=/var/lib/woodpecker/woodpecker.sqlite
-            - WOODPECKER_LOG_LEVEL=info
+            - GITBLD_AGN_SECRET=${GITBLD_AGN_SECRET}
+            - FORGEJO_INSTANCE_URL=http://devopgitserv:3000
+            - FORGEJO_RUNNER_NAME=devopgitexec
+        # The runner daemon has no HTTP endpoint; the healthcheck verifies the
+        # daemon process is alive and the registration file is non-empty.
+        # `pidof` is provided by Alpine's busybox and is always available.
         healthcheck:
-            test: [ "CMD", "/bin/woodpecker-server", "ping" ]
+            test: ["CMD-SHELL", "pidof forgejo-runner > /dev/null && [ -s /var/lib/forgejo-runner/.runner ]"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
             start_period: 30s
-            interval: 30s
-            retries: 5
-            timeout: 5s
-        image: devopbldserv:latest
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.devopbldserv.entrypoints=websecure"
-            - "traefik.http.routers.devopbldserv.rule=Host(`${GITBLD_DOMAIN}`)"
-            - "traefik.http.routers.devopbldserv.service=devopbldserv"
-            - "traefik.http.services.devopbldserv.loadbalancer.server.port=8000"
-            - "traefik.http.routers.devopbldserv.tls=true"
-            - "traefik.http.routers.devopbldserv.tls.certresolver=${CERTRESOLVER}"
+        image: devopgitexec:latest
         networks:
             - subnet
         restart: unless-stopped
         volumes:
             - /etc/localtime:/etc/localtime:ro
-            - ${APPS_DATA}/devops/buildserv:/var/lib/woodpecker
-
-    # devopbldexec — Woodpecker CI agent (docker backend on host daemon). Docs: shared/woodpecker/README.md
-    devopbldexec:
-        build:
-            context: ../shared/woodpecker/agent/
-            args:
-                - IMAGE_TAG=${GITBLD_VTAG}
-        environment:
-            - TZ=${TIME_ZONE}
-            - WOODPECKER_SERVER=devopbldserv:9000
-            - WOODPECKER_AGENT_NAME=devopbldexec
-            - WOODPECKER_AGENT_SECRET=${GITBLD_AGN_SECRET}
-            - WOODPECKER_BACKEND=docker
-            - WOODPECKER_MAX_WORKFLOWS=2
-            - WOODPECKER_BACKEND_DOCKER_NETWORK=${GITBLD_NETWORK:-servicehub_subnet}
-        healthcheck:
-            test: [ "CMD", "/bin/woodpecker-agent", "ping" ]
-            start_period: 20s
-            interval: 30s
-            retries: 5
-            timeout: 5s
-        image: devopbldexec:latest
-        networks:
-            - subnet
-        restart: unless-stopped
-        volumes:
-            - /etc/localtime:/etc/localtime:ro
-            - /var/run/docker.sock:/var/run/docker.sock
-            - ${APPS_DATA}/devops/buildexec:/etc/woodpecker
+            # Version-controlled runtime configuration.
+            - ../shared/forgejo/actions/config.yml:/etc/forgejo-runner/config.yml:ro
+            # Persistent registration identity and runner data.
+            - ${APPS_DATA}/devops/buildexec:/var/lib/forgejo-runner
+            # Host-mode job workspace.
+            - ${APPS_DATA}/devops/workspace:/workspace

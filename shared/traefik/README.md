@@ -83,7 +83,7 @@ labels:
 chmod 600 ${APPS_DATA}/certs/acme.json
 ```
 
-On remote deploys the file is restored from the `PROD_B64ENC_ACME` Woodpecker secret — see the root [Deployment (Woodpecker CI)](../../README.md#deployment-woodpecker-ci).
+On remote deploys the file is restored from the `PROD_B64ENC_ACME` Forgejo Actions secret — see the root [Deployment (Forgejo Actions)](../../README.md#deployment-forgejo-actions).
 
 ### Staging — self-signed
 

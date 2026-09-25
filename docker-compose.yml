@@ -8,15 +8,14 @@
 #   compose/authn.yml   authn*  Authentication / SSO (Authentik)
 #   compose/wbapp.yml   wbapp*  Homepage / CMS + Open WebUI (Confluence + Open WebUI)
 #   compose/aiagn.yml   aiagn*  AI agents + LLM inference (Hermes + LiteLLM + llama.cpp)
-#   compose/devop.yml   devop*  Source control + CI (Forgejo + Woodpecker)
+#   compose/devop.yml   devop*  Source control + CI (Forgejo + Actions runner)
 #   compose/obsvc.yml   obsvc*  Observability (metrics + logs + Grafana)
 #   compose/emsvc.yml   emsvc*  Email services (Stalwart mail + Bulwark webmail)
 #
 # Deploy with: docker compose up -d --build
 #
 # The project name is pinned so the shared network is always
-# `servicehub_subnet`, which Woodpecker build containers reference by name
-# (see GITBLD_NETWORK).
+# `servicehub_subnet` (stable name for inter-service references).
 name: servicehub
 
 ############### NETWORKS ###############

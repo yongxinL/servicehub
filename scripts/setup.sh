@@ -6,12 +6,12 @@
 #
 # Usage:
 #   bash scripts/setup.sh                          # Setup or merge .env
-#   bash scripts/setup.sh --encode <STAG|PROD>     # Output base64-encoded secrets for Woodpecker
-#   bash scripts/setup.sh --decode <STAG|PROD>     # Restore .env from a Woodpecker secret
+#   bash scripts/setup.sh --encode <STAG|PROD>     # Output base64-encoded secrets for Forgejo Actions
+#   bash scripts/setup.sh --decode <STAG|PROD>     # Restore .env from an Actions secret
 #
 # Options:
 #   --encode <env>   Output base64-encoded .env and acme.json for specified environment
-#   --decode <env>   Decode and restore .env from a Woodpecker secret (interactive)
+#   --decode <env>   Decode and restore .env from an Actions secret (interactive)
 
 set -e
 
@@ -40,8 +40,7 @@ inject_secrets() {
     AUTHK_SECRET=$(openssl rand -base64 60 | tr -d '\n')
     LITELLM_APIKEY="sk-$(openssl rand -hex 24)"
     LITELLM_ADMPWD=$(openssl rand -base64 24 | tr -d '\n')
-    WPKR_AGN_SECRET=$(openssl rand -hex 32)
-    WPKR_GRPC_SECRET=$(openssl rand -hex 32)
+    RUNNER_SECRET=$(openssl rand -hex 20)
     HERMES_WORKSPACE_PASSWD_00=$(openssl rand -base64 24 | tr -d '\n')
     WEBMAIL_SESSION_SECRET=$(openssl rand -base64 32 | tr -d '\n')
 
@@ -53,8 +52,7 @@ inject_secrets() {
         -e "s|<YOUR_STRONG_AUTHENTIK_SECRETKEY>|${AUTHK_SECRET}|g" \
         -e "s|<YOUR_LITELLM_MASTER_API_KEY>|${LITELLM_APIKEY}|g" \
         -e "s|<YOUR_STRONG_LITELLM_ADMIN_PASSWORD>|${LITELLM_ADMPWD}|g" \
-        -e "s|<YOUR_WOODPECKER_AGENT_SECRET>|${WPKR_AGN_SECRET}|g" \
-        -e "s|<YOUR_WOODPECKER_GRPC_SECRET>|${WPKR_GRPC_SECRET}|g" \
+        -e "s|<YOUR_GITBLD_AGN_SECRET>|${RUNNER_SECRET}|g" \
         -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_00>|${HERMES_WORKSPACE_PASSWD_00}|g" \
         -e "s|<YOUR_STRONG_WEBMAIL_SESSION_SECRET>|${WEBMAIL_SESSION_SECRET}|g" \
         "$ENV_FILE" && rm "${ENV_FILE}.bak"
@@ -64,26 +62,40 @@ inject_secrets() {
 # Must run before merge_env so that references in other values (e.g. the
 # PGRSQL_DBLIST composition) are rewritten too.
 migrate_env() {
-    # Woodpecker CI replaces the old Gitea Actions workflow.
+    # The legacy Gitea/Woodpecker runner token no longer exists (Forgejo Actions
+    # uses a shared runner secret); drop it from old .env files.
     if grep -q '^REPBUK_' "$ENV_FILE" 2>/dev/null; then
         echo "Migrating legacy REPBUK_* variables to GITREPO_* ..."
         sed -i.bak \
             -e 's/REPBUK_DBNAME/GITREPO_DBNAME/g' \
             -e 's/REPBUK_DOMAIN/GITREPO_DOMAIN/g' \
             "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-        # REPBUK_RUNTOKEN no longer exists (Woodpecker uses a shared secret)
         sed -i.bak '/^REPBUK_RUNTOKEN=/d' "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+    fi
+
+    # Woodpecker CI was replaced by Forgejo Actions; its secrets are obsolete.
+    if grep -qE '^(GITBLD_OA_CLIENT|GITBLD_OA_SECRET|GITBLD_GRPC_SECRET|GITBLD_ADMUSR|GITBLD_DOMAIN|GITBLD_NETWORK)=' "$ENV_FILE" 2>/dev/null; then
+        echo "Removing obsolete Woodpecker variables (GITBLD_OA_*, GITBLD_GRPC_SECRET, GITBLD_ADMUSR, GITBLD_DOMAIN, GITBLD_NETWORK) ..."
+        sed -i.bak \
+            -e '/^GITBLD_OA_CLIENT=/d' \
+            -e '/^GITBLD_OA_SECRET=/d' \
+            -e '/^GITBLD_GRPC_SECRET=/d' \
+            -e '/^GITBLD_ADMUSR=/d' \
+            -e '/^GITBLD_DOMAIN=/d' \
+            -e '/^GITBLD_NETWORK=/d' \
+            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
     fi
 
     # The homepage web service was renamed from wbsvc to wbapp and its variables
     # from WEBHOM_* to WBHOME_*. WBHOME_DOMAN was a typo; the canonical name is
-    # WBHOME_DOMAIN.
-    if grep -qE '^(WEBHOM_|WBHOME_DOMAN=)' "$ENV_FILE" 2>/dev/null; then
-        echo "Migrating legacy WEBHOM_* / WBHOME_DOMAN variables ..."
+    # WBHOME_DOMAIN. The Confluence image tag moved from WBCONF_TAG to WBHOME_TAG.
+    if grep -qE '^(WEBHOM_|WBHOME_DOMAN=|WBCONF_TAG=)' "$ENV_FILE" 2>/dev/null; then
+        echo "Migrating legacy WEBHOM_* / WBHOME_DOMAN / WBCONF_TAG variables ..."
         sed -i.bak \
             -e 's/^WEBHOM_DBNAME=/WBHOME_DBNAME=/' \
             -e 's/^WEBHOM_DOMAIN=/WBHOME_DOMAIN=/' \
             -e 's/^WBHOME_DOMAN=/WBHOME_DOMAIN=/' \
+            -e 's/^WBCONF_TAG=/WBHOME_TAG=/' \
             -e 's/\${WEBHOM_DBNAME}/${WBHOME_DBNAME}/g' \
             -e 's/\${WEBHOM_DOMAIN}/${WBHOME_DOMAIN}/g' \
             -e 's/\${WBHOME_DOMAN}/${WBHOME_DOMAIN}/g' \
@@ -153,7 +165,7 @@ encode_secrets() {
     fi
 
     echo "=============================================="
-    echo "  Base64-encoded secrets for Woodpecker"
+    echo "  Base64-encoded secrets for Forgejo Actions"
     echo "  Environment: $env"
     echo "=============================================="
     echo ""
@@ -192,12 +204,12 @@ encode_secrets() {
     echo "  Files created:"
     echo "=============================================="
     echo ""
-    echo "  ${envs_file}  -> Woodpecker secret: ${env}_B64ENC_ENVS"
+    echo "  ${envs_file}  -> Forgejo Actions secret: ${env}_B64ENC_ENVS"
     if [ "$acme_encoded" = true ]; then
-        echo "  ${acme_b64_file}  -> Woodpecker secret: ${env}_B64ENC_ACME"
+        echo "  ${acme_b64_file}  -> Forgejo Actions secret: ${env}_B64ENC_ACME"
     fi
     echo ""
-    echo "To get content for Woodpecker secrets, run:"
+    echo "To get content for Actions secrets, run:"
     echo "  cat ${envs_file}      # copy output to ${env}_B64ENC_ENVS"
     if [ "$acme_encoded" = true ]; then
         echo "  cat ${acme_b64_file}  # copy output to ${env}_B64ENC_ACME"
@@ -208,7 +220,7 @@ encode_secrets() {
     echo "Or pipe directly:"
     echo "  cat ${envs_file} | xclip -selection clipboard"
     echo ""
-    echo "Go to: Woodpecker -> Repository -> Settings -> Secrets"
+    echo "Go to: Forgejo -> Repository -> Settings -> Actions -> Secrets"
     echo ""
 }
 

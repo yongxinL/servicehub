@@ -2,7 +2,7 @@
 
 > A quiet harbor where HomeLab services arrive, find their place, and don't get lost again
 
-ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. It provides a curated stack of infrastructure, developer tools, an AI agent platform and an observability stack behind a single Traefik reverse proxy with automatic TLS — deployable to staging or production via a one-click Woodpecker CI workflow.
+ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. It provides a curated stack of infrastructure, developer tools, an AI agent platform and an observability stack behind a single Traefik reverse proxy with automatic TLS — deployable to staging or production via a one-click Forgejo Actions workflow.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
-- [Deployment (Woodpecker CI)](#deployment-woodpecker-ci)
+- [Deployment (Forgejo Actions)](#deployment-forgejo-actions)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [License](#license)
@@ -35,9 +35,9 @@ Compose files are split by functional domain:
 | `compose/route.yml` | `route*` | Edge routing + TLS termination (Traefik) |
 | `compose/dbsvc.yml` | `dbsvc*` | Relational databases (MariaDB + PostgreSQL) |
 | `compose/authn.yml` | `authn*` | Authentication / SSO (Authentik) |
+| `compose/devop.yml` | `devop*` | Source control + CI (Forgejo + Forgejo Actions runner) |
 | `compose/wbapp.yml` | `wbapp*` | Homepage / CMS (Confluence) + Open WebUI |
 | `compose/aiagn.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
-| `compose/devop.yml` | `devop*` | Source control + CI (Forgejo + Woodpecker) |
 | `compose/obsvc.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
 | `compose/emsvc.yml` | `emsvc*` | Email services (Stalwart mail server + Bulwark webmail) |
 
@@ -50,8 +50,7 @@ graph TD
         Traefik[routetraefik\nReverse Proxy + TLS]
         Traefik -->|traefik.domain| Dashboard[Traefik Dashboard]
         Traefik -->|login.domain| Authentik[authnservice\nIdP / SSO]
-        Traefik -->|git.domain| Forgejo[devopgitserv\nForgejo]
-        Traefik -->|run.domain| Woodpecker[devopbldserv\nWoodpecker CI]
+        Traefik -->|git.domain| Forgejo[devopgitserv\nForgejo + Actions]
         Traefik -->|www.domain + apex| Confluence[wbappcmshome\nConfluence]
         Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
         Traefik -->|space0.domain| Hermes[aiagnherm00\nHermes Agent]
@@ -62,9 +61,8 @@ graph TD
         Authentik -.->|forward-auth| Grafana
         Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
-        Confluence -->|depends on| PostgreSQL
-        Woodpecker -->|OAuth + webhooks| Forgejo
-        Woodpecker -->|schedules| Agent[devopbldexec\nWoodpecker Agent]
+        Confluence -->|depends on| Authentik
+        Forgejo -->|schedules| Runner[devopgitexec\nForgejo Actions Runner]
         Hermes -->|hermes| LiteLLM[aiagnlitellm\nComplexity Router]
         LiteLLM -->|depends on| PostgreSQL
         LiteLLM -->|hephaestus| Gemma[aiagnchatllm\nllama.cpp Gemma-4 local]
@@ -75,12 +73,12 @@ graph TD
         VL -.->|receives| Alloy
     end
 
-    WPDeploy[deploy pipeline\n.woodpecker/deploy.yml] -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
+    WPDeploy[deploy workflow\n.forgejo/workflows/deploy.yml] -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
 ```
 
 **TLS strategy:**
 - **Staging:** self-signed certificate from `shared/traefik/advanced/selfsigncert/` (git-crypt encrypted, referenced by `shared/traefik/advanced/certificates.yml`)
-- **Production:** Let's Encrypt ACME TLS challenge; `acme.json` is stored at `${APPS_DATA}/certs/acme.json` and restored from an encrypted Woodpecker secret on deploy
+- **Production:** Let's Encrypt ACME TLS challenge; `acme.json` is stored at `${APPS_DATA}/certs/acme.json` and restored from an encrypted Actions secret on deploy
 
 ---
 
@@ -88,15 +86,16 @@ graph TD
 
 ```
 servicehub/
-├── .woodpecker/
-│   └── deploy.yml               # Woodpecker CI deployment workflow
+├── .forgejo/
+│   └── workflows/
+│       └── deploy.yml            # Forgejo Actions deployment workflow (self-contained)
 ├── compose/                    # Per-domain Docker Compose files
 │   ├── route.yml               # Traefik (routetraefik)
 │   ├── dbsvc.yml               # MariaDB + PostgreSQL
 │   ├── authn.yml               # Authentik server + worker + init
 │   ├── wbapp.yml               # Homepage / CMS (Confluence) + Open WebUI
 │   ├── aiagn.yml               # Hermes agents + LiteLLM + llama.cpp
-│   ├── devop.yml               # Forgejo + Woodpecker CI server/agent
+│   ├── devop.yml               # Forgejo + Forgejo Actions runner
 │   ├── obsvc.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
 │   └── emsvc.yml               # Email services (Stalwart mail server + Bulwark webmail)
 ├── shared/                     # Shared build contexts and static config
@@ -112,12 +111,9 @@ servicehub/
 │   │   ├── README.md                     # Authentik service documentation
 │   │   └── Dockerfile
 │   ├── forgejo/
-│   │   ├── README.md                     # Forgejo service documentation
-│   │   └── server/Dockerfile
-│   ├── woodpecker/
-│   │   ├── README.md                     # Woodpecker CI service documentation
-│   │   ├── server/Dockerfile
-│   │   └── agent/Dockerfile
+│   │   ├── README.md                     # Forgejo service + Actions runner documentation
+│   │   ├── server/Dockerfile             # Forgejo server image
+│   │   └── actions/Dockerfile            # Forgejo Actions runner image
 │   ├── confluence/
 │   │   ├── README.md                     # Confluence service documentation
 │   │   ├── Dockerfile
@@ -127,6 +123,7 @@ servicehub/
 │   │   ├── README.html                   # Full Hermes setup guide
 │   │   ├── Dockerfile
 │   │   ├── start-gateways.sh             # Entrypoint: seeds defaults, starts gateway + workspace
+│   │   ├── init-profile.sh               # One-shot profile seeder (run on first container exec)
 │   │   ├── apply-overlay.sh              # Replays persisted /opt/hermes edits at startup
 │   │   ├── overlay-*                     # Overlay tooling (track / save / patch)
 │   │   └── default/                      # Default profile files baked into the image
@@ -145,6 +142,7 @@ servicehub/
 │   │   └── Dockerfile
 │   ├── fastcrw/                          # Optional web-search stack (not included by default)
 │   │   ├── README.md                     # FastCRW + renderers + SearXNG documentation
+│   │   ├── Dockerfile                    # aiagnfastcrw image build
 │   │   ├── compose.yml                   # aiagnfastcrw
 │   │   ├── config.docker.toml
 │   │   ├── entrypoint.sh
@@ -217,10 +215,9 @@ servicehub/
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Forgejo — self-hosted Git service | `devopgitserv` | [shared/forgejo/README.md](shared/forgejo/README.md) |
-| Woodpecker CI — server + agent | `devopbldserv`, `devopbldexec` | [shared/woodpecker/README.md](shared/woodpecker/README.md) |
+| Forgejo — self-hosted Git service + Actions | `devopgitserv`, `devopgitexec` (runner) | [shared/forgejo/README.md](shared/forgejo/README.md) |
 
-Setup, configuration, OAuth, agent registration and operations are documented in the service READMEs. Woodpecker also deploys ServiceHub itself — see [Deployment (Woodpecker CI)](#deployment-woodpecker-ci).
+Setup, configuration, Actions runner registration and operations are documented in the service README. Forgejo Actions also deploys the application services (databases, Authentik, Forgejo and Traefik are foundational and deployed manually) — see [Deployment (Forgejo Actions)](#deployment-forgejo-actions).
 
 ---
 
@@ -387,13 +384,12 @@ DOMAIN_NAME=example.com          # Your primary domain
 TRAEFIK_DOMAIN=traefik.example.com
 AUTHN_DOMAIN=login.example.com   # Authentik hostname
 GITREPO_DOMAIN=git.example.com   # Forgejo hostname
-GITBLD_DOMAIN=run.example.com    # Woodpecker CI hostname
 TRAEFIK_ACMEMAIL=you@example.com # Let's Encrypt registration email
 APPS_DATA=~/Documents/containerd # Default host path for persistent data
 TIME_ZONE=Australia/Sydney
 WBHOME_DOMAIN=www.${DOMAIN_NAME}
 WBHOME_DBNAME=svchubwbhome
-WBCONF_TAG=10.2
+WBHOME_TAG=10.2
 ```
 
 See [Configuration](#configuration) for the variable reference. For an existing installation, retain database names and credentials rather than copying new-install defaults.
@@ -408,7 +404,7 @@ chmod 600 ${APPS_DATA}/certs/acme.json
 
 For **staging** (self-signed), place your `.pem` and `.key` files in `shared/traefik/advanced/selfsigncert/` matching `shared/traefik/advanced/certificates.yml`. These are encrypted with git-crypt before committing. No `acme.json` is needed.
 
-For remote deployments via the Woodpecker CI workflow, `acme.json` is restored automatically from the `*_B64ENC_ACME` secret (gzip+base64 encoded via `setup.sh --encode`) with `600` permissions. The restore only overwrites the existing file if the secret is newer, preserving certificates renewed by Traefik since the last encode.
+For remote deployments via the Forgejo Actions workflow, `acme.json` is restored automatically from the `*_B64ENC_ACME` secret (gzip+base64 encoded via `setup.sh --encode`) with `600` permissions. The restore only overwrites the existing file if the secret is newer, preserving certificates renewed by Traefik since the last encode.
 
 ### 5. Prepare Data Directories
 
@@ -418,10 +414,9 @@ Service init containers (`authnsvrinit`, `devopbldinit`, `aiagnhermint`, `obsvcg
 mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
 mkdir -p ${APPS_DATA}/webapps/authentik/{media,templates}
 mkdir -p ${APPS_DATA}/certs
-mkdir -p ${APPS_DATA}/devops/{repos,buildserv,buildexec}
+mkdir -p ${APPS_DATA}/devops/{repos,buildexec}
 mkdir -p ${APPS_DATA}/hermesagent/00
 mkdir -p ${APPS_DATA}/mailbox/{stalwart,bulwark}
-chown -R 1000:1000 ${APPS_DATA}/mailbox/bulwark
 chown -R 1000:1000 ${APPS_DATA}/devops
 ```
 
@@ -488,16 +483,16 @@ git-crypt encrypts the files transparently on commit. Verify with:
 git show HEAD:shared/traefik/advanced/selfsigncert/selfcert.pem | file -
 ```
 
-### Encode the Key for Woodpecker
+### Encode the Key for Forgejo Actions
 
-The deploy workflow needs the key as a Woodpecker secret:
+The deploy workflow needs the key as a Forgejo Actions secret:
 
 ```bash
 # Encode the binary key as base64
 base64 -w0 servicehub.key
 ```
 
-Copy the output into Woodpecker → Repository → Settings → Secrets as **`GIT_CRYPT_KEY`**.
+Copy the output into Forgejo → Repository → Settings → Actions → Secrets as **`GIT_CRYPT_KEY`**.
 
 ### Unlock on a New Machine
 
@@ -507,33 +502,32 @@ git-crypt unlock ./servicehub.key
 
 ---
 
-## Deployment (Woodpecker CI)
+## Deployment (Forgejo Actions)
 
-The Woodpecker CI workflow at [.woodpecker/deploy.yml](.woodpecker/deploy.yml) provides a one-click deployment to staging or production over SSH. All deploy logic is inline in the workflow, which runs in the stack's own Woodpecker instance (`devopbldexec`). Deploying **all** services or a **single** service works the same as before — leave the deploy task empty for all services, or name one compose service (see [Triggering a Deployment](#triggering-a-deployment)).
+The Forgejo Actions workflow at [.forgejo/workflows/deploy.yml](.forgejo/workflows/deploy.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs and secrets are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`devopgitexec`).
 
-The workflow triggers on two events:
-
-| Event | Behaviour |
+| Trigger | Behaviour |
 |---|---|
-| `manual` (Run pipeline) | Deploys the selected branch to **staging** (`stag`), all services |
-| `deployment` (Deploy button) | Deploys to the chosen **deploy target** (`stag` or `prod`) and, optionally, a single compose service as the **deploy task** |
+| **Run workflow** button (workflow_dispatch) | Deploys a chosen **service** (`all` or a single compose service), to a chosen **environment** (`stag` or `prod`) from a chosen **branch** — the same inputs as the previous Gitea Actions workflow |
 
 ### How It Works
 
-1. Selects the `STAG_*` or `PROD_*` secrets from the deploy target (`CI_PIPELINE_DEPLOY_TARGET`), defaulting to staging for manual runs
+1. Selects the `STAG_*` or `PROD_*` secrets from the **environment** input, defaulting to staging
 2. Configures SSH known hosts from a stored secret (or falls back to `ssh-keyscan`)
-3. On the remote server: clones the repo on first deploy, or pulls the branch on subsequent runs
+3. On the remote server: clones the repo on first deploy (from the `GITREPO_PUBLIC_URL` variable), or pulls the branch on subsequent runs
 4. Installs git-crypt on the remote server if needed, then decrypts encrypted files (e.g. staging certs)
 5. Restores `.env` from the `*_B64ENC_ENVS` secret if the secret is newer than the existing file
 6. Runs `scripts/setup.sh` to merge any new variables from `env.example` into `.env`
 7. Restores `acme.json` from the `*_B64ENC_ACME` secret if the secret is newer than the existing file
-8. Runs `docker compose up --build -d [service]` on the remote
+8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to every app service)
 
+> **Deploy scope:** databases (`dbsvc*`), Authentik (`authn*`), Forgejo + runner (`devop*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
+>
 > **Timestamp-based restore:** Both `.env` and `acme.json` are gzip-compressed before base64-encoding, which preserves the file's original mtime in the gzip header. On deploy, the workflow compares that mtime against the existing file on the server — the newer file always wins. This prevents a stale secret from overwriting a `.env` edited directly on the server or an `acme.json` renewed by Traefik since the last encode.
 
-### Encoding Secrets for Woodpecker
+### Encoding Secrets for Forgejo Actions
 
-Before triggering the workflow, encode your local `.env` and `acme.json` into Woodpecker secrets using the helper:
+Before triggering the workflow, encode your local `.env` and `acme.json` into Forgejo Actions secrets using the helper:
 
 ```bash
 # For staging
@@ -543,13 +537,21 @@ bash scripts/setup.sh --encode STAG
 bash scripts/setup.sh --encode PROD
 ```
 
-The script outputs `.b64` files and prints instructions for copying their content into Woodpecker secrets.
+The script outputs `.b64` files and prints instructions for copying their content into Forgejo Actions secrets.
 
-### Required Woodpecker Secrets
+### Required Actions Secrets
 
-Set these in **Woodpecker → Repository → Settings → Secrets**.
+Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
-> **Secret events:** each secret must be enabled for the **`manual`** and **`deployment`** events (the defaults only cover `push`, `tag`, `release` and `deployment`). Add `manual` to every secret, or Run pipeline will fail. Woodpecker also fails the pipeline when a referenced secret is missing, so create **all** secrets listed below — leave unused ones empty.
+> Forgejo secrets are available to every workflow of the repository — no per-event enablement is needed. Create **all** secrets listed below; leave unused ones (e.g. `STAG_B64ENC_ACME` on staging) empty.
+
+#### Repository variables
+
+Set these in **Forgejo → Repository → Settings → Actions → Variables**:
+
+| Variable | Example value | Description |
+|---|---|---|
+| `GITREPO_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://devopgitserv:3000` and cannot be reached from the deploy servers). |
 
 #### Shared (both environments)
 
@@ -564,10 +566,11 @@ Set these in **Woodpecker → Repository → Settings → Secrets**.
 |---|---|---|
 | `STAG_SERVER_HOST` | `192.168.1.10` or `stag.example.com` | IP address or hostname of the staging server. Used for SSH connection. |
 | `STAG_SERVER_USER` | `deploy` | SSH login username on the staging server. |
-| `STAG_SERVER_PASS` | `••••••••` | SSH password for the above user. |
+| `STAG_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `STAG_SERVER_KEY` must be set** — not both required. Ignored if `STAG_SERVER_KEY` is also set. |
+| `STAG_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `STAG_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the staging server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
 | `STAG_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the staging server where the repo is cloned. Must include the repo directory name — git clones **into** this path. |
 | `STAG_B64ENC_ENVS` | *(output of `setup.sh --encode STAG`)* | Gzip+base64-encoded `.env` file. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
-| `STAG_B64ENC_ACME` | *(leave the value empty for staging)* | Gzip+base64-encoded `acme.json` (Let's Encrypt certificates). For staging, create the secret with an **empty value** — Traefik uses the self-signed cert from `shared/traefik/advanced/selfsigncert/` instead. The secret must exist so Woodpecker can resolve it. |
+| `STAG_B64ENC_ACME` | *(leave the value empty for staging)* | Gzip+base64-encoded `acme.json` (Let's Encrypt certificates). For staging, create the secret with an **empty value** — Traefik uses the self-signed cert from `shared/traefik/advanced/selfsigncert/` instead. |
 | `STAG_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The staging server's public SSH host key. Prevents man-in-the-middle attacks by verifying the server identity before connecting. **Optional** — if unset the deploy script falls back to `ssh-keyscan` at runtime with a warning. |
 
 #### Production (`PROD_*`)
@@ -576,7 +579,8 @@ Set these in **Woodpecker → Repository → Settings → Secrets**.
 |---|---|---|
 | `PROD_SERVER_HOST` | `203.0.113.10` or `prod.example.com` | IP address or hostname of the production server. |
 | `PROD_SERVER_USER` | `deploy` | SSH login username on the production server. |
-| `PROD_SERVER_PASS` | `••••••••` | SSH password for the above user. |
+| `PROD_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `PROD_SERVER_KEY` must be set** — not both required. Ignored if `PROD_SERVER_KEY` is also set. |
+| `PROD_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `PROD_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the production server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
 | `PROD_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the production server where the repo is cloned. |
 | `PROD_B64ENC_ENVS` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded production `.env`. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
 | `PROD_B64ENC_ACME` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded `acme.json` containing your Let's Encrypt certificates. Generated by `setup.sh --encode PROD` when `acme.json` is larger than 1 KB (i.e. after Traefik has issued real certificates). Restored only if the secret is newer than the existing file. |
@@ -584,9 +588,15 @@ Set these in **Woodpecker → Repository → Settings → Secrets**.
 
 ### Triggering a Deployment
 
-1. Open the repository in Woodpecker (`https://${GITBLD_DOMAIN}`) → **Pipelines**
-2. For **staging**: click **Run pipeline** on the `main` branch (or on a branch you want to deploy) — the `manual` event deploys all services to staging
-3. For **staging or production**: open a recent successful pipeline and click **Deploy** — set the **environment** to the deploy target (`stag` or `prod`) and, optionally, the **task** to a single compose service (`routetraefik`, `dbsvcmariadb`, `dbsvcpgsqldb`, `authnservice`, `authnworkers`, `devopgitserv`, `devopbldserv`, `devopbldexec`, `wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `emsvcmailsrv`, or `emsvcwebmail`); leave the task empty to deploy **all** services
+1. Open the repository in Forgejo (`https://${GITREPO_DOMAIN}`) → **Actions**
+2. Select the **deploy** workflow and click **Run workflow**
+3. Set the inputs:
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `emsvcmailsrv`, `emsvcwebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
+   - **environment** — `stag` (default) or `prod`
+   - **branch** — branch to deploy (default `main`)
+4. Click the green **Run workflow** button — progress and logs appear in the workflow run page
+
+> Deployments are serialised: the workflow declares a `concurrency` group so two deploys never run at the same time, and a running deployment is never cancelled by a newer trigger.
 
 ---
 
@@ -626,7 +636,7 @@ docker compose pull && docker compose up -d
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
 
-> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo](shared/forgejo/README.md), [Woodpecker CI](shared/woodpecker/README.md), [Confluence](shared/confluence/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md), [Stalwart](shared/stalwart/README.md), [Bulwark](shared/bulwark/README.md)) also document their own variables there.
+> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo + Actions](shared/forgejo/README.md), [Confluence](shared/confluence/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md), [Stalwart](shared/stalwart/README.md), [Bulwark](shared/bulwark/README.md)) also document their own variables there.
 
 ### General
 
@@ -667,7 +677,7 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 |---|---|
 | `WBHOME_DOMAIN` | Shared homepage hostname (default: `www.${DOMAIN_NAME}`); the apex is served as well |
 | `WBHOME_DBNAME` | Homepage database name (default: `svchubwbhome`) |
-| `WBCONF_TAG` | Confluence image tag (default: `10.2`) |
+| `WBHOME_TAG` | Confluence image tag (default: `10.2`) |
 | `OWEBUI_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
 
 ### AI Agent Platform (aiagn)
