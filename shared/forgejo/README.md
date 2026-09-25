@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Forgejo](https://forgejo.org/) is a community fork of Gitea and the source-control host for the stack. It is defined by the `devopgitserv` service in [`compose/devop.yml`](../../compose/devop.yml) and built from [`shared/forgejo/server/Dockerfile`](server/Dockerfile) (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`).
+[Forgejo](https://forgejo.org/) is a community fork of Gitea and the source-control host for the stack. It is defined by the `depotservice` service in [`compose/depot.yml`](../../compose/depot.yml) and built from [`shared/forgejo/server/Dockerfile`](server/Dockerfile) (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`).
 
 Forgejo Actions provides the stack's CI/CD — including the deployment of ServiceHub itself (see [Forgejo Actions runner](#forgejo-actions-runner) and [Root README — Deployment](../../README.md#deployment-forgejo-actions)).
 
@@ -12,14 +12,14 @@ Forgejo Actions provides the stack's CI/CD — including the deployment of Servi
 
 | Detail | Value |
 |---|---|
-| Service name | `devopgitserv` |
-| Compose file | `compose/devop.yml` |
-| URL | `https://${GITREPO_DOMAIN}` |
+| Service name | `depotservice` |
+| Compose file | `compose/depot.yml` |
+| URL | `https://${DEPOT_DOMAIN}` |
 | Internal port | 3000 (published through Traefik) |
-| Database | PostgreSQL (`${GITREPO_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/devops/repos` (mounted at `/data`) |
-| Image tag | `GITREPO_VTAG` (default `16`) |
-| Volume ownership | `1000:1000` (normally by `devopbldinit`) |
+| Database | PostgreSQL (`${DEPOT_DBNAME}`) |
+| Data persistence | `${APPS_DATA}/depot/repos` (mounted at `/data`) |
+| Image tag | `DEPOT_VTAG` (default `16`) |
+| Volume ownership | `1000:1000` (normally by `depotinit`) |
 | Health check | `curl -fsS http://localhost:3000/api/healthz` every 30 s (20 s startup delay) |
 | Depends on | `dbsvcpgsqldb` (healthy), `authnservice` (healthy) |
 
@@ -29,9 +29,9 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 | Variable | Description |
 |---|---|
-| `GITREPO_DOMAIN` | Forgejo hostname (e.g. `git.example.com`) |
-| `GITREPO_DBNAME` | PostgreSQL database name (must be in `PGRSQL_DBLIST`) |
-| `GITREPO_VTAG` | Forgejo image tag passed to the Dockerfile as `IMAGE_TAG` |
+| `DEPOT_DOMAIN` | Forgejo hostname (e.g. `git.example.com`) |
+| `DEPOT_DBNAME` | PostgreSQL database name (must be in `PGRSQL_DBLIST`) |
+| `DEPOT_VTAG` | Forgejo image tag passed to the Dockerfile as `IMAGE_TAG` |
 | `SQLDB_USER` / `SQLDB_PASS` | Shared PostgreSQL credentials |
 | `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL connection target (`dbsvcpgsqldb:5432`) |
 | `APPS_DATA` | Host path for the `/data` bind mount |
@@ -41,8 +41,8 @@ Container settings applied by the compose file:
 
 | Setting | Value | Purpose |
 |---|---|---|
-| `FORGEJO__server__DOMAIN` | `${GITREPO_DOMAIN}` | Hostname Forgejo reports in generated URLs |
-| `FORGEJO__server__ROOT_URL` | `https://${GITREPO_DOMAIN}/` | Correct clone URLs, webhooks and OAuth redirects |
+| `FORGEJO__server__DOMAIN` | `${DEPOT_DOMAIN}` | Hostname Forgejo reports in generated URLs |
+| `FORGEJO__server__ROOT_URL` | `https://${DEPOT_DOMAIN}/` | Correct clone URLs, webhooks and OAuth redirects |
 | `FORGEJO__server__DISABLE_SSH` | `true` | The SSH port is not published; only HTTPS clones are advertised |
 | `FORGEJO__database__DB_TYPE` | `postgres` | PostgreSQL backend |
 | `FORGEJO__openid__ENABLE_OPENID_SIGNIN` / `SIGNUP` | `false` | Local accounts only |
@@ -52,54 +52,54 @@ Container settings applied by the compose file:
 
 ## Forgejo Actions runner
 
-Workflows are executed by the Forgejo runner (`devopgitexec`), built from [`shared/forgejo/actions/Dockerfile`](actions/Dockerfile) (`FROM code.forgejo.org/forgejo/runner:${IMAGE_TAG}`).
+Workflows are executed by the Forgejo runner (`depotrunner`), built from [`shared/forgejo/actions/Dockerfile`](actions/Dockerfile) (`FROM code.forgejo.org/forgejo/runner:${IMAGE_TAG}`).
 
 | Detail | Value |
 |---|---|
-| Service name | `devopgitexec` |
-| Compose file | `compose/devop.yml` |
+| Service name | `depotrunner` |
+| Compose file | `compose/depot.yml` |
 | Runner config | [`shared/forgejo/actions/config.yml`](actions/config.yml) (bind-mounted read-only at `/etc/forgejo-runner/config.yml`) |
-| Registration data | `${APPS_DATA}/devops/buildexec` (mounted at `/var/lib/forgejo-runner`) |
-| Registration | Runner writes `.runner` on first boot from `GITBLD_AGN_SECRET`; the same secret must be registered once on the Forgejo side (see [Setup](#setup-first-boot)) |
+| Registration data | `${APPS_DATA}/depot/buildexec` (mounted at `/var/lib/forgejo-runner`) |
+| Registration | Runner writes `.runner` on first boot from `DEPOT_RUNNER_SECRET`; the same secret must be registered once on the Forgejo side (see [Setup](#setup-first-boot)) |
 | Labels | `ssh-deploy:host` — host mode: jobs run directly in the runner container; workflows declare `runs-on: ssh-deploy` |
-| Image tag | `GITBLD_VTAG` (default `13`) |
+| Image tag | `DEPOT_RUNNER_VTAG` (default `13`) |
 | Health check | `pidof forgejo-runner` + `.runner` non-empty every 30 s (30 s startup delay) |
-| Depends on | `devopbldinit` (completed), `devopgitserv` (healthy) |
+| Depends on | `depotinit` (completed), `depotservice` (healthy) |
 
 Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 | Variable | Description |
 |---|---|
-| `GITBLD_AGN_SECRET` | Shared runner secret (`openssl rand -hex 20`); auto-generated by `scripts/setup.sh`. Register it once on the Forgejo side and the runner uses it to create its `.runner` file |
-| `GITBLD_VTAG` | Forgejo runner image tag passed to the Dockerfile as `IMAGE_TAG` |
+| `DEPOT_RUNNER_SECRET` | Shared runner secret (`openssl rand -hex 20`); auto-generated by `scripts/setup.sh`. Register it once on the Forgejo side and the runner uses it to create its `.runner` file |
+| `DEPOT_RUNNER_VTAG` | Forgejo runner image tag passed to the Dockerfile as `IMAGE_TAG` |
 
-> Re-registering: delete `${APPS_DATA}/devops/buildexec/.runner` (or the whole directory), re-run the Forgejo-side registration command if the secret changed, and restart `devopgitexec`.
+> Re-registering: delete `${APPS_DATA}/depot/buildexec/.runner` (or the whole directory), re-run the Forgejo-side registration command if the secret changed, and restart `depotrunner`.
 >
-> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://devopgitserv:3000`), so `actions/checkout` needs no public TLS. The remote deploy servers clone via the public URL — set the `GITREPO_PUBLIC_URL` repository variable (see [Root README — Repository variables](../../README.md#repository-variables)) so they can reach it.
+> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://depotservice:3000`), so `actions/checkout` needs no public TLS. The remote deploy servers clone via the public URL — set the `DEPOT_PUBLIC_URL` repository variable (see [Root README — Repository variables](../../README.md#repository-variables)) so they can reach it.
 
 ## Data & persistence
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/data` (devopgitserv) | `${APPS_DATA}/devops/repos` | Repositories, `app.ini`, avatars, attachments, LFS |
-| `/var/lib/forgejo-runner` (devopgitexec) | `${APPS_DATA}/devops/buildexec` | Runner registration (`.runner`) |
+| `/data` (depotservice) | `${APPS_DATA}/depot/repos` | Repositories, `app.ini`, avatars, attachments, LFS |
+| `/var/lib/forgejo-runner` (depotrunner) | `${APPS_DATA}/depot/buildexec` | Runner registration (`.runner`) |
 
-`devopbldinit` runs as root and normalises ownership to UID/GID `1000` on every boot, so the directories can be created empty beforehand.
+`depotinit` runs as root and normalises ownership to UID/GID `1000` on every boot, so the directories can be created empty beforehand.
 
 ## Setup (first boot)
 
 1. Start Forgejo and its dependencies:
 
     ```bash
-    docker compose up -d devopgitserv
+    docker compose up -d depotservice
     ```
 
-2. Open `https://${GITREPO_DOMAIN}` and complete the initial configuration, creating the first (admin) account.
-3. Register the runner secret on the Forgejo side (idempotent — safe to re-run). Use the `GITBLD_AGN_SECRET` value from `.env`:
+2. Open `https://${DEPOT_DOMAIN}` and complete the initial configuration, creating the first (admin) account.
+3. Register the runner secret on the Forgejo side (idempotent — safe to re-run). Use the `DEPOT_RUNNER_SECRET` value from `.env`:
 
     ```bash
-    docker compose exec --user 1000:1000 devopgitserv forgejo forgejo-cli actions register \
-        --name devopgitexec --secret <GITBLD_AGN_SECRET value from .env>
+    docker compose exec --user 1000:1000 depotservice forgejo forgejo-cli actions register \
+        --name depotrunner --secret <DEPOT_RUNNER_SECRET value from .env>
     ```
 
     > `--user 1000:1000` is required: Forgejo refuses to run as root (`Forgejo is not supposed to be run as root`), and `docker compose exec` defaults to UID 0.
@@ -108,14 +108,14 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
     Alternatively, register through the Forgejo UI — no shell on the Forgejo container needed:
 
-    1. **Site Administration → Actions → Runners → Create new runner** (or the repo's **Settings → Actions → Runners** for a per-repo runner). Enter **Name** `devopgitexec` and click **Create runner**. Forgejo shows a **UUID** and **Token**.
+    1. **Site Administration → Actions → Runners → Create new runner** (or the repo's **Settings → Actions → Runners** for a per-repo runner). Enter **Name** `depotrunner` and click **Create runner**. Forgejo shows a **UUID** and **Token**.
     2. Paste them into [`shared/forgejo/actions/config.yml`](actions/config.yml) under `server.connections.forgejo`:
 
         ```yaml
         server:
             connections:
                 forgejo:
-                    url: https://${GITREPO_DOMAIN}/
+                    url: https://${DEPOT_DOMAIN}/
                     uuid: <UUID from UI>
                     token: <Token from UI>
         ```
@@ -123,7 +123,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
     3. Start the runner — it reads the credentials from `config.yml` and writes `.runner` on first boot:
 
         ```bash
-        docker compose up -d devopgitexec
+        docker compose up -d depotrunner
         ```
 
     > The UI flow uses different credentials than the `--secret` flow above, so the entrypoint's `create-runner-file --secret` step in [`actions/entrypoint.sh`](actions/entrypoint.sh) needs to be skipped (the runner daemon will pick up the UI credentials from `config.yml` and write `.runner` itself). Pick **one** flow — the two produce different `.runner` files.
@@ -131,7 +131,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 4. Start the runner:
 
     ```bash
-    docker compose up -d devopgitexec
+    docker compose up -d depotrunner
     ```
 
 5. Verify the runner appears in **Site Administration → Actions → Runners** (or repo **Settings → Actions → Runners**) and that the repo's **Settings → Units → Actions** checkbox is ticked.
@@ -141,22 +141,22 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 ```bash
 # Start / restart
-docker compose up -d devopgitserv devopgitexec
+docker compose up -d depotservice depotrunner
 
 # Rebuild after a Dockerfile change
-docker compose up -d --build devopgitserv devopgitexec
+docker compose up -d --build depotservice depotrunner
 
 # Follow logs
-docker compose logs -f devopgitserv
-docker compose logs -f devopgitexec
+docker compose logs -f depotservice
+docker compose logs -f depotrunner
 ```
 
 ### Reset (destructive)
 
 ```bash
-docker compose down devopgitserv devopgitexec
-rm -rf ${APPS_DATA}/devops/repos/* ${APPS_DATA}/devops/buildexec/*
-docker compose up -d devopgitserv devopgitexec
+docker compose down depotservice depotrunner
+rm -rf ${APPS_DATA}/depot/repos/* ${APPS_DATA}/depot/buildexec/*
+docker compose up -d depotservice depotrunner
 ```
 
 > This deletes every repository, the Forgejo `app.ini` and the runner registration. The PostgreSQL database should be dropped/recreated as well.
@@ -167,8 +167,8 @@ docker compose up -d devopgitserv devopgitexec
 |---|---|
 | [`server/Dockerfile`](server/Dockerfile) | Forgejo image build (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`) |
 | [`actions/Dockerfile`](actions/Dockerfile) | Forgejo runner image build (`FROM code.forgejo.org/forgejo/runner:${IMAGE_TAG}`) |
-| [`actions/entrypoint.sh`](actions/entrypoint.sh) | Runner entrypoint: creates `.runner` from `GITBLD_AGN_SECRET`, then starts the daemon |
-| [`actions/config.yml`](actions/config.yml) | Runner configuration, bind-mounted read-only by `compose/devop.yml` |
+| [`actions/entrypoint.sh`](actions/entrypoint.sh) | Runner entrypoint: creates `.runner` from `DEPOT_RUNNER_SECRET`, then starts the daemon |
+| [`actions/config.yml`](actions/config.yml) | Runner configuration, bind-mounted read-only by `compose/depot.yml` |
 
 ## See also
 

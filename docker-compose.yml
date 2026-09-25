@@ -8,7 +8,7 @@
 #   compose/authn.yml   authn*  Authentication / SSO (Authentik)
 #   compose/wbapp.yml   wbapp*  Homepage / CMS + Open WebUI (Confluence + Open WebUI)
 #   compose/aiagn.yml   aiagn*  AI agents + LLM inference (Hermes + LiteLLM + llama.cpp)
-#   compose/devop.yml   devop*  Source control + CI (Forgejo + Actions runner)
+#   compose/depot.yml   depot*  Source control + CI (Forgejo + Actions runner)
 #   compose/obsvc.yml   obsvc*  Observability (metrics + logs + Grafana)
 #   compose/emsvc.yml   emsvc*  Email services (Stalwart mail + Bulwark webmail)
 #
@@ -34,8 +34,8 @@ include:
     # --> authentication / SSO (authn)
     - compose/authn.yml
 
-    # --> DevOps: source control + CI runners (devop)
-    - compose/devop.yml
+    # --> Depot: source control + CI runners (depot)
+    - compose/depot.yml
 
     # --> web applications (wbapp)
     - compose/wbapp.yml

@@ -9,7 +9,7 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
 - [Core Services](#core-services)
-- [DevOps Stack](#devops-stack)
+- [Depot (Source Control + CI)](#depot-source-control--ci)
 - [AI Agent Platform (aiagn)](#ai-agent-platform-aiagn)
 - [Web Applications](#web-applications)
 - [Observability Stack (obsvc)](#observability-stack-obsvc)
@@ -35,7 +35,7 @@ Compose files are split by functional domain:
 | `compose/route.yml` | `route*` | Edge routing + TLS termination (Traefik) |
 | `compose/dbsvc.yml` | `dbsvc*` | Relational databases (MariaDB + PostgreSQL) |
 | `compose/authn.yml` | `authn*` | Authentication / SSO (Authentik) |
-| `compose/devop.yml` | `devop*` | Source control + CI (Forgejo + Forgejo Actions runner) |
+| `compose/depot.yml` | `depot*` | Source control + CI (Forgejo + Forgejo Actions runner) |
 | `compose/wbapp.yml` | `wbapp*` | Homepage / CMS (Confluence) + Open WebUI |
 | `compose/aiagn.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
 | `compose/obsvc.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
@@ -50,7 +50,7 @@ graph TD
         Traefik[routetraefik\nReverse Proxy + TLS]
         Traefik -->|traefik.domain| Dashboard[Traefik Dashboard]
         Traefik -->|login.domain| Authentik[authnservice\nIdP / SSO]
-        Traefik -->|git.domain| Forgejo[devopgitserv\nForgejo + Actions]
+        Traefik -->|git.domain| Forgejo[depotservice\nForgejo + Actions]
         Traefik -->|www.domain + apex| Confluence[wbappcmshome\nConfluence]
         Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
         Traefik -->|space0.domain| Hermes[aiagnherm00\nHermes Agent]
@@ -62,7 +62,7 @@ graph TD
         Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
         Confluence -->|depends on| Authentik
-        Forgejo -->|schedules| Runner[devopgitexec\nForgejo Actions Runner]
+        Forgejo -->|schedules| Runner[depotrunner\nForgejo Actions Runner]
         Hermes -->|hermes| LiteLLM[aiagnlitellm\nComplexity Router]
         LiteLLM -->|depends on| PostgreSQL
         LiteLLM -->|hephaestus| Gemma[aiagnchatllm\nllama.cpp Gemma-4 local]
@@ -95,7 +95,7 @@ servicehub/
 │   ├── authn.yml               # Authentik server + worker + init
 │   ├── wbapp.yml               # Homepage / CMS (Confluence) + Open WebUI
 │   ├── aiagn.yml               # Hermes agents + LiteLLM + llama.cpp
-│   ├── devop.yml               # Forgejo + Forgejo Actions runner
+│   ├── depot.yml               # Forgejo + Forgejo Actions runner
 │   ├── obsvc.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
 │   └── emsvc.yml               # Email services (Stalwart mail server + Bulwark webmail)
 ├── shared/                     # Shared build contexts and static config
@@ -211,11 +211,11 @@ servicehub/
 
 ---
 
-## DevOps Stack
+## Depot (Source Control + CI)
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Forgejo — self-hosted Git service + Actions | `devopgitserv`, `devopgitexec` (runner) | [shared/forgejo/README.md](shared/forgejo/README.md) |
+| Forgejo — self-hosted Git service + Actions | `depotservice`, `depotrunner` (runner) | [shared/forgejo/README.md](shared/forgejo/README.md) |
 
 Setup, configuration, Actions runner registration and operations are documented in the service README. Forgejo Actions also deploys the application services (databases, Authentik, Forgejo and Traefik are foundational and deployed manually) — see [Deployment (Forgejo Actions)](#deployment-forgejo-actions).
 
@@ -383,7 +383,7 @@ Edit `.env` to match your environment:
 DOMAIN_NAME=example.com          # Your primary domain
 TRAEFIK_DOMAIN=traefik.example.com
 AUTHN_DOMAIN=login.example.com   # Authentik hostname
-GITREPO_DOMAIN=git.example.com   # Forgejo hostname
+DEPOT_DOMAIN=git.example.com   # Forgejo hostname
 TRAEFIK_ACMEMAIL=you@example.com # Let's Encrypt registration email
 APPS_DATA=~/Documents/containerd # Default host path for persistent data
 TIME_ZONE=Australia/Sydney
@@ -408,16 +408,16 @@ For remote deployments via the Forgejo Actions workflow, `acme.json` is restored
 
 ### 5. Prepare Data Directories
 
-Service init containers (`authnsvrinit`, `devopbldinit`, `aiagnhermint`, `obsvcgrafint`) fix ownership on every boot. To prepare directories ahead of time:
+Service init containers (`authnsvrinit`, `depotinit`, `aiagnhermint`, `obsvcgrafint`) fix ownership on every boot. To prepare directories ahead of time:
 
 ```bash
 mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
 mkdir -p ${APPS_DATA}/webapps/authentik/{media,templates}
 mkdir -p ${APPS_DATA}/certs
-mkdir -p ${APPS_DATA}/devops/{repos,buildexec}
+mkdir -p ${APPS_DATA}/depot/{repos,buildexec}
 mkdir -p ${APPS_DATA}/hermesagent/00
 mkdir -p ${APPS_DATA}/mailbox/{stalwart,bulwark}
-chown -R 1000:1000 ${APPS_DATA}/devops
+chown -R 1000:1000 ${APPS_DATA}/depot
 ```
 
 Replace `${APPS_DATA}` with the actual path you set in `.env` (default: `~/Documents/containerd`). Homepage data lives under `${APPS_DATA}/webapps/confluence`; follow the service README for directory ownership.
@@ -433,7 +433,7 @@ docker compose up -d
 Or start a specific service:
 
 ```bash
-docker compose up -d devopgitserv
+docker compose up -d depotservice
 ```
 
 ---
@@ -504,7 +504,7 @@ git-crypt unlock ./servicehub.key
 
 ## Deployment (Forgejo Actions)
 
-The Forgejo Actions workflow at [.forgejo/workflows/deploy.yml](.forgejo/workflows/deploy.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs and secrets are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`devopgitexec`).
+The Forgejo Actions workflow at [.forgejo/workflows/deploy.yml](.forgejo/workflows/deploy.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs and secrets are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`depotrunner`).
 
 | Trigger | Behaviour |
 |---|---|
@@ -514,14 +514,14 @@ The Forgejo Actions workflow at [.forgejo/workflows/deploy.yml](.forgejo/workflo
 
 1. Selects the `STAG_*` or `PROD_*` secrets from the **environment** input, defaulting to staging
 2. Configures SSH known hosts from a stored secret (or falls back to `ssh-keyscan`)
-3. On the remote server: clones the repo on first deploy (from the `GITREPO_PUBLIC_URL` variable), or pulls the branch on subsequent runs
+3. On the remote server: clones the repo on first deploy (from the `DEPOT_PUBLIC_URL` variable), or pulls the branch on subsequent runs
 4. Installs git-crypt on the remote server if needed, then decrypts encrypted files (e.g. staging certs)
 5. Restores `.env` from the `*_B64ENC_ENVS` secret if the secret is newer than the existing file
 6. Runs `scripts/setup.sh` to merge any new variables from `env.example` into `.env`
 7. Restores `acme.json` from the `*_B64ENC_ACME` secret if the secret is newer than the existing file
 8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to every app service)
 
-> **Deploy scope:** databases (`dbsvc*`), Authentik (`authn*`), Forgejo + runner (`devop*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
+> **Deploy scope:** databases (`dbsvc*`), Authentik (`authn*`), Depot / Forgejo + runner (`depot*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
 >
 > **Timestamp-based restore:** Both `.env` and `acme.json` are gzip-compressed before base64-encoding, which preserves the file's original mtime in the gzip header. On deploy, the workflow compares that mtime against the existing file on the server — the newer file always wins. This prevents a stale secret from overwriting a `.env` edited directly on the server or an `acme.json` renewed by Traefik since the last encode.
 
@@ -551,13 +551,13 @@ Set these in **Forgejo → Repository → Settings → Actions → Variables**:
 
 | Variable | Example value | Description |
 |---|---|---|
-| `GITREPO_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://devopgitserv:3000` and cannot be reached from the deploy servers). |
+| `DEPOT_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://depotservice:3000` and cannot be reached from the deploy servers). |
 
 #### Shared (both environments)
 
 | Secret | How to obtain | Description |
 |---|---|---|
-| `GITREPO_DEPLOY_TOKEN` | Forgejo → Settings → Applications → Access Token (repo read scope) | Forgejo access token used by the deploy step to clone/pull the repository on the remote server. |
+| `DEPOT_DEPLOY_TOKEN` | Forgejo → Settings → Applications → Access Token (repo read scope) | Forgejo access token used by the deploy step to clone/pull the repository on the remote server. |
 | `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates on the remote server after git clone/pull. Generate with `git-crypt init && git-crypt export-key ./servicehub.key`. |
 
 #### Staging (`STAG_*`)
@@ -588,7 +588,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Variables**:
 
 ### Triggering a Deployment
 
-1. Open the repository in Forgejo (`https://${GITREPO_DOMAIN}`) → **Actions**
+1. Open the repository in Forgejo (`https://${DEPOT_DOMAIN}`) → **Actions**
 2. Select the **deploy** workflow and click **Run workflow**
 3. Set the inputs:
    - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `emsvcmailsrv`, `emsvcwebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
@@ -612,16 +612,16 @@ docker compose up -d
 docker compose down
 
 # Restart a single service
-docker compose restart devopgitserv
+docker compose restart depotservice
 
 # View logs
-docker compose logs -f devopgitserv
+docker compose logs -f depotservice
 ```
 
 ### Rebuild After a Config Change
 
 ```bash
-docker compose up -d --build devopgitserv
+docker compose up -d --build depotservice
 ```
 
 ### Update All Images
@@ -716,7 +716,7 @@ For new installations:
 
 ```bash
 MARIADB_DB_LIST="${WBHOME_DBNAME}"
-PGRSQL_DBLIST="${AUTHN_DBNAME},${GITREPO_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME}"
+PGRSQL_DBLIST="${AUTHN_DBNAME},${DEPOT_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME}"
 ```
 
 These lists only initialize empty database data directories. Preserve existing database names and passwords; create missing databases and grants explicitly on existing installations. See the [PostgreSQL](shared/postgresql/README.md) and [MariaDB](shared/mariadb/README.md) READMEs.

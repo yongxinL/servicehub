@@ -1,6 +1,6 @@
-# Forgejo Actions runner configuration for devopgitexec.
-# Bind-mounted read-only at /etc/forgejo-runner/config.yml by compose/devop.yml;
-# edit this file and restart devopgitexec to apply changes.
+# Forgejo Actions runner configuration for depotrunner.
+# Bind-mounted read-only at /etc/forgejo-runner/config.yml by compose/depot.yml;
+# edit this file and restart depotrunner to apply changes.
 # Full reference: https://code.forgejo.org/forgejo/runner (internal/pkg/config/config.example.yaml)
 # Generated defaults can be obtained with `forgejo-runner generate-config`.
 
@@ -37,5 +37,5 @@ server:
     # Connection to the stack's Forgejo instance. Left empty on purpose: the
     # runner entrypoint (shared/forgejo/actions/entrypoint.sh) writes the
     # connection (url + uuid + token) into the .runner file on first boot,
-    # using the GITBLD_AGN_SECRET shared with the Forgejo instance.
+    # using the DEPOT_RUNNER_SECRET shared with the Forgejo instance.
     connections: {}

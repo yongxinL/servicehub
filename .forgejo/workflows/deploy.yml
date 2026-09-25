@@ -10,7 +10,7 @@
 #
 # Inputs (same as the previous Gitea Actions workflow):
 #   - service:     app service to deploy, or "all" (default). Foundational
-#                  services (dbsvc*, authn*, devop*, route*) are never deployed
+#                  services (dbsvc*, authn*, depot*, route*) are never deployed
 #                  by CI.
 #   - environment: deploy target, stag (default) or prod
 #   - branch:      branch to deploy (default main)
@@ -69,7 +69,7 @@ concurrency:
 
 jobs:
   deploy:
-    # Host-mode runner: the job runs directly in the devopgitexec container,
+    # Host-mode runner: the job runs directly in the depotrunner container,
     # which already ships git/openssh/sshpass (shared/forgejo/actions/Dockerfile).
     runs-on: ssh-deploy
     steps:
@@ -86,10 +86,10 @@ jobs:
         #   DEPLOY_TARGET        stag|prod (default: stag)
         #   DEPLOY_TASK          app service name, or "all"/empty for all app
         #                        services. Foundational services (dbsvc*, authn*,
-        #                        devop*, route*) are never deployed here.
+        #                        depot*, route*) are never deployed here.
         #   BRANCH               branch to deploy (default: main)
         #   REPO_CLONE_URL       clonable URL of this repository
-        #   GITREPO_DEPLOY_TOKEN Forgejo access token (repo read scope)
+        #   DEPOT_DEPLOY_TOKEN Forgejo access token (repo read scope)
         #   GIT_CRYPT_KEY        base64-encoded git-crypt symmetric key
         #
         # SSH auth: set ${PREFIX}_SERVER_PASS (password) OR ${PREFIX}_SERVER_KEY
@@ -104,7 +104,7 @@ jobs:
           DEPLOY_TARGET=$(printf '%s' "$DEPLOY_TARGET" | tr '[:upper:]' '[:lower:]')
           [ -n "$DEPLOY_TASK" ] || DEPLOY_TASK=all
           [ -n "$BRANCH" ] || BRANCH=main
-          [ -n "$GITREPO_DEPLOY_TOKEN" ] || GITREPO_DEPLOY_TOKEN=
+          [ -n "$DEPOT_DEPLOY_TOKEN" ] || DEPOT_DEPLOY_TOKEN=
           [ -n "$GIT_CRYPT_KEY" ] || GIT_CRYPT_KEY=
 
           case "$DEPLOY_TARGET" in
@@ -170,10 +170,10 @@ jobs:
           }
 
           # --- clone or pull -------------------------------------------------
-          if [ -n "$GITREPO_DEPLOY_TOKEN" ]; then
-            AUTH_REPO_URL=$(printf '%s' "$REPO_CLONE_URL" | sed "s|://|://oauth2:$GITREPO_DEPLOY_TOKEN@|")
+          if [ -n "$DEPOT_DEPLOY_TOKEN" ]; then
+            AUTH_REPO_URL=$(printf '%s' "$REPO_CLONE_URL" | sed "s|://|://oauth2:$DEPOT_DEPLOY_TOKEN@|")
           else
-            echo "WARNING: GITREPO_DEPLOY_TOKEN not set; using unauthenticated clone URL" >&2
+            echo "WARNING: DEPOT_DEPLOY_TOKEN not set; using unauthenticated clone URL" >&2
             AUTH_REPO_URL="$REPO_CLONE_URL"
           fi
 
@@ -253,7 +253,7 @@ jobs:
           set -e
           if command -v docker-compose >/dev/null 2>&1; then COMPOSE='docker-compose'; else COMPOSE='docker compose'; fi
           if [ '$DEPLOY_TASK' = all ]; then
-            SERVICES=\$(\$COMPOSE config --services | grep -vE '^(dbsvc|authn|devop|route)')
+            SERVICES=\$(\$COMPOSE config --services | grep -vE '^(dbsvc|authn|depot|route)')
             \$COMPOSE up -d --build --no-deps \$SERVICES
           else
             \$COMPOSE up -d --build --no-deps '$DEPLOY_TASK'
@@ -263,14 +263,14 @@ jobs:
           echo "Deployment of '$DEPLOY_TASK' from branch '$BRANCH' to $DEPLOY_TARGET completed"
         env:
           # github.server_url is the runner's internal connection URL
-          # (http://devopgitserv:3000), unreachable from the deploy servers.
-          # GITREPO_PUBLIC_URL is a repository variable holding the public
+          # (http://depotservice:3000), unreachable from the deploy servers.
+          # DEPOT_PUBLIC_URL is a repository variable holding the public
           # Forgejo base URL (e.g. https://git.example.com).
-          REPO_CLONE_URL: ${{ vars.GITREPO_PUBLIC_URL || github.server_url }}/${{ github.repository }}.git
+          REPO_CLONE_URL: ${{ vars.DEPOT_PUBLIC_URL || github.server_url }}/${{ github.repository }}.git
           BRANCH: ${{ inputs.branch }}
           DEPLOY_TARGET: ${{ inputs.environment }}
           DEPLOY_TASK: ${{ inputs.service }}
-          GITREPO_DEPLOY_TOKEN: ${{ secrets.GITREPO_DEPLOY_TOKEN }}
+          DEPOT_DEPLOY_TOKEN: ${{ secrets.DEPOT_DEPLOY_TOKEN }}
           GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
           STAG_SERVER_HOST: ${{ secrets.STAG_SERVER_HOST }}
           STAG_SERVER_USER: ${{ secrets.STAG_SERVER_USER }}

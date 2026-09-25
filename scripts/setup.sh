@@ -52,7 +52,7 @@ inject_secrets() {
         -e "s|<YOUR_STRONG_AUTHENTIK_SECRETKEY>|${AUTHK_SECRET}|g" \
         -e "s|<YOUR_LITELLM_MASTER_API_KEY>|${LITELLM_APIKEY}|g" \
         -e "s|<YOUR_STRONG_LITELLM_ADMIN_PASSWORD>|${LITELLM_ADMPWD}|g" \
-        -e "s|<YOUR_GITBLD_AGN_SECRET>|${RUNNER_SECRET}|g" \
+        -e "s|<YOUR_DEPOT_RUNNER_SECRET>|${RUNNER_SECRET}|g" \
         -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_00>|${HERMES_WORKSPACE_PASSWD_00}|g" \
         -e "s|<YOUR_STRONG_WEBMAIL_SESSION_SECRET>|${WEBMAIL_SESSION_SECRET}|g" \
         "$ENV_FILE" && rm "${ENV_FILE}.bak"
@@ -65,10 +65,10 @@ migrate_env() {
     # The legacy Gitea/Woodpecker runner token no longer exists (Forgejo Actions
     # uses a shared runner secret); drop it from old .env files.
     if grep -q '^REPBUK_' "$ENV_FILE" 2>/dev/null; then
-        echo "Migrating legacy REPBUK_* variables to GITREPO_* ..."
+        echo "Migrating legacy REPBUK_* variables to DEPOT_* ..."
         sed -i.bak \
-            -e 's/REPBUK_DBNAME/GITREPO_DBNAME/g' \
-            -e 's/REPBUK_DOMAIN/GITREPO_DOMAIN/g' \
+            -e 's/REPBUK_DBNAME/DEPOT_DBNAME/g' \
+            -e 's/REPBUK_DOMAIN/DEPOT_DOMAIN/g' \
             "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
         sed -i.bak '/^REPBUK_RUNTOKEN=/d' "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
     fi

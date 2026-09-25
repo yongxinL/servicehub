@@ -4,7 +4,7 @@ services:
         build:
             context: ../shared/confluence/
             args:
-                - IMAGE_TAG=${WBCONF_TAG}
+                - IMAGE_TAG=${WBHOME_TAG}
         depends_on:
             authnservice:
                 condition: service_healthy

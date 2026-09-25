@@ -1,6 +1,6 @@
 services:
-    # devopbldinit — one-shot: create DevOps data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
-    devopbldinit:
+    # depotinit — one-shot: create Depot data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
+    depotinit:
         command: >
             sh -c 'mkdir -p /data /var/lib/forgejo-runner &&
                    chown -R 1000:1000 /data /var/lib/forgejo-runner'
@@ -9,15 +9,15 @@ services:
             - subnet
         user: root
         volumes:
-            - ${APPS_DATA}/devops/repos:/data
-            - ${APPS_DATA}/devops/buildexec:/var/lib/forgejo-runner
+            - ${APPS_DATA}/depot/repos:/data
+            - ${APPS_DATA}/depot/buildexec:/var/lib/forgejo-runner
 
-    # devopgitserv — Forgejo git server + Actions (HTTPS clone via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
-    devopgitserv:
+    # depotservice — Forgejo git server + Actions (HTTPS clone via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
+    depotservice:
         build:
             context: ../shared/forgejo/server/
             args:
-                - IMAGE_TAG=${GITREPO_VTAG}
+                - IMAGE_TAG=${DEPOT_VTAG}
         depends_on:
             dbsvcpgsqldb:
                 condition: service_healthy
@@ -27,13 +27,13 @@ services:
             - TZ=${TIME_ZONE}
             - USER_UID=1000
             - USER_GID=1000
-            - FORGEJO__server__DOMAIN=${GITREPO_DOMAIN}
-            - FORGEJO__server__ROOT_URL=https://${GITREPO_DOMAIN}/
+            - FORGEJO__server__DOMAIN=${DEPOT_DOMAIN}
+            - FORGEJO__server__ROOT_URL=https://${DEPOT_DOMAIN}/
             # SSH port is not published; advertise HTTPS clone URLs only
             - FORGEJO__server__DISABLE_SSH=true
             - FORGEJO__database__DB_TYPE=postgres
             - FORGEJO__database__HOST=${PGRSQL_HOST}:${PGRSQL_PORT}
-            - FORGEJO__database__NAME=${GITREPO_DBNAME}
+            - FORGEJO__database__NAME=${DEPOT_DBNAME}
             - FORGEJO__database__USER=${SQLDB_USER}
             - FORGEJO__database__PASSWD=${SQLDB_PASS}
             - FORGEJO__openid__ENABLE_OPENID_SIGNIN=false
@@ -45,41 +45,41 @@ services:
             interval: 30s
             retries: 5
             timeout: 5s
-        image: devopgitserv:latest
+        image: depotservice:latest
         labels:
             - "traefik.enable=true"
-            - "traefik.http.routers.devopgitserv.entrypoints=websecure"
-            - "traefik.http.routers.devopgitserv.rule=Host(`${GITREPO_DOMAIN}`)"
-            - "traefik.http.routers.devopgitserv.service=devopgitserv"
-            - "traefik.http.services.devopgitserv.loadbalancer.server.port=3000"
-            - "traefik.http.routers.devopgitserv.tls=true"
-            - "traefik.http.routers.devopgitserv.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.depotservice.entrypoints=websecure"
+            - "traefik.http.routers.depotservice.rule=Host(`${DEPOT_DOMAIN}`)"
+            - "traefik.http.routers.depotservice.service=depotservice"
+            - "traefik.http.services.depotservice.loadbalancer.server.port=3000"
+            - "traefik.http.routers.depotservice.tls=true"
+            - "traefik.http.routers.depotservice.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
         volumes:
             - /etc/localtime:/etc/localtime:ro
-            - ${APPS_DATA}/devops/repos:/data
+            - ${APPS_DATA}/depot/repos:/data
 
-    # devopgitexec — Forgejo Actions runner using host-mode execution.
+    # depotrunner — Forgejo Actions runner using host-mode execution.
     # Workflow jobs run inside this runner container and deploy to Docker hosts
     # over SSH. No temporary job container or Docker socket is required.
     # Docs: shared/forgejo/README.md
-    devopgitexec:
+    depotrunner:
         build:
             context: ../shared/forgejo/actions/
             args:
-                - IMAGE_TAG=${GITBLD_VTAG}
+                - IMAGE_TAG=${DEPOT_RUNNER_VTAG}
         depends_on:
-            devopbldinit:
+            depotinit:
                 condition: service_completed_successfully
-            devopgitserv:
+            depotservice:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
-            - GITBLD_AGN_SECRET=${GITBLD_AGN_SECRET}
-            - FORGEJO_INSTANCE_URL=http://devopgitserv:3000
-            - FORGEJO_RUNNER_NAME=devopgitexec
+            - DEPOT_RUNNER_SECRET=${DEPOT_RUNNER_SECRET}
+            - FORGEJO_INSTANCE_URL=http://depotservice:3000
+            - FORGEJO_RUNNER_NAME=depotrunner
         # The runner daemon has no HTTP endpoint; the healthcheck verifies the
         # daemon process is alive and the registration file is non-empty.
         # `pidof` is provided by Alpine's busybox and is always available.
@@ -89,7 +89,7 @@ services:
             timeout: 5s
             retries: 5
             start_period: 30s
-        image: devopgitexec:latest
+        image: depotrunner:latest
         networks:
             - subnet
         restart: unless-stopped
@@ -98,6 +98,6 @@ services:
             # Version-controlled runtime configuration.
             - ../shared/forgejo/actions/config.yml:/etc/forgejo-runner/config.yml:ro
             # Persistent registration identity and runner data.
-            - ${APPS_DATA}/devops/buildexec:/var/lib/forgejo-runner
+            - ${APPS_DATA}/depot/buildexec:/var/lib/forgejo-runner
             # Host-mode job workspace.
-            - ${APPS_DATA}/devops/workspace:/workspace
+            - ${APPS_DATA}/depot/workspace:/workspace
