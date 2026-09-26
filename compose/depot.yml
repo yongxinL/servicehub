@@ -1,6 +1,6 @@
 services:
-    # depotinit — one-shot: create Depot data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
-    depotinit:
+    # depotsvcinit — one-shot: create Depot data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
+    depotsvcinit:
         command: >
             sh -c 'mkdir -p /data /var/lib/forgejo-runner &&
                    chown -R 1000:1000 /data /var/lib/forgejo-runner'
@@ -9,8 +9,8 @@ services:
             - subnet
         user: root
         volumes:
-            - ${APPS_DATA}/depot/repos:/data
-            - ${APPS_DATA}/depot/buildexec:/var/lib/forgejo-runner
+            - ${APPS_DATA}/platform/repos:/data
+            - ${APPS_DATA}/platform/buildexec:/var/lib/forgejo-runner
 
     # depotservice — Forgejo git server + Actions (HTTPS clone via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
     depotservice:
@@ -59,7 +59,7 @@ services:
         restart: unless-stopped
         volumes:
             - /etc/localtime:/etc/localtime:ro
-            - ${APPS_DATA}/depot/repos:/data
+            - ${APPS_DATA}/platform/repos:/data
 
     # depotrunner — Forgejo Actions runner using host-mode execution.
     # Workflow jobs run inside this runner container and deploy to Docker hosts
@@ -71,7 +71,7 @@ services:
             args:
                 - IMAGE_TAG=${DEPOT_RUNNER_VTAG}
         depends_on:
-            depotinit:
+            depotsvcinit:
                 condition: service_completed_successfully
             depotservice:
                 condition: service_healthy
@@ -98,6 +98,6 @@ services:
             # Version-controlled runtime configuration.
             - ../shared/forgejo/actions/config.yml:/etc/forgejo-runner/config.yml:ro
             # Persistent registration identity and runner data.
-            - ${APPS_DATA}/depot/buildexec:/var/lib/forgejo-runner
+            - ${APPS_DATA}/platform/buildexec:/var/lib/forgejo-runner
             # Host-mode job workspace.
-            - ${APPS_DATA}/depot/workspace:/workspace
+            - ${APPS_DATA}/platform/workspace:/workspace

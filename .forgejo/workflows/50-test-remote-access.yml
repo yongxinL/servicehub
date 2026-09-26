@@ -1,0 +1,172 @@
+# Forgejo Actions deployment connectivity test for ServiceHub.
+#
+# Verifies the remote target used by .forgejo/workflows/00-prod-deploy-services.yml:
+#   - SSH authentication (key or password) and host verification
+#   - Docker / Compose availability for the deploy user
+#   - Passwordless sudo (server prerequisite for the acme.json restore)
+#   - The privileged install path used to restore ${APPS_DATA}/certs/acme.json
+#
+# It only writes a marker file in the deploy user's home and a temporary
+# root-owned file under ${APPS_DATA}/certs (both removable, the latter deleted
+# again): it never clones the repository, replaces acme.json or touches running
+# services, so it is safe to run against staging or production.
+#
+# The job runs directly in the host-mode runner container (ssh-deploy), like
+# the deploy workflow: no checkout, no additional containers are used.
+#
+# Inputs:
+#   - environment: target to test, stag (default) or prod
+
+name: test-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'stag'
+        type: choice
+        options:
+          - stag
+          - prod
+
+# Independent of the deploy workflow: a connectivity test never changes services.
+concurrency:
+  group: test-deploy
+  cancel-in-progress: false
+
+jobs:
+  test-deploy:
+    runs-on: ssh-deploy
+    steps:
+      - name: Test SSH deploy prerequisites
+        run: |
+          set -e
+
+          # --- resolve target ------------------------------------------------
+          [ -n "$DEPLOY_TARGET" ] || DEPLOY_TARGET=stag
+          DEPLOY_TARGET=$(printf '%s' "$DEPLOY_TARGET" | tr '[:upper:]' '[:lower:]')
+
+          case "$DEPLOY_TARGET" in
+            stag) PREFIX=STAG ;;
+            prod) PREFIX=PROD ;;
+            *) echo "Error: unknown DEPLOY_TARGET '$DEPLOY_TARGET' (expected stag or prod)" >&2; exit 1 ;;
+          esac
+
+          get() { eval "printf '%s' \"\${$1:-}\""; }
+
+          SERVER_HOST=$(get "${PREFIX}_SERVER_HOST")
+          SERVER_USER=$(get "${PREFIX}_SERVER_USER")
+          SERVER_PASSWORD=$(get "${PREFIX}_SERVER_PASS")
+          SERVER_KEY=$(get "${PREFIX}_SERVER_KEY")
+          DEPLOY_PATH=$(get "${PREFIX}_DEPLOY_PATH")
+          SSH_KNOWN_HOST=$(get "${PREFIX}_SSHKWN_KEYS")
+
+          [ -n "$SERVER_HOST" ] || { echo "Error: ${PREFIX}_SERVER_HOST is not set" >&2; exit 1; }
+          [ -n "$SERVER_USER" ] || { echo "Error: ${PREFIX}_SERVER_USER is not set" >&2; exit 1; }
+          if [ -z "$SERVER_PASSWORD" ] && [ -z "$SERVER_KEY" ]; then
+            echo "Error: ${PREFIX}_SERVER_PASS or ${PREFIX}_SERVER_KEY must be set" >&2; exit 1
+          fi
+          [ -n "$DEPLOY_PATH" ] || { echo "Error: ${PREFIX}_DEPLOY_PATH is not set" >&2; exit 1; }
+
+          command -v ssh >/dev/null 2>&1 || { echo "Error: required command 'ssh' not found" >&2; exit 1; }
+          if [ -z "$SERVER_KEY" ]; then
+            command -v sshpass >/dev/null 2>&1 || { echo "Error: required command 'sshpass' not found (needed for password auth)" >&2; exit 1; }
+          fi
+
+          # Same key materialization as the deploy workflow: 0600 temp file; the trap
+          # cleans up both temp files on exit.
+          SSH_KEY_FILE=
+          if [ -n "$SERVER_KEY" ]; then
+            SSH_KEY_FILE=$(mktemp)
+            chmod 600 "$SSH_KEY_FILE"
+            printf '%s\n' "$SERVER_KEY" | tr -d '\r' > "$SSH_KEY_FILE"
+          fi
+          KNOWN_HOSTS_FILE=$(mktemp)
+          trap 'rm -f "$SSH_KEY_FILE" "$KNOWN_HOSTS_FILE"' EXIT
+
+          echo "Testing $DEPLOY_TARGET ($SERVER_USER@$SERVER_HOST:$DEPLOY_PATH)"
+
+          # --- SSH host verification ------------------------------------------
+          # ssh reads ~/.ssh/known_hosts via the passwd home, not $HOME: the
+          # runner image runs as root but sets HOME=/data, so ~ resolves to
+          # /data while ssh looks in /root. An explicit file keeps them in sync.
+          if [ -n "$SSH_KNOWN_HOST" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOST" >> "$KNOWN_HOSTS_FILE"
+          else
+            echo "WARNING: ${PREFIX}_SSHKWN_KEYS not set; falling back to ssh-keyscan" >&2
+            ssh-keyscan -H "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
+          fi
+          [ -s "$KNOWN_HOSTS_FILE" ] || { echo "Error: no SSH host keys for $SERVER_HOST (set ${PREFIX}_SSHKWN_KEYS)" >&2; exit 1; }
+          chmod 600 "$KNOWN_HOSTS_FILE"
+
+          ssh_exec() {
+            if [ -n "$SERVER_KEY" ]; then
+              ssh -i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
+            else
+              SSHPASS="$SERVER_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
+            fi
+          }
+
+          # --- remote checks ---------------------------------------------------
+          ssh_exec "set -e
+          echo '--- identity ---'
+          whoami
+          hostname
+          uname -sr
+
+          echo '--- docker ---'
+          docker info >/dev/null 2>&1 && echo 'docker: OK' || { echo 'ERROR: docker not accessible (is the deploy user in the docker group?)' >&2; exit 1; }
+          if command -v docker-compose >/dev/null 2>&1; then echo 'compose: docker-compose'; else docker compose version >/dev/null 2>&1 && echo 'compose: docker compose' || { echo 'ERROR: docker compose not available' >&2; exit 1; }; fi
+
+          echo '--- passwordless sudo (server prerequisite) ---'
+          sudo -n true 2>/dev/null && echo 'sudo -n: OK' || { echo 'ERROR: ${PREFIX}_SERVER_USER lacks passwordless sudo; see README Prerequisites' >&2; exit 1; }
+
+          echo '--- deploy path ---'
+          if [ -d '$DEPLOY_PATH' ]; then echo '$DEPLOY_PATH: exists'; else echo '$DEPLOY_PATH: missing (first deploy will clone it)'; fi
+
+          echo '--- test file ---'
+          TEST_FILE=\"\$HOME/servicehub-deploy-test.txt\"
+          {
+            echo 'servicehub deploy test'
+            echo \"time:   \$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            echo \"user:   \$(whoami)\"
+            echo \"host:   \$(hostname)\"
+            echo \"target: $DEPLOY_TARGET\"
+          } > \"\$TEST_FILE\"
+          cat \"\$TEST_FILE\"
+          stat -c 'mode=%a owner=%U' \"\$TEST_FILE\"
+
+          echo '--- privileged install test (acme.json restore path) ---'
+          APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
+          APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
+          if [ -n \"\$APPS_DATA\" ]; then ACME_DIR=\"\$APPS_DATA/certs\"; else ACME_DIR=/tmp; echo 'WARNING: APPS_DATA not found in .env; testing under /tmp' >&2; fi
+          SRC=/tmp/servicehub-install-test-src
+          printf 'install-check\n' > \"\$SRC\"
+          sudo -n mkdir -p \"\$ACME_DIR\"
+          sudo -n install -m 600 -o root -g root \"\$SRC\" \"\$ACME_DIR/.deploy-test\"
+          stat -c 'owner=%U group=%G mode=%a' \"\$ACME_DIR/.deploy-test\"
+          [ \"\$(stat -c %U \"\$ACME_DIR/.deploy-test\")\" = root ] || { echo 'ERROR: owner is not root' >&2; exit 1; }
+          [ \"\$(stat -c %G \"\$ACME_DIR/.deploy-test\")\" = root ] || { echo 'ERROR: group is not root' >&2; exit 1; }
+          [ \"\$(stat -c %a \"\$ACME_DIR/.deploy-test\")\" = 600 ] || { echo 'ERROR: mode is not 600' >&2; exit 1; }
+          sudo -n rm -f \"\$ACME_DIR/.deploy-test\" \"\$SRC\"
+          echo \"install: OK (\$ACME_DIR)\"
+
+          echo 'All remote checks passed.'"
+
+          echo "test-deploy ($DEPLOY_TARGET) completed"
+        env:
+          DEPLOY_TARGET: ${{ inputs.environment }}
+          STAG_SERVER_HOST: ${{ secrets.STAG_SERVER_HOST }}
+          STAG_SERVER_USER: ${{ secrets.STAG_SERVER_USER }}
+          STAG_SERVER_PASS: ${{ secrets.STAG_SERVER_PASS }}
+          STAG_SERVER_KEY: ${{ secrets.STAG_SERVER_KEY }}
+          STAG_DEPLOY_PATH: ${{ secrets.STAG_DEPLOY_PATH }}
+          STAG_SSHKWN_KEYS: ${{ secrets.STAG_SSHKWN_KEYS }}
+          PROD_SERVER_HOST: ${{ secrets.PROD_SERVER_HOST }}
+          PROD_SERVER_USER: ${{ secrets.PROD_SERVER_USER }}
+          PROD_SERVER_PASS: ${{ secrets.PROD_SERVER_PASS }}
+          PROD_SERVER_KEY: ${{ secrets.PROD_SERVER_KEY }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          PROD_SSHKWN_KEYS: ${{ secrets.PROD_SSHKWN_KEYS }}

@@ -73,7 +73,7 @@ graph TD
         VL -.->|receives| Alloy
     end
 
-    WPDeploy[deploy workflow\n.forgejo/workflows/deploy.yml] -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
+    WPDeploy[deploy workflow\n.forgejo/workflows/00-prod-deploy-services.yml] -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
 ```
 
 **TLS strategy:**
@@ -88,7 +88,9 @@ graph TD
 servicehub/
 ├── .forgejo/
 │   └── workflows/
-│       └── deploy.yml            # Forgejo Actions deployment workflow (self-contained)
+│       ├── 00-prod-deploy-services.yml   # Forgejo Actions deployment workflow (self-contained)
+│       ├── 30-prod-backup-services.yml   # Forgejo Actions APPS_DATA backup workflow
+│       └── 50-test-remote-access.yml     # Forgejo Actions SSH/Docker prerequisite test workflow
 ├── compose/                    # Per-domain Docker Compose files
 │   ├── route.yml               # Traefik (routetraefik)
 │   ├── dbsvc.yml               # MariaDB + PostgreSQL
@@ -350,7 +352,11 @@ The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` rec
 - **Git** 2.x
 - **git-crypt** (macOS: `brew install git-crypt`) — required to encrypt/decrypt self-signed certificates stored in the repo. The remote deploy server installs it automatically via the workflow.
 - A domain name with DNS A records pointing to your server (for Let's Encrypt) **or** a local domain with a self-signed certificate (for staging)
-- A Linux server with SSH access (for remote deployment)
+- A Linux server with SSH access (for remote deployment). The deploy user needs Docker access and **passwordless sudo** (`NOPASSWD`) — the workflow installs the root-owned ACME store (`${APPS_DATA}/certs/acme.json`, mode `600`, contains private keys) and installs `git-crypt` when missing:
+
+  ```bash
+  echo "deploy ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/servicehub-deploy
+  ```
 - `openssl` (used by `setup.sh` to generate database passwords)
 
 ---
@@ -404,20 +410,20 @@ chmod 600 ${APPS_DATA}/certs/acme.json
 
 For **staging** (self-signed), place your `.pem` and `.key` files in `shared/traefik/advanced/selfsigncert/` matching `shared/traefik/advanced/certificates.yml`. These are encrypted with git-crypt before committing. No `acme.json` is needed.
 
-For remote deployments via the Forgejo Actions workflow, `acme.json` is restored automatically from the `*_B64ENC_ACME` secret (gzip+base64 encoded via `setup.sh --encode`) with `600` permissions. The restore only overwrites the existing file if the secret is newer, preserving certificates renewed by Traefik since the last encode.
+For remote deployments via the Forgejo Actions workflow, `acme.json` is restored automatically from the `*_B64ENC_ACME` secret (gzip+base64 encoded via `setup.sh --encode`) with `install -m 600 -o root -g root`, so ownership and permissions are deterministic. The restore only overwrites the existing file if the secret is newer, preserving certificates renewed by Traefik since the last encode.
 
 ### 5. Prepare Data Directories
 
-Service init containers (`authnsvrinit`, `depotinit`, `aiagnhermint`, `obsvcgrafint`) fix ownership on every boot. To prepare directories ahead of time:
+Service init containers (`authnsvcinit`, `depotsvcinit`, `aiagnhermint`, `obsvcgrafint`) fix ownership on every boot. To prepare directories ahead of time:
 
 ```bash
 mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
-mkdir -p ${APPS_DATA}/webapps/authentik/{media,templates}
+mkdir -p ${APPS_DATA}/platform/authentik/{media,templates}
 mkdir -p ${APPS_DATA}/certs
-mkdir -p ${APPS_DATA}/depot/{repos,buildexec}
+mkdir -p ${APPS_DATA}/platform/{repos,buildexec}
 mkdir -p ${APPS_DATA}/hermesagent/00
-mkdir -p ${APPS_DATA}/mailbox/{stalwart,bulwark}
-chown -R 1000:1000 ${APPS_DATA}/depot
+mkdir -p ${APPS_DATA}/platform/{mailbox,webmail}
+chown -R 1000:1000 ${APPS_DATA}/platform/{repos,buildexec}
 ```
 
 Replace `${APPS_DATA}` with the actual path you set in `.env` (default: `~/Documents/containerd`). Homepage data lives under `${APPS_DATA}/webapps/confluence`; follow the service README for directory ownership.
@@ -488,8 +494,9 @@ git show HEAD:shared/traefik/advanced/selfsigncert/selfcert.pem | file -
 The deploy workflow needs the key as a Forgejo Actions secret:
 
 ```bash
-# Encode the binary key as base64
-base64 -w0 servicehub.key
+# Encode the binary key as base64 (single line, no trailing newline)
+base64 -i servicehub.key | tr -d '\n'   # macOS / BSD
+base64 -w0 servicehub.key               # Linux (GNU coreutils)
 ```
 
 Copy the output into Forgejo → Repository → Settings → Actions → Secrets as **`GIT_CRYPT_KEY`**.
@@ -504,7 +511,7 @@ git-crypt unlock ./servicehub.key
 
 ## Deployment (Forgejo Actions)
 
-The Forgejo Actions workflow at [.forgejo/workflows/deploy.yml](.forgejo/workflows/deploy.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs and secrets are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`depotrunner`).
+The Forgejo Actions workflow at [.forgejo/workflows/00-prod-deploy-services.yml](.forgejo/workflows/00-prod-deploy-services.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs, secrets and variables are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`depotrunner`). A companion workflow (`.forgejo/workflows/50-test-remote-access.yml`) verifies SSH, Docker and sudo access to the target without deploying anything.
 
 | Trigger | Behaviour |
 |---|---|
@@ -539,13 +546,17 @@ bash scripts/setup.sh --encode PROD
 
 The script outputs `.b64` files and prints instructions for copying their content into Forgejo Actions secrets.
 
-### Required Actions Secrets
+### Required Actions Secrets and Variables
 
-Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
+Stored workflow configuration lives in two separate stores, both under **Forgejo → Repository → Settings → Actions**. Use this table to decide where each item goes:
 
-> Forgejo secrets are available to every workflow of the repository — no per-event enablement is needed. Create **all** secrets listed below; leave unused ones (e.g. `STAG_B64ENC_ACME` on staging) empty.
+| Where | Used for | Items |
+|---|---|---|
+| **Secrets** (Settings → Actions → **Secrets**) | Credentials, private keys and encoded `.env` / `acme.json` — encrypted and masked in logs | `DEPOT_DEPLOY_TOKEN`, `GIT_CRYPT_KEY`, and every `STAG_*` / `PROD_*` entry below |
+| **Variables** (Settings → Actions → **Variables**) | Non-sensitive configuration — plaintext, readable by anyone with repository access | `DEPOT_PUBLIC_URL` |
+| **Neither** — selected per run in the **Run workflow** dialog | Per-deployment choices | `service`, `environment`, `branch` |
 
-#### Repository variables
+#### Variables (Settings → Actions → Variables)
 
 Set these in **Forgejo → Repository → Settings → Actions → Variables**:
 
@@ -553,35 +564,45 @@ Set these in **Forgejo → Repository → Settings → Actions → Variables**:
 |---|---|---|
 | `DEPOT_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://depotservice:3000` and cannot be reached from the deploy servers). |
 
-#### Shared (both environments)
+#### Secrets (Settings → Actions → Secrets)
+
+Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
+
+> Forgejo secrets are available to every workflow of the repository — no per-event enablement is needed. Create **all** secrets listed below; leave unused ones (e.g. `STAG_B64ENC_ACME` on staging) empty.
+
+##### Shared (both environments)
 
 | Secret | How to obtain | Description |
 |---|---|---|
 | `DEPOT_DEPLOY_TOKEN` | Forgejo → Settings → Applications → Access Token (repo read scope) | Forgejo access token used by the deploy step to clone/pull the repository on the remote server. |
 | `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates on the remote server after git clone/pull. Generate with `git-crypt init && git-crypt export-key ./servicehub.key`. |
 
-#### Staging (`STAG_*`)
+##### Staging (`STAG_*`)
 
 | Secret | Example value | Description |
 |---|---|---|
 | `STAG_SERVER_HOST` | `192.168.1.10` or `stag.example.com` | IP address or hostname of the staging server. Used for SSH connection. |
-| `STAG_SERVER_USER` | `deploy` | SSH login username on the staging server. |
+| `STAG_SERVER_USER` | `deploy` | SSH login username on the staging server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
 | `STAG_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `STAG_SERVER_KEY` must be set** — not both required. Ignored if `STAG_SERVER_KEY` is also set. |
 | `STAG_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `STAG_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the staging server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
 | `STAG_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the staging server where the repo is cloned. Must include the repo directory name — git clones **into** this path. |
+| `STAG_BACKUP_ROOT` | `/mnt/backup` | Directory on the staging server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. Only needed if you run the backup workflow for staging. |
+| `STAG_BACKUP_EXCLUDE` | `webapps/confluence/logs,platform/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from staging backups. `*` and `?` globs are allowed; leave unset to archive everything. |
 | `STAG_B64ENC_ENVS` | *(output of `setup.sh --encode STAG`)* | Gzip+base64-encoded `.env` file. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
 | `STAG_B64ENC_ACME` | *(leave the value empty for staging)* | Gzip+base64-encoded `acme.json` (Let's Encrypt certificates). For staging, create the secret with an **empty value** — Traefik uses the self-signed cert from `shared/traefik/advanced/selfsigncert/` instead. |
 | `STAG_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The staging server's public SSH host key. Prevents man-in-the-middle attacks by verifying the server identity before connecting. **Optional** — if unset the deploy script falls back to `ssh-keyscan` at runtime with a warning. |
 
-#### Production (`PROD_*`)
+##### Production (`PROD_*`)
 
 | Secret | Example value | Description |
 |---|---|---|
 | `PROD_SERVER_HOST` | `203.0.113.10` or `prod.example.com` | IP address or hostname of the production server. |
-| `PROD_SERVER_USER` | `deploy` | SSH login username on the production server. |
+| `PROD_SERVER_USER` | `deploy` | SSH login username on the production server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
 | `PROD_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `PROD_SERVER_KEY` must be set** — not both required. Ignored if `PROD_SERVER_KEY` is also set. |
 | `PROD_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `PROD_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the production server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
 | `PROD_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the production server where the repo is cloned. |
+| `PROD_BACKUP_ROOT` | `/mnt/backup` | Directory on the production server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. Required by the `backup-data` workflow. |
+| `PROD_BACKUP_EXCLUDE` | `webapps/confluence/logs,platform/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from production backups. `*` and `?` globs are allowed; leave unset to archive everything. |
 | `PROD_B64ENC_ENVS` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded production `.env`. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
 | `PROD_B64ENC_ACME` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded `acme.json` containing your Let's Encrypt certificates. Generated by `setup.sh --encode PROD` when `acme.json` is larger than 1 KB (i.e. after Traefik has issued real certificates). Restored only if the secret is newer than the existing file. |
 | `PROD_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The production server's public SSH host key. Strongly recommended for production. Run `ssh-keyscan <prod-host>` locally to get the value. |
@@ -597,6 +618,26 @@ Set these in **Forgejo → Repository → Settings → Actions → Variables**:
 4. Click the green **Run workflow** button — progress and logs appear in the workflow run page
 
 > Deployments are serialised: the workflow declares a `concurrency` group so two deploys never run at the same time, and a running deployment is never cancelled by a newer trigger.
+
+### Data Backups (Forgejo Actions)
+
+The `30-prod-backup-services.yml` workflow archives the whole persistent data volume on the target server — the `APPS_DATA` path read from its `.env` — and stores it under the `*_BACKUP_ROOT` secret:
+
+```
+<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-dataBK-webapps-<YYYYMMDD>.tar.gz
+```
+
+`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env` (`oneLijia.com` → `oneLijia`), so the archive name matches the deployment. The workflow runs **daily at 02:30 server time** and can also be started manually from **Actions → backup-data** (`environment` defaults to `prod`). The archive is written to a `.part` file first and renamed only on success; it is owned by `root` with mode `600` because it contains `.env` secrets and ACME private keys. It uses the same server secrets as the deploy workflow and requires passwordless sudo — see [Prerequisites](#prerequisites).
+
+Paths can be excluded with the optional `STAG_BACKUP_EXCLUDE` / `PROD_BACKUP_EXCLUDE` secrets — a comma-separated list relative to `APPS_DATA`, with `*` and `?` globs allowed. For example, to skip Confluence logs/caches and the runner workspace:
+
+```
+webapps/confluence/logs,webapps/confluence/temp,webapps/confluence/plugins-temp,platform/workspace
+```
+
+A leading `./` or `/` is ignored; leave the secret unset to archive everything.
+
+> **Consistency:** the archive is taken while containers are running, so `databases/` is crash-consistent rather than transaction-consistent. Stop the database containers first if a fully consistent snapshot is required. A long-running backup also queues deployments, because the runner has capacity 1.
 
 ---
 

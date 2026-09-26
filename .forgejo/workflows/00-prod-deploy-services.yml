@@ -6,7 +6,7 @@
 #
 # Triggers:
 #   - workflow_dispatch (Run workflow button in the Forgejo UI, or the
-#     POST /repos/{owner}/{repo}/actions/workflows/deploy.yml/dispatches API)
+#     POST /repos/{owner}/{repo}/actions/workflows/00-prod-deploy-services.yml/dispatches API)
 #
 # Inputs (same as the previous Gitea Actions workflow):
 #   - service:     app service to deploy, or "all" (default). Foundational
@@ -139,33 +139,39 @@ jobs:
 
           # When using key auth, materialize the private key into a temp file
           # with 0600 perms (ssh refuses more permissive key files). The trap
-          # cleans it up on exit regardless of success or failure.
+          # cleans up both temp files on exit regardless of success or failure.
           SSH_KEY_FILE=
           if [ -n "$SERVER_KEY" ]; then
             SSH_KEY_FILE=$(mktemp)
             chmod 600 "$SSH_KEY_FILE"
-            printf '%s\n' "$SERVER_KEY" > "$SSH_KEY_FILE"
-            trap 'rm -f "$SSH_KEY_FILE"' EXIT
+            # Strip CR so keys stored via the Forgejo HTTP API (CRLF) still parse.
+            printf '%s\n' "$SERVER_KEY" | tr -d '\r' > "$SSH_KEY_FILE"
           fi
+          KNOWN_HOSTS_FILE=$(mktemp)
+          trap 'rm -f "$SSH_KEY_FILE" "$KNOWN_HOSTS_FILE"' EXIT
 
           echo "Deploying '$DEPLOY_TASK' from branch '$BRANCH' to $DEPLOY_TARGET ($SERVER_USER@$SERVER_HOST:$DEPLOY_PATH)"
 
           # --- SSH host verification ----------------------------------------
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
+          # ssh reads ~/.ssh/known_hosts via the passwd home, not $HOME: the
+          # runner image runs as root but sets HOME=/data, so ~ resolves to
+          # /data while ssh looks in /root. An explicit file keeps them in sync.
           if [ -n "$SSH_KNOWN_HOST" ]; then
-            printf '%s\n' "$SSH_KNOWN_HOST" >> ~/.ssh/known_hosts
+            printf '%s\n' "$SSH_KNOWN_HOST" >> "$KNOWN_HOSTS_FILE"
           else
             echo "WARNING: ${PREFIX}_SSHKWN_KEYS not set; falling back to ssh-keyscan" >&2
-            ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+            ssh-keyscan -H "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
           fi
-          chmod 600 ~/.ssh/known_hosts
+          [ -s "$KNOWN_HOSTS_FILE" ] || { echo "Error: no SSH host keys for $SERVER_HOST (set ${PREFIX}_SSHKWN_KEYS)" >&2; exit 1; }
+          chmod 600 "$KNOWN_HOSTS_FILE"
 
           ssh_exec() {
             if [ -n "$SERVER_KEY" ]; then
-              ssh -i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SERVER_USER@$SERVER_HOST" "$@"
+              # BatchMode: never prompt (passphrase-protected keys fail fast
+              # instead of hanging the job; use a passphrase-less key).
+              ssh -i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
             else
-              SSHPASS="$SERVER_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=yes "$SERVER_USER@$SERVER_HOST" "$@"
+              SSHPASS="$SERVER_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
             fi
           }
 
@@ -217,6 +223,8 @@ jobs:
           ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
 
           # --- restore acme.json (production, newer file wins) ---------------
+          # install sets root:root 600 deterministically; sudo -n fails fast if
+          # the deploy user lacks passwordless sudo (server prerequisite).
           if [ -n "$ACME_B64" ]; then
             printf '%s' "$ACME_B64" | ssh_exec "
           set -e
@@ -224,7 +232,7 @@ jobs:
           APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
           [ -n \"\$APPS_DATA\" ] || APPS_DATA=/opt/containerd
           ACME_PATH=\"\$APPS_DATA/certs/acme.json\"
-          sudo mkdir -p \"\$(dirname \"\$ACME_PATH\")\"
+          sudo -n mkdir -p \"\$(dirname \"\$ACME_PATH\")\"
           base64 -d > /tmp/acme_restore.gz
           gunzip -f /tmp/acme_restore.gz
           if [ -f \"\$ACME_PATH\" ]; then
@@ -232,13 +240,13 @@ jobs:
             restore_time=\$(stat -c %Y /tmp/acme_restore)
             if [ \"\$restore_time\" -gt \"\$existing_time\" ]; then
               echo 'acme.json: secret is newer - restoring from secret'
-              sudo cp /tmp/acme_restore \"\$ACME_PATH\" && sudo chmod 600 \"\$ACME_PATH\"
+              sudo -n install -m 600 -o root -g root /tmp/acme_restore \"\$ACME_PATH\"
             else
               echo 'acme.json: existing file is newer - keeping'
             fi
           else
             echo 'acme.json: not found - restoring from secret'
-            sudo cp /tmp/acme_restore \"\$ACME_PATH\" && sudo chmod 600 \"\$ACME_PATH\"
+            sudo -n install -m 600 -o root -g root /tmp/acme_restore \"\$ACME_PATH\"
           fi
           rm -f /tmp/acme_restore /tmp/acme_restore.gz"
           fi

@@ -15,7 +15,7 @@
 | JMAP backend | `https://${EMAIL_HOST}` — resolves via Docker DNS because `posteservice` sets its container hostname to `${EMAIL_HOST}` |
 | Health check | Node HTTP check of `http://localhost:3000/api/health` every 30 s |
 | Depends on | `posteservice` (healthy) |
-| Data persistence | `${APPS_DATA}/mailbox/bulwark/...` |
+| Data persistence | `${APPS_DATA}/platform/webmail/...` |
 | Onboarding | Setup wizard on first launch unless `JMAP_SERVER_URL` is preset (it is, here) |
 
 ## Traefik routing
@@ -57,10 +57,10 @@ Endpoints are discovered via `/.well-known/oauth-authorization-server` or `/.wel
 
 | Variable | Host path |
 |---|---|
-| `SETTINGS_DATA_DIR=/data/settings` | `${APPS_DATA}/mailbox/bulwark/settings` |
-| `ADMIN_CONFIG_DIR=/data/admin` | `${APPS_DATA}/mailbox/bulwark/admin` |
-| `ADMIN_STATE_DIR=/data/admin-state` | `${APPS_DATA}/mailbox/bulwark/admin-state` |
-| `TELEMETRY_DATA_DIR=/data/telemetry` | `${APPS_DATA}/mailbox/bulwark/telemetry` |
+| `SETTINGS_DATA_DIR=/data/settings` | `${APPS_DATA}/platform/webmail/settings` |
+| `ADMIN_CONFIG_DIR=/data/admin` | `${APPS_DATA}/platform/webmail/admin` |
+| `ADMIN_STATE_DIR=/data/admin-state` | `${APPS_DATA}/platform/webmail/admin-state` |
+| `TELEMETRY_DATA_DIR=/data/telemetry` | `${APPS_DATA}/platform/webmail/telemetry` |
 
 ## First boot
 

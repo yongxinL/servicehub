@@ -1,6 +1,6 @@
 services:
-    # authnsvrinit — one-shot: Authentik data dir ownership fix. Docs: shared/authentik/README.md
-    authnsvrinit:
+    # authnsvcinit — one-shot: Authentik data dir ownership fix. Docs: shared/authentik/README.md
+    authnsvcinit:
         command: >
             sh -c 'chown -R 1000:1000 /data /templates 2>/dev/null; chmod -R 755 /data /templates 2>/dev/null || true'
         image: busybox:latest
@@ -8,8 +8,8 @@ services:
             - subnet
         user: root
         volumes:
-            - ${APPS_DATA}/webapps/authentik/media:/data
-            - ${APPS_DATA}/webapps/authentik/templates:/templates
+            - ${APPS_DATA}/platform/authentik/media:/data
+            - ${APPS_DATA}/platform/authentik/templates:/templates
 
     # authnservice — Authentik server (UI/API). Docs: shared/authentik/README.md
     # First boot: https://${AUTHN_DOMAIN}/if/flow/initial-setup/
@@ -67,14 +67,14 @@ services:
         restart: unless-stopped
         shm_size: 512mb
         volumes:
-            - ${APPS_DATA}/webapps/authentik/media:/data
-            - ${APPS_DATA}/webapps/authentik/templates:/templates
+            - ${APPS_DATA}/platform/authentik/media:/data
+            - ${APPS_DATA}/platform/authentik/templates:/templates
 
     # authnworkers — Authentik background worker. Docs: shared/authentik/README.md
     authnworkers:
         command: worker
         depends_on:
-            authnsvrinit:
+            authnsvcinit:
                 condition: service_completed_successfully
             dbsvcpgsqldb:
                 condition: service_healthy
@@ -108,5 +108,5 @@ services:
         user: root
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
-            - ${APPS_DATA}/webapps/authentik/media:/data
-            - ${APPS_DATA}/webapps/authentik/templates:/templates
+            - ${APPS_DATA}/platform/authentik/media:/data
+            - ${APPS_DATA}/platform/authentik/templates:/templates

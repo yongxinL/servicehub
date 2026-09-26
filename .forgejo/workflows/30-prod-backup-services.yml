@@ -1,0 +1,189 @@
+# Forgejo Actions data backup for ServiceHub.
+#
+# Archives the whole persistent data volume (APPS_DATA from the server's .env)
+# on the target server to
+# <PREFIX>_BACKUP_ROOT/<YYYY>/<YYYYMM>/<DOMAIN_NAME first label>-dataBK-webapps-<YYYYMMDD>.tar.gz
+# BACKUP_ROOT is an Actions secret; DOMAIN_NAME is read from the server's .env.
+# Optional exclusions: the <PREFIX>_BACKUP_EXCLUDE Actions secret holds a
+# comma-separated list of paths relative to APPS_DATA (globs allowed).
+#
+# The job SSHes to the target server like the deploy workflow: the runner
+# container only mounts APPS_DATA/platform/{buildexec,workspace}, not the data
+# volume itself.
+#
+# Caveat: the archive is created while containers are running, so the database
+# directories are crash-consistent, not transaction-consistent. Stop the DB
+# containers first if a fully consistent snapshot is required.
+#
+# Triggers:
+#   - schedule: daily at 02:30 server time (defaults to prod)
+#   - workflow_dispatch: environment choice (default prod)
+
+name: backup-data
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - stag
+          - prod
+
+# Never run two backups at once; the runner has capacity 1, so a long backup
+# also queues deploys rather than failing them.
+concurrency:
+  group: backup-data
+  cancel-in-progress: false
+
+jobs:
+  backup-data:
+    runs-on: ssh-deploy
+    steps:
+      - name: Archive APPS_DATA on the target server
+        run: |
+          set -e
+
+          # --- resolve target ------------------------------------------------
+          [ -n "$DEPLOY_TARGET" ] || DEPLOY_TARGET=prod
+          DEPLOY_TARGET=$(printf '%s' "$DEPLOY_TARGET" | tr '[:upper:]' '[:lower:]')
+
+          case "$DEPLOY_TARGET" in
+            stag) PREFIX=STAG ;;
+            prod) PREFIX=PROD ;;
+            *) echo "Error: unknown DEPLOY_TARGET '$DEPLOY_TARGET' (expected stag or prod)" >&2; exit 1 ;;
+          esac
+
+          get() { eval "printf '%s' \"\${$1:-}\""; }
+
+          SERVER_HOST=$(get "${PREFIX}_SERVER_HOST")
+          SERVER_USER=$(get "${PREFIX}_SERVER_USER")
+          SERVER_PASSWORD=$(get "${PREFIX}_SERVER_PASS")
+          SERVER_KEY=$(get "${PREFIX}_SERVER_KEY")
+          DEPLOY_PATH=$(get "${PREFIX}_DEPLOY_PATH")
+          BACKUP_ROOT=$(get "${PREFIX}_BACKUP_ROOT")
+          BACKUP_EXCLUDE=$(get "${PREFIX}_BACKUP_EXCLUDE")
+          SSH_KNOWN_HOST=$(get "${PREFIX}_SSHKWN_KEYS")
+
+          [ -n "$SERVER_HOST" ] || { echo "Error: ${PREFIX}_SERVER_HOST is not set" >&2; exit 1; }
+          [ -n "$SERVER_USER" ] || { echo "Error: ${PREFIX}_SERVER_USER is not set" >&2; exit 1; }
+          if [ -z "$SERVER_PASSWORD" ] && [ -z "$SERVER_KEY" ]; then
+            echo "Error: ${PREFIX}_SERVER_PASS or ${PREFIX}_SERVER_KEY must be set" >&2; exit 1
+          fi
+          [ -n "$DEPLOY_PATH" ] || { echo "Error: ${PREFIX}_DEPLOY_PATH is not set" >&2; exit 1; }
+          [ -n "$BACKUP_ROOT" ] || { echo "Error: ${PREFIX}_BACKUP_ROOT is not set" >&2; exit 1; }
+
+          # Optional comma-separated exclusions relative to APPS_DATA, e.g.
+          # "platform/workspace,databases". Quotes keep * and ? for tar's own
+          # globbing on the server instead of the runner shell expanding them.
+          EXCLUDE_ARGS=
+          if [ -n "$BACKUP_EXCLUDE" ]; then
+            for entry in $(printf '%s' "$BACKUP_EXCLUDE" | tr ',' ' '); do
+              case "$entry" in
+                *[!A-Za-z0-9._/*?-]*) echo "Error: invalid character in ${PREFIX}_BACKUP_EXCLUDE entry '$entry'" >&2; exit 1 ;;
+              esac
+              entry=${entry#./}
+              entry=${entry#/}
+              EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude='./$entry'"
+            done
+            echo "Excluding from the archive: $BACKUP_EXCLUDE"
+          fi
+
+          command -v ssh >/dev/null 2>&1 || { echo "Error: required command 'ssh' not found" >&2; exit 1; }
+          if [ -z "$SERVER_KEY" ]; then
+            command -v sshpass >/dev/null 2>&1 || { echo "Error: required command 'sshpass' not found (needed for password auth)" >&2; exit 1; }
+          fi
+
+          # Temp key + explicit known_hosts: ssh reads ~/.ssh/known_hosts via the
+          # passwd home, not $HOME (the runner image runs as root but sets
+          # HOME=/data), so the file path must be passed explicitly.
+          SSH_KEY_FILE=
+          if [ -n "$SERVER_KEY" ]; then
+            SSH_KEY_FILE=$(mktemp)
+            chmod 600 "$SSH_KEY_FILE"
+            printf '%s\n' "$SERVER_KEY" | tr -d '\r' > "$SSH_KEY_FILE"
+          fi
+          KNOWN_HOSTS_FILE=$(mktemp)
+          trap 'rm -f "$SSH_KEY_FILE" "$KNOWN_HOSTS_FILE"' EXIT
+
+          echo "Backing up $DEPLOY_TARGET ($SERVER_USER@$SERVER_HOST) to $BACKUP_ROOT"
+
+          # --- SSH host verification ------------------------------------------
+          if [ -n "$SSH_KNOWN_HOST" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOST" >> "$KNOWN_HOSTS_FILE"
+          else
+            echo "WARNING: ${PREFIX}_SSHKWN_KEYS not set; falling back to ssh-keyscan" >&2
+            ssh-keyscan -H "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
+          fi
+          [ -s "$KNOWN_HOSTS_FILE" ] || { echo "Error: no SSH host keys for $SERVER_HOST (set ${PREFIX}_SSHKWN_KEYS)" >&2; exit 1; }
+          chmod 600 "$KNOWN_HOSTS_FILE"
+
+          ssh_exec() {
+            if [ -n "$SERVER_KEY" ]; then
+              ssh -i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
+            else
+              SSHPASS="$SERVER_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
+            fi
+          }
+
+          # --- create the archive on the target --------------------------------
+          ssh_exec "set -e
+          APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
+          APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
+          [ -n \"\$APPS_DATA\" ] || { echo 'Error: APPS_DATA is not set in $DEPLOY_PATH/.env' >&2; exit 1; }
+          SRC=\"\$APPS_DATA\"
+          [ -d \"\$SRC\" ] || { echo \"Error: source directory \$SRC does not exist\" >&2; exit 1; }
+
+          DOMAIN_NAME=\$(grep -E '^DOMAIN_NAME=' '$DEPLOY_PATH/.env' 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
+          DOMAIN_NAME=\${DOMAIN_NAME%%.*}
+          [ -n \"\$DOMAIN_NAME\" ] || { echo 'Error: DOMAIN_NAME is not set in $DEPLOY_PATH/.env' >&2; exit 1; }
+
+          STAMP=\$(date +%Y%m%d)
+          DST='$BACKUP_ROOT'/\$(date +%Y)/\$(date +%Y%m)
+          ARCHIVE=\"\$DST/\$DOMAIN_NAME-dataBK-webapps-\$STAMP.tar.gz\"
+
+          # sudo -n: fails fast when passwordless sudo is missing (server
+          # prerequisite); the successful mkdir also proves sudo works before
+          # tar, whose exit code 1 would otherwise mask a sudo failure.
+          sudo -n mkdir -p \"\$DST\"
+          echo \"Archiving \$SRC -> \$ARCHIVE\"
+          # tar exits 1 when files change while being read (live data); that is
+          # expected and the archive is still usable, so only 2+ is fatal.
+          set +e
+          sudo -n tar -czf \"\$ARCHIVE.part\"$EXCLUDE_ARGS -C \"\$SRC\" .
+          rc=\$?
+          set -e
+          if [ \"\$rc\" -gt 1 ]; then
+            echo \"Error: tar exited \$rc\" >&2
+            sudo -n rm -f \"\$ARCHIVE.part\"
+            exit \"\$rc\"
+          fi
+          [ -s \"\$ARCHIVE.part\" ] || { echo 'Error: archive is empty' >&2; exit 1; }
+          sudo -n mv -f \"\$ARCHIVE.part\" \"\$ARCHIVE\"
+          sudo -n chmod 600 \"\$ARCHIVE\"
+          echo \"Backup complete: \$ARCHIVE (\$(sudo -n du -h \"\$ARCHIVE\" | cut -f1))\""
+
+          echo "backup-data ($DEPLOY_TARGET) completed"
+        env:
+          DEPLOY_TARGET: ${{ inputs.environment }}
+          STAG_SERVER_HOST: ${{ secrets.STAG_SERVER_HOST }}
+          STAG_SERVER_USER: ${{ secrets.STAG_SERVER_USER }}
+          STAG_SERVER_PASS: ${{ secrets.STAG_SERVER_PASS }}
+          STAG_SERVER_KEY: ${{ secrets.STAG_SERVER_KEY }}
+          STAG_DEPLOY_PATH: ${{ secrets.STAG_DEPLOY_PATH }}
+          STAG_BACKUP_ROOT: ${{ secrets.STAG_BACKUP_ROOT }}
+          STAG_BACKUP_EXCLUDE: ${{ secrets.STAG_BACKUP_EXCLUDE }}
+          STAG_SSHKWN_KEYS: ${{ secrets.STAG_SSHKWN_KEYS }}
+          PROD_SERVER_HOST: ${{ secrets.PROD_SERVER_HOST }}
+          PROD_SERVER_USER: ${{ secrets.PROD_SERVER_USER }}
+          PROD_SERVER_PASS: ${{ secrets.PROD_SERVER_PASS }}
+          PROD_SERVER_KEY: ${{ secrets.PROD_SERVER_KEY }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          PROD_BACKUP_ROOT: ${{ secrets.PROD_BACKUP_ROOT }}
+          PROD_BACKUP_EXCLUDE: ${{ secrets.PROD_BACKUP_EXCLUDE }}
+          PROD_SSHKWN_KEYS: ${{ secrets.PROD_SSHKWN_KEYS }}

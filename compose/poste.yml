@@ -55,7 +55,7 @@ services:
             # - "4190:4190"   # ManageSieve;
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/mailbox/stalwart:/var/lib/stalwart
+            - ${APPS_DATA}/platform/mailbox:/var/lib/stalwart
             - ${APPS_DATA}/certs:/letsencrypt
 
     # Bulwark Webmail - self-hosted JMAP webmail for Stalwart
@@ -128,7 +128,7 @@ services:
         restart: unless-stopped
         volumes:
             - /etc/localtime:/etc/localtime:ro
-            - ${APPS_DATA}/mailbox/bulwark/settings:/data/settings
-            - ${APPS_DATA}/mailbox/bulwark/admin:/data/admin
-            - ${APPS_DATA}/mailbox/bulwark/admin-state:/data/admin-state
-            - ${APPS_DATA}/mailbox/bulwark/telemetry:/data/telemetry
+            - ${APPS_DATA}/platform/webmail/settings:/data/settings
+            - ${APPS_DATA}/platform/webmail/admin:/data/admin
+            - ${APPS_DATA}/platform/webmail/admin-state:/data/admin-state
+            - ${APPS_DATA}/platform/webmail/telemetry:/data/telemetry

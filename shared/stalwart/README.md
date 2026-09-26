@@ -22,7 +22,7 @@
 | Health check | `curl -fsS http://localhost:8080/healthz` every 30 s |
 | Depends on | `routetraefik` (healthy) — Traefik must issue the public certificate first |
 | Depended on by | `postewebmail` (healthy) |
-| Data persistence | `${APPS_DATA}/mailbox/stalwart` (mounted at `/var/lib/stalwart`) |
+| Data persistence | `${APPS_DATA}/platform/mailbox` (mounted at `/var/lib/stalwart`) |
 | Certificates | `${APPS_DATA}/certs` (mounted read-only at `/letsencrypt`) |
 
 ## Traefik routing
@@ -54,7 +54,7 @@ This mirrors how the deploy workflow restores `acme.json` from the `*_B64ENC_ACM
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/var/lib/stalwart` | `${APPS_DATA}/mailbox/stalwart` | SQLite store, blobs, TLS key material and first-boot-generated config |
+| `/var/lib/stalwart` | `${APPS_DATA}/platform/mailbox` | SQLite store, blobs, TLS key material and first-boot-generated config |
 | `/letsencrypt` | `${APPS_DATA}/certs` | Traefik's shared `acme.json` (read-only `acme-export.sh`) |
 
 On first boot Stalwart generates its own configuration under `/var/lib/stalwart`; manage settings through the web admin afterwards.
@@ -77,7 +77,7 @@ docker compose up -d posteservice
 docker compose logs -f posteservice
 
 # Inspect the exported certificate state
-ls -l ${APPS_DATA}/mailbox/stalwart/tls/
+ls -l ${APPS_DATA}/platform/mailbox/tls/
 ```
 
 ## Files

@@ -14,11 +14,11 @@ The stack runs three containers:
 
 | Service | Command | Role |
 |---|---|---|
-| `authnsvrinit` | `chown -R 1000:1000 /data /templates` | One-shot permission fixer; runs to completion before the worker starts |
+| `authnsvcinit` | `chown -R 1000:1000 /data /templates` | One-shot permission fixer; runs to completion before the worker starts |
 | `authnworkers` | `worker` | Background processing — flows, policies, outpost sync, notifications |
 | `authnservice` | `server` | Web server / UI, routed by Traefik at `https://${AUTHN_DOMAIN}` |
 
-Startup order: `authnsvrinit` completes → `authnworkers` starts (after a healthy PostgreSQL) → `authnservice` starts (after a healthy Traefik and the worker).
+Startup order: `authnsvcinit` completes → `authnworkers` starts (after a healthy PostgreSQL) → `authnservice` starts (after a healthy Traefik and the worker).
 
 ## Service details
 
@@ -28,7 +28,7 @@ Startup order: `authnsvrinit` completes → `authnworkers` starts (after a healt
 | Initial setup | `https://${AUTHN_DOMAIN}/if/flow/initial-setup/` on first boot |
 | Internal port | 9000 |
 | Database | PostgreSQL (`${AUTHN_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/webapps/authentik/media` and `.../templates` |
+| Data persistence | `${APPS_DATA}/platform/authentik/media` and `.../templates` |
 | Image tag | `AUTHN_TAG` (e.g. `2026.8`) |
 | Shared memory | `shm_size: 512mb` |
 | Analytics / update checks | Disabled (`AUTHENTIK_DISABLE_STARTUP_ANALYTICS`, `AUTHENTIK_DISABLE_UPDATE_CHECK`) |
@@ -55,10 +55,10 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/data` | `${APPS_DATA}/webapps/authentik/media` | Uploaded media |
-| `/templates` | `${APPS_DATA}/webapps/authentik/templates` | Email / flow templates |
+| `/data` | `${APPS_DATA}/platform/authentik/media` | Uploaded media |
+| `/templates` | `${APPS_DATA}/platform/authentik/templates` | Email / flow templates |
 
-`authnsvrinit` chowns both directories to UID/GID `1000` on every boot, so the directories can be created empty beforehand. `authnworkers` runs as `root` and mounts the Docker socket (it manages outpost containers).
+`authnsvcinit` chowns both directories to UID/GID `1000` on every boot, so the directories can be created empty beforehand. `authnworkers` runs as `root` and mounts the Docker socket (it manages outpost containers).
 
 ## Setup (first boot)
 
