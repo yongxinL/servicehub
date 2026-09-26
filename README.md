@@ -13,7 +13,7 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [AI Agent Platform (aiagn)](#ai-agent-platform-aiagn)
 - [Web Applications](#web-applications)
 - [Observability Stack (obsvc)](#observability-stack-obsvc)
-- [Email Stack (emsvc)](#email-stack-emsvc)
+- [Email Stack (poste)](#email-stack-poste)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
@@ -39,7 +39,7 @@ Compose files are split by functional domain:
 | `compose/wbapp.yml` | `wbapp*` | Homepage / CMS (Confluence) + Open WebUI |
 | `compose/aiagn.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
 | `compose/obsvc.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
-| `compose/emsvc.yml` | `emsvc*` | Email services (Stalwart mail server + Bulwark webmail) |
+| `compose/poste.yml` | `poste*` | Email services (Stalwart mail server + Bulwark webmail) |
 
 ```mermaid
 graph TD
@@ -55,8 +55,8 @@ graph TD
         Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
         Traefik -->|space0.domain| Hermes[aiagnherm00\nHermes Agent]
         Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
-        Traefik -->|mail.domain| Stalwart[emsvcmailsrv\nStalwart Mail Server]
-        Traefik -->|webmail.domain| Bulwark[emsvcwebmail\nBulwark Webmail]
+        Traefik -->|mail.domain| Stalwart[posteservice\nStalwart Mail Server]
+        Traefik -->|webmail.domain| Bulwark[postewebmail\nBulwark Webmail]
         Bulwark -->|JMAP via Docker DNS| Stalwart
         Authentik -.->|forward-auth| Grafana
         Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
@@ -97,7 +97,7 @@ servicehub/
 │   ├── aiagn.yml               # Hermes agents + LiteLLM + llama.cpp
 │   ├── depot.yml               # Forgejo + Forgejo Actions runner
 │   ├── obsvc.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
-│   └── emsvc.yml               # Email services (Stalwart mail server + Bulwark webmail)
+│   └── poste.yml               # Email services (Stalwart mail server + Bulwark webmail)
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
 │   │   ├── README.md                     # Traefik service documentation
@@ -177,13 +177,13 @@ servicehub/
 │   │   ├── README.md                     # PostgreSQL service documentation
 │   │   ├── Dockerfile
 │   │   └── create-multiple-databases.sh
-│   ├── stalwart/                          # Stalwart Mail Server (emsvcmailsrv)
+│   ├── stalwart/                          # Stalwart Mail Server (posteservice)
 │   │   ├── README.md                      # Stalwart service documentation
 │   │   ├── Dockerfile
 │   │   ├── config.json                    # Minimal Stalwart SQLite config override
 │   │   ├── entrypoint.sh                  # Bootstrap cert + privilege drop
 │   │   └── acme-export.sh                 # Extracts certs from Traefik's acme.json
-│   ├── bulwark/                           # Bulwark Webmail (emsvcwebmail)
+│   ├── bulwark/                           # Bulwark Webmail (postewebmail)
 │   │   ├── README.md                      # Bulwark service documentation
 │   │   └── Dockerfile
 │   └── wordpress/                        # Optional alternative homepage (not included by default)
@@ -274,7 +274,7 @@ All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so GPU
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Authentik — IdP / SSO | `authnservice`, `authnworkers` (+ one-shot `authnsvrinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
+| Authentik — IdP / SSO | `authnservice`, `authnworkers` (+ one-shot `authnsvcinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
 | Confluence Data Center — homepage / CMS | `wbappcmshome` | [shared/confluence/README.md](shared/confluence/README.md) |
 | Open WebUI — browser LLM chat interface | `wbappwebchat` | [shared/openwebui/README.md](shared/openwebui/README.md) |
 
@@ -319,14 +319,14 @@ Grafana is reachable at `https://${OBSVC_DOMAIN}` behind Authentik forward-auth 
 
 ---
 
-## Email Stack (emsvc)
+## Email Stack (poste)
 
-A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. All services live in [`compose/emsvc.yml`](compose/emsvc.yml).
+A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. All services live in [`compose/poste.yml`](compose/poste.yml).
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `emsvcmailsrv` | [shared/stalwart/README.md](shared/stalwart/README.md) |
-| Bulwark Webmail — JMAP webmail client | `emsvcwebmail` | [shared/bulwark/README.md](shared/bulwark/README.md) |
+| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `posteservice` | [shared/stalwart/README.md](shared/stalwart/README.md) |
+| Bulwark Webmail — JMAP webmail client | `postewebmail` | [shared/bulwark/README.md](shared/bulwark/README.md) |
 
 **At a glance:**
 
@@ -591,7 +591,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Variables**:
 1. Open the repository in Forgejo (`https://${DEPOT_DOMAIN}`) → **Actions**
 2. Select the **deploy** workflow and click **Run workflow**
 3. Set the inputs:
-   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `emsvcmailsrv`, `emsvcwebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `posteservice`, `postewebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
    - **environment** — `stag` (default) or `prod`
    - **branch** — branch to deploy (default `main`)
 4. Click the green **Run workflow** button — progress and logs appear in the workflow run page
@@ -730,7 +730,7 @@ These lists only initialize empty database data directories. Preserve existing d
 | `EMAIL_USER` / `EMAIL_PASS` | SMTP credentials used by stack components to send mail through Stalwart |
 | `EMAIL_FROM` | From address for outbound email (display name + address) |
 
-### Email Services (emsvc)
+### Email Services (poste)
 
 The webmail variables are documented in the service READMEs — see [Bulwark](shared/bulwark/README.md#configuration-env) and [Stalwart](shared/stalwart/README.md#configuration-env). In short:
 

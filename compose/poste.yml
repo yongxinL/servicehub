@@ -1,6 +1,6 @@
 services:
     # Stalwart Mail Server - all-in-one mail & collaboration server
-    emsvcmailsrv:
+    posteservice:
         build:
             context: ../shared/stalwart/
             args:
@@ -22,25 +22,25 @@ services:
             start_period: 60s
             retries: 5
         hostname: ${EMAIL_HOST}
-        image: emsvcmailsrv:latest
+        image: posteservice:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.emsvcmailsrv.entrypoints=websecure"
+            - "traefik.http.routers.posteservice.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.emsvcmailsrv.rule=Host(`${EMAIL_HOST}`)"
+            - "traefik.http.routers.posteservice.rule=Host(`${EMAIL_HOST}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.emsvcmailsrv.service=emsvcmailsrv"
+            - "traefik.http.routers.posteservice.service=posteservice"
             # Define the internal container port for routing
-            - "traefik.http.services.emsvcmailsrv.loadbalancer.server.port=8080"
+            - "traefik.http.services.posteservice.loadbalancer.server.port=8080"
             # Restrict the admin UI / JMAP endpoint to trusted IP ranges
-            - "traefik.http.routers.emsvcmailsrv.middlewares=emsvcmailsrv-whitelist"
-            - "traefik.http.middlewares.emsvcmailsrv-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
+            - "traefik.http.routers.posteservice.middlewares=posteservice-whitelist"
+            - "traefik.http.middlewares.posteservice-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
             # Enable TLS on this router
-            - "traefik.http.routers.emsvcmailsrv.tls=true"
+            - "traefik.http.routers.posteservice.tls=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.emsvcmailsrv.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.posteservice.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         ports:
@@ -60,11 +60,11 @@ services:
 
     # Bulwark Webmail - self-hosted JMAP webmail for Stalwart
     # https://github.com/bulwarkmail/webmail
-    emsvcwebmail:
+    postewebmail:
         build:
             context: ../shared/bulwark/
         depends_on:
-            emsvcmailsrv:
+            posteservice:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
@@ -72,7 +72,7 @@ services:
             - APP_NAME=Webmail
             - APP_SHORT_NAME=Webmail
             - APP_DESCRIPTION=Self-hosted webmail
-            # JMAP endpoint — resolves via Docker DNS because emsvcmailsrv
+            # JMAP endpoint — resolves via Docker DNS because posteservice
             # sets its container hostname to ${EMAIL_HOST}.
             - JMAP_SERVER_URL=https://${EMAIL_HOST}
             # Enable Stalwart-specific features (password change, Sieve UI, etc.)
@@ -107,22 +107,22 @@ services:
             timeout: 5s
             start_period: 60s
             retries: 5
-        image: emsvcwebmail:latest
+        image: postewebmail:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entrypoint
-            - "traefik.http.routers.emsvcwebmail.entrypoints=websecure"
+            - "traefik.http.routers.postewebmail.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.emsvcwebmail.rule=Host(`${WEBMAIL_DOMAIN}`)"
+            - "traefik.http.routers.postewebmail.rule=Host(`${WEBMAIL_DOMAIN}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.emsvcwebmail.service=emsvcwebmail"
+            - "traefik.http.routers.postewebmail.service=postewebmail"
             # Define the internal container port for routing
-            - "traefik.http.services.emsvcwebmail.loadbalancer.server.port=3000"
+            - "traefik.http.services.postewebmail.loadbalancer.server.port=3000"
             # Enable TLS on this router
-            - "traefik.http.routers.emsvcwebmail.tls=true"
+            - "traefik.http.routers.postewebmail.tls=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.emsvcwebmail.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.postewebmail.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped

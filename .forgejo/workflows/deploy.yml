@@ -46,8 +46,8 @@ on:
           - obsvcviclogs
           - obsvcgrafaly
           - obsvcgrafana
-          - emsvcmailsrv
-          - emsvcwebmail
+          - posteservice
+          - postewebmail
       environment:
         description: 'Target environment'
         required: true

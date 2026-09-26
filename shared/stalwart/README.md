@@ -4,13 +4,13 @@
 
 ## Overview
 
-[Stalwart](https://github.com/stalwartlabs/stalwart) is the email server of the ServiceHub email domain (`emsvc`). It handles server-to-server and submission SMTP, IMAP and JMAP, and serves the web admin UI and API over HTTP. Bulwark webmail ([`../bulwark/README.md`](../bulwark/README.md)) talks to Stalwart via JMAP. The service is defined by `emsvcmailsrv` in [`compose/emsvc.yml`](../../compose/emsvc.yml) and built from [`Dockerfile`](Dockerfile) (`FROM stalwartlabs/stalwart:${IMAGE_TAG}`).
+[Stalwart](https://github.com/stalwartlabs/stalwart) is the email server of the ServiceHub email domain (`poste`). It handles server-to-server and submission SMTP, IMAP and JMAP, and serves the web admin UI and API over HTTP. Bulwark webmail ([`../bulwark/README.md`](../bulwark/README.md)) talks to Stalwart via JMAP. The service is defined by `posteservice` in [`compose/poste.yml`](../../compose/poste.yml) and built from [`Dockerfile`](Dockerfile) (`FROM stalwartlabs/stalwart:${IMAGE_TAG}`).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `emsvcmailsrv` |
+| Service name | `posteservice` |
 | Image tag | `v0.16` (build arg `IMAGE_TAG`) |
 | Web admin / API / JMAP (HTTP) | 8080, routed by Traefik at `https://${EMAIL_HOST}` |
 | SMTP server-to-server, STARTTLS | 25 (published to the host) |
@@ -21,13 +21,13 @@
 | Internal HTTPS listener | 443 (not published — used by Bulwark over the Docker network) |
 | Health check | `curl -fsS http://localhost:8080/healthz` every 30 s |
 | Depends on | `routetraefik` (healthy) — Traefik must issue the public certificate first |
-| Depended on by | `emsvcwebmail` (healthy) |
+| Depended on by | `postewebmail` (healthy) |
 | Data persistence | `${APPS_DATA}/mailbox/stalwart` (mounted at `/var/lib/stalwart`) |
 | Certificates | `${APPS_DATA}/certs` (mounted read-only at `/letsencrypt`) |
 
 ## Traefik routing
 
-Incoming HTTPS requests for `${EMAIL_HOST}` are routed to the internal HTTP port 8080 by Traefik, which terminates TLS. The router has an IP allow-list middleware (`emsvcmailsrv-whitelist`) built from `${TRUSTED_IP}`, so the web admin UI is only reachable from trusted networks.
+Incoming HTTPS requests for `${EMAIL_HOST}` are routed to the internal HTTP port 8080 by Traefik, which terminates TLS. The router has an IP allow-list middleware (`posteservice-whitelist`) built from `${TRUSTED_IP}`, so the web admin UI is only reachable from trusted networks.
 
 ## TLS certificates
 
@@ -61,7 +61,7 @@ On first boot Stalwart generates its own configuration under `/var/lib/stalwart`
 
 ## First boot
 
-1. `docker compose up -d emsvcmailsrv`
+1. `docker compose up -d posteservice`
 2. Open `https://${EMAIL_HOST}` (from a trusted IP) and create the admin account.
 3. Create mailbox accounts; other stack components send mail using `${EMAIL_USER}` / `${EMAIL_PASS}` over port `${EMAIL_PORT}` (see [Root README — Email](../../README.md#configuration)).
 
@@ -71,10 +71,10 @@ For external clients to reach ports 25/465/587/993, DNS `MX`/`A` records for `${
 
 ```bash
 # Start / restart
-docker compose up -d emsvcmailsrv
+docker compose up -d posteservice
 
 # Follow logs
-docker compose logs -f emsvcmailsrv
+docker compose logs -f posteservice
 
 # Inspect the exported certificate state
 ls -l ${APPS_DATA}/mailbox/stalwart/tls/
@@ -93,4 +93,4 @@ ls -l ${APPS_DATA}/mailbox/stalwart/tls/
 
 - [Bulwark Webmail](../bulwark/README.md) — JMAP webmail client for this server
 - [Traefik](../traefik/README.md) — edge routing and TLS termination
-- [Root README — Email stack](../../README.md#email-stack-emsvc)
+- [Root README — Email stack](../../README.md#email-stack-poste)

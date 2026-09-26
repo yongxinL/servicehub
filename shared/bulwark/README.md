@@ -4,17 +4,17 @@
 
 ## Overview
 
-[Bulwark](https://github.com/bulwarkmail/webmail) provides the web UI for the ServiceHub email domain (`emsvc`): mail, calendar, contacts and files over JMAP against [Stalwart](../stalwart/README.md). It is defined by the `emsvcwebmail` service in [`compose/emsvc.yml`](../../compose/emsvc.yml) and built from [`Dockerfile`](Dockerfile) (`FROM ghcr.io/bulwarkmail/webmail:${IMAGE_TAG}`). Upstream configuration reference: [Configuration](https://github.com/bulwarkmail/webmail#configuration).
+[Bulwark](https://github.com/bulwarkmail/webmail) provides the web UI for the ServiceHub email domain (`poste`): mail, calendar, contacts and files over JMAP against [Stalwart](../stalwart/README.md). It is defined by the `postewebmail` service in [`compose/poste.yml`](../../compose/poste.yml) and built from [`Dockerfile`](Dockerfile) (`FROM ghcr.io/bulwarkmail/webmail:${IMAGE_TAG}`). Upstream configuration reference: [Configuration](https://github.com/bulwarkmail/webmail#configuration).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `emsvcwebmail` |
+| Service name | `postewebmail` |
 | HTTP port | 3000, routed by Traefik at `https://${WEBMAIL_DOMAIN}` |
-| JMAP backend | `https://${EMAIL_HOST}` — resolves via Docker DNS because `emsvcmailsrv` sets its container hostname to `${EMAIL_HOST}` |
+| JMAP backend | `https://${EMAIL_HOST}` — resolves via Docker DNS because `posteservice` sets its container hostname to `${EMAIL_HOST}` |
 | Health check | Node HTTP check of `http://localhost:3000/api/health` every 30 s |
-| Depends on | `emsvcmailsrv` (healthy) |
+| Depends on | `posteservice` (healthy) |
 | Data persistence | `${APPS_DATA}/mailbox/bulwark/...` |
 | Onboarding | Setup wizard on first launch unless `JMAP_SERVER_URL` is preset (it is, here) |
 
@@ -65,17 +65,17 @@ Endpoints are discovered via `/.well-known/oauth-authorization-server` or `/.wel
 ## First boot
 
 1. Register an OIDC application in Authentik for `${WEBMAIL_DOMAIN}` and put the client id/secret into `.env`.
-2. `docker compose up -d emsvcwebmail`
+2. `docker compose up -d postewebmail`
 3. Open `https://${WEBMAIL_DOMAIN}` and complete the setup wizard (sign in via the IdP or a Stalwart account).
 
 ## Operations
 
 ```bash
 # Start / restart
-docker compose up -d emsvcwebmail
+docker compose up -d postewebmail
 
 # Follow logs
-docker compose logs -f emsvcwebmail
+docker compose logs -f postewebmail
 ```
 
 ## Files
@@ -89,4 +89,4 @@ docker compose logs -f emsvcwebmail
 - [Stalwart Mail Server](../stalwart/README.md) — the JMAP backend this client talks to
 - [Authentik](../authentik/README.md) — the OIDC IdP used for single sign-on
 - [Traefik](../traefik/README.md) — edge routing and TLS termination
-- [Root README — Email stack](../../README.md#email-stack-emsvc)
+- [Root README — Email stack](../../README.md#email-stack-poste)
