@@ -25,6 +25,7 @@
 | Forgejo (`depotservice`) | `DEPOT_DBNAME` |
 | LiteLLM (`aiagnlitellm`) | `LITEM_DBNAME` |
 | Confluence (`wbappcmshome`, default homepage) | `WBHOME_DBNAME` |
+| Stalwart (`posteservice`) | `POSTE_DBNAME` — sole mail data store (accounts, messages, indexes, blobs) |
 
 ## Configuration
 
@@ -40,7 +41,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 The default `PGRSQL_DBLIST` creates every service database:
 
 ```bash
-PGRSQL_DBLIST="${AUTHN_DBNAME},${DEPOT_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME}"
+PGRSQL_DBLIST="${AUTHN_DBNAME},${DEPOT_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME},${POSTE_DBNAME}"
 ```
 
 ## Multiple databases

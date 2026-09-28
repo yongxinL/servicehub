@@ -30,7 +30,7 @@ Traefik serves the webmail at `https://${WEBMAIL_DOMAIN}` with automatic TLS. It
 |---|---|
 | `APP_NAME` / `APP_SHORT_NAME` / `APP_DESCRIPTION` | Branding shown in the UI and PWA |
 | `JMAP_SERVER_URL` | Stalwart endpoint the app connects to (`https://${EMAIL_HOST}`) |
-| `STALWART_FEATURES` | Enables Stalwart-specific features (password change, Sieve UI, ...) |
+| `STALWART_FEATURES` | Enables Stalwart-specific features (password change, Sieve UI, ...) — note: password change only works when Stalwart holds the password hashes (internal accounts); with the Authentik LDAP directory users change passwords in Authentik |
 | `BULWARK_TELEMETRY` | `off` — telemetry locked off |
 
 ### OAuth2 / OIDC (Authentik)
@@ -39,12 +39,23 @@ Traefik serves the webmail at `https://${WEBMAIL_DOMAIN}` with automatic TLS. It
 |---|---|
 | `WEBMAIL_OIDC_ENABLED` | Enables OIDC (single sign-on) |
 | `WEBMAIL_OIDC_ONLY` | `true` hides the local password form completely |
-| `WEBMAIL_OIDC_ISSUER` | IdP issuer URL (`https://${AUTHN_DOMAIN}` = Authentik) |
+| `WEBMAIL_OIDC_ISSUER` | IdP issuer URL — Authentik issues one per application: `https://${AUTHN_DOMAIN}/application/o/${WEBMAIL_OIDC_CLIENT_ID}` |
 | `WEBMAIL_OIDC_CLIENT_ID` / `WEBMAIL_OIDC_CLIENT_SECRET` | Authentik OIDC application credentials |
 | `OAUTH_ALLOW_PRIVATE_ENDPOINTS` | Lets discovery resolve to RFC-1918 addresses (split-DNS) |
 | `AUTO_SSO_ENABLED` | Skips the login form and goes straight to the IdP (`${WEBMAIL_OIDC_ONLY}`) |
 
-Endpoints are discovered via `/.well-known/oauth-authorization-server` or `/.well-known/openid-configuration`.
+Bulwark discovers all endpoints from `<issuer>/.well-known/oauth-authorization-server` or `<issuer>/.well-known/openid-configuration` — no endpoint URLs are configured by hand. With Authentik that resolves to `https://${AUTHN_DOMAIN}/application/o/${WEBMAIL_OIDC_CLIENT_ID}/.well-known/openid-configuration`.
+
+## SSO setup (Authentik OIDC)
+
+1. In Authentik, create the application and provider pair: **Applications → Applications → New Application** → provider type **OAuth2/OpenID Connect**. Name it `webmail` (the application **slug** must match `WEBMAIL_OIDC_CLIENT_ID`, default `webmail`).
+2. On the provider set:
+    - **Redirect URI**: `https://${WEBMAIL_DOMAIN}/auth/callback` (Bulwark's default locale-prefix mode is `never`; if you set `NEXT_PUBLIC_LOCALE_PREFIX=always`, use `https://${WEBMAIL_DOMAIN}/en/auth/callback` instead).
+    - **Scopes**: `openid`, `email`, `profile` (Bulwark requests those plus `offline_access` when the provider advertises it).
+3. Copy the **client id / secret** into `.env` as `WEBMAIL_OIDC_CLIENT_ID` / `WEBMAIL_OIDC_CLIENT_SECRET`, keep `WEBMAIL_OIDC_ISSUER` as the default `https://${AUTHN_DOMAIN}/application/o/${WEBMAIL_OIDC_CLIENT_ID}`, then `docker compose up -d postewebmail`.
+4. Optional hardening: set `WEBMAIL_OIDC_ONLY=true` to remove the password form so every login goes through Authentik. With sign-out, Bulwark performs RP-initiated logout against Authentik — register `https://${WEBMAIL_DOMAIN}/auth/callback` (or your login page) as a post-logout redirect and set `OAUTH_POST_LOGOUT_REDIRECT_URI` if you want users bounced back.
+
+> Bulwark talks to Stalwart over JMAP; the webmail's own SSO (OIDC) is independent of Stalwart's LDAP directory — see [Stalwart — Directory](../stalwart/README.md#directory-authentik-ldap-sso). The password form (when enabled) authenticates against Stalwart, which binds to the Authentik LDAP outpost, so both paths ultimately validate against Authentik.
 
 ### Sessions & state
 
@@ -64,7 +75,7 @@ Endpoints are discovered via `/.well-known/oauth-authorization-server` or `/.wel
 
 ## First boot
 
-1. Register an OIDC application in Authentik for `${WEBMAIL_DOMAIN}` and put the client id/secret into `.env`.
+1. Register the OIDC application in Authentik (see [SSO setup](#sso-setup-authentik-oidc)) and put the client id/secret into `.env`.
 2. `docker compose up -d postewebmail`
 3. Open `https://${WEBMAIL_DOMAIN}` and complete the setup wizard (sign in via the IdP or a Stalwart account).
 

@@ -8,13 +8,27 @@ services:
         depends_on:
             routetraefik:
                 condition: service_healthy
+            dbsvcpgsqldb:
+                condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
             - MAIL_DOMAIN=${EMAIL_HOST}
-            - STALWART_PUBLIC_URL=${EMAIL_HOST}
+            - STALWART_PUBLIC_URL=https://${EMAIL_HOST}
             - ACME_FILE=/letsencrypt/acme.json
             - ACME_RESOLVER=${CERTRESOLVER}
             - CERT_CHECK_INTERVAL=86400
+            # PostgreSQL data store (rendered into /etc/stalwart/config.json
+            # by the entrypoint; see shared/stalwart/README.md)
+            - POSTE_DBNAME=${POSTE_DBNAME}
+            - STALWART_PG_HOST=${PGRSQL_HOST}
+            - STALWART_PG_PORT=${PGRSQL_PORT}
+            - STALWART_PG_USER=${SQLDB_USER}
+            - STALWART_PG_PASS=${SQLDB_PASS}
+            # Fallback admin, mapped to Stalwart's STALWART_RECOVERY_ADMIN so
+            # https://${EMAIL_HOST}/admin stays reachable even if the directory
+            # (Authentik LDAP) is down. Empty pass disables it.
+            - STALWART_ADMIN_USER=${STALWART_ADMIN_USER}
+            - STALWART_ADMIN_PASS=${STALWART_ADMIN_PASS}
         healthcheck:
             test: [ "CMD", "curl", "-fsS", "http://localhost:8080/healthz" ]
             interval: 30s

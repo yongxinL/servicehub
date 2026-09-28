@@ -82,6 +82,25 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 > **Reference:** forward-auth integration pattern — <https://github.com/brokenscripts/authentik_traefik>
 
+## LDAP (Stalwart directory)
+
+The email stack uses Authentik as its mail-account directory: Stalwart validates IMAP/JMAP/SMTP logins by binding users against an Authentik **LDAP outpost** (see [Stalwart — Directory](../stalwart/README.md#directory-authentik-ldap-sso) for the Stalwart-side directory settings). Unlike forward-auth (embedded outpost, proxy-only), LDAP requires a **managed outpost**:
+
+1. **Application + LDAP provider** — Applications → New Application, provider type **LDAP Provider**. Keep the default Base DN `dc=ldap,dc=goauthentik,dc=io` (users under `ou=users,<base DN>`, groups under `ou=groups,<base DN>`; attributes `cn`, `mail`, `memberOf`, `objectClass` includes `user`).
+2. **Service account** — Directory → Users → New User (e.g. `stalwart-ldap`); under **Recovery**, set a password. Create a role (e.g. `LDAP search`) with the **Search full LDAP directory** permission, add the service account to it, then assign the role to the provider under its **Permissions** tab. If the application uses access bindings, also grant the service account access to the application.
+3. **Outpost** — Applications → Outposts → Create Outpost: type **LDAP**, integration **Docker** (the local Docker-socket integration is used by `authnworkers`), applications: the LDAP application above. Then edit the outpost and set **Docker network** to `servicehub_subnet` — without it the outpost container lands on the default bridge and Stalwart cannot reach it. The container is named after the outpost (`ak-outpost-<name>`) and listens on `3389` (LDAP) / `6636` (LDAPS); with *Map ports* on (default) it also binds host ports `389`/`636`.
+4. Verify from the host with:
+
+    ```bash
+    ldapsearch -H ldap://localhost:389 \
+      -D "cn=stalwart-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io" -W \
+      -b "dc=ldap,dc=goauthentik,dc=io" "(objectClass=user)"
+    ```
+
+    (Filter on `objectClass=user` — Authentik does not expose `inetOrgPerson`/`posixAccount`, so Stalwart's stock LDAP filters must be overridden; see the [Stalwart directory table](../stalwart/README.md#directory-authentik-ldap-sso).)
+
+Users authenticate by binding as themselves (their Authentik password), so mail-client logins stay in sync with SSO. [App passwords](https://docs.goauthentik.io/add-secure-apps/providers/ldap/#bind-with-an-app-password) work too when the provider's Bind Flow password stage includes *User database + app passwords*. Finally, remember that the domain must be bound to the directory on the Stalwart side (`directoryId`) — see the [Stalwart walkthrough](../stalwart/README.md#initial-provisioning-walkthrough).
+
 ## Operations
 
 ```bash

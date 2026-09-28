@@ -13,11 +13,11 @@ RUN apt-get update \
       ca-certificates coreutils curl inotify-tools jq openssl procps util-linux \
  && rm -rf /var/lib/apt/lists/*
 
-COPY config.json /etc/stalwart/config.json
+COPY config.json /etc/stalwart/config.json.tpl
 COPY entrypoint.sh /usr/local/bin/stalwart-entrypoint.sh
 COPY acme-export.sh /usr/local/bin/acme-export.sh
 RUN chmod 0755 /usr/local/bin/stalwart-entrypoint.sh /usr/local/bin/acme-export.sh \
- && mkdir -p /var/lib/stalwart/sqlite /var/lib/stalwart/blobs /var/lib/stalwart/tls \
+ && mkdir -p /var/lib/stalwart/blobs /var/lib/stalwart/tls /etc/stalwart \
  && chown -R 2000:2000 /var/lib/stalwart
 
 ENTRYPOINT ["/usr/local/bin/stalwart-entrypoint.sh"]
