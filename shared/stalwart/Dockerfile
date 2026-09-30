@@ -10,7 +10,7 @@ USER root
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates coreutils curl inotify-tools jq openssl procps util-linux \
+      ca-certificates coreutils curl inotify-tools jq ldap-utils openssl procps util-linux \
  && rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /usr/local/bin/stalwart-entrypoint.sh
