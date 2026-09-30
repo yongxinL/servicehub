@@ -17,13 +17,13 @@ services:
             - ACME_FILE=/letsencrypt/acme.json
             - ACME_RESOLVER=${CERTRESOLVER}
             - CERT_CHECK_INTERVAL=86400
-            # PostgreSQL data store (rendered into /etc/stalwart/config.json
-            # by the entrypoint; see shared/stalwart/README.md)
-            - POSTE_DBNAME=${POSTE_DBNAME}
-            - STALWART_PG_HOST=${PGRSQL_HOST}
-            - STALWART_PG_PORT=${PGRSQL_PORT}
-            - STALWART_PG_USER=${SQLDB_USER}
-            - STALWART_PG_PASS=${SQLDB_PASS}
+            # PostgreSQL data store (dbsvcpgsqldb); rendered into the Stalwart
+            # bootstrap config by the entrypoint at every start
+            - STALWART_DB_HOST=${PGRSQL_HOST}
+            - STALWART_DB_PORT=${PGRSQL_PORT}
+            - STALWART_DB_NAME=${POSTE_DBNAME}
+            - STALWART_DB_USER=${SQLDB_USER}
+            - STALWART_DB_PASSWORD=${SQLDB_PASS}
             # Fallback admin, mapped to Stalwart's STALWART_RECOVERY_ADMIN so
             # https://${EMAIL_HOST}/admin stays reachable even if the directory
             # (Authentik LDAP) is down. Empty pass disables it.

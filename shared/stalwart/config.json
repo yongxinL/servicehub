@@ -1,9 +1,0 @@
-{
-  "@type": "PostgreSql",
-  "host": "STALWART_PG_HOST",
-  "port": STALWART_PG_PORT,
-  "database": "STALWART_PG_DBNAME",
-  "authUsername": "STALWART_PG_USER",
-  "authSecret": { "@type": "Value", "secret": "STALWART_PG_PASS" },
-  "poolMaxConnections": STALWART_PG_POOL
-}

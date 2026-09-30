@@ -34,9 +34,9 @@ Stalwart keeps its whole dataset (metadata, indexes, message blobs, FTS) in one 
 | Database | `${POSTE_DBNAME}` (`svchubmboxdb`) — created by the PostgreSQL init script on first start |
 | Credentials | `${SQLDB_USER}` / `${SQLDB_PASS}` (shared stack superuser) |
 
-[`config.json`](config.json) is a template with `STALWART_PG_*` placeholders. [`entrypoint.sh`](entrypoint.sh) renders the real `/etc/stalwart/config.json` from it on **every start** (host, port, database, username, password and pool size), so credentials can rotate without a rebuild.
+[`entrypoint.sh`](entrypoint.sh) writes `/etc/stalwart/config.json` with `jq` on **every start** from the `STALWART_DB_*` environment variables (host, port, database, username and pool size; the password is referenced as a `STALWART_DB_PASSWORD` environment-variable secret, so it never lands on disk), so credentials can rotate without a rebuild.
 
-> The datastore location is the only setting Stalwart cannot change through its API (the API is served out of the datastore) — hence the template + render approach instead of runtime provisioning.
+> The datastore location is the only setting Stalwart cannot change through its API (the API is served out of the datastore) — hence the render approach instead of runtime provisioning.
 
 ### Fallback administrator
 
@@ -188,8 +188,7 @@ docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c
 | Path | Purpose |
 |---|---|
 | [`Dockerfile`](Dockerfile) | Image build — upstream image + curl/jq/inotify-tools for the cert watch tooling |
-| [`config.json`](config.json) | **Template** rendered by the entrypoint into `/etc/stalwart/config.json` (PostgreSQL `DataStore`) |
-| [`entrypoint.sh`](entrypoint.sh) | Renders the DB config, pins the recovery admin, bootstraps certs, drops privileges, starts the export watcher |
+| [`entrypoint.sh`](entrypoint.sh) | Generates the PostgreSQL `DataStore` config with `jq`, pins the recovery admin, bootstraps certs, drops privileges, starts the export watcher |
 | [`acme-export.sh`](acme-export.sh) | Extracts and installs the public certificate from Traefik's `acme.json` |
 
 ## See also
