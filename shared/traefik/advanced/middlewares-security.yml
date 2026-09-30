@@ -1,0 +1,40 @@
+################################################################
+# Security middlewares — applied to every websecure router.
+#
+# `secure-chain` = security headers + rate limit. Routers reference it from
+# Docker labels as `name@file` (file-provider middleware), e.g.:
+#   - "traefik.http.routers.<name>.middlewares=secure-chain@file,<other-middleware>"
+#
+# `rate-limit` caps requests per client IP (average/period/burst); it blunts
+# credential-stuffing against every login page at once.
+# `secure-headers` sends HSTS and hides implementation details. Do NOT add
+# CSP here — it breaks inline-script apps (Confluence, Open WebUI).
+# Docs: shared/traefik/README.md#security-middlewares
+################################################################
+
+http:
+    middlewares:
+        secure-headers:
+            headers:
+                stsSeconds: 15552000          # HSTS: 180 days
+                stsIncludeSubdomains: true
+                contentTypeNosniff: true      # X-Content-Type-Options: nosniff
+                referrerPolicy: same-origin
+                customFrameOptionsValue: SAMEORIGIN
+                browserXssFilter: true
+                customResponseHeaders:
+                    Server: ""
+                    X-Powered-By: ""
+
+        rate-limit:
+            rateLimit:
+                average: 20                   # requests per second, per client IP
+                period: 1s
+                burst: 50                     # short spikes above the average
+
+        # Convenience chain so routers only list one middleware.
+        secure-chain:
+            chain:
+                middlewares:
+                    - secure-headers
+                    - rate-limit

@@ -18,7 +18,7 @@ It is defined by the `routetraefik` service in [`compose/route.yml`](../../compo
 | HTTP port | 80 (redirects to HTTPS) |
 | HTTPS port | 443 |
 | Dashboard | `https://${TRAEFIK_DOMAIN}` |
-| Dashboard auth | HTTP basic auth (`dashboard-auth`) + IP allowlist (`dashboard-whitelist`) |
+| Dashboard auth | HTTP basic auth (`dashboard-auth`) + IP allowlist (`dashboard-whitelist`) + `secure-chain` |
 | TLS (prod) | Let's Encrypt via ACME TLS challenge |
 | TLS (stag) | Self-signed certificate from `advanced/selfsigncert/` |
 | ACME store | `${APPS_DATA}/certs/acme.json` (mounted at `/letsencrypt`) |
@@ -48,12 +48,13 @@ Generate the `TRAEFIK_BAAUTH` value with `htpasswd`. In the `.env` file every `$
 echo $(htpasswd -nb admin "your-password") | sed -e 's/\$/\\$/g'
 ```
 
-Paste the result into `TRAEFIK_BAAUTH`. The dashboard router chains two middlewares:
+Paste the result into `TRAEFIK_BAAUTH`. The dashboard router chains three middlewares:
 
 ```
-dashboard-whitelist  →  dashboard-auth
+secure-chain  →  dashboard-whitelist  →  dashboard-auth
 ```
 
+- `secure-chain` — security headers + rate limit (see [Security middlewares](#security-middlewares))
 - `dashboard-whitelist` — `ipallowlist` restricted to `${TRUSTED_IP}`
 - `dashboard-auth` — `basicauth` using `${TRAEFIK_BAAUTH}`
 
@@ -69,9 +70,13 @@ labels:
     - "traefik.http.routers.myapp.entrypoints=websecure"
     - "traefik.http.routers.myapp.rule=Host(`${MYAPP_DOMAIN}`)"
     - "traefik.http.routers.myapp.tls=true"
+    # Rate limit + security headers — required on every router
+    - "traefik.http.routers.myapp.middlewares=secure-chain@file"
     - "traefik.http.routers.myapp.tls.certresolver=${CERTRESOLVER}"
     - "traefik.http.services.myapp.loadbalancer.server.port=8080"
 ```
+
+**Every `websecure` router must include `secure-chain`** as the first middleware (all stack routers do — dashboards, IdP, git, wiki, webmail, chat, observability). It is the stack-wide baseline; extra middlewares (IP allowlist, forward-auth, compress) follow it in the chain.
 
 ## TLS
 
@@ -107,13 +112,22 @@ Dynamic configuration lives in `advanced/` and is loaded by the file provider.
 | File | Provides |
 |---|---|
 | [`advanced/middlewares-authentik.yml`](advanced/middlewares-authentik.yml) | `authentik-forwardauth` — forward-auth to `authnservice:9000` (Authentik outpost) |
+| [`advanced/middlewares-security.yml`](advanced/middlewares-security.yml) | `secure-chain` — security headers + rate limit, applied to every router |
 | [`advanced/certificates.yml`](advanced/certificates.yml) | Default self-signed TLS certificate store |
 | [`advanced/metrics.yml`](advanced/metrics.yml) | Prometheus metrics (entrypoint/service labels + `client_ip` header label) |
 
-To protect a router with Authentik forward-auth, add the file middleware to its middleware chain:
+### Security middlewares
+
+[`advanced/middlewares-security.yml`](advanced/middlewares-security.yml) defines the stack-wide baseline, applied as the **first** middleware on every `websecure` router:
+
+- **`secure-chain`** — convenience chain composing the two below, so routers list one middleware.
+- **`secure-headers`** — HSTS (180 days, includeSubDomains, preload), `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `X-Frame-Options: SAMEORIGIN`, and `Server`/`X-Powered-By` header stripping. No CSP here — it breaks inline-script apps (Confluence, Open WebUI); add per-app if ever needed.
+- **`rate-limit`** — 20 req/s average, 50 burst, per client IP. Blunts credential-stuffing against every login page at once. Tune down (or split per-service) if a legitimate workflow trips it.
+
+To protect a router with Authentik forward-auth, add the file middleware **after** `secure-chain`:
 
 ```yaml
-- "traefik.http.routers.myapp.middlewares=authentik-forwardauth@file"
+- "traefik.http.routers.myapp.middlewares=secure-chain,authentik-forwardauth@file"
 ```
 
 The Authentik outpost must be configured first — see [`shared/authentik/README.md`](../authentik/README.md).
@@ -144,6 +158,7 @@ docker compose logs -f routetraefik
 | [`Dockerfile`](Dockerfile) | Image build (`FROM traefik:latest`) |
 | [`advanced/certificates.yml`](advanced/certificates.yml) | Self-signed default certificate store |
 | [`advanced/middlewares-authentik.yml`](advanced/middlewares-authentik.yml) | Authentik forward-auth middleware |
+| [`advanced/middlewares-security.yml`](advanced/middlewares-security.yml) | Security headers + rate limit (`secure-chain`) |
 | [`advanced/metrics.yml`](advanced/metrics.yml) | Prometheus metrics configuration |
 | [`advanced/selfsigncert/`](advanced/selfsigncert/) | git-crypt encrypted staging certificates |
 

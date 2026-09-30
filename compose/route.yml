@@ -70,7 +70,7 @@ services:
             # all dollar signs in the hash need to be double for escaping.
             # to create a user:password pair, the following command can be used
             # echo $(htpasswd -nb user "password") | sed -e s/\\$/\\$\\$/g
-            - "traefik.http.routers.dashboard.middlewares=dashboard-whitelist,dashboard-auth"
+            - "traefik.http.routers.dashboard.middlewares=secure-chain@file,dashboard-whitelist,dashboard-auth"
             - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_BAAUTH}"
             # uncomment for middleware-limiting clients to specific IPs, disabled when Forward-Auth enabled.
             # - "traefik.http.routers.dashboard.middlewares=dashboard-whitelist"

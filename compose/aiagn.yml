@@ -54,6 +54,7 @@ services:
             - "traefik.http.routers.aiagnherm00.enabled=${HERMES_WORKSPACE_DOMAIN_00:+true}"
             - "traefik.http.routers.aiagnherm00.rule=Host(`${HERMES_WORKSPACE_DOMAIN_00}`)"
             - "traefik.http.routers.aiagnherm00.tls=true"
+            - "traefik.http.routers.aiagnherm00.middlewares=secure-chain@file"
             - "traefik.http.routers.aiagnherm00.tls.certresolver=${CERTRESOLVER}"
             - "traefik.http.services.aiagnherm00.loadbalancer.server.port=12320"
 

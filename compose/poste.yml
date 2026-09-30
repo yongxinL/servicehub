@@ -49,7 +49,7 @@ services:
             # Define the internal container port for routing
             - "traefik.http.services.posteservice.loadbalancer.server.port=8080"
             # Restrict the admin UI / JMAP endpoint to trusted IP ranges
-            - "traefik.http.routers.posteservice.middlewares=posteservice-whitelist"
+            - "traefik.http.routers.posteservice.middlewares=secure-chain@file,posteservice-whitelist"
             - "traefik.http.middlewares.posteservice-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
             # Enable TLS on this router
             - "traefik.http.routers.posteservice.tls=true"
@@ -136,6 +136,8 @@ services:
             - "traefik.http.services.postewebmail.loadbalancer.server.port=3000"
             # Enable TLS on this router
             - "traefik.http.routers.postewebmail.tls=true"
+            # Rate limit + security headers (defined in shared/traefik/advanced/middlewares-security.yml)
+            - "traefik.http.routers.postewebmail.middlewares=secure-chain@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.postewebmail.tls.certresolver=${CERTRESOLVER}"
         networks:

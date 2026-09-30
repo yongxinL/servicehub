@@ -117,7 +117,7 @@ services:
             - "traefik.http.routers.obsvcgrafana.tls=true"
             - "traefik.http.services.obsvcgrafana.loadbalancer.server.port=3000"
             # uncomment when Domain Level Forward Authentication enabled in Authentik
-            - "traefik.http.routers.obsvcgrafana.middlewares=authentik-forwardauth@file"
+            - "traefik.http.routers.obsvcgrafana.middlewares=secure-chain@file,authentik-forwardauth@file"
             - "traefik.http.routers.obsvcgrafana.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet

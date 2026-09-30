@@ -53,6 +53,8 @@ services:
             - "traefik.http.routers.depotservice.service=depotservice"
             - "traefik.http.services.depotservice.loadbalancer.server.port=3000"
             - "traefik.http.routers.depotservice.tls=true"
+            # Rate limit + security headers (defined in shared/traefik/advanced/middlewares-security.yml)
+            - "traefik.http.routers.depotservice.middlewares=secure-chain@file"
             - "traefik.http.routers.depotservice.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet

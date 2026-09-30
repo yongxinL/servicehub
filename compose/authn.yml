@@ -60,6 +60,8 @@ services:
             - "traefik.http.services.authnservice.loadbalancer.server.port=9000"
             # Enable TLS on this router
             - "traefik.http.routers.authnservice.tls=true"
+            # Rate limit + security headers (defined in shared/traefik/advanced/middlewares-security.yml)
+            - "traefik.http.routers.authnservice.middlewares=secure-chain@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.authnservice.tls.certresolver=${CERTRESOLVER}"
         networks:

@@ -45,7 +45,7 @@ services:
             # Enable TLS on this router
             - "traefik.http.routers.wbappcmshome.tls=true"
             # Apply a compression middleware
-            - "traefik.http.routers.wbappcmshome.middlewares=wbappcmshome-compress"
+            - "traefik.http.routers.wbappcmshome.middlewares=secure-chain@file,wbappcmshome-compress"
             # Define settings for the compression middleware
             - "traefik.http.middlewares.wbappcmshome-compress.compress=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
@@ -79,6 +79,8 @@ services:
             - "traefik.http.services.wbappwebchat.loadbalancer.server.port=8080"
             # Enable TLS on this router
             - "traefik.http.routers.wbappwebchat.tls=true"
+            # Rate limit + security headers (defined in shared/traefik/advanced/middlewares-security.yml)
+            - "traefik.http.routers.wbappwebchat.middlewares=secure-chain@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.wbappwebchat.tls.certresolver=${CERTRESOLVER}"
         networks:
