@@ -39,6 +39,9 @@ services:
             - FORGEJO__openid__ENABLE_OPENID_SIGNIN=false
             - FORGEJO__openid__ENABLE_OPENID_SIGNUP=false
             - FORGEJO__actions__ENABLED=true
+            # Security: only admins create accounts; sign-in should be delegated
+            # to Authentik (OIDC) so MFA applies — see shared/forgejo/README.md
+            - FORGEJO__service__DISABLE_REGISTRATION=true
         healthcheck:
             test: [ "CMD", "curl", "-fsS", "http://localhost:3000/api/healthz" ]
             start_period: 20s
