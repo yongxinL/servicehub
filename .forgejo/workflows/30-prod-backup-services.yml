@@ -5,15 +5,18 @@
 #
 #   * Database dumps (every run): one transaction-consistent pg_dump per
 #     PostgreSQL database (custom format) plus a role-globals SQL dump, taken
-#     through the dbsvcpgsqldb container while the services keep running:
-#       <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-dbBK-<db>-<YYYYMMDD>.dump
-#       <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-dbBK-globals-<YYYYMMDD>.sql
+#     through the dbsvcpgsqldb container while the services keep running,
+#     then packed into a single daily archive so each day has exactly one
+#     database backup file:
+#       <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-dbBK-<YYYYMMDD>.tar.gz
+#       # contains one <domain>-dbBK-<db>-<YYYYMMDD>.dump per database plus
+#       # <domain>-dbBK-globals-<YYYYMMDD>.sql
 #     Dumps older than <PREFIX>_DB_BACKUP_RETENTION_DAYS (default 182, ~6
-#     months) are deleted by the same run.
+#     months) are deleted by the same run (matches *-dbBK-*).
 #
 #   * Full archive (weekly on Sunday, or on demand): the whole persistent data
 #     volume (APPS_DATA from the server's .env), as before:
-#       <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-dataBK-webapps-<YYYYMMDD>.tar.gz
+#       <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
 #
 # BACKUP_ROOT is an Actions secret; DOMAIN_NAME is read from the server's .env.
 # Optional archive exclusions: the <PREFIX>_BACKUP_EXCLUDE Actions secret holds
@@ -202,29 +205,50 @@ jobs:
             DB_LIST=\$(\$COMPOSE exec -T dbsvcpgsqldb psql -U \"\$SQLDB_USER\" -d postgres -Atc \"SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres' ORDER BY datname\")
             [ -n \"\$DB_LIST\" ] || { echo 'Error: no databases found to dump' >&2; exit 1; }
 
+            # Stage each dump in a private dir, then tar.gz them into one
+            # daily archive so <BACKUP_ROOT>/<YYYY>/<YYYYMM>/ holds exactly
+            # one database backup file per day.
+            DB_STAGE=\$(mktemp -d)
+            trap 'rm -rf \"\$DB_STAGE\"' EXIT
+
             for db in \$DB_LIST; do
               case \"\$db\" in
                 *[!A-Za-z0-9_]*) echo \"Error: unexpected database name '\$db'\" >&2; exit 1 ;;
               esac
-              OUT=\"\$DST/\$DOMAIN_NAME-dbBK-\$db-\$STAMP.dump\"
+              NAME=\"\$DOMAIN_NAME-dbBK-\$db-\$STAMP.dump\"
               TMP=\$(mktemp)
-              echo \"Dumping database \$db -> \$OUT\"
+              echo \"Dumping database \$db -> stage:\$NAME\"
               \$COMPOSE exec -T dbsvcpgsqldb pg_dump -U \"\$SQLDB_USER\" -Fc \"\$db\" > \"\$TMP\"
               [ -s \"\$TMP\" ] || { rm -f \"\$TMP\"; echo \"Error: dump of \$db is empty\" >&2; exit 1; }
-              sudo -n install -m 600 -o root -g root \"\$TMP\" \"\$OUT.part\"
-              sudo -n mv -f \"\$OUT.part\" \"\$OUT\"
+              install -m 600 \"\$TMP\" \"\$DB_STAGE/\$NAME\"
               rm -f \"\$TMP\"
-              echo \"Database backup complete: \$OUT (\$(sudo -n du -h \"\$OUT\" | cut -f1))\"
             done
 
-            OUT=\"\$DST/\$DOMAIN_NAME-dbBK-globals-\$STAMP.sql\"
+            NAME=\"\$DOMAIN_NAME-dbBK-globals-\$STAMP.sql\"
             TMP=\$(mktemp)
-            echo \"Dumping role globals -> \$OUT\"
+            echo \"Dumping role globals -> stage:\$NAME\"
             \$COMPOSE exec -T dbsvcpgsqldb pg_dumpall -U \"\$SQLDB_USER\" --globals-only > \"\$TMP\"
             [ -s \"\$TMP\" ] || { rm -f \"\$TMP\"; echo 'Error: globals dump is empty' >&2; exit 1; }
-            sudo -n install -m 600 -o root -g root \"\$TMP\" \"\$OUT.part\"
-            sudo -n mv -f \"\$OUT.part\" \"\$OUT\"
+            install -m 600 \"\$TMP\" \"\$DB_STAGE/\$NAME\"
             rm -f \"\$TMP\"
+
+            ARCHIVE=\"\$DST/\$DOMAIN_NAME-webapps-dbBK-\$STAMP.tar.gz\"
+            echo \"Archiving database dumps -> \$ARCHIVE\"
+            set +e
+            sudo -n tar -czf \"\$ARCHIVE.part\" -C \"\$DB_STAGE\" .
+            rc=\$?
+            set -e
+            if [ \"\$rc\" -gt 1 ]; then
+              echo \"Error: tar exited \$rc\" >&2
+              sudo -n rm -f \"\$ARCHIVE.part\"
+              exit \"\$rc\"
+            fi
+            [ -s \"\$ARCHIVE.part\" ] || { echo 'Error: db archive is empty' >&2; exit 1; }
+            sudo -n mv -f \"\$ARCHIVE.part\" \"\$ARCHIVE\"
+            sudo -n chmod 600 \"\$ARCHIVE\"
+            rm -rf \"\$DB_STAGE\"
+            trap - EXIT
+            echo \"Database backup complete: \$ARCHIVE (\$(sudo -n du -h \"\$ARCHIVE\" | cut -f1))\"
 
             echo \"Pruning database backups older than $DB_RETENTION_DAYS days\"
             sudo -n find '$BACKUP_ROOT' -type f -name '*-dbBK-*' -mtime +$DB_RETENTION_DAYS -print -delete
@@ -238,7 +262,7 @@ jobs:
             auto) if [ \"\$(date +%u)\" = 7 ]; then RUN_FULL_NOW=1; fi ;;
           esac
           if [ \"\$RUN_FULL_NOW\" = 1 ]; then
-            ARCHIVE=\"\$DST/\$DOMAIN_NAME-dataBK-webapps-\$STAMP.tar.gz\"
+            ARCHIVE=\"\$DST/\$DOMAIN_NAME-webapps-fullBK-\$STAMP.tar.gz\"
             echo \"Archiving \$SRC -> \$ARCHIVE\"
             # tar exits 1 when files change while being read (live data); that is
             # expected and the archive is still usable, so only 2+ is fatal.

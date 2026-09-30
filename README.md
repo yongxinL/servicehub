@@ -626,11 +626,13 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 The `30-prod-backup-services.yml` workflow backs up the target server under the `*_BACKUP_ROOT` secret in two layers:
 
-**Database dumps (daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `dbsvcpgsqldb` container while the services keep running:
+**Database dumps (daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `dbsvcpgsqldb` container while the services keep running, then packed into a single daily archive so each day has exactly one database backup file:
 
 ```
-<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-dbBK-<db>-<YYYYMMDD>.dump
-<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-dbBK-globals-<YYYYMMDD>.sql
+<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-dbBK-<YYYYMMDD>.tar.gz
+#  contents:
+#    <domain>-dbBK-<db>-<YYYYMMDD>.dump   (one per database)
+#    <domain>-dbBK-globals-<YYYYMMDD>.sql
 ```
 
 Dumps older than `*_DB_BACKUP_RETENTION_DAYS` (default `182` days ≈ 6 months) are deleted by the same run — only files matching `*-dbBK-*` are pruned (the full archives are kept), and empty `<YYYY>/<YYYYMM>` directories are removed too.
@@ -638,7 +640,7 @@ Dumps older than `*_DB_BACKUP_RETENTION_DAYS` (default `182` days ≈ 6 months) 
 **Full archive (weekly, Sunday)** — the whole persistent data volume, the `APPS_DATA` path read from the server's `.env`:
 
 ```
-<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-dataBK-webapps-<YYYYMMDD>.tar.gz
+<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
 ```
 
 `<domain>` is the first label of `DOMAIN_NAME` from the server's `.env` (`oneLijia.com` → `oneLijia`), so the backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they are owned by `root` with mode `600` because the dumps contain mail and identity data and the archive contains `.env` secrets and ACME private keys. The workflow uses the same server secrets as the deploy workflow and requires passwordless sudo — see [Prerequisites](#prerequisites).
