@@ -112,39 +112,111 @@ For a `.sql.gz` dump, pipe it into `psql` instead: `gunzip -c poste-YYYY-MM-DD.s
 
 ## Directory: Authentik LDAP (SSO)
 
-Mail accounts and credentials come from Authentik over LDAP, so users exist once in Authentik and log into the webmail (via OIDC) and IMAP/SMTP with the same identity. The Authentik side (see [`../authentik/README.md`](../authentik/README.md) for the full walkthrough):
+Mail accounts and credentials come from Authentik over LDAP, so users exist once in Authentik and log into the webmail (via OIDC) and IMAP/SMTP with the same identity. The integration spans both sides: an Authentik **application + LDAP provider**, a **service account** used for lookups, and a **managed LDAP outpost** — then the Stalwart **LDAP directory** that binds against the outpost, and the **domain binding** that activates it. All of it lives in this section.
 
-1. An **application + LDAP provider** — keep the default Base DN `dc=ldap,dc=goauthentik,dc=io`; users live under `ou=users,<base DN>` and expose `cn` (username), `mail` and `memberOf`, with `objectClass` = `user` / `organizationalPerson` / `goauthentik.io/ldap/user`.
-2. A **service account** user (e.g. `stalwart-ldap`) with the **Search full LDAP directory** permission (role assigned on the provider's *Permissions* tab).
-3. A **managed LDAP outpost** — the embedded outpost only serves Proxy providers, so create one explicitly under **Applications → Outposts** (type *LDAP*), then edit its config and set **Docker network** to `servicehub_subnet` so the outpost container lands on the same network as `posteservice`. It listens internally on port `3389` (plain LDAP) and `6636` (LDAPS).
+Field names below are for Authentik `2026.8` (`AUTHN_TAG`); older versions label **Bind Flow** as *Authentication flow*.
 
-Then create the directory in Stalwart (admin UI → **Settings → Authentication → Directories → Create**, type *LDAP*) and fill in:
+### Authentik: application and LDAP provider
 
-| Stalwart field | Value |
-|---|---|
-| `url` | `ldap://ak-outpost-<outpost name>:3389` — the managed LDAP outpost container on the `subnet` network |
-| `bindDn` | `cn=stalwart-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io` — the Authentik service account DN (default Base DN) |
-| `bindSecret` | The service account's Authentik password (inline value, or an env var reference) |
-| `filterLogin` | `(&(objectClass=user)(mail=?))` — **must be overridden**: Stalwart's default filter matches `objectClass=inetOrgPerson`, which Authentik does not expose |
-| `filterMailbox` | `(&(objectClass=user)(\|(mail=?)(mailAlias=?)))` — same override; `mailAlias` only matches when the custom attribute is set |
-| `bindAuthentication` | `true` (default) — Stalwart searches for the user DN with the service account, then binds **as the user** with the supplied password; no hash comparison, so nothing to sync |
-| `attrSecretChanged` | `pwdChangeTime` (default) — invalidates cached OAuth tokens after LDAP password changes |
+**Applications → Applications → New Application** — set a name/slug (e.g. `stalwart-mail`), **Next**, provider type **LDAP Provider**, **Next**, then fill in the provider form:
+
+| UI field (2026.8) | Property | Value for this stack |
+|---|---|---|
+| Provider Name | `name` | `stalwart-mail` |
+| Bind Mode | `bindMode` | *Cached binding* (form default) or *Direct binding* — see the mode note below |
+| Search Mode | `searchMode` | *Cached querying* (form default; the outpost holds users/groups in memory and refreshes every 5 min) or *Direct querying* (always fresh, slower) |
+| Code-based MFA Support | `mfaSupport` | on (default) — clients may append `;TOTP` to the password (`password;123456`) for Duo/TOTP/static authenticators; WebAuthn and SMS are unsupported by LDAP. Leave it on only if every LDAP-bind user has a supported authenticator, otherwise a password containing `;` can be rejected. |
+| Bind Flow | `authorizationFlow` | `default-authentication-flow` (brand default), required — the Authentication-designation flow evaluated for bind requests (in *Cached binding* mode, once per session). Despite the label, the LDAP form stores it in the provider's `authorization_flow` field (the form's own comment: "we're using the authorization field to store the authentication information"). It must be a flow that can authenticate directory binds — a Source flow like `default-source-authentication` fails with `Flow does not apply to current user`. |
+| Unbind Flow | `invalidationFlow` | `default-invalidation-flow` (brand default), required — the Invalidation-designation flow executed on unbind/logout. |
+| Base DN | `baseDn` | `dc=ldap,dc=goauthentik,dc=io` (Authentik's default) or a custom DN — users are served under `ou=users,<base DN>`, groups under `ou=groups,<base DN>`. Must be unique per LDAP provider; Stalwart's `baseDn`/`bindDn` and the `ldapsearch` commands must use the same value. |
+| Certificate / TLS Server Name | `certificate` / `tlsServerName` | leave empty — these enable LDAPS/StartTLS; Stalwart talks plain LDAP to the outpost over the shared Docker network. |
+| UID Start Number / GID Start Number | `uidStartNumber` / `gidStartNumber` | defaults `2000` / `4000` — POSIX numbering for `uidNumber`/`gidNumber`, irrelevant to mail clients. |
+
+Click **Submit**: the application and provider are created together.
+
+> **Bind/Search mode:** the 2026.8 form preselects **Cached binding** and **Cached querying**. Cached binding executes the bind flow once and keeps the result (success **and** failure) in outpost memory for the session duration — password changes and session revocation do not invalidate the entry; only session expiry or `docker restart ak-outpost-<outpost name>` does. Use **Direct binding** if every bind should re-check the current credentials. Cached querying is fine here — directory data is at most 5 minutes stale.
+
+### Authentik: service account, role and permissions
+
+1. **Service account user** — Directory → Users → **New User** (e.g. `stalwart-ldap`); open the user → **Recovery** → **Set password**. The bind DN is `cn=<username>,ou=users,<base DN>` (e.g. `cn=stalwart-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io`).
+2. **Role** — Directory → Roles → **New Role** (e.g. `LDAP search`). Authentik ships no ready-made role for this, and the provider's *Permissions* tab only lists roles that already exist — it neither creates nor owns a role. Create a dedicated one: reusing an existing role grants the provider's search permission to every member of that role. Then open the role → **Users** tab → **Add Existing User** → select the service account → **Assign**. (If you already have a role holding the permission, e.g. for another LDAP provider, you can reuse it instead of creating a new one.)
+3. **Search full LDAP directory** — two paths with a different scope; the first is recommended:
+    - **Object permission (provider-scoped)** — Applications → Providers → open the LDAP provider → **Permissions** tab → **Assign Role Object Permission** → select `LDAP search` → enable **Search full LDAP directory** → **Assign Role Object Permission**. Affects only this provider.
+    - **Global permission (role-scoped)** — Directory → Roles → `LDAP search` → **Permissions** tab → **Assigned global permissions** → add **Search full LDAP directory**. Affects every LDAP provider; the user still needs access to each provider's application.
+
+    Without it a bound user can only see their own entry and the groups they belong to. The service account needs full search so Stalwart can resolve accounts (address/domain validation, metadata); ordinary mail users need nothing beyond application access.
+4. **Application access** — everyone who binds must be allowed on the LDAP application: the service account *and* every mail user, since mail logins bind as the user. With no bindings the application is open to all users (`core_default_app_access` allows by default), so this only matters once you add bindings — then they must pass for both, or the outpost logs `50 insufficientAccessRights / Access denied for user`.
+
+### Authentik: outpost
+
+Applications → Outposts → **New Outpost**: type **LDAP**, integration **Docker** (the local Docker-socket integration is used by `authnworkers`), applications: the LDAP application above. Then edit the outpost and set **Docker network** to `servicehub_subnet` — without it the outpost container lands on the default bridge and Stalwart cannot reach it. The container is named after the outpost (`ak-outpost-<name>`) and listens on `3389` (LDAP) / `6636` (LDAPS); with *Map ports* on (default) it also binds host ports `389`/`636`.
+
+### Stalwart: LDAP directory
+
+Create the directory in Stalwart. In the v0.16 admin UI the path is **Settings → Authentication → Directories → Create directory** (the form's `Directory type` selector is the `@type` discriminator); pick *LDAP* and fill in:
+
+| UI label (v0.16) | Property | Value |
+|---|---|---|
+| Description | `description` | Short name, e.g. `Authentik LDAP` |
+| Server URL | `url` | `ldap://ak-outpost-<outpost name>:3389` — the managed LDAP outpost container on the `subnet` network |
+| Base DN | `baseDn` | `dc=ldap,dc=goauthentik,dc=io` — Authentik's default Base DN, must match the provider (a custom DN works too — see the note below) |
+| Bind DN | `bindDn` | `cn=stalwart-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io` — the Authentik service account DN (`cn=<username>,ou=users,<base DN>`) |
+| Bind Secret | `bindSecret` | The service account's Authentik password (choose *Value*, or an *Environment variable* / *File* reference) |
+| Use Bind Authentication | `bindAuthentication` | on (default) — Stalwart searches for the user DN with the service account, then binds **as the user** with the supplied password; no hash comparison, so nothing to sync |
+| Login Filter | `filterLogin` | `(&(objectClass=user)(mail=?))` — **must be overridden**: Stalwart's default filter matches `objectClass=inetOrgPerson`, which Authentik does not expose |
+| Mailbox Filter | `filterMailbox` | `(&(objectClass=user)(\|(mail=?)(mailAlias=?)))` — same override; `mailAlias` only matches when the custom attribute is set |
+| Member Of Filter | `filterMemberOf` | `(&(objectClass=groupOfNames)(member=?))` (default) |
+| Password Changed Attribute | `attrSecretChanged` | `pwdChangeTime` (default) — invalidates cached OAuth tokens after LDAP password changes |
+
+> **Custom Base DN:** the default `dc=ldap,dc=goauthentik,dc=io` is not required — any valid DN works (e.g. `dc=example,dc=com`). Set it on the Authentik LDAP provider, then mirror it here: `baseDn` = that DN, and `bindDn` = `cn=<service account username>,ou=users,<that DN>` — users always live under `ou=users,<base DN>`, so only the suffix changes. The `filter*` values are attribute-based and need no change. Update the `ldapsearch` example below to match, and after changing the DN on an existing provider run `docker restart ak-outpost-<outpost name>` to drop the outpost's cached bind results.
+
+The other form sections keep their defaults for this setup: *Connection* (`Connection Timeout` 30 s, `Enable TLS` off — the outpost speaks plain LDAP on the shared network, `Allow Invalid Certificates` off), *Attributes* (`groupClass` `groupOfNames`, the `attr*` mappings listed above) and *Pool* (`Max Connections` 10).
 
 > User bind authentication (`bindAuthentication: true`) means Stalwart never reads password hashes: login validates by binding to Authentik's outpost as the user. The service-account bind is still required for non-authentication lookups (address/domain validation, account metadata).
 
-Finally, **bind the mail domain to the directory** (Stalwart admin → **Settings → Domains** → the domain served at `${EMAIL_HOST}`, set its directory to the LDAP directory). Domains carry a `directoryId`; an unset (`null`) value means the internal directory, so accounts on unbound domains keep using local passwords — without this step the LDAP directory is created but never consulted.
+### Stalwart: bind the mail domain
 
-Verify from the host (the outpost maps host ports `389`/`636` by default unless *Map ports* was unticked):
+Finally, **bind the mail domain to the directory**. v0.16 moved the domain list out of *Settings* into the **Management** layout — the older `Settings → Domains` path no longer exists:
+
+- **Per domain** (what this stack uses): **Management → Domains → Domains** → open `${EMAIL_HOST}` → **Domain** section → **Directory** (`Domain.directoryId`). This selects the account source for that domain.
+- **Global default**: **Settings → Authentication → General** → **Directory** section → **Authentication Directory** (`Authentication.directoryId`) — used for any domain that does not set its own.
+
+Account lookups resolve the directory in this order: `Domain.directoryId` → `Authentication.directoryId` → Stalwart's internal directory. With a single mail domain either level works; leaving both unset keeps accounts on local passwords and the LDAP directory would never be consulted.
+
+### Verify
+
+Check that the outpost serves the directory from the host (it maps host ports `389`/`636` by default unless *Map ports* was unticked):
 
 ```bash
+# replace dc=ldap,dc=goauthentik,dc=io with your Base DN if you changed it
 ldapsearch -H ldap://localhost:389 \
   -D "cn=stalwart-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io" -W \
   -b "dc=ldap,dc=goauthentik,dc=io" "(objectClass=user)"
 ```
 
+(Filter on `objectClass=user` — Authentik does not expose `inetOrgPerson`/`posixAccount`, so Stalwart's stock LDAP filters must be overridden; see [Stalwart: LDAP directory](#stalwart-ldap-directory).) Users authenticate by binding as themselves with their Authentik password, so mail-client logins stay in sync with SSO.
+
+### Troubleshooting binds
+
+Check the outpost log first — it names the reason:
+
+```bash
+docker logs ak-outpost-<outpost name> 2>&1 | grep -iE "bind|error|flow"
+```
+
+| Outpost log / symptom | Cause & fix |
+|---|---|
+| `"Flow does not apply to current user"`, Stalwart logs LDAP `resultCode 49` | The LDAP provider's **Bind Flow** is not meant for binds — it must be an Authentication-designation flow (e.g. `default-authentication-flow`); a Source flow such as `default-source-authentication` cannot authenticate a directory bind. |
+| No `"failed to execute flow"` error, retries log `"authenticated from session"`, yet Stalwart still gets `resultCode 49` | The provider's **Bind Flow** is unset, or — with *Cached binding* — an earlier failed bind is still cached: the outpost's cached binder stores the failed result code per (DN, password) and replays it. Set the flow, then clear the cache with `docker restart ak-outpost-<outpost name>` (only a restart resets it). *Direct binding* has no such cache. |
+| Bind succeeds but searches return nothing | By default a bound user only sees their own entry and groups. The service account needs **Search full LDAP directory** — grant it a role as a provider object permission (or a global permission), see [Service account, role and permissions](#authentik-service-account-role-and-permissions). |
+| Bind returns `50 insufficientAccessRights`, log says `Access denied for user` | The LDAP application's access bindings exclude the binding user/service account — grant access on the application. |
+| `resultCode 49 invalidCredentials` with the flow set correctly | The stored **Bind Secret** does not match the service account password — reset it in Authentik (*Users → the service account → Set password*) and update Stalwart's directory. |
+| Binds or searches fail after changing the Base DN | Stalwart's directory still uses the old `baseDn`/`bindDn` — update both to the new DN, then `docker restart ak-outpost-<outpost name>` to clear the outpost's cached bind results. |
+
 ### Passwords & clients
 
-- With LDAP user-bind authentication, local password changes from the webmail are **not possible** (Stalwart doesn't own the hash) — users change their password in Authentik. Per-device **app passwords** are supported on the Authentik side (enable *User database + app passwords* on the LDAP provider's Bind Flow password stage) and bind with the same DN.
+- With LDAP user-bind authentication, local password changes from the webmail are **not possible** (Stalwart doesn't own the hash) — users change their password in Authentik.
+- **App passwords** — per-device credentials that bind with the same DN, supported on the Authentik side: enable *User database + app passwords* on the LDAP provider's Bind Flow password stage — open **Flows and Stages → Flows → `default-authentication-flow`** and edit the password stage it references (if the identification stage has a **Password stage** set, edit that one) → **Backends**.
 - Because the mail domain is bound to the LDAP directory, **all accounts on it authenticate through Authentik** — including technical accounts like the stack sender `servicehub@${EMAIL_HOST}` (create it as an Authentik service account with its email set, see the walkthrough). Accounts on domains *not* bound to the directory keep using Stalwart's internal directory with local passwords.
 
 ## Traefik routing
@@ -206,10 +278,10 @@ PostgreSQL holds everything, so the fastest path is: first `docker compose up -d
 
 1. **Database** — `${POSTE_DBNAME}` in `PGRSQL_DBLIST`; `docker compose up -d dbsvcpgsqldb` creates it on first start.
 2. **Stalwart** — `docker compose up -d posteservice`; sign in at `https://${EMAIL_HOST}/admin` with `${STALWART_ADMIN_USER}` / `${STALWART_ADMIN_PASS}` (recovery admin).
-3. **LDAP provider in Authentik** — Application `stalwart-mail` with provider type **LDAP Provider** (Base DN default `dc=ldap,dc=goauthentik,dc=io`).
-4. **LDAP service account in Authentik** — Directory → Users → New User `stalwart-ldap`; set a password under Recovery. Create a role `LDAP search` with the **Search full LDAP directory** permission, add the service account to it, and assign the role to the provider under its **Permissions** tab.
+3. **LDAP provider in Authentik** — Application `stalwart-mail` with provider type **LDAP Provider** (Base DN: default `dc=ldap,dc=goauthentik,dc=io` or your own — see the [directory section](#directory-authentik-ldap-sso); full field-by-field provider settings — Bind/Unbind Flow, bind/search modes — in [Authentik: application and LDAP provider](#authentik-application-and-ldap-provider)).
+4. **LDAP service account in Authentik** — Directory → Users → New User `stalwart-ldap`; set a password under Recovery. Create a role `LDAP search` with the **Search full LDAP directory** permission, add the service account to it, and assign the role to the provider under its **Permissions** tab (object vs global permission, and application access: [Authentik: service account, role and permissions](#authentik-service-account-role-and-permissions)).
 5. **LDAP outpost in Authentik** — **Applications → Outposts → Create Outpost**, type **LDAP**, integration **Docker**, applications: `stalwart-mail`; edit the outpost config and set **Docker network** to `servicehub_subnet`. The outpost container is named after the outpost (`ak-outpost-<name>`) and listens on `3389`/`6636` — note it also maps host ports `389`/`636` unless you untick *Map ports*. Verify with the `ldapsearch` command in the [directory section](#directory-authentik-ldap-sso).
-6. **Point Stalwart at the outpost** — Stalwart admin → **Settings → Authentication → Directories → Create** (LDAP), using the values from the [directory table](#directory-authentik-ldap-sso) above. Then **Settings → Domains** → bind the mail domain to the new directory (`directoryId`).
+6. **Point Stalwart at the outpost** — Stalwart admin → **Settings → Authentication → Directories → Create directory** (type LDAP), using the values from the [directory table](#directory-authentik-ldap-sso) above. Then bind the mail domain: **Management → Domains → Domains** → `${EMAIL_HOST}` → **Domain** section → **Directory** (or, for all domains at once, **Settings → Authentication → General** → **Authentication Directory**).
 7. **Technical sender account in Authentik** — since the mail domain is bound to LDAP, create `servicehub@${EMAIL_HOST}` as an Authentik service account with that address as its **email**; `${EMAIL_PASS}` is the account's password. Stack components send with `${EMAIL_USER}` / `${EMAIL_PASS}` on port `${EMAIL_PORT}` (see [Root README — Email](../../README.md#configuration)).
 8. **Mailboxes for users** — for LDAP-backed users authentication needs no extra setup; create the mailbox in Stalwart (matching the user's `mail` attribute) to assign quota and groups. Verify a login with the user's **email + Authentik password** from an IMAP/JMAP client or Bulwark's password form.
 9. **OIDC for Bulwark** — create an OAuth2/OIDC provider application in Authentik for `${WEBMAIL_DOMAIN}` with redirect URI `https://${WEBMAIL_DOMAIN}/auth/callback`, copy client id/secret into `.env` (`WEBMAIL_OIDC_*`), then `docker compose up -d postewebmail`. See [Bulwark — SSO setup](../bulwark/README.md#sso-setup-authentik-oidc).
@@ -241,7 +313,7 @@ docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c
 ## See also
 
 - [Bulwark Webmail](../bulwark/README.md) — JMAP webmail client for this server (Authentik OIDC SSO)
-- [Authentik](../authentik/README.md) — IdP; LDAP outpost + OIDC provider live here
+- [Authentik](../authentik/README.md) — IdP; OIDC provider for the webmail (the LDAP directory walkthrough is above)
 - [PostgreSQL](../postgresql/README.md) — the shared database host (`dbsvcpgsqldb`)
 - [Traefik](../traefik/README.md) — edge routing and TLS termination
 - [Root README — Email stack](../../README.md#email-stack-poste)

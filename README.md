@@ -342,7 +342,7 @@ A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) 
 | Webmail → Stalwart | JMAP over the Docker network, no CORS setup needed |
 | Single sign-on | Authentik serves the directory: Bulwark uses OIDC, IMAP/SMTP/JMAP logins bind against Authentik's LDAP outpost |
 
-The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration). Accounts come from Authentik (LDAP for mail protocols, OIDC for webmail) — setup walkthrough in the [Stalwart README](shared/stalwart/README.md#initial-provisioning-walkthrough).
+The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration). Accounts come from Authentik (LDAP for mail protocols, OIDC for webmail) — setup walkthrough in the [Stalwart README](shared/stalwart/README.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](shared/stalwart/README.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
 
 ---
 
