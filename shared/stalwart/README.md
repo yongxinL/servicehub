@@ -235,6 +235,45 @@ Certificates come from the shared Traefik ACME store — Stalwart does not run i
 
 This mirrors how the deploy workflow restores `acme.json` from the `*_B64ENC_ACME` Forgejo Actions secret.
 
+## Logs & troubleshooting
+
+Stalwart logs through *Tracers* (**Settings → Telemetry → Tracers**). v0.16 has **no console tracer by default**: when no tracer exists, Stalwart creates a **Log (file)** tracer that writes `/var/log/stalwart/stalwart.log.<YYYY-MM-DD>` (daily rotation) at level *Info*. The entrypoint creates and chowns that directory so it works out of the box:
+
+```bash
+docker compose exec posteservice ls -l /var/log/stalwart/
+docker compose exec posteservice tail -f "/var/log/stalwart/stalwart.log.$(date +%F)"
+```
+
+> If the file is missing, the tracer was never able to open it (Stalwart does not create log directories, and the `stalwart` user cannot write into a root-owned one). Fix the directory ownership or point the tracer at `/var/lib/stalwart/logs` (also created by the entrypoint), then `docker compose restart posteservice`.
+
+`docker compose logs -f posteservice` shows only bootstrap output (e.g. the certificate retry notice) — tracer events do not go to stdout unless a **Stdout** tracer is configured (next section).
+
+### Logging to the Docker console
+
+To capture tracer events with `docker compose logs` — for example to keep all stack output in one place — add a **Stdout** tracer instead of (or alongside) the file tracer:
+
+1. **Settings → Telemetry → Tracers → Create tracer** → type **Stdout**; set **Level** (default *Info*, same as the file tracer) and save.
+2. Optionally open the *Log* tracer and turn **Enable** off (or delete it) so events are not written to disk as well.
+3. Reproduce and follow the output:
+
+    ```bash
+    docker compose logs -f posteservice
+    ```
+
+Notes:
+
+- The default file tracer is only created while **no** tracer exists, so it does not come back once you add your own tracer.
+- Only **one console tracer** is allowed; a second *Stdout* tracer is skipped with an `Only one console tracer is allowed` config error.
+- *Buffered* (default on) batches writes and *ANSI* (default off) keeps colour codes out of `docker logs` — the defaults are the right choice for console output.
+
+To debug authentication (e.g. LDAP binds):
+
+1. **Settings → Telemetry → Tracers** → open the *Log* (or *Stdout*) tracer → set **Logging level** to *Debug* (or *Trace*), save, and restart `posteservice`.
+2. Reproduce the failure and read the file or `docker compose logs` as above; bind errors show the LDAP result code (e.g. `49 invalidCredentials`).
+3. **Settings → Telemetry → Event Levels** overrides levels per `Event Id` when the global level is too noisy.
+
+The file tracer's path is on the container filesystem, so those logs are lost when the container is recreated. To persist them, edit the tracer's **Path** to `/var/lib/stalwart/logs` (host `${APPS_DATA}/platform/mailbox/logs`); console output instead lives in Docker's logging driver (`docker compose logs`, no rotation unless configured on the daemon).
+
 ## Configuration (env)
 
 | Variable | Purpose |
