@@ -73,12 +73,28 @@ services:
             - ${APPS_DATA}/platform/mailbox:/var/lib/stalwart
             - ${APPS_DATA}/certs:/letsencrypt
 
+    # postesvcinit — one-shot: create webmail data dirs, chown 1001:1001 (nextjs:nodejs). Docs: shared/bulwark/README.md
+    postesvcinit:
+        command: >
+            sh -c 'mkdir -p /data/settings /data/admin /data/admin-state /data/telemetry &&
+                   chown -R 1001:1001 /data'
+        image: busybox:latest
+        networks:
+            - subnet
+        volumes:
+            - ${APPS_DATA}/platform/webmail/settings:/data/settings
+            - ${APPS_DATA}/platform/webmail/admin:/data/admin
+            - ${APPS_DATA}/platform/webmail/admin-state:/data/admin-state
+            - ${APPS_DATA}/platform/webmail/telemetry:/data/telemetry
+
     # Bulwark Webmail - self-hosted JMAP webmail for Stalwart
     # https://github.com/bulwarkmail/webmail
     postewebmail:
         build:
             context: ../shared/bulwark/
         depends_on:
+            postesvcinit:
+                condition: service_completed_successfully
             posteservice:
                 condition: service_healthy
         environment:
@@ -92,16 +108,9 @@ services:
             - JMAP_SERVER_URL=https://${EMAIL_HOST}
             # Enable Stalwart-specific features (password change, Sieve UI, etc.)
             - STALWART_FEATURES=true
-            # OAuth2 / OIDC (Authentik)
-            - OAUTH_ENABLED=${WEBMAIL_OIDC_ENABLED}
-            - OAUTH_ONLY=${WEBMAIL_OIDC_ONLY}
-            - OAUTH_ISSUER_URL=${WEBMAIL_OIDC_ISSUER}
-            - OAUTH_CLIENT_ID=${WEBMAIL_OIDC_CLIENT_ID}
-            - OAUTH_CLIENT_SECRET=${WEBMAIL_OIDC_CLIENT_SECRET}
-            # Allow IdP discovery to resolve to RFC-1918 addresses (split-DNS)
-            - OAUTH_ALLOW_PRIVATE_ENDPOINTS=true
-            # Skip the login form and go straight to the IdP when OIDC is on
-            - AUTO_SSO_ENABLED=${WEBMAIL_OIDC_ONLY}
+            # Authentication: password form validated by Stalwart over JMAP.
+            # No OIDC/SSO: it requires an OIDC-backed Stalwart directory, this
+            # stack uses LDAP (docs: shared/bulwark/README.md).
             # Session cookie encryption (openssl rand -base64 32)
             - SESSION_SECRET=${WEBMAIL_SESSION_SECRET}
             # Sync per-account settings (encrypted at rest with SESSION_SECRET)

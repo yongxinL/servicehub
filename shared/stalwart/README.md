@@ -112,7 +112,7 @@ For a `.sql.gz` dump, pipe it into `psql` instead: `gunzip -c poste-YYYY-MM-DD.s
 
 ## Directory: Authentik LDAP (SSO)
 
-Mail accounts and credentials come from Authentik over LDAP, so users exist once in Authentik and log into the webmail (via OIDC) and IMAP/SMTP with the same identity. The integration spans both sides: an Authentik **application + LDAP provider**, a **service account** used for lookups, and a **managed LDAP outpost** — then the Stalwart **LDAP directory** that binds against the outpost, and the **domain binding** that activates it. All of it lives in this section.
+Mail accounts and credentials come from Authentik over LDAP, so users exist once in Authentik and log into the webmail (password form — see [Bulwark — SSO/OIDC](../bulwark/README.md#sso--oidc-not-used) for why OIDC SSO is not used with an LDAP directory) and IMAP/SMTP with the same identity. The integration spans both sides: an Authentik **application + LDAP provider**, a **service account** used for lookups, and a **managed LDAP outpost** — then the Stalwart **LDAP directory** that binds against the outpost, and the **domain binding** that activates it. All of it lives in this section.
 
 Field names below are for Authentik `2026.8` (`AUTHN_TAG`); older versions label **Bind Flow** as *Authentication flow*.
 
@@ -237,6 +237,25 @@ Certificates come from the shared Traefik ACME store — Stalwart does not run i
 
 This mirrors how the deploy workflow restores `acme.json` from the `*_B64ENC_ACME` Forgejo Actions secret.
 
+The exported files only take effect once a **Certificate object** references them (v0.16 stores certificates in PostgreSQL under **Settings → TLS → Certificates**; empty by default, so nothing is served until this is done once):
+
+1. **Settings → TLS → Certificates → Create certificate** — set `certificate` to type **File** `/var/lib/stalwart/tls/fullchain.pem` and `privateKey` to type **File** `/var/lib/stalwart/tls/privkey.pem`. Stalwart parses the SANs, issuer and validity automatically (server-set fields on the object).
+2. **Settings → Authentication → General** (SystemSettings) → **Default Certificate** (`defaultCertificateId`) → select that certificate — what clients without SNI get.
+3. Listener TLS settings don't need changes; certificates are selected by SNI against the object's SAN list.
+
+Renewals need no further action: `acme-export.sh` replaces the files and restarts the container, and Stalwart re-reads them at boot.
+
+Verify what the listeners actually serve:
+
+```bash
+docker compose exec posteservice \
+  openssl s_client -connect localhost:993 -servername ${EMAIL_HOST} </dev/null 2>/dev/null \
+  | openssl x509 -noout -subject -issuer -dates
+```
+
+- `issuer=...Let's Encrypt...` — the exported certificate is in use.
+- `issuer` and `subject` are both `${EMAIL_HOST}` (self-signed within the container bootstrap) — still the bootstrap certificate; the Certificate object is missing or wrong. Run `docker compose restart posteservice` after fixing it.
+
 ## Logs & troubleshooting
 
 Stalwart logs through *Tracers* (**Settings → Telemetry → Tracers**). v0.16 has **no console tracer by default**: when no tracer exists, Stalwart creates a **Log (file)** tracer that writes `/var/log/stalwart/stalwart.log.<YYYY-MM-DD>` (daily rotation) at level *Info*. The entrypoint creates and chowns that directory so it works out of the box:
@@ -315,7 +334,7 @@ For external clients to reach ports 25/465/587/993, DNS `MX`/`A` records for `${
 
 ## Initial provisioning walkthrough
 
-PostgreSQL holds everything, so the fastest path is: first `docker compose up -d posteservice` boots straight into the admin UI with the recovery admin, provision the directory + accounts, then flip Bulwark's OIDC vars and deploy. Complete steps, in order:
+PostgreSQL holds everything, so the fastest path is: first `docker compose up -d posteservice` boots straight into the admin UI with the recovery admin, provision the directory + accounts, then deploy Bulwark. Complete steps, in order:
 
 1. **Database** — `${POSTE_DBNAME}` in `PGRSQL_DBLIST`; `docker compose up -d dbsvcpgsqldb` creates it on first start.
 2. **Stalwart** — `docker compose up -d posteservice`; sign in at `https://${EMAIL_HOST}/admin` with `${STALWART_ADMIN_USER}` / `${STALWART_ADMIN_PASS}` (recovery admin).
@@ -325,7 +344,7 @@ PostgreSQL holds everything, so the fastest path is: first `docker compose up -d
 6. **Point Stalwart at the outpost** — Stalwart admin → **Settings → Authentication → Directories → Create directory** (type LDAP), using the values from the [directory table](#directory-authentik-ldap-sso) above. Then bind the mail domain: **Management → Domains → Domains** → `${EMAIL_HOST}` → **Domain** section → **Directory** (or, for all domains at once, **Settings → Authentication → General** → **Authentication Directory**).
 7. **Technical sender account in Authentik** — since the mail domain is bound to LDAP, create `servicehub@${EMAIL_HOST}` as an Authentik service account with that address as its **email**; `${EMAIL_PASS}` is the account's password. Stack components send with `${EMAIL_USER}` / `${EMAIL_PASS}` on port `${EMAIL_PORT}` (see [Root README — Email](../../README.md#configuration)).
 8. **Mailboxes for users** — for LDAP-backed users authentication needs no extra setup; create the mailbox in Stalwart (matching the user's `mail` attribute) to assign quota and groups. Verify a login with the user's **email + Authentik password** from an IMAP/JMAP client or Bulwark's password form.
-9. **OIDC for Bulwark** — create an OAuth2/OIDC provider application in Authentik for `${WEBMAIL_DOMAIN}` with redirect URI `https://${WEBMAIL_DOMAIN}/auth/callback`, copy client id/secret into `.env` (`WEBMAIL_OIDC_*`), then `docker compose up -d postewebmail`. See [Bulwark — SSO setup](../bulwark/README.md#sso-setup-authentik-oidc).
+9. **Bulwark webmail** — `docker compose up -d postesvcinit postewebmail`; users sign in at `https://${WEBMAIL_DOMAIN}` with their **email + Authentik password** (the password form validates through Stalwart's LDAP directory). Before first login, enable **Permissive CORS policy** (**Settings → Network → HTTP → Security**, `usePermissiveCors`) and confirm the [Certificate object](#tls-certificates) is in place — both are login prerequisites documented in [Bulwark — Login prerequisites](../bulwark/README.md#login-prerequisites-stalwart-side). OIDC SSO is not used in this stack (requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](../bulwark/README.md#sso--oidc-not-used)).
 
 ## Operations
 
@@ -353,8 +372,8 @@ docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c
 
 ## See also
 
-- [Bulwark Webmail](../bulwark/README.md) — JMAP webmail client for this server (Authentik OIDC SSO)
-- [Authentik](../authentik/README.md) — IdP; OIDC provider for the webmail (the LDAP directory walkthrough is above)
+- [Bulwark Webmail](../bulwark/README.md) — JMAP webmail client for this server (password form via the LDAP directory; OIDC SSO not used)
+- [Authentik](../authentik/README.md) — IdP; the LDAP directory walkthrough is above
 - [PostgreSQL](../postgresql/README.md) — the shared database host (`dbsvcpgsqldb`)
 - [Traefik](../traefik/README.md) — edge routing and TLS termination
 - [Root README — Email stack](../../README.md#email-stack-poste)
