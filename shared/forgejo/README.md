@@ -151,6 +151,12 @@ docker compose logs -f depotservice
 docker compose logs -f depotrunner
 ```
 
+## Security hardening
+
+- **Edge protection** — the router carries `secure-chain` (rate limit + security headers); compose sets `FORGEJO__service__DISABLE_REGISTRATION=true`, so accounts are created by admins only. See [Traefik — Security middlewares](../traefik/README.md#security-middlewares).
+- **Delegate sign-in to Authentik** — configure an OAuth2/OIDC source (Site Administration → Identity & Access → OAuth2) pointing at the `authnservice` issuer; MFA policies configured in Authentik then apply to Forgejo logins too. Keep one local admin as break-glass with 2FA enabled (Authentication → Security → 2FA).
+- **Runner secret scope** — the `DEPOT_RUNNER_SECRET` is only valid for runner registration; rotate it from Site Administration → Actions → Runners if it ever leaks.
+
 ### Reset (destructive)
 
 ```bash

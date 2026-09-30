@@ -79,6 +79,12 @@ docker compose up -d --build wbappcmshome
 docker compose logs -f wbappcmshome
 ```
 
+## Security hardening
+
+- **Edge protection** — the router carries `secure-chain` (rate limit + security headers, before the compression middleware). See [Traefik — Security middlewares](../traefik/README.md#security-middlewares).
+- **Admin console** — restrict the admin UI to trusted networks (Confluence Administration → General Configuration → **Security and Permissions** → admin session / network restrictions) and never leave anonymous access on a public space (Space Settings → Permissions → check *Anonymous* is off).
+- **Delegate accounts to Authentik** — set up a SAML/OIDC user directory pointing at `authnservice` (Administration → User Management → User Directories) so passwords and MFA live in Authentik; keep one local `confluence-admin` as break-glass.
+
 ## Files
 
 | Path | Purpose |

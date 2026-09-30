@@ -103,6 +103,19 @@ docker compose logs -f authnservice
 docker compose logs -f authnworkers
 ```
 
+## Security hardening
+
+Authentik is the crown jewel — every other app's identity flows through it. Applied at the edge:
+
+- **Rate limit + security headers** — the `authnservice` router carries `secure-chain` (`compose/authn.yml`), so credential-stuffing against the login page is throttled at Traefik.
+
+Do these in the Authentik admin UI (one-time):
+
+1. **Enforce MFA** — add an *Authenticator Validation* stage to the `default-authentication-flow` (at minimum for the administrators group via a stage binding policy). This single change multiplies into every app that delegates to Authentik.
+2. **Retire `akadmin`** for daily use — create your own admin account, keep `akadmin` as offline break-glass with a long unique password.
+3. **Disable public self-enrollment** — Flows → `default-enrollment-flow` → set *Policy Engine Mode* / deny by policy if accounts should only be created by an admin.
+4. **Review events** — Events → Logs surfaces brute-force patterns; pair with the Traefik access logs in Grafana.
+
 ## Notes
 
 - The Traefik dashboard uses **basic auth by default**; Authentik forward-auth is optional. When you switch the dashboard to forward-auth, remove `dashboard-whitelist` from its middleware chain.
