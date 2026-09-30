@@ -63,6 +63,53 @@ docker compose start posteservice
 
 The export directory lives on the `platform/mailbox` volume so both steps see it. See upstream [migration](https://stalw.art/docs/management/maintenance/migration) for details. Keep the SQLite file until you have verified the import.
 
+### Database management (create / delete / backup / restore)
+
+All mail data (accounts, messages, indexes, blobs) lives in `${POSTE_DBNAME}` (`svchubmboxdb`); the `${APPS_DATA}/platform/mailbox` volume holds only TLS material and runtime state. Run these from the deploy directory on the host.
+
+**Create** — keep `${POSTE_DBNAME}` in `PGRSQL_DBLIST` for new installs ([first boot](#first-boot)). The init script only runs on an empty data directory, so on an existing cluster create the database manually; Stalwart creates its schema in the empty database on the next start:
+
+```bash
+docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d postgres \
+  -c "CREATE DATABASE \"${POSTE_DBNAME}\";"
+docker compose up -d posteservice
+```
+
+**Delete** — stop the mail service first, then drop the database; this destroys the whole dataset and is irreversible:
+
+```bash
+docker compose stop posteservice
+docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d postgres \
+  -c "DROP DATABASE IF EXISTS \"${POSTE_DBNAME}\";"
+```
+
+To start over, create the database again and `docker compose start posteservice`, then re-run the [initial provisioning walkthrough](#initial-provisioning-walkthrough). Delete `${APPS_DATA}/platform/mailbox` too if the TLS material and runtime state should go as well.
+
+**Backup** — `pg_dump` takes a transaction-consistent snapshot and is safe while Stalwart is serving mail (unlike copying the PostgreSQL data directory):
+
+```bash
+docker compose exec -T dbsvcpgsqldb pg_dump -U "${SQLDB_USER}" -Fc "${POSTE_DBNAME}" \
+  > "poste-$(date +%F).dump"
+```
+
+`-Fc` is the compressed custom format used by `pg_restore` (selective/parallel restore); for a plain-SQL dump use `-Fp | gzip > poste-$(date +%F).sql.gz` instead. Copy the dump off the server — the scheduled [Forgejo backup workflow](../../README.md#data-backups-forgejo-actions) also dumps every database daily (kept 6 months) and archives `APPS_DATA` weekly, so this section is the manual path.
+
+**Restore** — stop Stalwart (no writers), recreate the database, import the dump and start again:
+
+```bash
+docker compose stop posteservice
+docker compose exec -T dbsvcpgsqldb psql -U "${SQLDB_USER}" -d postgres \
+  -c "DROP DATABASE IF EXISTS \"${POSTE_DBNAME}\";" \
+  -c "CREATE DATABASE \"${POSTE_DBNAME}\";"
+docker compose exec -T dbsvcpgsqldb pg_restore -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" --no-owner \
+  < poste-YYYY-MM-DD.dump
+docker compose start posteservice
+```
+
+For a `.sql.gz` dump, pipe it into `psql` instead: `gunzip -c poste-YYYY-MM-DD.sql.gz | docker compose exec -T dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}"`. Verify with `docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c '\dt'` and a test login; the fallback admin at `https://${EMAIL_HOST}/admin` works even if the LDAP directory is down.
+
+> `-T` disables TTY allocation so the binary dump streams cleanly through the redirect; the `< dump` and `gunzip -c` pipes run in the host shell, not the container.
+
 ## Directory: Authentik LDAP (SSO)
 
 Mail accounts and credentials come from Authentik over LDAP, so users exist once in Authentik and log into the webmail (via OIDC) and IMAP/SMTP with the same identity. The Authentik side (see [`../authentik/README.md`](../authentik/README.md) for the full walkthrough):
