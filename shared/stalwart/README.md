@@ -18,7 +18,7 @@
 | SMTP submission, STARTTLS | 587 (published to the host) |
 | IMAP, implicit TLS | 993 (published to the host) |
 | Optional listeners | 110, 143, 995, 4190 (commented out in the compose file) |
-| Health check | `curl -fsS http://localhost:8080/healthz` every 30 s |
+| Health check | `curl -fsS -H "X-Forwarded-For: 127.0.0.1" http://localhost:8080/healthz/live` every 30 s |
 | Depends on | `routetraefik` (healthy) — Traefik must issue the public certificate first; `dbsvcpgsqldb` (healthy) — the PostgreSQL data store |
 | Depended on by | `postewebmail` (healthy) |
 | Data persistence | `${APPS_DATA}/platform/mailbox` (mounted at `/var/lib/stalwart`; TLS key material + runtime state — mail data itself lives in PostgreSQL) |

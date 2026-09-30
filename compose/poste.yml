@@ -30,7 +30,7 @@ services:
             - STALWART_ADMIN_USER=${STALWART_ADMIN_USER}
             - STALWART_ADMIN_PASS=${STALWART_ADMIN_PASS}
         healthcheck:
-            test: [ "CMD", "curl", "-fsS", "http://localhost:8080/healthz" ]
+            test: [ "CMD", "curl", "-fsS", "-H", "X-Forwarded-For: 127.0.0.1", "http://localhost:8080/healthz/live" ]
             interval: 30s
             timeout: 5s
             start_period: 60s
@@ -67,6 +67,7 @@ services:
             # - "143:143"     # IMAP, STARTTLS;
             # - "995:995"
             # - "4190:4190"   # ManageSieve;
+            # - "8080:8080"   # Web management
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/platform/mailbox:/var/lib/stalwart
