@@ -24,6 +24,22 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 
 ---
 
+## Documentation
+
+Repository-backed project documentation is authoritative:
+
+- [Documentation home](docs/README.md)
+- [Architecture](docs/architecture/ARCHITECTURE.md)
+- [Architecture decisions](docs/adr/README.md)
+- [RFCs](docs/rfc/README.md)
+- [Development phases](docs/phases/README.md)
+- [Operations](docs/operations/README.md)
+- [Releases](docs/releases/README.md)
+
+Use the [documentation home](docs/README.md) for requirements, testing, investigations, lessons, and templates. The Forgejo Wiki and Confluence are not sources of truth.
+
+---
+
 ## Architecture Overview
 
 All traffic enters through Traefik on ports 80/443. HTTP is redirected to HTTPS. Traefik routes requests to the appropriate service by hostname and terminates TLS using either Let's Encrypt (production) or a self-signed certificate (staging). All services communicate over an isolated Docker bridge network (`subnet`). Databases are not exposed outside the network.
