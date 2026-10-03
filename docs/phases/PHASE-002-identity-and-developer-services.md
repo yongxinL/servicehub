@@ -72,7 +72,7 @@ Provide governed identity infrastructure and repository-hosted development and d
 - [x] Stalwart LDAP integration is documented.
 - [x] Forgejo registration is disabled in configuration.
 - [x] Runner and workflow files exist.
-- [x] Repository configuration exists for `wbappcloudr` and its Authentik OIDC environment.
+- [x] Repository configuration exists for `wbappcloudrv` and its Authentik OIDC environment.
 - [ ] Record actual Authentik application coverage.
 - [ ] Configure the Authentik OIDC provider and application for oCIS.
 - [ ] Validate forward-auth login and logout.

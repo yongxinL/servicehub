@@ -43,7 +43,7 @@ Current state is therefore **implemented in part, not yet verified as a governed
 - Authentik server and worker services.
 - Forgejo, host-mode runner, and repository workflows.
 - Confluence and Open WebUI services.
-- Repository configuration for the `wbappcloudr` oCIS service with Authentik OIDC and local filesystem paths.
+- Repository configuration for the `wbappcloudrv` oCIS service with Authentik OIDC and local filesystem paths.
 - Hermes, LiteLLM, and llama.cpp AI services with configured local/cloud routing.
 - VictoriaMetrics, VictoriaLogs, Grafana Alloy, and Grafana provisioning.
 - Stalwart and Bulwark email services.

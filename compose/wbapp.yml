@@ -89,8 +89,8 @@ services:
         volumes:
             - ${APPS_DATA}/openwebui:/app/backend/data
 
-    # wbappcloudrinit — oCIS config/data directory ownership initialiser. Docs: shared/ocis/README.md
-    wbappcloudrinit:
+    # wbappcloudrvinit — oCIS config/data directory ownership initialiser. Docs: shared/ocis/README.md
+    wbappcloudrvinit:
         command: >
             sh -c 'mkdir -p /config /data &&
                    chown -R 1000:1000 /config /data &&
@@ -103,8 +103,8 @@ services:
             - ${APPS_DATA}/cloud/ocis/config:/config
             - ${APPS_DATA}/cloud/ocis/data:/data
 
-    # wbappcloudr — ownCloud Infinite Scale cloud drive. Docs: shared/ocis/README.md
-    wbappcloudr:
+    # wbappcloudrv — ownCloud Infinite Scale cloud drive. Docs: shared/ocis/README.md
+    wbappcloudrv:
         command:
             - -c
             - ocis init || true; exec ocis server
@@ -113,7 +113,7 @@ services:
                 condition: service_healthy
             routetraefik:
                 condition: service_healthy
-            wbappcloudrinit:
+            wbappcloudrvinit:
                 condition: service_completed_successfully
         entrypoint:
             - /bin/sh
@@ -152,13 +152,13 @@ services:
         image: owncloud/ocis:${WBCLOUD_TAG}
         labels:
             - "traefik.enable=true"
-            - "traefik.http.routers.wbappcloudr.entrypoints=websecure"
-            - "traefik.http.routers.wbappcloudr.rule=Host(`${WBCLOUD_DOMAIN}`)"
-            - "traefik.http.routers.wbappcloudr.service=wbappcloudr"
-            - "traefik.http.services.wbappcloudr.loadbalancer.server.port=9200"
-            - "traefik.http.routers.wbappcloudr.tls=true"
-            - "traefik.http.routers.wbappcloudr.middlewares=secure-chain@file"
-            - "traefik.http.routers.wbappcloudr.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.wbappcloudrv.entrypoints=websecure"
+            - "traefik.http.routers.wbappcloudrv.rule=Host(`${WBCLOUD_DOMAIN}`)"
+            - "traefik.http.routers.wbappcloudrv.service=wbappcloudrv"
+            - "traefik.http.services.wbappcloudrv.loadbalancer.server.port=9200"
+            - "traefik.http.routers.wbappcloudrv.tls=true"
+            - "traefik.http.routers.wbappcloudrv.middlewares=secure-chain@file"
+            - "traefik.http.routers.wbappcloudrv.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped

@@ -4,7 +4,7 @@
 
 ## Overview
 
-[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `wbappcloudr` service in [`compose/wbapp.yml`](../../compose/wbapp.yml). It is routed through Traefik at `https://${WBCLOUD_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/cloud/ocis`, and delegates sign-in to Authentik.
+[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `wbappcloudrv` service in [`compose/wbapp.yml`](../../compose/wbapp.yml). It is routed through Traefik at `https://${WBCLOUD_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/cloud/ocis`, and delegates sign-in to Authentik.
 
 The service uses the official `owncloud/ocis:${WBCLOUD_TAG}` image. oCIS runs its supported single-container service set, initialises its own configuration on first start, and persists that configuration separately from file data.
 
@@ -14,8 +14,8 @@ oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authe
 
 | Detail | Value |
 |---|---|
-| Service name | `wbappcloudr` |
-| Initialiser | `wbappcloudrinit` |
+| Service name | `wbappcloudrv` |
+| Initialiser | `wbappcloudrvinit` |
 | Compose file | `compose/wbapp.yml` |
 | Image | `owncloud/ocis:${WBCLOUD_TAG}` |
 | Internal port | 9200 |
@@ -26,7 +26,7 @@ oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authe
 | Health check | `curl -fsS http://localhost:9200/status.php` |
 | Database | None for oCIS; Authentik uses ServiceHub PostgreSQL |
 
-The oCIS image runs as UID/GID `1000:1000`. `wbappcloudrinit` creates and corrects ownership on both bind-mounted directories before the main service starts.
+The oCIS image runs as UID/GID `1000:1000`. `wbappcloudrvinit` creates and corrects ownership on both bind-mounted directories before the main service starts.
 
 ## Configuration in `.env`
 
@@ -44,7 +44,7 @@ Do not record the Authentik provider client secret in documentation. The browser
 
 ## Authentik OIDC Setup
 
-Perform this one-time setup before starting `wbappcloudr`:
+Perform this one-time setup before starting `wbappcloudrv`:
 
 1. Open the Authentik administration interface at `https://${AUTHN_DOMAIN}`.
 2. Create an **OAuth2 / OpenID Provider** with these settings:
@@ -80,21 +80,21 @@ docker compose --env-file env.example config --quiet
 Start the service:
 
 ```bash
-docker compose up -d wbappcloudr
+docker compose up -d wbappcloudrv
 ```
 
-For a first deployment where the bind-mount directories do not yet exist, the deployment workflow starts `wbappcloudrinit` before `wbappcloudr`. From a local shell, the explicit sequence is:
+For a first deployment where the bind-mount directories do not yet exist, the deployment workflow starts `wbappcloudrvinit` before `wbappcloudrv`. From a local shell, the explicit sequence is:
 
 ```bash
-docker compose up -d wbappcloudrinit
-docker compose up -d wbappcloudr
+docker compose up -d wbappcloudrvinit
+docker compose up -d wbappcloudrv
 ```
 
 Check status:
 
 ```bash
-docker compose ps wbappcloudr
-docker compose logs -f wbappcloudr
+docker compose ps wbappcloudrv
+docker compose logs -f wbappcloudrv
 curl -fsS "https://${WBCLOUD_DOMAIN}/status.php"
 ```
 
@@ -122,10 +122,10 @@ oCIS does not add a PostgreSQL dump. The accepted dual-target strategy in [ADR-0
 
 ```bash
 # Restart oCIS
-docker compose restart wbappcloudr
+docker compose restart wbappcloudrv
 
 # Follow logs
-docker compose logs -f wbappcloudr
+docker compose logs -f wbappcloudrv
 
 # Validate Compose after changes
 docker compose config --quiet

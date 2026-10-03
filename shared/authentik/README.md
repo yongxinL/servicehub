@@ -84,7 +84,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 ## OIDC (oCIS cloud drive)
 
-oCIS uses an **OAuth 2.0 authorization-code flow with OpenID Connect**, not Traefik forward auth. Before starting `wbappcloudr`, create a public OAuth2 / OpenID provider and an Application in Authentik with:
+oCIS uses an **OAuth 2.0 authorization-code flow with OpenID Connect**, not Traefik forward auth. Before starting `wbappcloudrv`, create a public OAuth2 / OpenID provider and an Application in Authentik with:
 
 - **Application slug:** `ocis`
 - **Redirect URIs:** `https://${WBCLOUD_DOMAIN}/oidc-callback.html`, `https://${WBCLOUD_DOMAIN}/oidc-silent-redirect.html`, and `https://${WBCLOUD_DOMAIN}/`

@@ -101,7 +101,7 @@ Nextcloud remains deferred unless collaboration requirements expand beyond oCIS.
 
 ## Implementation Status
 
-The `wbappcloudr` oCIS service and its local filesystem paths now exist in repository configuration as of 2026-10-03. The container start, Authentik OIDC sign-in, account provisioning, file operations, backup, and restore have not been runtime-validated, so delivery remains pending. Nextcloud remains outside the current implementation.
+The `wbappcloudrv` oCIS service and its local filesystem paths now exist in repository configuration as of 2026-10-03. The container start, Authentik OIDC sign-in, account provisioning, file operations, backup, and restore have not been runtime-validated, so delivery remains pending. Nextcloud remains outside the current implementation.
 
 ## Consequences
 

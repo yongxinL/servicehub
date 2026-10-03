@@ -39,7 +39,7 @@ At the time of the decision, no oCIS service, route, OIDC application, or persis
 
 ## Decision
 
-Deploy the `wbappcloudr` service in `compose/wbapp.yml` using the `owncloud/ocis` image, Authentik OIDC, Docker Compose, and local filesystem storage on the Oracle Cloud VM. Mount oCIS configuration under `${APPS_DATA}/cloud/ocis/config` and file data under `${APPS_DATA}/cloud/ocis/data`, and include both paths in the backup scope under [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md).
+Deploy the `wbappcloudrv` service in `compose/wbapp.yml` using the `owncloud/ocis` image, Authentik OIDC, Docker Compose, and local filesystem storage on the Oracle Cloud VM. Mount oCIS configuration under `${APPS_DATA}/cloud/ocis/config` and file data under `${APPS_DATA}/cloud/ocis/data`, and include both paths in the backup scope under [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md).
 
 oCIS 8.2 does not use a ServiceHub PostgreSQL database for its own service state. PostgreSQL continues to store Authentik identity data and other ServiceHub relational workloads. The operational guide is [shared/ocis/README.md](../../shared/ocis/README.md).
 
@@ -152,10 +152,10 @@ The repository now contains the Compose service, routing, OIDC environment, loca
 
 Repository configuration added on 2026-10-03:
 
-- [`wbappcloudr` and `wbappcloudrinit`](../../compose/wbapp.yml) define the oCIS service, local bind mounts, dependency order, Traefik route, health check, and Authentik OIDC environment.
+- [`wbappcloudrv` and `wbappcloudrvinit`](../../compose/wbapp.yml) define the oCIS service, local bind mounts, dependency order, Traefik route, health check, and Authentik OIDC environment.
 - [`env.example`](../../env.example) defines the oCIS image, public hostname, Authentik issuer, public OIDC client ID, and certificate-verification setting.
 - [Traefik route configuration](../../compose/route.yml) permits long transfers and encoded WebDAV path characters.
-- [Deployment workflow](../../.forgejo/workflows/00-prod-deploy-services.yml) can deploy `wbappcloudr` after its directory initialiser.
+- [Deployment workflow](../../.forgejo/workflows/00-prod-deploy-services.yml) can deploy `wbappcloudrv` after its directory initialiser.
 - [oCIS operational guide](../../shared/ocis/README.md) records Authentik provider setup, redirect URIs, validation, backup scope, and operations.
 - [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) and [backup and restore](../operations/BACKUP-RESTORE.md) record the target recovery strategy.
 

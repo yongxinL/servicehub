@@ -38,7 +38,7 @@ flowchart LR
     Traefik --> Authentik[Authentik]
     Traefik --> Forgejo[Forgejo]
     Traefik --> Web[Confluence and Open WebUI]
-    Traefik --> Cloud[wbappcloudr (oCIS)]
+    Traefik --> Cloud[wbappcloudrv (oCIS)]
     Traefik --> AI[Clients and Hermes]
     Traefik --> Grafana[Grafana]
     Traefik --> Email[Stalwart and Bulwark]
@@ -81,7 +81,7 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 | Relational data | `compose/dbsvc.yml` | `dbsvcpgsqldb`, `dbsvcmariadb` |
 | Identity | `compose/authn.yml` | `authnservice`, `authnworkers`, `authnsvcinit` |
 | Developer services | `compose/depot.yml` | `depotservice`, `depotrunner`, `depotsvcinit` |
-| Web applications | `compose/wbapp.yml` | `wbappcmshome`, `wbappwebchat`, `wbappcloudr`, `wbappcloudrinit` |
+| Web applications | `compose/wbapp.yml` | `wbappcmshome`, `wbappwebchat`, `wbappcloudrv`, `wbappcloudrvinit` |
 | AI platform | `compose/aiagn.yml` | `aiagnherm00`, `aiagnlitellm`, `aiagnchatllm`, `aiagnhermint` |
 | Observability | `compose/obsvc.yml` | `obsvcgrafaly`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafana`, `obsvcgrafint` |
 | Email | `compose/poste.yml` | `posteservice`, `postewebmail`, `postesvcinit` |
@@ -105,7 +105,7 @@ These boundaries are Confirmed from configuration. Their security effectiveness 
 - **VictoriaLogs:** log storage under `${APPS_DATA}/victorialogs`.
 - **Grafana:** dashboard and alert-rendering state under `${APPS_DATA}/grafana`.
 
-The `wbappcloudr` oCIS service uses local filesystem storage and has no dedicated PostgreSQL database. PostgreSQL continues to store Authentik identity data used by the OIDC flow. Repository configuration is recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md); runtime authentication and file operations remain unvalidated.
+The `wbappcloudrv` oCIS service uses local filesystem storage and has no dedicated PostgreSQL database. PostgreSQL continues to store Authentik identity data used by the OIDC flow. Repository configuration is recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md); runtime authentication and file operations remain unvalidated.
 
 ## Identity Architecture
 

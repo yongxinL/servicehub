@@ -69,7 +69,7 @@ graph TD
         Traefik -->|git.domain| Forgejo[depotservice\nForgejo + Actions]
         Traefik -->|www.domain + apex| Confluence[wbappcmshome\nConfluence]
         Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
-        Traefik -->|drive.domain| Cloud[wbappcloudr\nownCloud Infinite Scale]
+        Traefik -->|drive.domain| Cloud[wbappcloudrv\nownCloud Infinite Scale]
         Traefik -->|space0.domain| Hermes[aiagnherm00\nHermes Agent]
         Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
         Traefik -->|mail.domain| Stalwart[posteservice\nStalwart Mail Server]
@@ -300,7 +300,7 @@ All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so GPU
 | Authentik — IdP / SSO | `authnservice`, `authnworkers` (+ one-shot `authnsvcinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
 | Confluence Data Center — homepage / CMS | `wbappcmshome` | [shared/confluence/README.md](shared/confluence/README.md) |
 | Open WebUI — browser LLM chat interface | `wbappwebchat` | [shared/openwebui/README.md](shared/openwebui/README.md) |
-| ownCloud Infinite Scale — family cloud drive | `wbappcloudr` (+ one-shot `wbappcloudrinit`) | [shared/ocis/README.md](shared/ocis/README.md) |
+| ownCloud Infinite Scale — family cloud drive | `wbappcloudrv` (+ one-shot `wbappcloudrvinit`) | [shared/ocis/README.md](shared/ocis/README.md) |
 
 Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`. oCIS is served at `https://${WBCLOUD_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
 
@@ -637,7 +637,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 1. Open the repository in Forgejo (`https://${DEPOT_DOMAIN}`) → **Actions**
 2. Select the **deploy** workflow and click **Run workflow**
 3. Set the inputs:
-   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `wbappcloudr`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `posteservice`, `postewebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `wbappcloudrv`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `posteservice`, `postewebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
    - **environment** — `stag` (default) or `prod`
    - **branch** — branch to deploy (default `main`)
 4. Click the green **Run workflow** button — progress and logs appear in the workflow run page

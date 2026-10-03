@@ -64,7 +64,7 @@ Other application integrations remain recommendations or runtime configuration n
 ```mermaid
 flowchart LR
     U[User or sync client] --> T[Traefik]
-    T --> O[wbappcloudr / oCIS]
+    T --> O[wbappcloudrv / oCIS]
     O <-->|OIDC| A[Authentik]
     A --> P[(PostgreSQL)]
     O <--> C[(oCIS config)]
