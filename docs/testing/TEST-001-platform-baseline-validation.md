@@ -10,7 +10,7 @@ lifecycle_stage: Testing
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - testing
@@ -19,6 +19,7 @@ related_documents:
   - ARCHITECTURE
   - DEPLOYMENT-ARCHITECTURE
   - BACKUP-RESTORE
+  - ADR-006
   - RELEASE-INDEX
 ---
 
@@ -68,6 +69,7 @@ This document is a test plan, not a test result.
 | TC-023 | Backup database | Dispatch a database backup in staging. Expect per-database dumps, globals dump, archive creation, permissions, and retention input validation. | Backup manifest and workflow log |
 | TC-024 | Backup full archive | Dispatch a full backup when approved. Expect an `APPS_DATA` archive and recorded exclusions. | Archive manifest and workflow log |
 | TC-025 | Restore | Restore database dumps and filesystem data into an isolated environment, then validate services. | Restore steps, duration, integrity checks, and service results |
+| TC-026 | oCIS cloud drive | Confirm both oCIS paths persist across a controlled restart; complete Authentik OIDC sign-in and sign-out; verify account provisioning, upload, download, encoded WebDAV paths, and sharing controls. | Redacted OIDC result, service logs, file checks, and persistence evidence |
 
 ## Pass Criteria
 
@@ -95,4 +97,3 @@ This document is a test plan, not a test result.
 - [Runbook](../operations/RUNBOOK.md)
 - [Backup and restore](../operations/BACKUP-RESTORE.md)
 - [Release governance](../releases/README.md)
-

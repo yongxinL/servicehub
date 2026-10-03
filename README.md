@@ -52,7 +52,7 @@ Compose files are split by functional domain:
 | `compose/dbsvc.yml` | `dbsvc*` | Relational databases (MariaDB + PostgreSQL) |
 | `compose/authn.yml` | `authn*` | Authentication / SSO (Authentik) |
 | `compose/depot.yml` | `depot*` | Source control + CI (Forgejo + Forgejo Actions runner) |
-| `compose/wbapp.yml` | `wbapp*` | Homepage / CMS (Confluence) + Open WebUI |
+| `compose/wbapp.yml` | `wbapp*` | Homepage / CMS (Confluence), Open WebUI, and oCIS cloud drive |
 | `compose/aiagn.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
 | `compose/obsvc.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
 | `compose/poste.yml` | `poste*` | Email services (Stalwart mail server + Bulwark webmail) |
@@ -69,12 +69,15 @@ graph TD
         Traefik -->|git.domain| Forgejo[depotservice\nForgejo + Actions]
         Traefik -->|www.domain + apex| Confluence[wbappcmshome\nConfluence]
         Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
+        Traefik -->|drive.domain| Cloud[wbappcloudr\nownCloud Infinite Scale]
         Traefik -->|space0.domain| Hermes[aiagnherm00\nHermes Agent]
         Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
         Traefik -->|mail.domain| Stalwart[posteservice\nStalwart Mail Server]
         Traefik -->|webmail.domain| Bulwark[postewebmail\nBulwark Webmail]
         Bulwark -->|JMAP via Docker DNS| Stalwart
         Authentik -.->|forward-auth| Grafana
+        Authentik -.->|OIDC| Cloud
+        Cloud --> CloudData[(Local filesystem)]
         Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
         Confluence -->|depends on| Authentik
@@ -111,7 +114,7 @@ servicehub/
 │   ├── route.yml               # Traefik (routetraefik)
 │   ├── dbsvc.yml               # MariaDB + PostgreSQL
 │   ├── authn.yml               # Authentik server + worker + init
-│   ├── wbapp.yml               # Homepage / CMS (Confluence) + Open WebUI
+│   ├── wbapp.yml               # Confluence + Open WebUI + oCIS cloud drive
 │   ├── aiagn.yml               # Hermes agents + LiteLLM + llama.cpp
 │   ├── depot.yml               # Forgejo + Forgejo Actions runner
 │   ├── obsvc.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
@@ -158,6 +161,8 @@ servicehub/
 │   ├── openwebui/
 │   │   ├── README.md                     # Open WebUI service documentation
 │   │   └── Dockerfile
+│   ├── ocis/
+│   │   └── README.md                     # oCIS cloud-drive documentation
 │   ├── fastcrw/                          # Optional web-search stack (not included by default)
 │   │   ├── README.md                     # FastCRW + renderers + SearXNG documentation
 │   │   ├── Dockerfile                    # aiagnfastcrw image build
@@ -295,8 +300,9 @@ All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so GPU
 | Authentik — IdP / SSO | `authnservice`, `authnworkers` (+ one-shot `authnsvcinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
 | Confluence Data Center — homepage / CMS | `wbappcmshome` | [shared/confluence/README.md](shared/confluence/README.md) |
 | Open WebUI — browser LLM chat interface | `wbappwebchat` | [shared/openwebui/README.md](shared/openwebui/README.md) |
+| ownCloud Infinite Scale — family cloud drive | `wbappcloudr` (+ one-shot `wbappcloudrinit`) | [shared/ocis/README.md](shared/ocis/README.md) |
 
-Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`.
+Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`. oCIS is served at `https://${WBCLOUD_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
 
 > **Database lists only initialize empty data directories.** Updating `PGRSQL_DBLIST` or `MARIADB_DB_LIST` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
 >
@@ -631,7 +637,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 1. Open the repository in Forgejo (`https://${DEPOT_DOMAIN}`) → **Actions**
 2. Select the **deploy** workflow and click **Run workflow**
 3. Set the inputs:
-   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `posteservice`, `postewebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `wbappcloudr`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `posteservice`, `postewebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
    - **environment** — `stag` (default) or `prod`
    - **branch** — branch to deploy (default `main`)
 4. Click the green **Run workflow** button — progress and logs appear in the workflow run page
@@ -658,6 +664,8 @@ Dumps older than `*_DB_BACKUP_RETENTION_DAYS` (default `182` days ≈ 6 months) 
 ```
 <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
 ```
+
+The full archive includes `${APPS_DATA}/cloud/ocis/config` and `${APPS_DATA}/cloud/ocis/data`. oCIS does not add a PostgreSQL dump; restore both filesystem paths together and follow [shared/ocis/README.md](shared/ocis/README.md#backup-and-recovery).
 
 `<domain>` is the first label of `DOMAIN_NAME` from the server's `.env` (`oneLijia.com` → `oneLijia`), so the backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they are owned by `root` with mode `600` because the dumps contain mail and identity data and the archive contains `.env` secrets and ACME private keys. The workflow uses the same server secrets as the deploy workflow and requires passwordless sudo — see [Prerequisites](#prerequisites).
 
@@ -713,7 +721,7 @@ docker compose pull && docker compose up -d
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
 
-> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo + Actions](shared/forgejo/README.md), [Confluence](shared/confluence/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md), [Stalwart](shared/stalwart/README.md), [Bulwark](shared/bulwark/README.md)) also document their own variables there.
+> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo + Actions](shared/forgejo/README.md), [Confluence](shared/confluence/README.md), [oCIS](shared/ocis/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md), [Stalwart](shared/stalwart/README.md), [Bulwark](shared/bulwark/README.md)) also document their own variables there.
 
 ### General
 
@@ -756,6 +764,11 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `WBHOME_DBNAME` | Homepage database name (default: `svchubwbhome`) |
 | `WBHOME_TAG` | Confluence image tag (default: `10.2`) |
 | `OWEBUI_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
+| `WBCLOUD_DOMAIN` | oCIS cloud-drive hostname (default: `drive.${DOMAIN_NAME}`) |
+| `WBCLOUD_TAG` | Pinned oCIS image tag (default: `8.2.0`) |
+| `WBCLOUD_OIDC_ISSUER` | Authentik OIDC issuer for the `ocis` application |
+| `WBCLOUD_OIDC_CLIENT_ID` | Public Authentik OIDC client ID |
+| `WBCLOUD_INSECURE` | `true` only when Authentik uses a self-signed certificate |
 
 ### AI Agent Platform (aiagn)
 

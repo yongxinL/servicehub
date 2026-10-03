@@ -39,6 +39,7 @@ on:
           - all
           - wbappcmshome
           - wbappwebchat
+          - wbappcloudr
           - aiagnlitellm
           - aiagnchatllm
           - aiagnherm00
@@ -263,6 +264,9 @@ jobs:
           if [ '$DEPLOY_TASK' = all ]; then
             SERVICES=\$(\$COMPOSE config --services | grep -vE '^(dbsvc|authn|depot|route)')
             \$COMPOSE up -d --build --no-deps \$SERVICES
+          elif [ '$DEPLOY_TASK' = wbappcloudr ]; then
+            \$COMPOSE up -d --build wbappcloudrinit
+            \$COMPOSE up -d --build --no-deps wbappcloudr
           else
             \$COMPOSE up -d --build --no-deps '$DEPLOY_TASK'
           fi"

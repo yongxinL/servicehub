@@ -10,7 +10,7 @@ lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - architecture
@@ -19,6 +19,7 @@ related_documents:
   - ARCHITECTURE
   - COMPONENT-CATALOGUE
   - DEPLOYMENT-ARCHITECTURE
+  - ADR-006
 ---
 
 # ServiceHub System Context
@@ -27,7 +28,7 @@ related_documents:
 
 - Administrators configure environment variables, services, TLS, identity, storage, workflows, backups, and monitoring.
 - Developers and reviewers change Compose and shared configuration.
-- End users access web, identity, source control, AI, email, and dashboard services.
+- End users access web, identity, source control, cloud-drive, AI, email, and dashboard services.
 - Forgejo Actions operators trigger deployment, backup, and remote-access workflows.
 - Coding agents retrieve documentation and inspect implementation evidence.
 
@@ -93,5 +94,5 @@ LiteLLM's cloud target is supplied by `LITEM_PRM_APIBASE` and `LITEM_PRM_APIKEY`
 - Traefik trusts forwarded headers only from `TRUSTED_IP`.
 - Remote SSH uses key or password authentication with a known-host check when configured.
 - Repository secrets may contain encoded `.env`, `acme.json`, SSH, runner, and deployment material.
+- oCIS treats Authentik as its OIDC authority; provider configuration and token validation require runtime verification.
 - No assumption is made that staging and production have identical DNS, firewall, or certificate state.
-

@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: PRD
 document_id: PRD-001
 title: ServiceHub Product Requirements
-version: "1.0"
+version: "1.1"
 status: Proposed
 lifecycle_stage: Requirements
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - requirements
@@ -19,13 +19,15 @@ related_documents:
   - CHARTER-001
   - ROADMAP-001
   - ARCHITECTURE
+  - ADR-006
+  - ADR-007
 ---
 
 # ServiceHub Product Requirements
 
 ## Product Vision
 
-ServiceHub should provide a coherent self-hosted platform for HomeLab administration, developer services, web collaboration, AI workloads, email, and observability, with repository-backed governance and operations knowledge.
+ServiceHub should provide a coherent self-hosted platform for HomeLab administration, developer services, web collaboration, family file storage, AI workloads, email, and observability, with repository-backed governance and operations knowledge.
 
 Requirements describe intended capability. A requirement is not marked satisfied merely because configuration exists.
 
@@ -45,6 +47,7 @@ Requirements describe intended capability. A requirement is not marked satisfied
 - Validate Compose configuration before deployment.
 - Diagnose a failed route, TLS process, identity flow, database, AI route, or telemetry pipeline.
 - Back up PostgreSQL and persistent application data.
+- Store, synchronise, and securely share family and project files through an authenticated cloud drive.
 - Recover services after data loss only after a restoration procedure has been validated.
 - Trace a requirement to architecture, phase, test, release, or operational evidence.
 - Review significant design alternatives before implementation.
@@ -66,6 +69,7 @@ Requirements describe intended capability. A requirement is not marked satisfied
 | FR-011 | Deployment workflows SHALL support `stag` and `prod` target selection. | Confirmed by workflow inputs |
 | FR-012 | Documentation SHALL be maintained in `docs/` with stable IDs and indexes. | This documentation set |
 | FR-013 | Optional services SHALL remain outside the default include set until explicitly enabled. | Confirmed for FastCRW, SearXNG, and optional WordPress |
+| FR-014 | The cloud drive SHALL use oCIS with Authentik OIDC and local filesystem storage under `APPS_DATA`. | Compose configuration present; runtime authentication and file operations not validated |
 
 ## Non-Functional Requirements
 
@@ -160,4 +164,3 @@ Link requirements to:
 - Operations: runbook, backup, monitoring, inventory, and troubleshooting IDs.
 
 Do not infer acceptance from the mere presence of a file. Record the evidence source and its validation state.
-

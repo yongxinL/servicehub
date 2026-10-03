@@ -23,6 +23,13 @@ services:
             # Set the IPs or CIDR for where Treafik trusts the forwarded headers
             - "--entryPoints.web.forwardedHeaders.trustedIPs=${TRUSTED_IP}"
             - "--entryPoints.websecure.forwardedHeaders.trustedIPs=${TRUSTED_IP}"
+            # Allow long file transfers and encoded WebDAV path characters for oCIS.
+            - "--entryPoints.websecure.transport.respondingTimeouts.readTimeout=12h"
+            - "--entryPoints.websecure.transport.respondingTimeouts.writeTimeout=12h"
+            - "--entryPoints.websecure.transport.respondingTimeouts.idleTimeout=3m"
+            - "--entrypoints.websecure.http.encodedCharacters.allowEncodedSlash=true"
+            - "--entrypoints.websecure.http.encodedCharacters.allowEncodedQuestionMark=true"
+            - "--entrypoints.websecure.http.encodedCharacters.allowEncodedPercent=true"
             # Enable the Docker provider to detect containers and their labels
             - "--providers.docker=true"
             # Prevent automatic exposure of all containers; only expose containers

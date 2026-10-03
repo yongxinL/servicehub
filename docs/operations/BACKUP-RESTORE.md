@@ -10,13 +10,15 @@ lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - operations
   - backup
   - recovery
 related_documents:
+  - ADR-006
+  - ADR-007
   - RFC-001
   - TEST-001
   - ARCHITECTURE
@@ -26,7 +28,7 @@ related_documents:
 
 ## Status
 
-The repository implements backup creation but does not implement or validate restore. This document distinguishes confirmed backup behaviour from proposed recovery procedures.
+The repository implements same-host backup creation but does not implement the accepted dual-target strategy or validate restore. This document distinguishes confirmed backup behaviour from the target strategy recorded in [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
 
 ## Implemented Backup Scope
 
@@ -36,12 +38,25 @@ The [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml) runs
 |---|---|---|---|---|
 | PostgreSQL database | Daily at 02:30 in scheduled mode; manual `db` or `auto` | One `pg_dump` per non-template database plus `pg_dumpall --globals-only` packed into one daily archive | Transaction-consistent logical dump | Implemented; execution evidence not available |
 | Full `APPS_DATA` | Sundays in `auto`; manual `full` or `auto` | Entire configured persistent-data tree with optional exclusions | Crash-consistent for live database directories | Implemented; execution evidence not available |
-| Off-host copy | None evident | Not applicable | Not applicable | Proposed |
-| Encrypted backup archive | None evident | Not applicable | Not applicable | Proposed |
-| Host recovery image | None evident | Not applicable | Not applicable | Proposed by RFC-001 if selected |
-| Restore workflow | None evident | Not applicable | Not applicable | Proposed |
+| Off-host copy | None evident | Home Server and Google Drive targets | Not applicable | Accepted under ADR-007; not implemented |
+| Encrypted backup archive | None evident | Encryption method and key governance | Not applicable | TBD |
+| Host recovery image | None evident | Not applicable | Not applicable | Optional; not selected |
+| Restore workflow | None evident | Recovery from either accepted target | Not applicable | Accepted under ADR-007; not implemented |
 
 Database archive retention defaults to 182 days and can be overridden by `<PREFIX>_DB_BACKUP_RETENTION_DAYS`. Full-archive retention is `TBD`.
+
+## Target Backup Strategy
+
+**Accepted on 2026-10-03; not implemented or tested.**
+
+| Target | Purpose | Technology | Status |
+|---|---|---|---|
+| Home Server | Primary recovery target | Restic over SSH/SFTP | Accepted; not implemented |
+| Google Drive | Independent off-site copy | Rclone | Accepted; not implemented |
+
+Forgejo Actions will use a dedicated `nexora/runner-backup` image containing `restic`, `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq` to create database dumps and persistent-data archives, enforce retention, and copy each protected set to both targets.
+
+The target scope includes Compose and service configuration, PostgreSQL role and database dumps, oCIS configuration and file data, Forgejo data, mail data, Authentik data, certificates, and the remaining inventoried persistent state. The current same-host archive remains an intermediate or baseline artifact until the dual-target workflow is implemented; it is not sufficient disaster recovery by itself.
 
 ## Databases
 
@@ -52,6 +67,8 @@ The database backup discovers all non-template PostgreSQL databases except `post
 - One daily `.tar.gz` archive containing those files.
 
 The workflow does not dump MariaDB. If optional WordPress uses MariaDB, its backup is `TBD`.
+
+oCIS does not have a dedicated PostgreSQL database. Its local configuration and file data are protected through the filesystem archive rather than a database dump.
 
 ## Bind Mounts
 
@@ -64,6 +81,8 @@ The full archive covers `APPS_DATA`, which includes paths declared in the defaul
 - `${APPS_DATA}/platform/repos`
 - `${APPS_DATA}/platform/buildexec`
 - `${APPS_DATA}/platform/workspace`
+- `${APPS_DATA}/cloud/ocis/config`
+- `${APPS_DATA}/cloud/ocis/data`
 - `${APPS_DATA}/webapps/confluence`
 - `${APPS_DATA}/openwebui`
 - `${APPS_DATA}/litellm`
@@ -144,7 +163,7 @@ Locations, custodians, rotation, and tested recovery paths are `TBD`.
 8. Restore certificates and verify permissions and trust.
 9. Start foundational services in dependency order.
 10. Start application services without replacing recovery data unexpectedly.
-11. Validate routes, TLS, authentication, repositories, identity, AI, email, telemetry, and backups.
+11. Validate routes, TLS, authentication, repositories, identity, oCIS file access, AI, email, telemetry, and backups.
 12. Record elapsed time against approved RPO and RTO values.
 
 Exact commands, target layout, ordering details, and compatibility checks remain `TBD`. Do not run a destructive restore against production without an approved plan and verified backup.
@@ -158,6 +177,7 @@ Exact commands, target layout, ordering details, and compatibility checks remain
 - Certificate validity and mode.
 - Container health.
 - Route, TLS, and login tests.
+- oCIS configuration, file data, OIDC access, upload, download, and sharing checks.
 - AI and email smoke tests where affected.
 - Metrics and log availability.
 - Successful subsequent backup.
@@ -169,7 +189,7 @@ Exact commands, target layout, ordering details, and compatibility checks remain
 | RPO | TBD | Requires owner decision and measured backup history |
 | RTO | TBD | Requires timed restoration test |
 | Backup retention | Database default 182 days; full archive TBD | Workflow default and owner decision |
-| Off-host objective | TBD | No repository implementation |
+| Off-host objective | Two-target design accepted; objective TBD | ADR-007 decision; no transfer or restore evidence |
 
 ## Restoration Evidence Template
 
@@ -194,5 +214,7 @@ Exact commands, target layout, ordering details, and compatibility checks remain
 ## Related Documents
 
 - [RFC-001 Reliability and Recovery Baseline](../rfc/RFC-001-reliability-and-recovery-baseline.md)
+- [ADR-006 Adopt oCIS with Local Filesystem Storage](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
+- [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
 - [Monitoring and alerting](MONITORING-ALERTING.md)
 - [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)

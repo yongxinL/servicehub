@@ -10,7 +10,7 @@ lifecycle_stage: Planning
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - phase
@@ -19,6 +19,7 @@ tags:
 related_documents:
   - PRD-001
   - RFC-001
+  - ADR-007
   - BACKUP-RESTORE
   - MONITORING-ALERTING
   - TEST-001
@@ -34,7 +35,7 @@ Establish observable services, governed operational procedures, tested backup an
 
 - Grafana Alloy, VictoriaMetrics, VictoriaLogs, Grafana provisioning, and dashboards.
 - Service health and logs.
-- Backup workflow and proposed recovery baseline.
+- Backup workflow and accepted dual-target recovery strategy.
 - Runbook, service inventory, monitoring, and troubleshooting.
 - Test, release, lesson, and investigation governance.
 - Security and privileged-access review.
@@ -60,8 +61,9 @@ Establish observable services, governed operational procedures, tested backup an
 
 - Healthy metrics and log stores.
 - Working Alloy host and Docker access.
-- Backup target secrets and backup root.
-- Approved retention, RPO, RTO, off-host storage, and encryption.
+- Existing backup target secrets and backup root.
+- Protected Home Server and Google Drive target access under ADR-007.
+- Approved retention, RPO, RTO, and encryption controls.
 - Notification channels and owners.
 - Staging runtime and release evidence.
 
@@ -73,8 +75,8 @@ Establish observable services, governed operational procedures, tested backup an
 - [x] Operations and test documentation exists in this documentation set.
 - [ ] Validate metrics, logs, dashboards, and retention.
 - [ ] Define alert severities, notifications, owners, and alert tests.
-- [ ] Decide RFC-001 recovery baseline.
-- [ ] Implement or document off-host protected backup copies.
+- [x] Record the recovery-baseline decision in RFC-001 and ADR-007.
+- [ ] Implement Home Server and Google Drive backup copies under ADR-007.
 - [ ] Execute restoration and record evidence.
 - [ ] Define and test rollback.
 - [ ] Define and execute the first governed release.
@@ -115,7 +117,6 @@ Establish observable services, governed operational procedures, tested backup an
 
 ## Follow-up Work
 
-- Decide [RFC-001](../rfc/RFC-001-reliability-and-recovery-baseline.md).
+- Implement and validate [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
 - Execute operational sections of [TEST-001](../testing/TEST-001-platform-baseline-validation.md).
 - Define the first release under [release governance](../releases/README.md).
-

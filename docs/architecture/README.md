@@ -10,7 +10,7 @@ lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - architecture
@@ -40,6 +40,8 @@ The architecture documents explain the current repository implementation. Claims
 - [ADR-003 Use PostgreSQL as the Primary Relational Platform](../adr/ADR-003-use-postgresql-as-primary-database.md)
 - [ADR-004 Use Authentik for Central Identity](../adr/ADR-004-use-authentik-for-central-identity.md)
 - [ADR-005 Use LiteLLM for AI Workload Routing](../adr/ADR-005-use-litellm-for-ai-routing.md)
+- [ADR-006 Adopt oCIS with Local Filesystem Storage](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
+- [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
 
 ## Primary Evidence
 
@@ -48,4 +50,3 @@ The architecture documents explain the current repository implementation. Claims
 - [Forgejo workflows](../../.forgejo/workflows/)
 - [Environment template](../../env.example)
 - [Service configuration and README files](../../shared/)
-

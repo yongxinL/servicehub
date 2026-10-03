@@ -5,12 +5,12 @@ document_type: RFC
 document_id: RFC-001
 title: ServiceHub Reliability and Recovery Baseline
 version: "1.0"
-status: Proposed
+status: Accepted
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - reliability
@@ -21,6 +21,7 @@ related_documents:
   - BACKUP-RESTORE
   - TEST-001
   - PHASE-004
+  - ADR-007
 ---
 
 # RFC-001: ServiceHub Reliability and Recovery Baseline
@@ -97,35 +98,37 @@ No restore procedure, isolated recovery environment, integrity check, timed test
 
 ## Recommended Direction
 
-**Proposed:** use database-native PostgreSQL backups plus protected filesystem backups, supplemented by host-level recovery where practical and periodic restoration tests.
+**Accepted through ADR-007:** use database-native PostgreSQL backups plus protected filesystem backups, a Restic Home Server primary target, a Google Drive off-site copy, and periodic restoration tests.
 
 The recommended design should include:
 
 1. Daily transaction-consistent PostgreSQL dumps.
 2. Regular persistent-data archives that include all non-database bind mounts.
-3. Encrypted copies to at least one off-host location.
-4. Separate retention rules for database, filesystem, and host-recovery layers.
-5. Documented restoration into an isolated environment.
-6. Owner-approved RPO and RTO values.
-7. Scheduled restore rehearsals with recorded duration, integrity, and service validation.
-8. Protected recovery material for `.env`, git-crypt keys, ACME state, and repository secrets.
+3. Copy protected backup sets to the Home Server with Restic over SSH/SFTP.
+4. Copy protected backup sets independently to Google Drive with Rclone.
+5. Separate retention rules for database and filesystem layers.
+6. Documented restoration into an isolated environment.
+7. Owner-approved RPO and RTO values derived from measured restores.
+8. Scheduled restore rehearsals with recorded duration, integrity, and service validation.
+9. Protected recovery material for `.env`, git-crypt keys, ACME state, and repository secrets.
 
 ## Decision
 
-Awaiting owner decision. The recommendation is `Proposed`, not implemented.
+Accepted on 2026-10-03 through [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). The strategy is decided but not implemented or tested. RPO, RTO, retention, encryption controls, successful transfers, and restoration evidence remain `TBD` until verified.
 
 ## Consequences
 
 - Multiple backup layers increase storage and operational cost.
 - Encryption and off-host transfer require key and credential governance.
 - Restore rehearsals consume time and isolated resources.
-- Host imaging may require tooling not present in the repository.
+- The dedicated backup runner and both target integrations require new tooling, configuration, and validation.
 
-## Acceptance Criteria for a Future Decision
+## Implementation and Assurance Criteria
 
 - A reviewed backup scope includes every persistence path.
 - RPO and RTO are explicitly approved.
-- Off-host protection and encryption are defined.
+- Home Server and Google Drive copies are implemented and independently retrievable.
+- Backup encryption and key governance are defined.
 - A restore succeeds with recorded evidence.
 - Backup and restore commands are documented without exposing secret values.
 - Alerting or monitoring covers failed or missing backups.
@@ -136,4 +139,3 @@ Awaiting owner decision. The recommendation is `Proposed`, not implemented.
 - [Monitoring and alerting](../operations/MONITORING-ALERTING.md)
 - [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
 - [Observability and hardening phase](../phases/PHASE-004-observability-and-operational-hardening.md)
-

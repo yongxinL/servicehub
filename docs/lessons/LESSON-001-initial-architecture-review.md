@@ -10,7 +10,7 @@ lifecycle_stage: Continuous Improvement
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - lessons
@@ -68,7 +68,7 @@ These are repository observations, not claims that runtime validation succeeded.
 | Review and approve the charter and requirements | Requires owner review | TBD | Proposed |
 | Confirm architecture claims against runtime state | Requires owner review | TBD | Proposed |
 | Decide ADR statuses and follow-up actions | Requires owner review | TBD | Proposed |
-| Decide RFC-001 and RFC-002 | Requires owner review | TBD | Proposed |
+| Record RFC-001 and RFC-002 decision outcomes in ADR-006 and ADR-007 | George Li | 2026-10-03 | Accepted; oCIS configuration present and runtime validation pending |
 | Execute TEST-001 in staging | Requires owner review | TBD | Proposed |
 | Define and test restore and rollback | Requires owner review | TBD | Proposed |
 | Define alert ownership and delivery | Requires owner review | TBD | Proposed |
@@ -89,4 +89,3 @@ All due dates are `TBD` because the repository does not provide a schedule.
 - [Investigation INV-001](../investigations/INV-001-architecture-and-documentation-gap-analysis.md)
 - [Roadmap](../requirements/ROADMAP.md)
 - [Phase register](../phases/README.md)
-

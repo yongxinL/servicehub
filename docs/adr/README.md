@@ -10,7 +10,7 @@ lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - architecture
@@ -23,7 +23,7 @@ related_documents:
 
 # ServiceHub Architecture Decision Register
 
-These ADRs record decisions inferred from the current implementation. `status: Accepted` describes the decision embodied by repository code, not a historical approval event.
+These ADRs record both retrospective decisions inferred from the current implementation and accepted forward-looking design decisions. Each record states whether supporting implementation evidence exists; `status: Accepted` records the decision, not successful runtime validation.
 
 | ID | Title | Status | Date | Related implementation | Supersedes | Link |
 |---|---|---|---|---|---|---|
@@ -32,6 +32,7 @@ These ADRs record decisions inferred from the current implementation. `status: A
 | ADR-003 | Use PostgreSQL as the Primary Relational Platform | Accepted | 2026-10-01 | `compose/dbsvc.yml`, PostgreSQL consumers | None | [ADR-003](ADR-003-use-postgresql-as-primary-database.md) |
 | ADR-004 | Use Authentik for Central Identity | Accepted | 2026-10-01 | `compose/authn.yml`, forward-auth and LDAP configuration | None | [ADR-004](ADR-004-use-authentik-for-central-identity.md) |
 | ADR-005 | Use LiteLLM for AI Workload Routing | Accepted | 2026-10-01 | `compose/aiagn.yml`, `shared/litellm/` | None | [ADR-005](ADR-005-use-litellm-for-ai-routing.md) |
+| ADR-006 | Adopt oCIS with Local Filesystem Storage | Accepted | 2026-10-03 | `compose/wbapp.yml`, `env.example`, `compose/route.yml`, `shared/ocis/`; runtime validation pending | None | [ADR-006](ADR-006-adopt-ocis-with-local-filesystem-storage.md) |
+| ADR-007 | Adopt Dual-Target Backup and Disaster Recovery | Accepted | 2026-10-03 | `.forgejo/workflows/30-prod-backup-services.yml` baseline; dual-target workflow pending | None | [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) |
 
 New records must use the next unused `ADR-NNN` ID, add a row here, and use [ADR-TEMPLATE.md](../templates/ADR-TEMPLATE.md).
-

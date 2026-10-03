@@ -10,7 +10,7 @@ lifecycle_stage: Planning
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - roadmap
@@ -21,6 +21,10 @@ related_documents:
   - PHASE-002
   - PHASE-003
   - PHASE-004
+  - ADR-006
+  - ADR-007
+  - RFC-001
+  - RFC-002
 ---
 
 # ServiceHub Roadmap
@@ -39,6 +43,7 @@ Current state is therefore **implemented in part, not yet verified as a governed
 - Authentik server and worker services.
 - Forgejo, host-mode runner, and repository workflows.
 - Confluence and Open WebUI services.
+- Repository configuration for the `wbappcloudr` oCIS service with Authentik OIDC and local filesystem paths.
 - Hermes, LiteLLM, and llama.cpp AI services with configured local/cloud routing.
 - VictoriaMetrics, VictoriaLogs, Grafana Alloy, and Grafana provisioning.
 - Stalwart and Bulwark email services.
@@ -50,11 +55,11 @@ Current state is therefore **implemented in part, not yet verified as a governed
 
 1. Review and approve the charter, requirements, and architecture accuracy.
 2. Confirm or revise inferred ADR statuses.
-3. Decide RFC-001 reliability and recovery baseline.
-4. Record the RFC-002 family cloud platform decision.
+3. Validate the repository-configured oCIS cloud-drive platform under ADR-006.
+4. Validate Authentik OIDC, local storage, routing, file operations, and recovery for oCIS.
 5. Validate phase evidence against Git history and runtime behaviour.
 6. Execute the platform baseline test in staging.
-7. Define backup restoration, off-host protection, RPO, and RTO.
+7. Implement the ADR-007 Home Server and Google Drive backup targets, restoration tests, retention, RPO, and RTO.
 8. Define the first governed release and its rollback evidence.
 
 ## Phase Sequence
@@ -68,16 +73,41 @@ Current state is therefore **implemented in part, not yet verified as a governed
 
 No dates are assigned because the repository does not provide a reliable schedule.
 
+## Accepted Roadmap Entry
+
+| Feature | Phase | Priority | Decision | Delivery status |
+|---|---|---|---|---|
+| Cloud Drive Platform | Infrastructure Services | High | [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) | Repository configuration added; runtime validation pending |
+
+Deploy oCIS integrated with Authentik SSO to provide personal and family storage, shared spaces, secure file sharing, and a foundation for future office integration.
+
+### Cloud Drive Deliverables
+
+- oCIS deployment with Traefik routing and health checks.
+- Authentik OIDC integration.
+- Persistent local configuration and file-storage paths included in backup scope.
+- Backup automation and Google Drive replication under ADR-007.
+- Recovery runbook and restoration evidence.
+- Monitoring dashboards and alert validation.
+
+### Cloud Drive Dependencies
+
+- Authentik, backed by PostgreSQL.
+- Forgejo Actions.
+- The dedicated backup runner and protected backup-target credentials.
+- Traefik.
+- An approved staging environment and validation evidence.
+
 ## Future Candidates
 
 - Restore rehearsal and documented recovery evidence.
-- Off-host backup copies, encryption, retention policy, and restoration automation.
+- Encryption, retention policy, and restoration automation for the accepted ADR-007 backup targets.
 - Consolidated alert routing, severity policy, ownership, and alert tests.
 - Security review of dynamic ports, Docker socket access, privileged containers, and host mounts.
 - Full identity integration coverage and break-glass controls.
 - Static documentation publishing configuration.
 - A governed first release with migration and rollback notes.
-- Family file-cloud pilot only if a validated file synchronisation or sharing requirement emerges.
+- Office or collaboration integration beyond the initial oCIS file-sharing scope.
 
 ## Dependencies
 
@@ -86,6 +116,8 @@ No dates are assigned because the repository does not provide a reliable schedul
 - Repository secrets for remote workflows.
 - Git-crypt recovery key availability.
 - Tested backups before recovery claims.
+- Home Server and Google Drive access for the ADR-007 backup targets.
+- Backup runner image, retention policy, and protected credentials.
 - DNS and certificate state for TLS validation.
 - Runtime logs and metrics for observability validation.
 
@@ -95,8 +127,8 @@ Each phase must satisfy its own acceptance criteria and record the required evid
 
 ## Deferred Items
 
-- oCIS, ownCloud Infinite Scale, and Nextcloud deployment.
-- Dedicated cloud platform decisions without a validated requirement.
+- MinIO, OCI Object Storage, and S3 storage for the initial oCIS deployment.
+- Nextcloud or a broader collaboration suite unless ADR-006 is revised.
+- Alternative cloud-drive platforms unless requirements change.
 - Release dates not present in repository evidence.
 - Production hostname, approval, ownership, and recovery-objective claims.
-

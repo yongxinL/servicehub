@@ -27,6 +27,8 @@
 | Confluence (`wbappcmshome`, default homepage) | `WBHOME_DBNAME` |
 | Stalwart (`posteservice`) | `POSTE_DBNAME` — sole mail data store (accounts, messages, indexes, blobs) |
 
+`wbappcloudr` (oCIS) is **not** a PostgreSQL consumer. It uses local configuration and file storage under `${APPS_DATA}/cloud/ocis`; PostgreSQL still holds the Authentik identity data used by the oCIS OIDC flow.
+
 ## Configuration
 
 Set in `.env` (see [`env.example`](../../env.example)):

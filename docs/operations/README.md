@@ -10,7 +10,7 @@ lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - operations
@@ -28,7 +28,7 @@ Operations guidance is derived from repository commands, Compose definitions, se
 ## Documents
 
 - [Runbook](RUNBOOK.md) — prerequisites, lifecycle commands, health, logs, upgrades, rollback, and escalation.
-- [Backup and restore](BACKUP-RESTORE.md) — implemented backup scope, proposed recovery procedure, and evidence template.
+- [Backup and restore](BACKUP-RESTORE.md) — implemented backup scope, accepted dual-target strategy, recovery procedure, and evidence template.
 - [Monitoring and alerting](MONITORING-ALERTING.md) — metrics, logs, dashboards, signals, severity, and alert testing.
 - [Service inventory](SERVICE-INVENTORY.md) — evidence-based service register.
 - [Troubleshooting](TROUBLESHOOTING.md) — structured diagnostics for common failures.
@@ -41,4 +41,3 @@ Operations guidance is derived from repository commands, Compose definitions, se
 - Do not paste secret values into commands, issues, test evidence, or documentation.
 - Treat commands labelled `Proposed` as unverified.
 - Escalate to the project owner when recovery, security, or data-loss decisions are required; named escalation contacts are `TBD`.
-

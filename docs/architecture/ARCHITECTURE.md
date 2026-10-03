@@ -10,7 +10,7 @@ lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - architecture
@@ -21,6 +21,8 @@ related_documents:
   - DATA-FLOW
   - DEPLOYMENT-ARCHITECTURE
   - ADR-INDEX
+  - ADR-006
+  - ADR-007
 ---
 
 # ServiceHub Architecture
@@ -36,14 +38,17 @@ flowchart LR
     Traefik --> Authentik[Authentik]
     Traefik --> Forgejo[Forgejo]
     Traefik --> Web[Confluence and Open WebUI]
+    Traefik --> Cloud[wbappcloudr (oCIS)]
     Traefik --> AI[Clients and Hermes]
     Traefik --> Grafana[Grafana]
     Traefik --> Email[Stalwart and Bulwark]
     AI --> LiteLLM[LiteLLM]
     LiteLLM --> Local[llama.cpp]
-    LiteLLM --> Cloud[Configured cloud provider]
+    LiteLLM --> CloudProvider[Configured cloud provider]
     Forgejo --> PostgreSQL[(PostgreSQL)]
     Authentik --> PostgreSQL
+    Authentik -.->|OIDC| Cloud
+    Cloud --> CloudData[(Local filesystem)]
     LiteLLM --> PostgreSQL
     Web --> PostgreSQL
     Email --> PostgreSQL
@@ -76,7 +81,7 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 | Relational data | `compose/dbsvc.yml` | `dbsvcpgsqldb`, `dbsvcmariadb` |
 | Identity | `compose/authn.yml` | `authnservice`, `authnworkers`, `authnsvcinit` |
 | Developer services | `compose/depot.yml` | `depotservice`, `depotrunner`, `depotsvcinit` |
-| Web applications | `compose/wbapp.yml` | `wbappcmshome`, `wbappwebchat` |
+| Web applications | `compose/wbapp.yml` | `wbappcmshome`, `wbappwebchat`, `wbappcloudr`, `wbappcloudrinit` |
 | AI platform | `compose/aiagn.yml` | `aiagnherm00`, `aiagnlitellm`, `aiagnchatllm`, `aiagnhermint` |
 | Observability | `compose/obsvc.yml` | `obsvcgrafaly`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafana`, `obsvcgrafint` |
 | Email | `compose/poste.yml` | `posteservice`, `postewebmail`, `postesvcinit` |
@@ -85,7 +90,7 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 
 - **External ingress:** Traefik publishes 80 and 443 and is the designed web boundary.
 - **Docker network:** Included services communicate through `servicehub_subnet`; databases publish no host ports.
-- **Identity boundary:** Grafana uses Authentik forward auth. Authentik itself is application-authenticated. Other Authentik integrations vary and are not all configured in Compose.
+- **Identity boundary:** Grafana uses Authentik forward auth; oCIS uses an Authentik OIDC authorization-code flow. Authentik itself is application-authenticated. Other Authentik integrations vary and are not all configured in Compose.
 - **Privileged boundary:** Traefik, Authentik's worker, and Alloy have Docker socket access; Alloy is privileged and mounts host filesystem paths.
 - **Deployment boundary:** Forgejo runner jobs reach remote hosts over SSH using repository secrets.
 - **Direct-host boundary:** Hermes, LiteLLM, llama.cpp, VictoriaMetrics, VictoriaLogs, and Stalwart publish selected host ports independent of Traefik.
@@ -100,7 +105,7 @@ These boundaries are Confirmed from configuration. Their security effectiveness 
 - **VictoriaLogs:** log storage under `${APPS_DATA}/victorialogs`.
 - **Grafana:** dashboard and alert-rendering state under `${APPS_DATA}/grafana`.
 
-No database-backed file-cloud service is part of the current architecture.
+The `wbappcloudr` oCIS service uses local filesystem storage and has no dedicated PostgreSQL database. PostgreSQL continues to store Authentik identity data used by the OIDC flow. Repository configuration is recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md); runtime authentication and file operations remain unvalidated.
 
 ## Identity Architecture
 
@@ -109,6 +114,7 @@ Authentik runs a server, worker, and permission-initialisation service. PostgreS
 - Grafana Traefik forward authentication.
 - Stalwart LDAP authentication through an Authentik LDAP outpost.
 - Recommended Authentik delegation for Forgejo and Confluence.
+- oCIS authorization-code OIDC configuration using the Authentik provider issuer and public client ID.
 
 The Compose files do not prove that every application integration has been configured at runtime. Identity coverage beyond Grafana and the documented Stalwart path is `Not yet verified`.
 
@@ -135,7 +141,7 @@ Grafana alerting is enabled with `render_only_panels=true`. No notification chan
 
 Forgejo Actions workflows run on the host-mode `ssh-deploy` runner. Deployment SSHes to a staging or production target, updates a Git checkout, restores git-crypt and environment material when configured, and rebuilds application services with `--no-deps`. Foundational services are excluded from CI deployment.
 
-The backup workflow SSHes separately and creates PostgreSQL dumps and a periodic `APPS_DATA` archive on the target host.
+The current backup workflow SSHes separately and creates PostgreSQL dumps and a periodic `APPS_DATA` archive on the target host. [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts additional Home Server and Google Drive targets, but those transfers are not implemented in the repository.
 
 See [deployment architecture](DEPLOYMENT-ARCHITECTURE.md) for details and validation gaps.
 
@@ -147,6 +153,7 @@ The default stack uses host bind mounts rather than named Docker volumes:
 - Identity: `${APPS_DATA}/platform/authentik/...`
 - Repositories and runner state: `${APPS_DATA}/platform/repos`, `.../buildexec`, and `.../workspace`
 - Web applications: `${APPS_DATA}/webapps/confluence` and `${APPS_DATA}/openwebui`
+- Cloud drive: `${APPS_DATA}/cloud/ocis/config` and `${APPS_DATA}/cloud/ocis/data`
 - AI: `${APPS_DATA}/litellm`, `${APPS_DATA}/llamacpp`, and `${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}`
 - Observability: `${APPS_DATA}/victoriametrics`, `.../victorialogs`, and `.../grafana`
 - Email: `${APPS_DATA}/platform/mailbox` and `${APPS_DATA}/platform/webmail/...`
@@ -167,13 +174,13 @@ Configuration files under `shared/` are mostly read-only mounts. Off-host durabi
 ## Open Architecture Concerns
 
 - Runtime validation of routes, TLS, identity, health, AI routing, telemetry, and backups.
-- Restore procedure, off-host backup protection, RPO, and RTO.
+- Implementation and validation of the ADR-007 restore procedure, off-host protection, RPO, and RTO.
 - Alert notification, ownership, and testing.
 - High-privileged container and host mount review.
 - Authentik application coverage and break-glass account controls.
 - Direct port exposure and network policy.
 - The optional WordPress router does not declare `secure-chain` in its tracked Compose file.
 - Rollback model and first governed release.
-- Family file-cloud requirements and pilot decision.
+- Runtime validation of the configured family file-cloud service and its recovery path.
 
 Related records: [system context](SYSTEM-CONTEXT.md), [data flow](DATA-FLOW.md), [ADR register](../adr/README.md), and [baseline test plan](../testing/TEST-001-platform-baseline-validation.md).

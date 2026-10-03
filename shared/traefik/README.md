@@ -78,6 +78,12 @@ labels:
 
 **Every `websecure` router must include `secure-chain`** as the first middleware (all stack routers do — dashboards, IdP, git, wiki, webmail, chat, observability). It is the stack-wide baseline; extra middlewares (IP allowlist, forward-auth, compress) follow it in the chain.
 
+### Long transfers and encoded paths
+
+`compose/route.yml` sets the `websecure` responding read and write timeouts to 12 hours so large uploads and downloads are not cut off by Traefik. The idle timeout remains 3 minutes. It also enables encoded slash, question-mark, and percent characters for WebDAV and oCIS path handling.
+
+These are entry-point-wide settings. Review their impact on slow clients and connection retention before changing them, and rebuild `routetraefik` after modifying `compose/route.yml`.
+
 ## TLS
 
 ### Production — Let's Encrypt
@@ -167,3 +173,4 @@ docker compose logs -f routetraefik
 - [Root README — Architecture](../../README.md#architecture-overview)
 - [Root README — Managing Encrypted Files](../../README.md#managing-encrypted-files-git-crypt)
 - [Authentik](../authentik/README.md) — forward-auth IdP
+- [oCIS](../ocis/README.md) — long-transfer and encoded WebDAV route consumer

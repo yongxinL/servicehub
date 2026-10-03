@@ -10,7 +10,7 @@ lifecycle_stage: Continuous Improvement
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-03
 tags:
   - servicehub
   - documentation
@@ -77,7 +77,7 @@ Allowed statuses are `Draft`, `Proposed`, `In Review`, `Accepted`, `Rejected`, `
 - `Active` is used for live indexes and this documentation home.
 - `Proposed` is used for recommendations awaiting a decision.
 - `Draft` is used for records awaiting owner or technical review.
-- `Accepted` is used for implementation decisions supported by repository evidence.
+- `Accepted` is used for approved design decisions; each record must state whether implementation and runtime evidence exist.
 - `Completed` is used only when completion evidence exists.
 - `Not Executed` is used for test plans without reliable execution evidence.
 
@@ -98,4 +98,3 @@ Allowed statuses are `Draft`, `Proposed`, `In Review`, `Accepted`, `Rejected`, `
 - Coding and documentation guidance: [AGENTS.md](../AGENTS.md)
 - Environment template: [env.example](../env.example)
 - Main Compose definition: [docker-compose.yml](../docker-compose.yml)
-
