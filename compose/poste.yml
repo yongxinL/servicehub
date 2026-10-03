@@ -40,21 +40,25 @@ services:
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
-            # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.posteservice.entrypoints=websecure"
-            # Match incoming requests on a specific hostname
-            - "traefik.http.routers.posteservice.rule=Host(`${EMAIL_HOST}`)"
-            # Assign the router to a named Traefik service
-            - "traefik.http.routers.posteservice.service=posteservice"
+            # Public JMAP endpoints required by Bulwark
+            - "traefik.http.routers.posteservice-jmap.entrypoints=websecure"
+            - "traefik.http.routers.posteservice-jmap.rule=Host(`${EMAIL_HOST}`) && (PathPrefix(`/jmap`) || PathPrefix(`/.well-known/jmap`))"
+            - "traefik.http.routers.posteservice-jmap.service=posteservice"
+            - "traefik.http.routers.posteservice-jmap.middlewares=secure-chain@file"
+            - "traefik.http.routers.posteservice-jmap.priority=20"
+            - "traefik.http.routers.posteservice-jmap.tls=true"
+            - "traefik.http.routers.posteservice-jmap.tls.certresolver=${CERTRESOLVER}"
+            # All other Stalwart paths, including the admin UI/API, remain restricted
+            - "traefik.http.routers.posteservice-admin.entrypoints=websecure"
+            - "traefik.http.routers.posteservice-admin.rule=Host(`${EMAIL_HOST}`) && !(PathPrefix(`/jmap`) || PathPrefix(`/.well-known/jmap`))"
+            - "traefik.http.routers.posteservice-admin.service=posteservice"
+            - "traefik.http.routers.posteservice-admin.middlewares=secure-chain@file,posteservice-whitelist"
+            - "traefik.http.routers.posteservice-admin.tls=true"
+            - "traefik.http.routers.posteservice-admin.tls.certresolver=${CERTRESOLVER}"
             # Define the internal container port for routing
             - "traefik.http.services.posteservice.loadbalancer.server.port=8080"
-            # Restrict the admin UI / JMAP endpoint to trusted IP ranges
-            - "traefik.http.routers.posteservice.middlewares=secure-chain@file,posteservice-whitelist"
+            # Restrict non-JMAP traffic to trusted IP ranges
             - "traefik.http.middlewares.posteservice-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
-            # Enable TLS on this router
-            - "traefik.http.routers.posteservice.tls=true"
-            # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.posteservice.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         ports:
