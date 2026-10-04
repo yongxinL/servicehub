@@ -89,8 +89,8 @@ services:
         volumes:
             - ${APPS_DATA}/openwebui:/app/backend/data
 
-    # wbappcloudrvinit — oCIS config/data directory ownership initialiser. Docs: shared/ocis/README.md
-    wbappcloudrvinit:
+    # wbappdriveinit — oCIS config/data directory ownership initialiser. Docs: shared/owncloud/README.md
+    wbappdriveinit:
         command: >
             sh -c 'mkdir -p /config /data &&
                    chown -R 1000:1000 /config /data &&
@@ -103,23 +103,23 @@ services:
             - ${APPS_DATA}/cloud/ocis/config:/config
             - ${APPS_DATA}/cloud/ocis/data:/data
 
-    # wbappcloudrv — ownCloud Infinite Scale cloud drive. Docs: shared/ocis/README.md
-    wbappcloudrv:
-        command:
-            - -c
-            - ocis init || true; exec ocis server
+    # wbappmydrive — ownCloud Infinite Scale cloud drive. Docs: shared/owncloud/README.md
+    wbappmydrive:
+        build:
+            context: ../shared/owncloud/
+            args:
+                - IMAGE_TAG=${WBDRIVE_TAG}
         depends_on:
             authnservice:
                 condition: service_healthy
             routetraefik:
                 condition: service_healthy
-            wbappcloudrvinit:
+            wbappdriveinit:
                 condition: service_completed_successfully
-        entrypoint:
-            - /bin/sh
         environment:
             - TZ=${TIME_ZONE}
-            - OCIS_URL=https://${WBCLOUD_DOMAIN}
+            - OCIS_CONFIG_DIR=/etc/ocis
+            - OCIS_URL=https://${WBDRIVE_DOMAIN}
             - OCIS_LOG_LEVEL=info
             - OCIS_LOG_COLOR=false
             - OCIS_LOG_PRETTY=false
@@ -127,38 +127,38 @@ services:
             - PROXY_TLS=false
             # Use Authentik as the external OIDC provider instead of the built-in IDP.
             - OCIS_EXCLUDE_RUN_SERVICES=idp
-            - OCIS_OIDC_ISSUER=${WBCLOUD_OIDC_ISSUER}
+            - OCIS_OIDC_ISSUER=${WBDRIVE_OIDC_ISSUER}
             - PROXY_OIDC_REWRITE_WELLKNOWN=true
-            - WEB_OIDC_CLIENT_ID=${WBCLOUD_OIDC_CLIENT_ID}
+            - WEB_OIDC_CLIENT_ID=${WBDRIVE_OIDC_CLIENT_ID}
             - WEB_OIDC_SCOPE=openid profile email
-            - WEB_OIDC_POST_LOGOUT_REDIRECT_URI=https://${WBCLOUD_DOMAIN}/
+            - WEB_OIDC_POST_LOGOUT_REDIRECT_URI=https://${WBDRIVE_DOMAIN}/
             # Provision oCIS accounts on first successful Authentik sign-in.
             - PROXY_AUTOPROVISION_ACCOUNTS=true
             - PROXY_USER_OIDC_CLAIM=preferred_username
             - PROXY_USER_CS3_CLAIM=username
             - GRAPH_ASSIGN_DEFAULT_USER_ROLE=true
             - GRAPH_USERNAME_MATCH=none
-            - OCIS_ADMIN_USER_ID=
+            - OCIS_ADMIN_USER_ID=admin
             - PROXY_ENABLE_BASIC_AUTH=false
             - IDM_CREATE_DEMO_USERS=false
             # Set true only when Authentik uses a self-signed certificate.
-            - OCIS_INSECURE=${WBCLOUD_INSECURE}
+            - OCIS_INSECURE=${WBDRIVE_INSECURE}
         healthcheck:
             test: [ "CMD", "curl", "-fsS", "http://localhost:9200/status.php" ]
             start_period: 60s
             interval: 30s
             retries: 5
             timeout: 5s
-        image: owncloud/ocis:${WBCLOUD_TAG}
+        image: wbappmydrive:latest
         labels:
             - "traefik.enable=true"
-            - "traefik.http.routers.wbappcloudrv.entrypoints=websecure"
-            - "traefik.http.routers.wbappcloudrv.rule=Host(`${WBCLOUD_DOMAIN}`)"
-            - "traefik.http.routers.wbappcloudrv.service=wbappcloudrv"
-            - "traefik.http.services.wbappcloudrv.loadbalancer.server.port=9200"
-            - "traefik.http.routers.wbappcloudrv.tls=true"
-            - "traefik.http.routers.wbappcloudrv.middlewares=secure-chain@file"
-            - "traefik.http.routers.wbappcloudrv.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.wbappmydrive.entrypoints=websecure"
+            - "traefik.http.routers.wbappmydrive.rule=Host(`${WBDRIVE_DOMAIN}`)"
+            - "traefik.http.routers.wbappmydrive.service=wbappmydrive"
+            - "traefik.http.services.wbappmydrive.loadbalancer.server.port=9200"
+            - "traefik.http.routers.wbappmydrive.tls=true"
+            - "traefik.http.routers.wbappmydrive.middlewares=secure-chain@file"
+            - "traefik.http.routers.wbappmydrive.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped

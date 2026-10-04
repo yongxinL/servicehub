@@ -10,7 +10,7 @@ lifecycle_stage: Planning
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - phase
@@ -47,7 +47,7 @@ Provide governed identity infrastructure and repository-hosted development and d
 - [Forgejo README](../../shared/forgejo/README.md)
 - [Forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml)
 - [oCIS Compose service](../../compose/wbapp.yml)
-- [oCIS operational guide](../../shared/ocis/README.md)
+- [oCIS operational guide](../../shared/owncloud/README.md)
 - [.forgejo workflows](../../.forgejo/workflows/)
 
 ## Requirements Addressed
@@ -72,7 +72,7 @@ Provide governed identity infrastructure and repository-hosted development and d
 - [x] Stalwart LDAP integration is documented.
 - [x] Forgejo registration is disabled in configuration.
 - [x] Runner and workflow files exist.
-- [x] Repository configuration exists for `wbappcloudrv` and its Authentik OIDC environment.
+- [x] Repository configuration exists for `wbappmydrive` and its Authentik OIDC environment.
 - [ ] Record actual Authentik application coverage.
 - [ ] Configure the Authentik OIDC provider and application for oCIS.
 - [ ] Validate forward-auth login and logout.

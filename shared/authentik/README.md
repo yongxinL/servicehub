@@ -84,14 +84,14 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 ## OIDC (oCIS cloud drive)
 
-oCIS uses an **OAuth 2.0 authorization-code flow with OpenID Connect**, not Traefik forward auth. Before starting `wbappcloudrv`, create a public OAuth2 / OpenID provider and an Application in Authentik with:
+oCIS uses an **OAuth 2.0 authorization-code flow with OpenID Connect**, not Traefik forward auth. Before starting `wbappmydrive`, create a public OAuth2 / OpenID provider and an Application in Authentik with:
 
 - **Application slug:** `ocis`
-- **Redirect URIs:** `https://${WBCLOUD_DOMAIN}/oidc-callback.html`, `https://${WBCLOUD_DOMAIN}/oidc-silent-redirect.html`, and `https://${WBCLOUD_DOMAIN}/`
+- **Redirect URIs:** `https://${WBDRIVE_DOMAIN}/oidc-callback.html`, `https://${WBDRIVE_DOMAIN}/oidc-silent-redirect.html`, and `https://${WBDRIVE_DOMAIN}/`
 - **Scopes:** `openid`, `profile`, and `email`
 - **Issuer:** `https://${AUTHN_DOMAIN}/application/o/ocis/`
 
-Copy the provider client ID to `WBCLOUD_OIDC_CLIENT_ID`. No client secret is required for the public PKCE client and no secret value should be recorded in repository documentation. The complete provider setup, oCIS environment mapping, and validation checklist are in the [oCIS README](../ocis/README.md#authentik-oidc-setup).
+Copy the provider client ID to `WBDRIVE_OIDC_CLIENT_ID`. No client secret is required for the public PKCE client and no secret value should be recorded in repository documentation. The complete provider setup, oCIS environment mapping, and validation checklist are in the [oCIS README](../owncloud/README.md#authentik-oidc-setup).
 
 ## LDAP (Stalwart mail directory)
 
@@ -139,4 +139,4 @@ Do these in the Authentik admin UI (one-time):
 - [Root README — Security Observability Stack](../../README.md#security-observability-stack) — Grafana is an example forward-auth–protected service
 - [Stalwart Mail Server](../stalwart/README.md#directory-authentik-ldap-sso) — consumes this IdP as its LDAP mail directory (walkthrough consolidated there)
 - [Traefik](../traefik/README.md) — forward-auth middleware and routing
-- [oCIS](../ocis/README.md) — Authentik OIDC cloud-drive integration
+- [oCIS](../owncloud/README.md) — Authentik OIDC cloud-drive integration

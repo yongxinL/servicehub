@@ -173,4 +173,4 @@ docker compose logs -f routetraefik
 - [Root README — Architecture](../../README.md#architecture-overview)
 - [Root README — Managing Encrypted Files](../../README.md#managing-encrypted-files-git-crypt)
 - [Authentik](../authentik/README.md) — forward-auth IdP
-- [oCIS](../ocis/README.md) — long-transfer and encoded WebDAV route consumer
+- [oCIS](../owncloud/README.md) — long-transfer and encoded WebDAV route consumer

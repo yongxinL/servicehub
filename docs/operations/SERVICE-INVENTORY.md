@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: SERVICE-INVENTORY
 title: ServiceHub Service Inventory
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - operations
@@ -42,8 +42,8 @@ Criticality is `Requires owner review` for every service because the repository 
 | `depotrunner` | CI/CD | `compose/depot.yml` | `build shared/forgejo/actions/` | Initialiser complete; Forgejo healthy | None | None | Runner secret | None | Runner registration and workspace | Process plus `.runner` | Workflow logs | Registration and workspace required | Requires owner review | [Compose](../../compose/depot.yml) |
 | `wbappcmshome` | Web application | `compose/wbapp.yml` | `build shared/confluence/` | Authentik healthy | 8090 internal | `${WBHOME_DOMAIN}` and apex | Application login; Authentik coverage TBD | PostgreSQL | `webapps/confluence` | `/status` | Logs; metrics TBD | Required | Requires owner review | [Compose](../../compose/wbapp.yml), [README](../../shared/confluence/README.md) |
 | `wbappwebchat` | AI client | `compose/wbapp.yml` | `build shared/openwebui/` | Traefik healthy | 8080 internal | `${OWEBUI_DOMAIN}` | Not yet verified | None | `openwebui` | None declared | Logs | Required if user data matters | Requires owner review | [Compose](../../compose/wbapp.yml) |
-| `wbappcloudrvinit` | Cloud-drive init | `compose/wbapp.yml` | `busybox:latest` | None | None | None | Not applicable | None | `cloud/ocis/config`, `cloud/ocis/data` | One-shot | Container logs | Required with oCIS state | Requires owner review | [Compose](../../compose/wbapp.yml), [README](../../shared/ocis/README.md) |
-| `wbappcloudrv` | Cloud drive | `compose/wbapp.yml` | `owncloud/ocis:${WBCLOUD_TAG}` | Initialiser complete; Authentik healthy; Traefik healthy | 9200 internal | `${WBCLOUD_DOMAIN}` | Authentik OIDC; runtime flow not validated | None | `cloud/ocis/config`, `cloud/ocis/data` | `/status.php` | Logs; metrics TBD | Configuration and file data required | Requires owner review | [Compose](../../compose/wbapp.yml), [README](../../shared/ocis/README.md) |
+| `wbappdriveinit` | Cloud-drive init | `compose/wbapp.yml` | `busybox:latest` | None | None | None | Not applicable | None | `cloud/ocis/config`, `cloud/ocis/data` | One-shot | Container logs | Required with oCIS state | Requires owner review | [Compose](../../compose/wbapp.yml), [README](../../shared/owncloud/README.md) |
+| `wbappmydrive` | Cloud drive | `compose/wbapp.yml` | `wbappmydrive:latest` | Initialiser complete; Authentik healthy; Traefik healthy | 9200 internal | `${WBDRIVE_DOMAIN}` | Authentik OIDC; runtime flow not validated | None | `cloud/ocis/config`, `cloud/ocis/data` | `/status.php` | Logs; metrics TBD | Configuration and file data required | Requires owner review | [Compose](../../compose/wbapp.yml), [README](../../shared/owncloud/README.md) |
 | `aiagnhermint` | AI init | `compose/aiagn.yml` | `busybox:latest` | None | None | None | Not applicable | None | Hermes data | One-shot | Container logs | Included with Hermes data | Requires owner review | [Compose](../../compose/aiagn.yml) |
 | `aiagnherm00` | AI agent | `compose/aiagn.yml` | `build shared/hermesagent/` | Initialiser complete | 12320 host; 12330 internal | Conditional `${HERMES_WORKSPACE_DOMAIN_00}` | Workspace password and API key | LiteLLM usage is external | Hermes data, read-only Docker socket | API `/health` | Logs; metrics TBD | Required | Requires owner review | [Compose](../../compose/aiagn.yml) |
 | `aiagnlitellm` | AI routing | `compose/aiagn.yml` | `build shared/litellm/` | PostgreSQL healthy | 12380 host and internal | None through Traefik | Master API key and UI credentials | PostgreSQL | `litellm` config | Authenticated liveliness | `/metrics`, routing logs | Config and database required | Requires owner review | [Compose](../../compose/aiagn.yml), [README](../../shared/litellm/README.md) |
