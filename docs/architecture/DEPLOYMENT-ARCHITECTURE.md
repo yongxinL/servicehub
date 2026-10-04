@@ -55,7 +55,7 @@ The repository does not contain evidence that a production deployment, certifica
 - Jobs execute inside the runner container, not in per-job containers.
 - The shared runner has Git, OpenSSH, `sshpass`, Bash, jq, Restic, Rclone, and the PostgreSQL client.
 - It reaches Forgejo internally for checkout when the internal server URL is used.
-- Remote targets use the public Forgejo URL supplied by `DEPOT_PUBLIC_URL`.
+- Remote targets use the public Forgejo URL supplied by `SOURCECODE_PUBLIC_URL`.
 - All deployment, test, and backup jobs use capacity one, so long jobs queue behind one another.
 
 ## SSH Deployment Flow

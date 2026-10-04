@@ -291,6 +291,8 @@ Databases follow `svchub_<business-domain>`. Both the values and their variables
 | Source code | `DEPOT_VTAG` | `SOURCECODE_TAG` |
 | Source code | `DEPOT_RUNNER_SECRET` | `SOURCECODE_RUNNER_SECRET` |
 | Source code | `DEPOT_RUNNER_VTAG` | `SOURCECODE_RUNNER_TAG` |
+| Source code | `DEPOT_PUBLIC_URL` | `SOURCECODE_PUBLIC_URL` |
+| Source code | `DEPOT_DEPLOY_TOKEN` | `SOURCECODE_DEPLOY_TOKEN` |
 | Workspace | `WBHOME_TAG` | `WORKSPACE_TAG` |
 | Cloud | `WBDRIVE_TAG` | `CLOUD_TAG` |
 | Cloud | `WBDRIVE_OIDC_ISSUER` | `CLOUD_OIDC_ISSUER` |
@@ -307,6 +309,8 @@ Databases follow `svchub_<business-domain>`. Both the values and their variables
 | AI gateway | `LITEM_PRM_APIKEY` | `AIGATE_PROVIDER_API_KEY` |
 | Observability | `OBSVC_ADMUSR` | `OBSERVABILITY_ADMIN_USER` |
 | Observability | `OBSVC_ADMPWD` | `OBSERVABILITY_ADMIN_PASSWORD` |
+
+`SOURCECODE_PUBLIC_URL` and `SOURCECODE_DEPLOY_TOKEN` live in Forgejo repository Actions settings rather than `.env`; they must be renamed in the Forgejo UI at the same time as the workflow change or deploys lose the clone URL and token.
 
 #### Product-specific variables kept as-is
 

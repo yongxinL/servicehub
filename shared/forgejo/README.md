@@ -75,7 +75,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 > Re-registering: delete `${APPS_DATA}/devops/forgejo/runner/.runner` (or the whole directory), re-run the Forgejo-side registration command if the secret changed, and restart `devopsrunner`.
 >
-> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://devopsforgejo:3000`), so `actions/checkout` needs no public TLS. The remote deploy servers clone via the public URL — set the `DEPOT_PUBLIC_URL` repository variable (see [Root README — Required Actions Secrets and Variables](../../README.md#required-actions-secrets-and-variables)) so they can reach it.
+> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://devopsforgejo:3000`), so `actions/checkout` needs no public TLS. The remote deploy servers clone via the public URL — set the `SOURCECODE_PUBLIC_URL` repository variable (see [Root README — Required Actions Secrets and Variables](../../README.md#required-actions-secrets-and-variables)) so they can reach it.
 
 ## Data & persistence
 

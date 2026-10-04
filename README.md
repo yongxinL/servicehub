@@ -549,7 +549,7 @@ The Forgejo Actions workflow at [.forgejo/workflows/00-prod-deploy-services.yml]
 
 1. Selects the `STAG_*` or `PROD_*` secrets from the **environment** input, defaulting to staging
 2. Configures SSH known hosts from a stored secret (or falls back to `ssh-keyscan`)
-3. On the remote server: clones the repo on first deploy (from the `DEPOT_PUBLIC_URL` variable), or pulls the branch on subsequent runs
+3. On the remote server: clones the repo on first deploy (from the `SOURCECODE_PUBLIC_URL` variable), or pulls the branch on subsequent runs
 4. Installs git-crypt on the remote server if needed, then decrypts encrypted files (e.g. staging certs)
 5. Restores `.env` from the `*_B64ENC_ENVS` secret if the secret is newer than the existing file
 6. Runs `scripts/setup.sh` to merge any new variables from `env.example` into `.env`
@@ -580,9 +580,11 @@ Stored workflow configuration lives in two separate stores, both under **Forgejo
 
 | Where | Used for | Items |
 |---|---|---|
-| **Secrets** (Settings → Actions → **Secrets**) | Credentials, private keys and encoded `.env` / `acme.json` — encrypted and masked in logs | `DEPOT_DEPLOY_TOKEN`, `GIT_CRYPT_KEY`, and every `STAG_*` / `PROD_*` entry below |
-| **Variables** (Settings → Actions → **Variables**) | Non-sensitive configuration — plaintext, readable by anyone with repository access | `DEPOT_PUBLIC_URL` |
+| **Secrets** (Settings → Actions → **Secrets**) | Credentials, private keys and encoded `.env` / `acme.json` — encrypted and masked in logs | `SOURCECODE_DEPLOY_TOKEN`, `GIT_CRYPT_KEY`, and every `STAG_*` / `PROD_*` entry below |
+| **Variables** (Settings → Actions → **Variables**) | Non-sensitive configuration — plaintext, readable by anyone with repository access | `SOURCECODE_PUBLIC_URL` |
 | **Neither** — selected per run in the **Run workflow** dialog | Per-deployment choices | `service`, `environment`, `branch` |
+
+> **ADR-008 rename:** `DEPOT_PUBLIC_URL` → `SOURCECODE_PUBLIC_URL` and `DEPOT_DEPLOY_TOKEN` → `SOURCECODE_DEPLOY_TOKEN`. Rename both entries in **Forgejo → Settings → Actions** at the same time as this repository update, or deploys lose the clone URL and access token.
 
 #### Variables (Settings → Actions → Variables)
 
@@ -590,7 +592,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Variables**:
 
 | Variable | Example value | Description |
 |---|---|---|
-| `DEPOT_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://devopsforgejo:3000` and cannot be reached from the deploy servers). |
+| `SOURCECODE_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://devopsforgejo:3000` and cannot be reached from the deploy servers). |
 
 #### Secrets (Settings → Actions → Secrets)
 
@@ -602,7 +604,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 | Secret | How to obtain | Description |
 |---|---|---|
-| `DEPOT_DEPLOY_TOKEN` | Forgejo → Settings → Applications → Access Token (repo read scope) | Forgejo access token used by the deploy step to clone/pull the repository on the remote server. |
+| `SOURCECODE_DEPLOY_TOKEN` | Forgejo → Settings → Applications → Access Token (repo read scope) | Forgejo access token used by the deploy step to clone/pull the repository on the remote server. |
 | `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates on the remote server after git clone/pull. Generate with `git-crypt init && git-crypt export-key ./servicehub.key`. |
 | `BACKUP_RESTIC_PASSWORD` | *(protected value; do not record)* | Restic repository password used by the backup workflow. |
 | `BACKUP_HOME_SSH_KEY` | *(protected private key; do not record)* | Private key used for the Restic Home Server repository over SSH/SFTP. |
