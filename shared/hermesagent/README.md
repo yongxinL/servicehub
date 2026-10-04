@@ -6,9 +6,9 @@ ServiceHub-specific seeding, placeholder substitution, and an **overlay
 system** for persisting source-code edits to `/opt/hermes` across container
 recreation.
 
-The full setup guide lives in [README.html](README.html) (open in a browser).
 This file documents the overlay system, environment variables, and how to scale
-the platform to more users.
+the platform to more users. (A browser-formatted `README.html` guide was
+retired as stale — it predated the ADR-008 renames; see git history.)
 
 ---
 

@@ -145,7 +145,6 @@ servicehub/
 │   │   └── plugins/
 │   ├── hermesagent/
 │   │   ├── README.md                     # Hermes Agent documentation
-│   │   ├── README.html                   # Full Hermes setup guide
 │   │   ├── Dockerfile
 │   │   ├── start-gateways.sh             # Entrypoint: seeds defaults, starts gateway + workspace
 │   │   ├── init-profile.sh               # One-shot profile seeder (run on first container exec)
