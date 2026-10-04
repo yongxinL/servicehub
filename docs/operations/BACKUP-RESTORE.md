@@ -111,7 +111,17 @@ The full archive covers `APPS_DATA`, which includes paths declared in the defaul
 - `${APPS_DATA}/mailsv/bulwark/telemetry`
 - `${APPS_DATA}/shared/certs`
 
-If `HERMES_DATA_00` points outside `APPS_DATA`, it is not covered by the full archive unless the operating system copies it separately. The workflow allows exclusions through `<PREFIX>_BACKUP_EXCLUDE`; actual exclusions are `TBD`.
+If `HERMES_DATA_00` points outside `APPS_DATA`, it is not covered by the full archive unless the operating system copies it separately. The workflow allows exclusions through `<PREFIX>_BACKUP_EXCLUDE`; set them per the tier classification below.
+
+## Backup tiers
+
+[ADR-008 §8](../adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md) classifies the paths above:
+
+- **Tier 1 — critical** (`infra/`, `devops/forgejo/data`, `webapp/confluence`, `webapp/ocis`, `mailsv/stalwart`, `shared/certs`): must be included in all backups; never add to `<PREFIX>_BACKUP_EXCLUDE`.
+- **Tier 2 — important** (`webapp/openwebui`, `aiserv/hermes`, `aiserv/litellm`, `obsvce/grafana`): recommended backup; exclude only when storage constraints require it.
+- **Tier 3 — rebuildable** (`devops/forgejo/workspace`, `obsvce/victoriametrics`, `obsvce/victorialogs`, `mailsv/bulwark/telemetry`): shorter retention or exclusion, depending on storage constraints.
+
+The exclusion value itself is a deployment secret (`STAG_BACKUP_EXCLUDE` / `PROD_BACKUP_EXCLUDE`); the repository documents an example value in the README Actions secrets table (noisy logs and Tier 3 `devops/forgejo/workspace`). Add further Tier 3 paths when storage constraints require it; never exclude Tier 1.
 
 ## Named Volumes
 

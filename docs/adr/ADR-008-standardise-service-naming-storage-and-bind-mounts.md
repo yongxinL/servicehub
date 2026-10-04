@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-008
 title: Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables
-version: "1.2"
-status: Proposed
-decision_basis: Owner discussion recorded on 2026-10-04, including the environment variable and database naming standard; implementation not started
+version: "1.3"
+status: Accepted
+decision_basis: Owner discussion recorded on 2026-10-04, including the environment variable and database naming standard; owner-directed implementation on branch service-renaming on 2026-10-05; runtime validation pending
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-04
-updated: 2026-10-04
+updated: 2026-10-05
 tags:
   - servicehub
   - architecture
@@ -379,16 +379,15 @@ Option 2 satisfies every driver in one migration window. Renaming services witho
 
 ## Implementation Evidence
 
-No repository change for this decision exists yet. This record is `Proposed`.
+Repository changes applied on branch `service-renaming` as three atomic commits:
 
-Baseline that the change will modify:
+- `975c701` — compose files restructured into the seven domains; the 25 services, Traefik labels, `depends_on` references, workflows, and documentation renamed (decisions 1 and 2).
+- `79e810a` — `${APPS_DATA}` migrated to the domain layout with hardened mounts (`:ro`, removal of `/etc/localtime` and the Hermes Docker socket mount, Alloy rootfs mount reduction) and certificates moved to `${APPS_DATA}/shared/certs` (decisions 3–7).
+- `41f6b1d` — environment variables and database names renamed across `env.example`, `compose/*.yml`, `scripts/setup.sh`, Forgejo workflows, `shared/` configuration, and living documentation, including a `setup.sh` migration block that rewrites ADR-007-era `.env` files (decision 9).
 
-- Compose files: `compose/route.yml`, `compose/dbsvc.yml`, `compose/authn.yml`, `compose/depot.yml`, `compose/wbapp.yml`, `compose/aiagn.yml`, `compose/obsvc.yml`, `compose/poste.yml`.
-- Bind mounts and labels as defined in those files, listed in [SERVICE-INVENTORY](../operations/SERVICE-INVENTORY.md).
-- Backup paths and workflow inputs in [.forgejo/workflows/30-prod-backup-services.yml](../../.forgejo/workflows/30-prod-backup-services.yml).
-- Environment variable prefixes in [env.example](../../env.example).
+Static validation on the branch: every compose file parses as YAML, all `depends_on` targets resolve, every compose-interpolated `${VAR}` exists in `env.example`, and no superseded service, path, or variable names remain outside historical records. Pending and owner-run: `docker compose config` and a `setup.sh` merge/migration check on a server, plus the database renames in their maintenance window.
 
-Implementation is planned on a dedicated refactor branch; no migration, rename, or validation evidence exists at the time of this record.
+Superseded baseline: the pre-change compose set (`route.yml`, `dbsvc.yml`, `authn.yml`, `depot.yml`, `wbapp.yml`, `aiagn.yml`, `obsvc.yml`, `poste.yml`), the bind mounts and labels recorded in [SERVICE-INVENTORY](../operations/SERVICE-INVENTORY.md), and the pre-change variable prefixes in [env.example](../../env.example).
 
 ## Related Documents
 
@@ -402,14 +401,14 @@ Implementation is planned on a dedicated refactor branch; no migration, rename, 
 
 | Action | Owner | Due date | Status |
 |---|---|---|---|
-| Rename compose files to the seven domains and move each service into its domain file | ServiceHub Architecture | TBD | Proposed |
-| Apply the `<prefix><product>` and `<prefix><product>init` names, including Traefik router and service labels | ServiceHub Architecture | TBD | Proposed |
-| Migrate `${APPS_DATA}` to the domain layout and update every bind mount | ServiceHub Architecture | TBD | Proposed |
-| Remove the listed bind mounts, restrict Docker socket access, and replace `/etc/localtime` with `TZ` | ServiceHub Architecture | TBD | Proposed |
-| Move certificates to `${APPS_DATA}/shared/certs` and update Traefik and Stalwart consumers | ServiceHub Architecture | TBD | Proposed |
-| Apply the environment variable and database variable renames across `env.example`, `compose/*.yml`, `scripts/setup.sh`, workflows, `shared/` configuration, and documentation in one change | ServiceHub Architecture | TBD | Proposed |
-| Update backup scope and exclusions to the tier classification under ADR-007 | ServiceHub Architecture | TBD | Proposed |
-| Rename the five databases to the `svchub_<purpose>` values and update every consumer in one maintenance window | ServiceHub Architecture | TBD | Proposed |
-| Update Forgejo Actions deploy and backup workflows, monitoring provisioning, and dashboards | ServiceHub Architecture | TBD | Proposed |
-| Update documentation, service inventory, and architecture records in the same change | George Li | TBD | Proposed |
+| Rename compose files to the seven domains and move each service into its domain file | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`975c701`); server validation pending |
+| Apply the `<prefix><product>` and `<prefix><product>init` names, including Traefik router and service labels | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`975c701`); server validation pending |
+| Migrate `${APPS_DATA}` to the domain layout and update every bind mount | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`79e810a`); host migration pending |
+| Remove the listed bind mounts, restrict Docker socket access, and replace `/etc/localtime` with `TZ` | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`79e810a`); server validation pending |
+| Move certificates to `${APPS_DATA}/shared/certs` and update Traefik and Stalwart consumers | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`79e810a`); host ACME migration pending |
+| Apply the environment variable and database variable renames across `env.example`, `compose/*.yml`, `scripts/setup.sh`, workflows, `shared/` configuration, and documentation in one change | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`41f6b1d`) with a `setup.sh` migration block for existing `.env` files; server validation pending |
+| Update backup scope and exclusions to the tier classification under ADR-007 | ServiceHub Architecture | 2026-10-05 | Tier classification documented in [BACKUP-RESTORE](../operations/BACKUP-RESTORE.md); exclusion values remain deployment secrets |
+| Rename the five databases to the `svchub_<purpose>` values and update every consumer in one maintenance window | ServiceHub Architecture | TBD | Proposed; `.env` values migrate via `setup.sh`, server-side database rename and grants pending |
+| Update Forgejo Actions deploy and backup workflows, monitoring provisioning, and dashboards | ServiceHub Architecture | 2026-10-05 | Workflows and monitoring configuration renamed on `service-renaming` (`975c701`, `41f6b1d`); prebuilt Grafana dashboard JSONs still contain panels for removed filesystem mounts; runtime provisioning pending |
+| Update documentation, service inventory, and architecture records in the same change | George Li | 2026-10-05 | Living documentation updated across the three `service-renaming` commits |
 | Validate with `docker compose config` and a staging deployment, and record the evidence | ServiceHub Architecture | TBD | Proposed |

@@ -34,6 +34,6 @@ These ADRs record both retrospective decisions inferred from the current impleme
 | ADR-005 | Use LiteLLM for AI Workload Routing | Accepted | 2026-10-01 | `compose/aiserv.yml`, `shared/litellm/` | None | [ADR-005](ADR-005-use-litellm-for-ai-routing.md) |
 | ADR-006 | Adopt oCIS with Local Filesystem Storage | Accepted | 2026-10-03 | `compose/webapp.yml`, `env.example`, `compose/route.yml`, `shared/owncloud/`; runtime validation pending | None | [ADR-006](ADR-006-adopt-ocis-with-local-filesystem-storage.md) |
 | ADR-007 | Adopt Dual-Target Backup and Disaster Recovery | Accepted | 2026-10-03 | `.forgejo/workflows/30-prod-backup-services.yml` and `shared/forgejo/actions/`; shared runner revision recorded; runtime validation pending | None | [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) |
-| ADR-008 | Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables | Proposed | 2026-10-04 | None; `compose/*.yml`, `env.example`, workflows, and storage layout pending | None | [ADR-008](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) |
+| ADR-008 | Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables | Accepted | 2026-10-05 | `compose/*.yml`, `env.example`, `scripts/setup.sh`, workflows, and storage layout applied on `service-renaming`; runtime validation pending | None | [ADR-008](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) |
 
 New records must use the next unused `ADR-NNN` ID, add a row here, and use [ADR-TEMPLATE.md](../templates/ADR-TEMPLATE.md).
