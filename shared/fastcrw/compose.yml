@@ -29,7 +29,7 @@ services:
             - CRW_CRAWLER__REQUESTS_PER_SECOND=5.0
             # renderer urls, search url, and auth key are all set in
             # config.docker.toml and substituted by entrypoint.sh at startup.
-            - FIRECRAWL_API_KEY=${LITEM_API_KEY}
+            - FIRECRAWL_API_KEY=${AIGATE_API_KEY}
         image: aiagnfastcrw:latest
         networks:
             - subnet

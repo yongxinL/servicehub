@@ -15,7 +15,7 @@ services:
             - SEARXNG_PORT=12361
             - SEARXNG_BIND_ADDRESS=0.0.0.0
             - SEARXNG_BASE_URL=http://aiagnsearxng:12361
-            - SEARXNG_SECRET=${LITEM_API_KEY:-aiagnsearxng}
+            - SEARXNG_SECRET=${AIGATE_API_KEY:-aiagnsearxng}
         image: aiagnsearxng:latest
         networks:
             - subnet

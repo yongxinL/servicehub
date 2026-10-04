@@ -16,7 +16,7 @@
 | Context | Configurable via `LLAMA_CHTARG` (default `--ctx-size 65536`, 64K) |
 | Concurrent slots | `--parallel 4` (default) |
 | Memory | `--mlock` + `IPC_LOCK` / unlimited memlock so the model stays in RAM |
-| LiteLLM alias | `hephaestus` (env prefix `LITEM_HPH_*`) |
+| LiteLLM alias | `hephaestus` (env prefix `AIGATE_HERMES_*`) |
 | Health check | `curl -f http://localhost:12386/health` (120 s start period) |
 
 ## Configuration

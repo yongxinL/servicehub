@@ -30,9 +30,9 @@ Stalwart keeps its whole dataset (metadata, indexes, message blobs, FTS) in one 
 
 | Setting | Value |
 |---|---|
-| Host / port | `${PGRSQL_HOST}:${PGRSQL_PORT}` (`infrapgsql:5432`) |
-| Database | `${POSTE_DBNAME}` (`svchubmboxdb`) — created by the PostgreSQL init script on first start |
-| Credentials | `${SQLDB_USER}` / `${SQLDB_PASS}` (shared stack superuser) |
+| Host / port | `${POSTGRES_HOST}:${POSTGRES_PORT}` (`infrapgsql:5432`) |
+| Database | `${POSTOFFICE_DBNAME}` (`svchub_postoffice`) — created by the PostgreSQL init script on first start |
+| Credentials | `${DB_ADMIN_USER}` / `${DB_ADMIN_PASSWORD}` (shared stack superuser) |
 
 [`entrypoint.sh`](entrypoint.sh) writes `/etc/stalwart/config.json` with `jq` on **every start** from the `STALWART_DB_*` environment variables (host, port, database, username and pool size; the password is referenced as a `STALWART_DB_PASSWORD` environment-variable secret, so it never lands on disk), so credentials can rotate without a rebuild.
 
@@ -65,13 +65,13 @@ The export directory lives on the `mailsv/stalwart` volume so both steps see it.
 
 ### Database management (create / delete / backup / restore)
 
-All mail data (accounts, messages, indexes, blobs) lives in `${POSTE_DBNAME}` (`svchubmboxdb`); the `${APPS_DATA}/mailsv/stalwart` volume holds only TLS material and runtime state. Run these from the deploy directory on the host.
+All mail data (accounts, messages, indexes, blobs) lives in `${POSTOFFICE_DBNAME}` (`svchub_postoffice`); the `${APPS_DATA}/mailsv/stalwart` volume holds only TLS material and runtime state. Run these from the deploy directory on the host.
 
-**Create** — keep `${POSTE_DBNAME}` in `PGRSQL_DBLIST` for new installs ([first boot](#first-boot)). The init script only runs on an empty data directory, so on an existing cluster create the database manually; Stalwart creates its schema in the empty database on the next start:
+**Create** — keep `${POSTOFFICE_DBNAME}` in `POSTGRES_DATABASES` for new installs ([first boot](#first-boot)). The init script only runs on an empty data directory, so on an existing cluster create the database manually; Stalwart creates its schema in the empty database on the next start:
 
 ```bash
-docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d postgres \
-  -c "CREATE DATABASE \"${POSTE_DBNAME}\";"
+docker compose exec infrapgsql psql -U "${DB_ADMIN_USER}" -d postgres \
+  -c "CREATE DATABASE \"${POSTOFFICE_DBNAME}\";"
 docker compose up -d mailsvstalwart
 ```
 
@@ -79,8 +79,8 @@ docker compose up -d mailsvstalwart
 
 ```bash
 docker compose stop mailsvstalwart
-docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d postgres \
-  -c "DROP DATABASE IF EXISTS \"${POSTE_DBNAME}\";"
+docker compose exec infrapgsql psql -U "${DB_ADMIN_USER}" -d postgres \
+  -c "DROP DATABASE IF EXISTS \"${POSTOFFICE_DBNAME}\";"
 ```
 
 To start over, create the database again and `docker compose start mailsvstalwart`, then re-run the [initial provisioning walkthrough](#initial-provisioning-walkthrough). Delete `${APPS_DATA}/mailsv/stalwart` too if the TLS material and runtime state should go as well.
@@ -88,7 +88,7 @@ To start over, create the database again and `docker compose start mailsvstalwar
 **Backup** — `pg_dump` takes a transaction-consistent snapshot and is safe while Stalwart is serving mail (unlike copying the PostgreSQL data directory):
 
 ```bash
-docker compose exec -T infrapgsql pg_dump -U "${SQLDB_USER}" -Fc "${POSTE_DBNAME}" \
+docker compose exec -T infrapgsql pg_dump -U "${DB_ADMIN_USER}" -Fc "${POSTOFFICE_DBNAME}" \
   > "mailsv-$(date +%F).dump"
 ```
 
@@ -98,15 +98,15 @@ docker compose exec -T infrapgsql pg_dump -U "${SQLDB_USER}" -Fc "${POSTE_DBNAME
 
 ```bash
 docker compose stop mailsvstalwart
-docker compose exec -T infrapgsql psql -U "${SQLDB_USER}" -d postgres \
-  -c "DROP DATABASE IF EXISTS \"${POSTE_DBNAME}\";" \
-  -c "CREATE DATABASE \"${POSTE_DBNAME}\";"
-docker compose exec -T infrapgsql pg_restore -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" --no-owner \
+docker compose exec -T infrapgsql psql -U "${DB_ADMIN_USER}" -d postgres \
+  -c "DROP DATABASE IF EXISTS \"${POSTOFFICE_DBNAME}\";" \
+  -c "CREATE DATABASE \"${POSTOFFICE_DBNAME}\";"
+docker compose exec -T infrapgsql pg_restore -U "${DB_ADMIN_USER}" -d "${POSTOFFICE_DBNAME}" --no-owner \
   < mailsv-YYYY-MM-DD.dump
 docker compose start mailsvstalwart
 ```
 
-For a `.sql.gz` dump, pipe it into `psql` instead: `gunzip -c mailsv-YYYY-MM-DD.sql.gz | docker compose exec -T infrapgsql psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}"`. Verify with `docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c '\dt'` and a test login; the fallback admin at `https://${EMAIL_HOST}/admin` works even if the LDAP directory is down.
+For a `.sql.gz` dump, pipe it into `psql` instead: `gunzip -c mailsv-YYYY-MM-DD.sql.gz | docker compose exec -T infrapgsql psql -U "${DB_ADMIN_USER}" -d "${POSTOFFICE_DBNAME}"`. Verify with `docker compose exec infrapgsql psql -U "${DB_ADMIN_USER}" -d "${POSTOFFICE_DBNAME}" -c '\dt'` and a test login; the fallback admin at `https://${EMAIL_HOST}/admin` works even if the LDAP directory is down.
 
 > `-T` disables TTY allocation so the binary dump streams cleanly through the redirect; the `< dump` and `gunzip -c` pipes run in the host shell, not the container.
 
@@ -114,7 +114,7 @@ For a `.sql.gz` dump, pipe it into `psql` instead: `gunzip -c mailsv-YYYY-MM-DD.
 
 Mail accounts and credentials come from Authentik over LDAP, so users exist once in Authentik and log into the webmail (password form — see [Bulwark — SSO/OIDC](../bulwark/README.md#sso--oidc-not-used) for why OIDC SSO is not used with an LDAP directory) and IMAP/SMTP with the same identity. The integration spans both sides: an Authentik **application + LDAP provider**, a **service account** used for lookups, and a **managed LDAP outpost** — then the Stalwart **LDAP directory** that binds against the outpost, and the **domain binding** that activates it. All of it lives in this section.
 
-Field names below are for Authentik `2026.8` (`AUTHN_TAG`); older versions label **Bind Flow** as *Authentication flow*.
+Field names below are for Authentik `2026.8` (`IDENTITY_TAG`); older versions label **Bind Flow** as *Authentication flow*.
 
 ### Authentik: application and LDAP provider
 
@@ -303,9 +303,9 @@ The file tracer's path is on the container filesystem, so those logs are lost wh
 | `EMAIL_HOST` | Mail server hostname; container `hostname`, Stalwart `MAIL_DOMAIN` and public URL |
 | `CERTRESOLVER` | Which key of `acme.json` to read (`letsencrypt` or empty for self-signed staging) |
 | `CERT_CHECK_INTERVAL` | Certificate re-check interval (default `86400`) |
-| `POSTE_DBNAME` | PostgreSQL database name (must be in `PGRSQL_DBLIST`, created on first PostgreSQL start) |
-| `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL connection target (`infrapgsql:5432`) |
-| `SQLDB_USER` / `SQLDB_PASS` | PostgreSQL credentials |
+| `POSTOFFICE_DBNAME` | PostgreSQL database name (must be in `POSTGRES_DATABASES`, created on first PostgreSQL start) |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | PostgreSQL connection target (`infrapgsql:5432`) |
+| `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` | PostgreSQL credentials |
 | `STALWART_ADMIN_USER` / `STALWART_ADMIN_PASS` | Fallback administrator, mapped to `STALWART_RECOVERY_ADMIN` (pass generated by `setup.sh`; empty disables) |
 
 Directory settings (LDAP URL, bind DN/secret, filters) are applied once through the admin UI and stored in the PostgreSQL data store — they survive restarts and are backed up with the database.
@@ -320,7 +320,7 @@ Directory settings (LDAP URL, bind DN/secret, filters) are applied once through 
 
 ## First boot
 
-1. Add `${POSTE_DBNAME}` to `PGRSQL_DBLIST` if not already present, then bring up the database and the server:
+1. Add `${POSTOFFICE_DBNAME}` to `POSTGRES_DATABASES` if not already present, then bring up the database and the server:
 
     ```bash
     docker compose up -d mailsvstalwart
@@ -336,7 +336,7 @@ For external clients to reach ports 25/465/587/993, DNS `MX`/`A` records for `${
 
 PostgreSQL holds everything, so the fastest path is: first `docker compose up -d mailsvstalwart` boots straight into the admin UI with the recovery admin, provision the directory + accounts, then deploy Bulwark. Complete steps, in order:
 
-1. **Database** — `${POSTE_DBNAME}` in `PGRSQL_DBLIST`; `docker compose up -d infrapgsql` creates it on first start.
+1. **Database** — `${POSTOFFICE_DBNAME}` in `POSTGRES_DATABASES`; `docker compose up -d infrapgsql` creates it on first start.
 2. **Stalwart** — `docker compose up -d mailsvstalwart`; sign in at `https://${EMAIL_HOST}/admin` with `${STALWART_ADMIN_USER}` / `${STALWART_ADMIN_PASS}` (recovery admin).
 3. **LDAP provider in Authentik** — Application `stalwart-mail` with provider type **LDAP Provider** (Base DN: default `dc=ldap,dc=goauthentik,dc=io` or your own — see the [directory section](#directory-authentik-ldap-sso); full field-by-field provider settings — Bind/Unbind Flow, bind/search modes — in [Authentik: application and LDAP provider](#authentik-application-and-ldap-provider)).
 4. **LDAP service account in Authentik** — Directory → Users → New User `stalwart-ldap`; set a password under Recovery. Create a role `LDAP search` with the **Search full LDAP directory** permission, add the service account to it, and assign the role to the provider under its **Permissions** tab (object vs global permission, and application access: [Authentik: service account, role and permissions](#authentik-service-account-role-and-permissions)).
@@ -344,7 +344,7 @@ PostgreSQL holds everything, so the fastest path is: first `docker compose up -d
 6. **Point Stalwart at the outpost** — Stalwart admin → **Settings → Authentication → Directories → Create directory** (type LDAP), using the values from the [directory table](#directory-authentik-ldap-sso) above. Then bind the mail domain: **Management → Domains → Domains** → `${EMAIL_HOST}` → **Domain** section → **Directory** (or, for all domains at once, **Settings → Authentication → General** → **Authentication Directory**).
 7. **Technical sender account in Authentik** — since the mail domain is bound to LDAP, create `servicehub@${EMAIL_HOST}` as an Authentik service account with that address as its **email**; `${EMAIL_PASS}` is the account's password. Stack components send with `${EMAIL_USER}` / `${EMAIL_PASS}` on port `${EMAIL_PORT}` (see [Root README — Email](../../README.md#configuration)).
 8. **Mailboxes for users** — for LDAP-backed users authentication needs no extra setup; create the mailbox in Stalwart (matching the user's `mail` attribute) to assign quota and groups. Verify a login with the user's **email + Authentik password** from an IMAP/JMAP client or Bulwark's password form.
-9. **Bulwark webmail** — `docker compose up -d mailsvbulwarkinit mailsvbulwark`; users sign in at `https://${WEBMAIL_DOMAIN}` with their **email + Authentik password** (the password form validates through Stalwart's LDAP directory). Before first login, enable **Permissive CORS policy** (**Settings → Network → HTTP → Security**, `usePermissiveCors`) and confirm the [Certificate object](#tls-certificates) is in place — both are login prerequisites documented in [Bulwark — Login prerequisites](../bulwark/README.md#login-prerequisites-stalwart-side). OIDC SSO is not used in this stack (requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](../bulwark/README.md#sso--oidc-not-used)).
+9. **Bulwark webmail** — `docker compose up -d mailsvbulwarkinit mailsvbulwark`; users sign in at `https://${POSTOFFICE_DOMAIN}` with their **email + Authentik password** (the password form validates through Stalwart's LDAP directory). Before first login, enable **Permissive CORS policy** (**Settings → Network → HTTP → Security**, `usePermissiveCors`) and confirm the [Certificate object](#tls-certificates) is in place — both are login prerequisites documented in [Bulwark — Login prerequisites](../bulwark/README.md#login-prerequisites-stalwart-side). OIDC SSO is not used in this stack (requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](../bulwark/README.md#sso--oidc-not-used)).
 
 ## Operations
 
@@ -359,7 +359,7 @@ docker compose logs -f mailsvstalwart
 ls -l ${APPS_DATA}/mailsv/stalwart/tls/
 
 # Inspect Stalwart's PostgreSQL footprint
-docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c "\dt"
+docker compose exec infrapgsql psql -U "${DB_ADMIN_USER}" -d "${POSTOFFICE_DBNAME}" -c "\dt"
 ```
 
 ## Security hardening

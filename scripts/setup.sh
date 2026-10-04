@@ -34,7 +34,7 @@ ACME_FILE="${APPS_DATA:-$HOME/Documents/containerd}/shared/certs/acme.json"
 inject_secrets() {
     echo "Generating secrets for placeholder values..."
 
-    SQLDB_PASS=$(openssl rand -hex 16 | head -c 18)
+    DB_ADMIN_PASSWORD=$(openssl rand -hex 16 | head -c 18)
     GRAFANA_PASS=$(openssl rand -hex 16 | head -c 18)
     AUTHK_PASS=$(openssl rand -base64 36 | tr -d '\n')
     AUTHK_SECRET=$(openssl rand -base64 60 | tr -d '\n')
@@ -47,13 +47,13 @@ inject_secrets() {
 
     # Only replace if the current value matches the placeholder (not already set)
     sed -i.bak \
-        -e "s|<YOUR_STRONG_SQLDB_PASSWORD>|${SQLDB_PASS}|g" \
+        -e "s|<YOUR_STRONG_DB_ADMIN_PASSWORD>|${DB_ADMIN_PASSWORD}|g" \
         -e "s|<YOUR_STRONG_GRAFANA_PASSWORD>|${GRAFANA_PASS}|g" \
         -e "s|<YOUR_STRONG_AUTHENTIK_PASSWORD>|${AUTHK_PASS}|g" \
         -e "s|<YOUR_STRONG_AUTHENTIK_SECRETKEY>|${AUTHK_SECRET}|g" \
         -e "s|<YOUR_LITELLM_MASTER_API_KEY>|${LITELLM_APIKEY}|g" \
         -e "s|<YOUR_STRONG_LITELLM_ADMIN_PASSWORD>|${LITELLM_ADMPWD}|g" \
-        -e "s|<YOUR_DEPOT_RUNNER_SECRET>|${RUNNER_SECRET}|g" \
+        -e "s|<YOUR_SOURCECODE_RUNNER_SECRET>|${RUNNER_SECRET}|g" \
         -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_00>|${HERMES_WORKSPACE_PASSWD_00}|g" \
         -e "s|<YOUR_STRONG_WEBMAIL_SESSION_SECRET>|${WEBMAIL_SESSION_SECRET}|g" \
         -e "s|<YOUR_STRONG_STALWART_ADMIN_PASSWORD>|${STALWART_ADMIN_PASS}|g" \
@@ -62,15 +62,72 @@ inject_secrets() {
 
 # Function to rename legacy variables that were refactored between releases.
 # Must run before merge_env so that references in other values (e.g. the
-# PGRSQL_DBLIST composition) are rewritten too.
+# POSTGRES_DATABASES composition) are rewritten too.
 migrate_env() {
+    # ADR-008 renamed service, domain, and database variables to business-domain
+    # names and moved the databases into the svchub_* namespace. Rewrite an
+    # ADR-007-era .env in one pass (variable renames first so the database-value
+    # rules below match the new names).
+    if grep -qE '^(AUTHN_|DEPOT_|WBHOME_|OWEBUI_|OBSVC_|POSTE_DBNAME|LITEM_|SQLDB_|PGRSQL_|MySQL_|MARIADB_DB_LIST|WBDRIVE_)' "$ENV_FILE" 2>/dev/null; then
+        echo "Migrating ADR-008 environment variable names ..."
+        sed -i.bak \
+            -e 's/\bAUTHN_DBNAME\b/IDENTITY_DBNAME/g' \
+            -e 's/\bAUTHN_DOMAIN\b/IDENTITY_DOMAIN/g' \
+            -e 's/\bAUTHN_TAG\b/IDENTITY_TAG/g' \
+            -e 's/\bAUTHN_PASSWD\b/IDENTITY_PASSWORD/g' \
+            -e 's/\bAUTHN_SECRET\b/IDENTITY_SECRET/g' \
+            -e 's/\bDEPOT_DBNAME\b/SOURCECODE_DBNAME/g' \
+            -e 's/\bDEPOT_DOMAIN\b/SOURCECODE_DOMAIN/g' \
+            -e 's/\bDEPOT_VTAG\b/SOURCECODE_TAG/g' \
+            -e 's/\bDEPOT_RUNNER_SECRET\b/SOURCECODE_RUNNER_SECRET/g' \
+            -e 's/\bDEPOT_RUNNER_VTAG\b/SOURCECODE_RUNNER_TAG/g' \
+            -e 's/\bWBHOME_DBNAME\b/WORKSPACE_DBNAME/g' \
+            -e 's/\bWBHOME_DOMAIN\b/WORKSPACE_DOMAIN/g' \
+            -e 's/\bWBHOME_TAG\b/WORKSPACE_TAG/g' \
+            -e 's/\bOWEBUI_DOMAIN\b/CHAT_DOMAIN/g' \
+            -e 's/\bOBSVC_DOMAIN\b/OBSERVABILITY_DOMAIN/g' \
+            -e 's/\bOBSVC_ADMUSR\b/OBSERVABILITY_ADMIN_USER/g' \
+            -e 's/\bOBSVC_ADMPWD\b/OBSERVABILITY_ADMIN_PASSWORD/g' \
+            -e 's/\bWEBMAIL_DOMAIN\b/POSTOFFICE_DOMAIN/g' \
+            -e 's/\bPOSTE_DBNAME\b/POSTOFFICE_DBNAME/g' \
+            -e 's/\bWBDRIVE_DOMAIN\b/CLOUD_DOMAIN/g' \
+            -e 's/\bWBDRIVE_TAG\b/CLOUD_TAG/g' \
+            -e 's/\bWBDRIVE_OIDC_ISSUER\b/CLOUD_OIDC_ISSUER/g' \
+            -e 's/\bWBDRIVE_OIDC_CLIENT_ID\b/CLOUD_OIDC_CLIENT_ID/g' \
+            -e 's/\bWBDRIVE_INSECURE\b/CLOUD_INSECURE/g' \
+            -e 's/\bLITEM_API_KEY\b/AIGATE_API_KEY/g' \
+            -e 's/\bLITEM_API_URL\b/AIGATE_API_URL/g' \
+            -e 's/\bLITEM_ADMUSR\b/AIGATE_ADMIN_USER/g' \
+            -e 's/\bLITEM_ADMPWD\b/AIGATE_ADMIN_PASSWORD/g' \
+            -e 's/\bLITEM_DBNAME\b/AIGATE_DBNAME/g' \
+            -e 's/\bLITEM_HPH_APIURL\b/AIGATE_HERMES_API_URL/g' \
+            -e 's/\bLITEM_HPH_APIKEY\b/AIGATE_HERMES_API_KEY/g' \
+            -e 's/\bLITEM_HPH_HLTURL\b/AIGATE_HERMES_HEALTH_URL/g' \
+            -e 's/\bLITEM_PRM_APIBASE\b/AIGATE_PROVIDER_API_BASE/g' \
+            -e 's/\bLITEM_PRM_APIKEY\b/AIGATE_PROVIDER_API_KEY/g' \
+            -e 's/\bSQLDB_USER\b/DB_ADMIN_USER/g' \
+            -e 's/\bSQLDB_PASS\b/DB_ADMIN_PASSWORD/g' \
+            -e 's/\bMySQL_HOST\b/MARIADB_HOST/g' \
+            -e 's/\bMySQL_PORT\b/MARIADB_PORT/g' \
+            -e 's/\bMARIADB_DB_LIST\b/MARIADB_DATABASES/g' \
+            -e 's/\bPGRSQL_HOST\b/POSTGRES_HOST/g' \
+            -e 's/\bPGRSQL_PORT\b/POSTGRES_PORT/g' \
+            -e 's/\bPGRSQL_DBLIST\b/POSTGRES_DATABASES/g' \
+            -e 's/^IDENTITY_DBNAME=svchubauthtk/IDENTITY_DBNAME=svchub_identity/' \
+            -e 's/^SOURCECODE_DBNAME=svchubsvnrep/SOURCECODE_DBNAME=svchub_sourcecode/' \
+            -e 's/^WORKSPACE_DBNAME=svchubwbhome/WORKSPACE_DBNAME=svchub_workspace/' \
+            -e 's/^POSTOFFICE_DBNAME=svchubmboxdb/POSTOFFICE_DBNAME=svchub_postoffice/' \
+            -e 's/^AIGATE_DBNAME=litellm/AIGATE_DBNAME=svchub_aigateway/' \
+            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+    fi
+
     # The legacy Gitea/Woodpecker runner token no longer exists (Forgejo Actions
     # uses a shared runner secret); drop it from old .env files.
     if grep -q '^REPBUK_' "$ENV_FILE" 2>/dev/null; then
-        echo "Migrating legacy REPBUK_* variables to DEPOT_* ..."
+        echo "Migrating legacy REPBUK_* variables to SOURCECODE_* ..."
         sed -i.bak \
-            -e 's/REPBUK_DBNAME/DEPOT_DBNAME/g' \
-            -e 's/REPBUK_DOMAIN/DEPOT_DOMAIN/g' \
+            -e 's/REPBUK_DBNAME/SOURCECODE_DBNAME/g' \
+            -e 's/REPBUK_DOMAIN/SOURCECODE_DOMAIN/g' \
             "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
         sed -i.bak '/^REPBUK_RUNTOKEN=/d' "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
     fi
@@ -90,27 +147,29 @@ migrate_env() {
 
     # The homepage web service was renamed from wbsvc to wbapp and its variables
     # from WEBHOM_* to WBHOME_*. WBHOME_DOMAN was a typo; the canonical name is
-    # WBHOME_DOMAIN. The Confluence image tag moved from WBCONF_TAG to WBHOME_TAG.
+    # WORKSPACE_DOMAIN. The Confluence image tag moved from WBCONF_TAG to WORKSPACE_TAG.
     if grep -qE '^(WEBHOM_|WBHOME_DOMAN=|WBCONF_TAG=)' "$ENV_FILE" 2>/dev/null; then
         echo "Migrating legacy WEBHOM_* / WBHOME_DOMAN / WBCONF_TAG variables ..."
         sed -i.bak \
-            -e 's/^WEBHOM_DBNAME=/WBHOME_DBNAME=/' \
-            -e 's/^WEBHOM_DOMAIN=/WBHOME_DOMAIN=/' \
-            -e 's/^WBHOME_DOMAN=/WBHOME_DOMAIN=/' \
-            -e 's/^WBCONF_TAG=/WBHOME_TAG=/' \
-            -e 's/\${WEBHOM_DBNAME}/${WBHOME_DBNAME}/g' \
-            -e 's/\${WEBHOM_DOMAIN}/${WBHOME_DOMAIN}/g' \
-            -e 's/\${WBHOME_DOMAN}/${WBHOME_DOMAIN}/g' \
+            -e 's/^WEBHOM_DBNAME=/WORKSPACE_DBNAME=/' \
+            -e 's/^WEBHOM_DOMAIN=/WORKSPACE_DOMAIN=/' \
+            -e 's/^WBHOME_DOMAN=/WORKSPACE_DOMAIN=/' \
+            -e 's/^WBCONF_TAG=/WORKSPACE_TAG=/' \
+            -e 's/\${WEBHOM_DBNAME}/${WORKSPACE_DBNAME}/g' \
+            -e 's/\${WEBHOM_DOMAIN}/${WORKSPACE_DOMAIN}/g' \
+            -e 's/\${WBHOME_DOMAN}/${WORKSPACE_DOMAIN}/g' \
             "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
     fi
 
-    # The observability compose domain was renamed from secob to obsvc; its
-    # variables moved from SECOB_* to OBSVC_*.
+    # The observability compose domain was renamed from secob to obsvc (ADR-007),
+    # then to obsvce with OBSERVABILITY_* variables (ADR-008).
     if grep -q '^SECOB_' "$ENV_FILE" 2>/dev/null; then
-        echo "Migrating legacy SECOB_* variables to OBSVC_* ..."
+        echo "Migrating legacy SECOB_* variables to OBSERVABILITY_* ..."
         sed -i.bak \
-            -e 's/^SECOB_/OBSVC_/' \
-            -e 's/\${SECOB_/${OBSVC_/g' \
+            -e 's/^SECOB_DOMAIN=/OBSERVABILITY_DOMAIN=/' \
+            -e 's/^SECOB_ADMUSR=/OBSERVABILITY_ADMIN_USER=/' \
+            -e 's/^SECOB_ADMPWD=/OBSERVABILITY_ADMIN_PASSWORD=/' \
+            -e 's/\${SECOB_DOMAIN}/${OBSERVABILITY_DOMAIN}/g' \
             "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
     fi
 }

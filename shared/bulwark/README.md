@@ -11,7 +11,7 @@
 | Detail | Value |
 |---|---|
 | Service name | `mailsvbulwark` |
-| HTTP port | 3000, routed by Traefik at `https://${WEBMAIL_DOMAIN}` |
+| HTTP port | 3000, routed by Traefik at `https://${POSTOFFICE_DOMAIN}` |
 | JMAP backend | `https://${EMAIL_HOST}` — resolves via Docker DNS because `mailsvstalwart` sets its container hostname to `${EMAIL_HOST}` |
 | Health check | Node HTTP check of `http://localhost:3000/api/health` every 30 s |
 | Depends on | `mailsvbulwarkinit` (completed) — creates/chowns the data dirs; `mailsvstalwart` (healthy) |
@@ -21,13 +21,13 @@
 
 ## Traefik routing
 
-Traefik serves the webmail at `https://${WEBMAIL_DOMAIN}` with automatic TLS. It is a public-facing router — no IP allow-list or SSO middleware is applied at the Traefik level; authentication happens in the app itself or the configured IdP.
+Traefik serves the webmail at `https://${POSTOFFICE_DOMAIN}` with automatic TLS. It is a public-facing router — no IP allow-list or SSO middleware is applied at the Traefik level; authentication happens in the app itself or the configured IdP.
 
 ## Login prerequisites (Stalwart side)
 
 For *any* sign-in — password form or OIDC — two Stalwart settings must hold:
 
-1. **Permissive CORS** — the browser talks to Stalwart's JMAP endpoint cross-origin (webmail origin `${WEBMAIL_DOMAIN}`, JMAP origin `${EMAIL_HOST}`), so Stalwart must answer with CORS headers. Stalwart's setting is all-or-nothing: enable **Permissive CORS policy** (`usePermissiveCors`) under **Settings → Network → HTTP → Security**, then reload/restart Stalwart. Every JMAP endpoint requires authentication and the admin router is IP-allow-listed at Traefik, which keeps the exposure bounded. Origin-restricted CORS can instead be injected by a Traefik `headers` middleware on the `mailsvstalwart` router if permissive is not acceptable.
+1. **Permissive CORS** — the browser talks to Stalwart's JMAP endpoint cross-origin (webmail origin `${POSTOFFICE_DOMAIN}`, JMAP origin `${EMAIL_HOST}`), so Stalwart must answer with CORS headers. Stalwart's setting is all-or-nothing: enable **Permissive CORS policy** (`usePermissiveCors`) under **Settings → Network → HTTP → Security**, then reload/restart Stalwart. Every JMAP endpoint requires authentication and the admin router is IP-allow-listed at Traefik, which keeps the exposure bounded. Origin-restricted CORS can instead be injected by a Traefik `headers` middleware on the `mailsvstalwart` router if permissive is not acceptable.
 2. **Trusted certificate on Stalwart's HTTPS listener** — the webmail server checks `JMAP_SERVER_URL` itself (server-side), and the browser opens the JMAP session against it. `https://${EMAIL_HOST}` must (a) resolve inside the container network — `mailsvstalwart`'s hostname makes Docker DNS do this — and (b) serve the exported Let's Encrypt certificate via a Stalwart Certificate object (see [Stalwart — TLS certificates](../stalwart/README.md#tls-certificates)); the 2-day bootstrap self-signed cert fails server-side checks with `DEPTH_ZERO_SELF_SIGNED_CERT` in the container logs.
 
 ## Volume ownership
@@ -70,7 +70,7 @@ If you ever switch Stalwart to an OIDC directory, see upstream [Authentication](
 ## First boot
 
 1. `docker compose up -d mailsvbulwarkinit mailsvbulwark` (the init service creates/chowns the data dirs)
-2. Open `https://${WEBMAIL_DOMAIN}` — users sign in with their email + Authentik password (see [Login prerequisites](#login-prerequisites-stalwart-side) for the required Stalwart-side CORS and certificate settings).
+2. Open `https://${POSTOFFICE_DOMAIN}` — users sign in with their email + Authentik password (see [Login prerequisites](#login-prerequisites-stalwart-side) for the required Stalwart-side CORS and certificate settings).
 
 ## Security hardening
 

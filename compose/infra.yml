@@ -4,10 +4,10 @@ services:
         build:
             context: ../shared/mariadb/
         environment:
-            - MARIADB_USER=${SQLDB_USER}
-            - MARIADB_PASSWORD=${SQLDB_PASS}
-            - MARIADB_ROOT_PASSWORD=${SQLDB_PASS}
-            - MARIADB_DB_LIST=${MARIADB_DB_LIST}
+            - MARIADB_USER=${DB_ADMIN_USER}
+            - MARIADB_PASSWORD=${DB_ADMIN_PASSWORD}
+            - MARIADB_ROOT_PASSWORD=${DB_ADMIN_PASSWORD}
+            - MARIADB_DATABASES=${MARIADB_DATABASES}
         healthcheck:
             test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
             start_period: 10s
@@ -26,9 +26,9 @@ services:
         build:
             context: ../shared/postgresql/
         environment:
-            - POSTGRES_USER=${SQLDB_USER}
-            - POSTGRES_PASSWORD=${SQLDB_PASS}
-            - POSTGRES_DB_LIST=${PGRSQL_DBLIST:-defaultdb}
+            - POSTGRES_USER=${DB_ADMIN_USER}
+            - POSTGRES_PASSWORD=${DB_ADMIN_PASSWORD}
+            - POSTGRES_DB_LIST=${POSTGRES_DATABASES:-defaultdb}
         healthcheck:
             test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB_LIST%%,*} -U $${POSTGRES_USER}" ]
             start_period: 20s
@@ -56,12 +56,12 @@ services:
             - ${APPS_DATA}/infra/authentik/templates:/templates
 
     # infraauth — Authentik server (UI/API). Docs: shared/authentik/README.md
-    # First boot: https://${AUTHN_DOMAIN}/if/flow/initial-setup/
+    # First boot: https://${IDENTITY_DOMAIN}/if/flow/initial-setup/
     infraauth:
         build:
             context: ../shared/authentik/
             args:
-                - IMAGE_TAG=${AUTHN_TAG}
+                - IMAGE_TAG=${IDENTITY_TAG}
         command: server
         depends_on:
             routetraefik:
@@ -70,8 +70,8 @@ services:
                 condition: service_started
         environment:
             # authentick settings
-            - PG_PASS=${AUTHN_PASSWD}
-            - AUTHENTIK_SECRET_KEY=${AUTHN_SECRET}
+            - PG_PASS=${IDENTITY_PASSWORD}
+            - AUTHENTIK_SECRET_KEY=${IDENTITY_SECRET}
             # disable outbound analytics connections
             - AUTHENTIK_DISABLE_STARTUP_ANALYTICS=true
             - AUTHENTIK_DISABLE_UPDATE_CHECK=true
@@ -84,10 +84,10 @@ services:
             - AUTHENTIK_EMAIL__USE_TLS=true
             - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM}
             # PostgreSQL settings
-            - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
-            - AUTHENTIK_POSTGRESQL__USER=${SQLDB_USER}
-            - AUTHENTIK_POSTGRESQL__PASSWORD=${SQLDB_PASS}
-            - AUTHENTIK_POSTGRESQL__NAME=${AUTHN_DBNAME}
+            - AUTHENTIK_POSTGRESQL__HOST=${POSTGRES_HOST}
+            - AUTHENTIK_POSTGRESQL__USER=${DB_ADMIN_USER}
+            - AUTHENTIK_POSTGRESQL__PASSWORD=${DB_ADMIN_PASSWORD}
+            - AUTHENTIK_POSTGRESQL__NAME=${IDENTITY_DBNAME}
             # listen settings
             - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
         image: infraauth:latest
@@ -97,7 +97,7 @@ services:
             # Use the 'websecure' (HTTPS) entry point
             - "traefik.http.routers.infraauth.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.infraauth.rule=Host(`${AUTHN_DOMAIN}`)"
+            - "traefik.http.routers.infraauth.rule=Host(`${IDENTITY_DOMAIN}`)"
             # Assign the router to a named Traefik service
             - "traefik.http.routers.infraauth.service=infraauth"
             # Define the internal container port for routing
@@ -126,8 +126,8 @@ services:
                 condition: service_healthy
         environment:
             # authentick settings
-            - PG_PASS=${AUTHN_PASSWD}
-            - AUTHENTIK_SECRET_KEY=${AUTHN_SECRET}
+            - PG_PASS=${IDENTITY_PASSWORD}
+            - AUTHENTIK_SECRET_KEY=${IDENTITY_SECRET}
             # disable outbound analytics connections
             - AUTHENTIK_DISABLE_STARTUP_ANALYTICS=true
             - AUTHENTIK_DISABLE_UPDATE_CHECK=true
@@ -140,10 +140,10 @@ services:
             - AUTHENTIK_EMAIL__USE_TLS=true
             - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM}
             # PostgreSQL settings
-            - AUTHENTIK_POSTGRESQL__HOST=${PGRSQL_HOST}
-            - AUTHENTIK_POSTGRESQL__USER=${SQLDB_USER}
-            - AUTHENTIK_POSTGRESQL__PASSWORD=${SQLDB_PASS}
-            - AUTHENTIK_POSTGRESQL__NAME=${AUTHN_DBNAME}
+            - AUTHENTIK_POSTGRESQL__HOST=${POSTGRES_HOST}
+            - AUTHENTIK_POSTGRESQL__USER=${DB_ADMIN_USER}
+            - AUTHENTIK_POSTGRESQL__PASSWORD=${DB_ADMIN_PASSWORD}
+            - AUTHENTIK_POSTGRESQL__NAME=${IDENTITY_DBNAME}
             # listen settings
             - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
         image: infraauth:latest

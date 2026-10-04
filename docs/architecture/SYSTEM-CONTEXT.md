@@ -83,7 +83,7 @@ flowchart LR
 
 ## External AI Providers
 
-LiteLLM's cloud target is supplied by `LITEM_PRM_APIBASE` and `LITEM_PRM_APIKEY`. `env.example` names a MiniMax-compatible endpoint, but the actual secret and runtime account are not documented. The repository provides a local llama.cpp tier and privacy routing rules.
+LiteLLM's cloud target is supplied by `AIGATE_PROVIDER_API_BASE` and `AIGATE_PROVIDER_API_KEY`. `env.example` names a MiniMax-compatible endpoint, but the actual secret and runtime account are not documented. The repository provides a local llama.cpp tier and privacy routing rules.
 
 ## DNS and Certificate Dependencies
 

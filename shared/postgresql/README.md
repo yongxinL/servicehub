@@ -21,11 +21,11 @@
 
 | Service | Database variable |
 |---|---|
-| Authentik (`infraauth` / `infraauthwrk`) | `AUTHN_DBNAME` |
-| Forgejo (`devopsforgejo`) | `DEPOT_DBNAME` |
-| LiteLLM (`aiservlitellm`) | `LITEM_DBNAME` |
-| Confluence (`webappconf`, default homepage) | `WBHOME_DBNAME` |
-| Stalwart (`mailsvstalwart`) | `POSTE_DBNAME` — sole mail data store (accounts, messages, indexes, blobs) |
+| Authentik (`infraauth` / `infraauthwrk`) | `IDENTITY_DBNAME` |
+| Forgejo (`devopsforgejo`) | `SOURCECODE_DBNAME` |
+| LiteLLM (`aiservlitellm`) | `AIGATE_DBNAME` |
+| Confluence (`webappconf`, default homepage) | `WORKSPACE_DBNAME` |
+| Stalwart (`mailsvstalwart`) | `POSTOFFICE_DBNAME` — sole mail data store (accounts, messages, indexes, blobs) |
 
 `webappocis` (oCIS) is **not** a PostgreSQL consumer. It uses local configuration and file storage under `${APPS_DATA}/webapp/ocis`; PostgreSQL still holds the Authentik identity data used by the oCIS OIDC flow.
 
@@ -35,20 +35,20 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 | Variable | Description |
 |---|---|
-| `SQLDB_USER` | Shared username created as the superuser |
-| `SQLDB_PASS` | Password for `SQLDB_USER` |
-| `PGRSQL_DBLIST` | Comma-separated databases to create on first start |
-| `PGRSQL_HOST` / `PGRSQL_PORT` | In-network connection target exposed to other services (`infrapgsql:5432`) |
+| `DB_ADMIN_USER` | Shared username created as the superuser |
+| `DB_ADMIN_PASSWORD` | Password for `DB_ADMIN_USER` |
+| `POSTGRES_DATABASES` | Comma-separated databases to create on first start |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | In-network connection target exposed to other services (`infrapgsql:5432`) |
 
-The default `PGRSQL_DBLIST` creates every service database:
+The default `POSTGRES_DATABASES` creates every service database:
 
 ```bash
-PGRSQL_DBLIST="${AUTHN_DBNAME},${DEPOT_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME},${POSTE_DBNAME}"
+POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${WORKSPACE_DBNAME},${POSTOFFICE_DBNAME}"
 ```
 
 ## Multiple databases
 
-[`create-multiple-databases.sh`](create-multiple-databases.sh) is copied to `/docker-entrypoint-initdb.d/` and runs **only on first initialisation** of an empty data directory. For each entry in `PGRSQL_DBLIST` it creates the database if it does not exist and grants privileges to `POSTGRES_USER`.
+[`create-multiple-databases.sh`](create-multiple-databases.sh) is copied to `/docker-entrypoint-initdb.d/` and runs **only on first initialisation** of an empty data directory. For each entry in `POSTGRES_DATABASES` it creates the database if it does not exist and grants privileges to `POSTGRES_USER`.
 
 > The script only runs when `${APPS_DATA}/infra/postgresql` is empty. To re-run it on an existing cluster, you must reset the data directory (see below).
 
@@ -57,13 +57,13 @@ PGRSQL_DBLIST="${AUTHN_DBNAME},${DEPOT_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME},
 Other services on the `subnet` network connect with the hostname and port. The standard DSN form is:
 
 ```
-postgresql://${SQLDB_USER}:${SQLDB_PASS}@${PGRSQL_HOST}:${PGRSQL_PORT}/${DBNAME}
+postgresql://${DB_ADMIN_USER}:${DB_ADMIN_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${DBNAME}
 ```
 
 LiteLLM, for example, uses it directly:
 
 ```yaml
-- DATABASE_URL=postgresql://${SQLDB_USER}:${SQLDB_PASS}@${PGRSQL_HOST}:${PGRSQL_PORT}/${LITEM_DBNAME}
+- DATABASE_URL=postgresql://${DB_ADMIN_USER}:${DB_ADMIN_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${AIGATE_DBNAME}
 ```
 
 ## Operations
@@ -76,13 +76,13 @@ docker compose up -d infrapgsql
 docker compose logs -f infrapgsql
 
 # Open a psql shell inside the container
-docker compose exec infrapgsql psql -U "${SQLDB_USER}"
+docker compose exec infrapgsql psql -U "${DB_ADMIN_USER}"
 ```
 
 ### List databases
 
 ```bash
-docker compose exec infrapgsql psql -U "${SQLDB_USER}" -c "\l"
+docker compose exec infrapgsql psql -U "${DB_ADMIN_USER}" -c "\l"
 ```
 
 ### Reset the database

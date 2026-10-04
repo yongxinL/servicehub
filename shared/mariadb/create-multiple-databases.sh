@@ -12,9 +12,9 @@ function create_user_and_database() {
 EOSQL
 }
 
-if [ -n "$MARIADB_DB_LIST" ]; then
-	echo "Multiple database creation requested: $MARIADB_DB_LIST"
-	for db in $(echo $MARIADB_DB_LIST | tr ',' ' '); do
+if [ -n "$MARIADB_DATABASES" ]; then
+	echo "Multiple database creation requested: $MARIADB_DATABASES"
+	for db in $(echo $MARIADB_DATABASES | tr ',' ' '); do
 		create_user_and_database $db
 	done
 	echo "Multiple databases created ..."

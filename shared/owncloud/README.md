@@ -4,9 +4,9 @@
 
 ## Overview
 
-[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `webappocis` service in [`compose/webapp.yml`](../../compose/webapp.yml) and is built from [`shared/owncloud/Dockerfile`](Dockerfile) (`FROM owncloud/ocis:${IMAGE_TAG}`). It is routed through Traefik at `https://${WBDRIVE_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/webapp/ocis`, and delegates sign-in to Authentik.
+[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `webappocis` service in [`compose/webapp.yml`](../../compose/webapp.yml) and is built from [`shared/owncloud/Dockerfile`](Dockerfile) (`FROM owncloud/ocis:${IMAGE_TAG}`). It is routed through Traefik at `https://${CLOUD_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/webapp/ocis`, and delegates sign-in to Authentik.
 
-The build passes `WBDRIVE_TAG` to the Dockerfile as `IMAGE_TAG` and tags the result `webappocis:latest`. Its entrypoint initialises `${APPS_DATA}/webapp/ocis/config/ocis.yaml` only when it does not exist, then starts the supported single-container service set and persists configuration separately from file data.
+The build passes `CLOUD_TAG` to the Dockerfile as `IMAGE_TAG` and tags the result `webappocis:latest`. Its entrypoint initialises `${APPS_DATA}/webapp/ocis/config/ocis.yaml` only when it does not exist, then starts the supported single-container service set and persists configuration separately from file data.
 
 oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authentik stores identity and application state in PostgreSQL; oCIS stores its core state in its local configuration and data directories. See [ADR-006](../../docs/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) for the persistence decision and implementation note.
 
@@ -20,9 +20,9 @@ oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authe
 | Image | `webappocis:latest` |
 | Entrypoint | `/usr/local/bin/ocis-entrypoint` |
 | Build context | `shared/owncloud/` |
-| Base image | `owncloud/ocis:${WBDRIVE_TAG}` |
+| Base image | `owncloud/ocis:${CLOUD_TAG}` |
 | Internal port | 9200 |
-| Public route | `https://${WBDRIVE_DOMAIN}` |
+| Public route | `https://${CLOUD_DOMAIN}` |
 | Authentication | Authentik OAuth 2.0 / OIDC |
 | Configuration | `${APPS_DATA}/webapp/ocis/config` → `/etc/ocis` |
 | File data | `${APPS_DATA}/webapp/ocis/data` → `/var/lib/ocis` |
@@ -37,11 +37,11 @@ Set these values in `.env`; [`env.example`](../../env.example) contains the defa
 
 | Variable | Description |
 |---|---|
-| `WBDRIVE_DOMAIN` | Public oCIS hostname, default `drive.${DOMAIN_NAME}` |
-| `WBDRIVE_TAG` | Pinned oCIS image tag, default `8.2.0` |
-| `WBDRIVE_OIDC_ISSUER` | Authentik issuer for the oCIS application |
-| `WBDRIVE_OIDC_CLIENT_ID` | Public client ID displayed by the Authentik provider |
-| `WBDRIVE_INSECURE` | Set `true` only when Authentik uses a self-signed certificate |
+| `CLOUD_DOMAIN` | Public oCIS hostname, default `drive.${DOMAIN_NAME}` |
+| `CLOUD_TAG` | Pinned oCIS image tag, default `8.2.0` |
+| `CLOUD_OIDC_ISSUER` | Authentik issuer for the oCIS application |
+| `CLOUD_OIDC_CLIENT_ID` | Public client ID displayed by the Authentik provider |
+| `CLOUD_INSECURE` | Set `true` only when Authentik uses a self-signed certificate |
 
 Do not record the Authentik provider client secret in documentation. The browser client is configured as a public OIDC client and does not require a client secret.
 
@@ -49,23 +49,23 @@ Do not record the Authentik provider client secret in documentation. The browser
 
 Perform this one-time setup before starting `webappocis`:
 
-1. Open the Authentik administration interface at `https://${AUTHN_DOMAIN}`.
+1. Open the Authentik administration interface at `https://${IDENTITY_DOMAIN}`.
 2. Create an **OAuth2 / OpenID Provider** with these settings:
    - **Client type:** Public.
    - **Redirect URIs:**
-     - `https://${WBDRIVE_DOMAIN}/oidc-callback.html`
-     - `https://${WBDRIVE_DOMAIN}/oidc-silent-redirect.html`
-     - `https://${WBDRIVE_DOMAIN}/`
+     - `https://${CLOUD_DOMAIN}/oidc-callback.html`
+     - `https://${CLOUD_DOMAIN}/oidc-silent-redirect.html`
+     - `https://${CLOUD_DOMAIN}/`
    - **Scopes:** `openid`, `profile`, and `email`.
    - **Signing key:** an approved Authentik signing key.
 3. Create an **Application** linked to that provider:
    - **Slug:** `ocis`.
-   - **Launch URL:** `https://${WBDRIVE_DOMAIN}`.
-4. Copy the provider client ID into `WBDRIVE_OIDC_CLIENT_ID`.
-5. Confirm that `WBDRIVE_OIDC_ISSUER` matches the provider issuer. With slug `ocis`, the expected form is:
+   - **Launch URL:** `https://${CLOUD_DOMAIN}`.
+4. Copy the provider client ID into `CLOUD_OIDC_CLIENT_ID`.
+5. Confirm that `CLOUD_OIDC_ISSUER` matches the provider issuer. With slug `ocis`, the expected form is:
 
    ```text
-   https://${AUTHN_DOMAIN}/application/o/ocis/
+   https://${IDENTITY_DOMAIN}/application/o/ocis/
    ```
 
 6. Apply the `.env` changes and restart oCIS.
@@ -98,10 +98,10 @@ Check status:
 ```bash
 docker compose ps webappocis
 docker compose logs -f webappocis
-curl -fsS "https://${WBDRIVE_DOMAIN}/status.php"
+curl -fsS "https://${CLOUD_DOMAIN}/status.php"
 ```
 
-Open `https://${WBDRIVE_DOMAIN}` and verify:
+Open `https://${CLOUD_DOMAIN}` and verify:
 
 - The login button redirects to Authentik.
 - A test user can complete OIDC sign-in.
@@ -134,11 +134,11 @@ docker compose logs -f webappocis
 docker compose config --quiet
 ```
 
-Upgrades must pin a tested `WBDRIVE_TAG`, back up both oCIS directories, and record compatibility and rollback evidence. Do not remove `${APPS_DATA}/webapp/ocis` during a routine restart.
+Upgrades must pin a tested `CLOUD_TAG`, back up both oCIS directories, and record compatibility and rollback evidence. Do not remove `${APPS_DATA}/webapp/ocis` during a routine restart.
 
 ## Security Notes
 
-- Keep `WBDRIVE_INSECURE=false` when Authentik has a trusted certificate.
+- Keep `CLOUD_INSECURE=false` when Authentik has a trusted certificate.
 - Use a public OIDC client with PKCE; do not place a client secret in `.env`.
 - Keep the oCIS route behind `secure-chain`; authentication belongs to oCIS and Authentik rather than Traefik forward auth.
 - Disable public registration in Authentik and assign file-sharing permissions through the approved identity and group model.

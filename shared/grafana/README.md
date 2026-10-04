@@ -11,7 +11,7 @@
 | Detail | Value |
 |---|---|
 | Service name | `obsvcegrafana` (+ one-shot `obsvcegrafanainit`) |
-| URL | `https://${OBSVC_DOMAIN}` |
+| URL | `https://${OBSERVABILITY_DOMAIN}` |
 | Internal port | 3000 |
 | Database | SQLite (embedded, persisted to `${APPS_DATA}/obsvce/grafana`) |
 | Data sources | VictoriaMetrics (`obsvcevm:8428`), VictoriaLogs (`obsvcevlogs:9428`) |
@@ -25,16 +25,16 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 | Variable | Description |
 |---|---|
-| `OBSVC_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
-| `OBSVC_ADMUSR` | Grafana admin username |
-| `OBSVC_ADMPWD` | Grafana admin password |
+| `OBSERVABILITY_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
+| `OBSERVABILITY_ADMIN_USER` | Grafana admin username |
+| `OBSERVABILITY_ADMIN_PASSWORD` | Grafana admin password |
 
 Grafana settings applied by the compose file:
 
 | Setting | Value | Purpose |
 |---|---|---|
-| `GF_SECURITY_ADMIN_USER` / `GF_SECURITY_ADMIN_PASSWORD` | `${OBSVC_ADMUSR}` / `${OBSVC_ADMPWD}` | Local admin account |
-| `GF_SERVER_DOMAIN` / `GF_SERVER_ROOT_URL` | `${OBSVC_DOMAIN}` | Correct URLs behind Traefik |
+| `GF_SECURITY_ADMIN_USER` / `GF_SECURITY_ADMIN_PASSWORD` | `${OBSERVABILITY_ADMIN_USER}` / `${OBSERVABILITY_ADMIN_PASSWORD}` | Local admin account |
+| `GF_SERVER_DOMAIN` / `GF_SERVER_ROOT_URL` | `${OBSERVABILITY_DOMAIN}` | Correct URLs behind Traefik |
 | `GF_USERS_ALLOW_SIGN_UP` | `false` | No self-registration |
 | `GF_INSTALL_PLUGINS` | `victoriametrics-logs-datasource` | Logs datasource |
 

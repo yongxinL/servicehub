@@ -13,9 +13,9 @@
 | Service name | `aiservlitellm` |
 | Admin UI | `http://<host>:12380/ui` |
 | Port | 12380 (UI + API + metrics) |
-| Database | PostgreSQL (`${LITEM_DBNAME}`, via `aiservlitellm` → `infrapgsql`) |
-| Local tier | `hephaestus` → `aiservllamacpp` (Gemma-4, via `LITEM_HPH_*`) |
-| Cloud tier | `prometheus` → MiniMax 2.7 (via `LITEM_PRM_*`) |
+| Database | PostgreSQL (`${AIGATE_DBNAME}`, via `aiservlitellm` → `infrapgsql`) |
+| Local tier | `hephaestus` → `aiservllamacpp` (Gemma-4, via `AIGATE_HERMES_*`) |
+| Cloud tier | `prometheus` → MiniMax 2.7 (via `AIGATE_PROVIDER_*`) |
 | Health check | `GET /health/liveliness` with Bearer token |
 | Metrics | Prometheus `/metrics` on the UI port (scraped by VictoriaMetrics) |
 | Config override | mount `${APPS_DATA}/aiserv/litellm/config.yaml` → `/opt/litellm/config.yaml` |
@@ -26,26 +26,26 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 | Variable | Default | Description |
 |---|---|---|
-| `LITEM_API_KEY` | Auto-generated | Master API key (Bearer token `sk-...`) used by Hermes, FastCRW and other clients |
-| `LITEM_API_URL` | `http://aiservlitellm:12380/v1` | Base URL clients use to reach the proxy |
-| `LITEM_ADMUSR` | `admin` | Admin UI username |
-| `LITEM_ADMPWD` | | Admin UI password |
-| `LITEM_DBNAME` | `litellm` | PostgreSQL database for usage tracking |
-| `LITEM_HPH_APIURL` | `http://aiservllamacpp:12386/v1` | Local (hephaestus) inference base URL |
-| `LITEM_HPH_APIKEY` | `none` | Local inference API key |
-| `LITEM_HPH_HLTURL` | `http://aiservllamacpp:12386/health` | Local inference health-check URL |
-| `LITEM_PRM_APIBASE` | `https://api.minimax.io/anthropic` | MiniMax Anthropic-compatible API base |
-| `LITEM_PRM_APIKEY` | | MiniMax API key |
+| `AIGATE_API_KEY` | Auto-generated | Master API key (Bearer token `sk-...`) used by Hermes, FastCRW and other clients |
+| `AIGATE_API_URL` | `http://aiservlitellm:12380/v1` | Base URL clients use to reach the proxy |
+| `AIGATE_ADMIN_USER` | `admin` | Admin UI username |
+| `AIGATE_ADMIN_PASSWORD` | | Admin UI password |
+| `AIGATE_DBNAME` | `litellm` | PostgreSQL database for usage tracking |
+| `AIGATE_HERMES_API_URL` | `http://aiservllamacpp:12386/v1` | Local (hephaestus) inference base URL |
+| `AIGATE_HERMES_API_KEY` | `none` | Local inference API key |
+| `AIGATE_HERMES_HEALTH_URL` | `http://aiservllamacpp:12386/health` | Local inference health-check URL |
+| `AIGATE_PROVIDER_API_BASE` | `https://api.minimax.io/anthropic` | MiniMax Anthropic-compatible API base |
+| `AIGATE_PROVIDER_API_KEY` | | MiniMax API key |
 
 Container settings applied by the compose file:
 
 | Setting | Value | Purpose |
 |---|---|---|
-| `LLM_MASTER_KEY` | `${LITEM_API_KEY}` | Proxy master key |
-| `DATABASE_URL` | `postgresql://…/${LITEM_DBNAME}` | Usage/keys database |
+| `LLM_MASTER_KEY` | `${AIGATE_API_KEY}` | Proxy master key |
+| `DATABASE_URL` | `postgresql://…/${AIGATE_DBNAME}` | Usage/keys database |
 | `UI_PORT` | `12380` | API/UI listen port |
-| `UI_USERNAME` / `UI_PASSWORD` | `${LITEM_ADMUSR}` / `${LITEM_ADMPWD}` | Dashboard login |
-| `LITEM_EDGE_*` / `LITEM_CLOUD_*` | from `LITEM_HPH_*` / `LITEM_PRM_*` | Provider routing targets |
+| `UI_USERNAME` / `UI_PASSWORD` | `${AIGATE_ADMIN_USER}` / `${AIGATE_ADMIN_PASSWORD}` | Dashboard login |
+| `LITEM_EDGE_*` / `LITEM_CLOUD_*` | from `AIGATE_HERMES_*` / `AIGATE_PROVIDER_*` (container-side LiteLLM names unchanged) | Provider routing targets |
 
 ## Routing logic
 
@@ -86,7 +86,7 @@ docker compose up -d aiservlitellm
 docker compose logs -f aiservlitellm | grep route
 
 # Liveness check
-curl -sf -H "Authorization: Bearer ${LITEM_API_KEY}" \
+curl -sf -H "Authorization: Bearer ${AIGATE_API_KEY}" \
   http://localhost:12380/health/liveliness
 ```
 

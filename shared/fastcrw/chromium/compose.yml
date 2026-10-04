@@ -14,7 +14,7 @@ services:
             # TOKEN is required by browserless v2 — clients must pass `?token=...`.
             # Default is a published placeholder; override via `.env` in production:
             #   echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env
-            - TOKEN=${LITEM_API_KEY:-aiagnchromum}
+            - TOKEN=${AIGATE_API_KEY:-aiagnchromum}
             - PORT=12363
             - CONCURRENT=15
             - MAX_QUEUE_LENGTH=30

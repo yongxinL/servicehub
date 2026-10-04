@@ -11,7 +11,7 @@
 | Detail | Value |
 |---|---|
 | Service name | `webappowui` |
-| URL | `https://${OWEBUI_DOMAIN}` |
+| URL | `https://${CHAT_DOMAIN}` |
 | Internal port | 8080 |
 | Data persistence | `${APPS_DATA}/webapp/openwebui` (mounted at `/app/backend/data`) |
 | Depends on | `routetraefik` (healthy) |
@@ -22,7 +22,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 | Variable | Description |
 |---|---|
-| `OWEBUI_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
+| `CHAT_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
 
 ## Connecting to the LLM stack
 
@@ -30,8 +30,8 @@ Add a connection in Open WebUI → **Settings → Connections**:
 
 | Target | API base URL | API key |
 |---|---|---|
-| LiteLLM proxy | `http://aiservlitellm:12380/v1` | `${LITEM_API_KEY}` |
-| Hermes gateway | `http://aiservhermes:12330/v1` | `${LITEM_API_KEY}` |
+| LiteLLM proxy | `http://aiservlitellm:12380/v1` | `${AIGATE_API_KEY}` |
+| Hermes gateway | `http://aiservhermes:12330/v1` | `${AIGATE_API_KEY}` |
 
 When pointed at LiteLLM, requests use the `hermes` virtual model and are routed automatically by [`smartrouter.py`](../litellm/README.md). Pointing at a Hermes gateway talks to that user's agent directly.
 

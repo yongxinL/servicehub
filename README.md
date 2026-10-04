@@ -308,9 +308,9 @@ All agents share the same `aiservlitellm` router and `aiservllamacpp` model, so 
 | Open WebUI — browser LLM chat interface | `webappowui` | [shared/openwebui/README.md](shared/openwebui/README.md) |
 | ownCloud Infinite Scale — family cloud drive | `webappocis` (+ one-shot `webappocisinit`) | [shared/owncloud/README.md](shared/owncloud/README.md) |
 
-Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`. oCIS is served at `https://${WBDRIVE_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
+Confluence serves `WORKSPACE_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WORKSPACE_DBNAME}`). Open WebUI is served at `https://${CHAT_DOMAIN}`. oCIS is served at `https://${CLOUD_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
 
-> **Database lists only initialize empty data directories.** Updating `PGRSQL_DBLIST` or `MARIADB_DB_LIST` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
+> **Database lists only initialize empty data directories.** Updating `POSTGRES_DATABASES` or `MARIADB_DATABASES` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
 >
 > An optional [WordPress homepage](shared/wordpress/README.md) can replace Confluence; the two must never run together.
 
@@ -345,7 +345,7 @@ graph LR
     Grafana -->|query| VL
 ```
 
-Grafana is reachable at `https://${OBSVC_DOMAIN}` behind Authentik forward-auth and ships pre-built dashboards for node, Docker/cAdvisor, Traefik, VictoriaMetrics, LiteLLM and VictoriaLogs.
+Grafana is reachable at `https://${OBSERVABILITY_DOMAIN}` behind Authentik forward-auth and ships pre-built dashboards for node, Docker/cAdvisor, Traefik, VictoriaMetrics, LiteLLM and VictoriaLogs.
 
 ---
 
@@ -363,9 +363,9 @@ A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) 
 | Detail | Value |
 |---|---|
 | Mail server (Stalwart admin) | `https://${EMAIL_HOST}` — reachable from trusted IPs only |
-| Webmail (Bulwark) | `https://${WEBMAIL_DOMAIN}` |
+| Webmail (Bulwark) | `https://${POSTOFFICE_DOMAIN}` |
 | Ports published to the host | 25 / 465 / 587 / 993 (SMTP server-to-server, submission ×2, IMAP) |
-| Storage | PostgreSQL (`${POSTE_DBNAME}` on `infrapgsql`) holds all mail data — accounts, messages, indexes, blobs |
+| Storage | PostgreSQL (`${POSTOFFICE_DBNAME}` on `infrapgsql`) holds all mail data — accounts, messages, indexes, blobs |
 | TLS | Reused from Traefik's shared `acme.json` via an in-container certificate exporter |
 | Webmail → Stalwart | JMAP at `https://${EMAIL_HOST}` — browser-side, so Stalwart needs **Permissive CORS** (`usePermissiveCors`) and a trusted certificate (see [Bulwark — Login prerequisites](shared/bulwark/README.md#login-prerequisites-stalwart-side)) |
 | Single sign-on | Authentik serves the directory: webmail users log in with their Authentik password through the JMAP password form, IMAP/SMTP/JMAP logins bind against Authentik's LDAP outpost |
@@ -407,7 +407,7 @@ Run the setup script to create your `.env` from the template. It auto-generates 
 bash scripts/setup.sh
 ```
 
-If `.env` already exists (e.g., after pulling updates), the script merges new variables from `env.example` without overwriting existing values, and migrates renamed legacy variables (e.g. `SECOB_*` → `OBSVC_*`).
+If `.env` already exists (e.g., after pulling updates), the script merges new variables from `env.example` without overwriting existing values, and migrates renamed legacy variables (e.g. `SECOB_*` → `OBSERVABILITY_*`, and the ADR-008 service prefixes).
 
 ### 3. Configure Environment Variables
 
@@ -417,14 +417,14 @@ Edit `.env` to match your environment:
 # Required — set these before first start
 DOMAIN_NAME=example.com          # Your primary domain
 TRAEFIK_DOMAIN=traefik.example.com
-AUTHN_DOMAIN=login.example.com   # Authentik hostname
-DEPOT_DOMAIN=git.example.com   # Forgejo hostname
+IDENTITY_DOMAIN=login.example.com   # Authentik hostname
+SOURCECODE_DOMAIN=git.example.com   # Forgejo hostname
 TRAEFIK_ACMEMAIL=you@example.com # Let's Encrypt registration email
 APPS_DATA=~/Documents/containerd # Default host path for persistent data
 TIME_ZONE=Australia/Sydney
-WBHOME_DOMAIN=www.${DOMAIN_NAME}
-WBHOME_DBNAME=svchubwbhome
-WBHOME_TAG=10.2
+WORKSPACE_DOMAIN=www.${DOMAIN_NAME}
+WORKSPACE_DBNAME=svchub_workspace
+WORKSPACE_TAG=10.2
 ```
 
 See [Configuration](#configuration) for the variable reference. For an existing installation, retain database names and credentials rather than copying new-install defaults.
@@ -656,7 +656,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 ### Triggering a Deployment
 
-1. Open the repository in Forgejo (`https://${DEPOT_DOMAIN}`) → **Actions**
+1. Open the repository in Forgejo (`https://${SOURCECODE_DOMAIN}`) → **Actions**
 2. Select the **deploy** workflow and click **Run workflow**
 3. Set the inputs:
    - **service** — `all` (default) to deploy every app service, or one from the dropdown (`webappconf`, `webappowui`, `webappocis`, `aiservlitellm`, `aiservllamacpp`, `aiservhermes`, `obsvcevm`, `obsvcevlogs`, `obsvcealloy`, `obsvcegrafana`, `mailsvstalwart`, `mailsvbulwark`). Foundational services are not listed — see [Deploy scope](#how-it-works).
@@ -772,25 +772,25 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 
 | Variable | Description |
 |---|---|
-| `AUTHN_TAG` | Authentik image tag (e.g. `2026.8`) |
-| `AUTHN_DOMAIN` | Authentik hostname (e.g. `login.example.com`) |
-| `AUTHN_DBNAME` | PostgreSQL database name for Authentik (default: `svchubauthtk`) |
-| `AUTHN_PASSWD` | Auto-generated by `setup.sh`; Authentik DB password |
-| `AUTHN_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
+| `IDENTITY_TAG` | Authentik image tag (e.g. `2026.8`) |
+| `IDENTITY_DOMAIN` | Authentik hostname (e.g. `login.example.com`) |
+| `IDENTITY_DBNAME` | PostgreSQL database name for Authentik (default: `svchub_identity`) |
+| `IDENTITY_PASSWORD` | Auto-generated by `setup.sh`; Authentik DB password |
+| `IDENTITY_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
 
 ### Web Applications (webapp)
 
 | Variable | Description |
 |---|---|
-| `WBHOME_DOMAIN` | Shared homepage hostname (default: `www.${DOMAIN_NAME}`); the apex is served as well |
-| `WBHOME_DBNAME` | Homepage database name (default: `svchubwbhome`) |
-| `WBHOME_TAG` | Confluence image tag (default: `10.2`) |
-| `OWEBUI_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
-| `WBDRIVE_DOMAIN` | oCIS cloud-drive hostname (default: `drive.${DOMAIN_NAME}`) |
-| `WBDRIVE_TAG` | Pinned oCIS image tag (default: `8.2.0`) |
-| `WBDRIVE_OIDC_ISSUER` | Authentik OIDC issuer for the `ocis` application |
-| `WBDRIVE_OIDC_CLIENT_ID` | Public Authentik OIDC client ID |
-| `WBDRIVE_INSECURE` | `true` only when Authentik uses a self-signed certificate |
+| `WORKSPACE_DOMAIN` | Shared homepage hostname (default: `www.${DOMAIN_NAME}`); the apex is served as well |
+| `WORKSPACE_DBNAME` | Workspace database name (default: `svchub_workspace`) |
+| `WORKSPACE_TAG` | Confluence image tag (default: `10.2`) |
+| `CHAT_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
+| `CLOUD_DOMAIN` | oCIS cloud-drive hostname (default: `drive.${DOMAIN_NAME}`) |
+| `CLOUD_TAG` | Pinned oCIS image tag (default: `8.2.0`) |
+| `CLOUD_OIDC_ISSUER` | Authentik OIDC issuer for the `ocis` application |
+| `CLOUD_OIDC_CLIENT_ID` | Public Authentik OIDC client ID |
+| `CLOUD_INSECURE` | `true` only when Authentik uses a self-signed certificate |
 
 ### AI Agent Platform (aiserv)
 
@@ -801,34 +801,34 @@ The agent platform variables are documented in the service READMEs — see [Herm
 | `HERMES_WORKSPACE_PASSWD_00` | Workspace web UI password (port 12320) |
 | `HERMES_DATA_00` | Agent data directory (default `${APPS_DATA}/aiserv/hermes/00`) |
 | `HERMES_WORKSPACE_DOMAIN_00` | Optional Traefik domain (empty = IP:port only) |
-| `LITEM_API_KEY` | LiteLLM master API key, shared by Hermes and other in-stack clients |
-| `LITEM_*` | LiteLLM proxy, admin UI and provider routing settings |
+| `AIGATE_API_KEY` | LiteLLM master API key, shared by Hermes and other in-stack clients |
+| `AIGATE_*` | LiteLLM proxy, admin UI and provider routing settings |
 | `LLAMA_CHTMDL` / `LLAMA_CHTARG` / `HF_TOKEN` | llama.cpp model, server flags, HuggingFace token |
 
 ### Observability (obsvce)
 
 | Variable | Description |
 |---|---|
-| `OBSVC_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
-| `OBSVC_ADMUSR` | Grafana admin username |
-| `OBSVC_ADMPWD` | Grafana admin password |
+| `OBSERVABILITY_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
+| `OBSERVABILITY_ADMIN_USER` | Grafana admin username |
+| `OBSERVABILITY_ADMIN_PASSWORD` | Grafana admin password |
 
 ### Databases
 
 | Variable | Description |
 |---|---|
-| `SQLDB_USER` | Shared DB username for both MariaDB and PostgreSQL |
-| `SQLDB_PASS` | Auto-generated by `setup.sh`; store securely |
-| `MySQL_HOST` / `MySQL_PORT` | MariaDB hostname / port (internal) |
-| `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL hostname / port (internal) |
-| `MARIADB_DB_LIST` | Comma-separated MariaDB databases to initialize (default: `${WBHOME_DBNAME}`) |
-| `PGRSQL_DBLIST` | Comma-separated PostgreSQL databases to initialize, including `${LITEM_DBNAME}` |
+| `DB_ADMIN_USER` | Shared DB username for both MariaDB and PostgreSQL |
+| `DB_ADMIN_PASSWORD` | Auto-generated by `setup.sh`; store securely |
+| `MARIADB_HOST` / `MARIADB_PORT` | MariaDB hostname / port (internal) |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | PostgreSQL hostname / port (internal) |
+| `MARIADB_DATABASES` | Comma-separated MariaDB databases to initialize (default: `${WORKSPACE_DBNAME}`) |
+| `POSTGRES_DATABASES` | Comma-separated PostgreSQL databases to initialize, including `${AIGATE_DBNAME}` |
 
 For new installations:
 
 ```bash
-MARIADB_DB_LIST="${WBHOME_DBNAME}"
-PGRSQL_DBLIST="${AUTHN_DBNAME},${DEPOT_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME},${POSTE_DBNAME}"
+MARIADB_DATABASES="${WORKSPACE_DBNAME}"
+POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${WORKSPACE_DBNAME},${POSTOFFICE_DBNAME}"
 ```
 
 These lists only initialize empty database data directories. Preserve existing database names and passwords; create missing databases and grants explicitly on existing installations. See the [PostgreSQL](shared/postgresql/README.md) and [MariaDB](shared/mariadb/README.md) READMEs.
@@ -848,9 +848,9 @@ The webmail variables are documented in the service READMEs — see [Bulwark](sh
 
 | Variable | Description |
 |---|---|
-| `WEBMAIL_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) |
+| `POSTOFFICE_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) |
 | `WEBMAIL_SESSION_SECRET` | Session cookie encryption; auto-generated by `setup.sh` |
-| `POSTE_DBNAME` | PostgreSQL database holding all Stalwart mail data (must be in `PGRSQL_DBLIST`) |
+| `POSTOFFICE_DBNAME` | PostgreSQL database holding all Stalwart mail data (must be in `POSTGRES_DATABASES`) |
 | `STALWART_ADMIN_USER` / `STALWART_ADMIN_PASS` | Stalwart recovery admin (`STALWART_RECOVERY_ADMIN`); pass auto-generated by `setup.sh`, empty disables |
 
 ---

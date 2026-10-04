@@ -157,7 +157,7 @@ shared agent identity.** This is confirmed by upstream design:
   not authenticate or authorize end users. A profile is a configuration, not a
   person."*
 - The **Hermes Gateway** is OpenAI-compatible and authenticated by a **single
-  per-profile `API_SERVER_KEY`** (here `${LITEM_API_KEY}`). Session continuity
+  per-profile `API_SERVER_KEY`** (here `${AIGATE_API_KEY}`). Session continuity
   uses the `X-Hermes-Session-Id` header. There are no accounts.
 - **Profiles** (`hermes profile create`) create a separate `HERMES_HOME` with
   its own `config.yaml`, `.env`, `SOUL.md`, memories and sessions. They are

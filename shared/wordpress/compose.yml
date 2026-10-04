@@ -3,7 +3,7 @@
 # To switch the default homepage from Confluence to WordPress:
 #   1. Stop webappconf:  docker compose stop webappconf
 #   2. In docker-compose.yml, replace `- compose/webapp.yml` with `- shared/wordpress/compose.yml`
-#   3. Ensure MARIADB_DB_LIST="${WBHOME_DBNAME}" in .env, then: docker compose up -d --build
+#   3. Ensure MARIADB_DATABASES="${WORKSPACE_DBNAME}" in .env, then: docker compose up -d --build
 #
 # Docs: shared/wordpress/README.md
 services:
@@ -19,10 +19,10 @@ services:
             infraauth:
                 condition: service_started
         environment:
-            - WORDPRESS_DB_HOST=${MySQL_HOST}
-            - WORDPRESS_DB_NAME=${WBHOME_DBNAME}
-            - WORDPRESS_DB_USER=${SQLDB_USER}
-            - WORDPRESS_DB_PASSWORD=${SQLDB_PASS}
+            - WORDPRESS_DB_HOST=${MARIADB_HOST}
+            - WORDPRESS_DB_NAME=${WORKSPACE_DBNAME}
+            - WORDPRESS_DB_USER=${DB_ADMIN_USER}
+            - WORDPRESS_DB_PASSWORD=${DB_ADMIN_PASSWORD}
         image: wbappcmswppv:latest
         labels:
             # Enable Traefik for this container
@@ -30,7 +30,7 @@ services:
             # Use the 'websecure' (HTTPS) entry point
             - "traefik.http.routers.wbappcmswppv.entrypoints=websecure"
             # Match incoming requests on a specific hostname (plus the apex domain)
-            - "traefik.http.routers.wbappcmswppv.rule=Host(`${WBHOME_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            - "traefik.http.routers.wbappcmswppv.rule=Host(`${WORKSPACE_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
             # Assign the router to a named Traefik service
             - "traefik.http.routers.wbappcmswppv.service=wbappcmswppv"
             # Define the internal container port for routing

@@ -4,12 +4,12 @@ services:
         build:
             context: ../shared/confluence/
             args:
-                - IMAGE_TAG=${WBHOME_TAG}
+                - IMAGE_TAG=${WORKSPACE_TAG}
         depends_on:
             infraauth:
                 condition: service_healthy
         environment:
-            - ATL_PROXY_NAME=${WBHOME_DOMAIN}
+            - ATL_PROXY_NAME=${WORKSPACE_DOMAIN}
             - ATL_PROXY_PORT=443
             - JVM_MAXIMUM_MEMORY=3072m
             - JVM_MINIMUM_MEMORY=1024m
@@ -20,9 +20,9 @@ services:
             - ATL_TOMCAT_MAXHTTPHEADERSIZE=8192
             - ATL_DB_POOLMAXSIZE=125
             - ATL_DB_TYPE=postgresql
-            - ATL_JDBC_URL=jdbc:postgresql://${PGRSQL_HOST}:${PGRSQL_PORT}/${WBHOME_DBNAME}
-            - ATL_JDBC_USER=${SQLDB_USER}
-            - ATL_JDBC_PASSWORD=${SQLDB_PASS}
+            - ATL_JDBC_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${WORKSPACE_DBNAME}
+            - ATL_JDBC_USER=${DB_ADMIN_USER}
+            - ATL_JDBC_PASSWORD=${DB_ADMIN_PASSWORD}
             - JVM_SUPPORT_RECOMMENDED_ARGS=-Dmail.smtp.ssl.protocols=TLSv1.2 -Dupm.pac.disable=true --Datlassian.upm.signature.check.disabled=true
         healthcheck:
             test: [ "CMD", "curl", "-f", "http://localhost:8090/status"]
@@ -37,7 +37,7 @@ services:
             # Use the 'websecure' (HTTPS) entry point
             - "traefik.http.routers.webappconf.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.webappconf.rule=Host(`${WBHOME_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            - "traefik.http.routers.webappconf.rule=Host(`${WORKSPACE_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
             # Assign the router to a named Traefik service
             - "traefik.http.routers.webappconf.service=webappconf"
             # Define the internal container port for routing
@@ -72,7 +72,7 @@ services:
             # Use the 'websecure' (HTTPS) entry point
             - "traefik.http.routers.webappowui.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.webappowui.rule=Host(`${OWEBUI_DOMAIN}`)"
+            - "traefik.http.routers.webappowui.rule=Host(`${CHAT_DOMAIN}`)"
             # Assign the router to a named Traefik service
             - "traefik.http.routers.webappowui.service=webappowui"
             # Define the internal container port for routing
@@ -108,7 +108,7 @@ services:
         build:
             context: ../shared/owncloud/
             args:
-                - IMAGE_TAG=${WBDRIVE_TAG}
+                - IMAGE_TAG=${CLOUD_TAG}
         depends_on:
             infraauth:
                 condition: service_healthy
@@ -119,7 +119,7 @@ services:
         environment:
             - TZ=${TIME_ZONE}
             - OCIS_CONFIG_DIR=/etc/ocis
-            - OCIS_URL=https://${WBDRIVE_DOMAIN}
+            - OCIS_URL=https://${CLOUD_DOMAIN}
             - OCIS_LOG_LEVEL=info
             - OCIS_LOG_COLOR=false
             - OCIS_LOG_PRETTY=false
@@ -127,11 +127,11 @@ services:
             - PROXY_TLS=false
             # Use Authentik as the external OIDC provider instead of the built-in IDP.
             - OCIS_EXCLUDE_RUN_SERVICES=idp
-            - OCIS_OIDC_ISSUER=${WBDRIVE_OIDC_ISSUER}
+            - OCIS_OIDC_ISSUER=${CLOUD_OIDC_ISSUER}
             - PROXY_OIDC_REWRITE_WELLKNOWN=true
-            - WEB_OIDC_CLIENT_ID=${WBDRIVE_OIDC_CLIENT_ID}
+            - WEB_OIDC_CLIENT_ID=${CLOUD_OIDC_CLIENT_ID}
             - WEB_OIDC_SCOPE=openid profile email
-            - WEB_OIDC_POST_LOGOUT_REDIRECT_URI=https://${WBDRIVE_DOMAIN}/
+            - WEB_OIDC_POST_LOGOUT_REDIRECT_URI=https://${CLOUD_DOMAIN}/
             # Provision oCIS accounts on first successful Authentik sign-in.
             - PROXY_AUTOPROVISION_ACCOUNTS=true
             - PROXY_USER_OIDC_CLAIM=preferred_username
@@ -142,7 +142,7 @@ services:
             - PROXY_ENABLE_BASIC_AUTH=false
             - IDM_CREATE_DEMO_USERS=false
             # Set true only when Authentik uses a self-signed certificate.
-            - OCIS_INSECURE=${WBDRIVE_INSECURE}
+            - OCIS_INSECURE=${CLOUD_INSECURE}
         healthcheck:
             test: [ "CMD", "curl", "-fsS", "http://localhost:9200/status.php" ]
             start_period: 60s
@@ -153,7 +153,7 @@ services:
         labels:
             - "traefik.enable=true"
             - "traefik.http.routers.webappocis.entrypoints=websecure"
-            - "traefik.http.routers.webappocis.rule=Host(`${WBDRIVE_DOMAIN}`)"
+            - "traefik.http.routers.webappocis.rule=Host(`${CLOUD_DOMAIN}`)"
             - "traefik.http.routers.webappocis.service=webappocis"
             - "traefik.http.services.webappocis.loadbalancer.server.port=9200"
             - "traefik.http.routers.webappocis.tls=true"

@@ -6,7 +6,7 @@
 
 [MariaDB 11.8](https://mariadb.org/) provides a MySQL-compatible relational database. It is defined by the `inframariadb` service in [`compose/infra.yml`](../../compose/infra.yml) and built from [`shared/mariadb/Dockerfile`](Dockerfile) (`FROM mariadb:11.8`).
 
-> **Note:** No service in the default stack uses MariaDB — Authentik, Forgejo, LiteLLM and Confluence all use [PostgreSQL](../postgresql/README.md). The service is kept available for future MySQL-backed services; leave `MARIADB_DB_LIST` empty if you don't need it.
+> **Note:** No service in the default stack uses MariaDB — Authentik, Forgejo, LiteLLM and Confluence all use [PostgreSQL](../postgresql/README.md). The service is kept available for future MySQL-backed services; leave `MARIADB_DATABASES` empty if you don't need it.
 
 ## Service details
 
@@ -24,24 +24,24 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 | Variable | Description |
 |---|---|
-| `SQLDB_USER` | Shared username created as the superuser |
-| `SQLDB_PASS` | Password for `SQLDB_USER` (also used as the root password) |
-| `MARIADB_DB_LIST` | Comma-separated databases to create on first start (default: `${WBHOME_DBNAME}`) |
-| `MySQL_HOST` / `MySQL_PORT` | In-network connection target exposed to other services (`inframariadb:3306`) |
+| `DB_ADMIN_USER` | Shared username created as the superuser |
+| `DB_ADMIN_PASSWORD` | Password for `DB_ADMIN_USER` (also used as the root password) |
+| `MARIADB_DATABASES` | Comma-separated databases to create on first start (default: `${WORKSPACE_DBNAME}`) |
+| `MARIADB_HOST` / `MARIADB_PORT` | In-network connection target exposed to other services (`inframariadb:3306`) |
 
 ## Multiple databases
 
-[`create-multiple-databases.sh`](create-multiple-databases.sh) is copied to `/docker-entrypoint-initdb.d/` and runs **only on first initialisation** of an empty data directory. For each entry in `MARIADB_DB_LIST` (comma-separated) it runs:
+[`create-multiple-databases.sh`](create-multiple-databases.sh) is copied to `/docker-entrypoint-initdb.d/` and runs **only on first initialisation** of an empty data directory. For each entry in `MARIADB_DATABASES` (comma-separated) it runs:
 
 ```sql
 CREATE DATABASE IF NOT EXISTS `<name>`;
-GRANT ALL ON `<name>`.* TO '<SQLDB_USER>'@'%';
+GRANT ALL ON `<name>`.* TO '<DB_ADMIN_USER>'@'%';
 ```
 
 Example:
 
 ```bash
-MARIADB_DB_LIST="appdb,analytics"
+MARIADB_DATABASES="appdb,analytics"
 ```
 
 > The script only runs when `${APPS_DATA}/infra/mariadb` is empty. To re-run it on an existing database, you must reset the data directory (see below).
@@ -51,10 +51,10 @@ MARIADB_DB_LIST="appdb,analytics"
 Other services on the `subnet` network connect with the hostname and port:
 
 ```
-host: ${MySQL_HOST}   # inframariadb
-port: ${MySQL_PORT}   # 3306
-user: ${SQLDB_USER}
-pass: ${SQLDB_PASS}
+host: ${MARIADB_HOST}   # inframariadb
+port: ${MARIADB_PORT}   # 3306
+user: ${DB_ADMIN_USER}
+pass: ${DB_ADMIN_PASSWORD}
 ```
 
 ## Operations
@@ -67,7 +67,7 @@ docker compose up -d inframariadb
 docker compose logs -f inframariadb
 
 # Open a SQL shell inside the container
-docker compose exec inframariadb mariadb -u"${SQLDB_USER}" -p
+docker compose exec inframariadb mariadb -u"${DB_ADMIN_USER}" -p
 ```
 
 ### Reset the database

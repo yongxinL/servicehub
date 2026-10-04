@@ -93,7 +93,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Symptoms:** Applications report connection refused, authentication failure, missing database, or `pg_isready` fails.
 
-**Likely causes:** PostgreSQL unhealthy, wrong service name or port, missing database in `PGRSQL_DBLIST`, credential mismatch, disk full, permissions, or resource exhaustion.
+**Likely causes:** PostgreSQL unhealthy, wrong service name or port, missing database in `POSTGRES_DATABASES`, credential mismatch, disk full, permissions, or resource exhaustion.
 
 **Evidence to collect:** PostgreSQL health, Compose environment variable names only, dependent-service logs, disk space, database directory ownership, and connection errors with credentials redacted.
 
@@ -141,7 +141,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Symptoms:** The optional WordPress route fails, shows database errors, or the service is missing.
 
-**Likely causes:** WordPress Compose file not included, `inframariadb` unhealthy, database not in `MARIADB_DB_LIST`, route conflict with Confluence, or bind-mount ownership problem.
+**Likely causes:** WordPress Compose file not included, `inframariadb` unhealthy, database not in `MARIADB_DATABASES`, route conflict with Confluence, or bind-mount ownership problem.
 
 **Evidence to collect:** Root include list, optional Compose definition, MariaDB health and logs, route rule, WordPress logs, and persistent directory state.
 

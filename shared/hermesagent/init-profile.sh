@@ -99,8 +99,8 @@ read_env_file() {
     grep -E "^${key}=" "${ENV_FILE}" 2>/dev/null | head -1 | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//"
 }
 
-LITELLM_API_KEY="${LITELLM_API_KEY:-$(read_env_file LITEM_API_KEY)}"
-LITELLM_API_URL="${LITELLM_API_URL:-$(read_env_file LITEM_API_URL)}"
+LITELLM_API_KEY="${LITELLM_API_KEY:-$(read_env_file AIGATE_API_KEY)}"
+LITELLM_API_URL="${LITELLM_API_URL:-$(read_env_file AIGATE_API_URL)}"
 FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-$(read_env_file FCRW_API_URL)}"
 FIRECRAWL_API_KEY="${FIRECRAWL_API_KEY:-${LITELLM_API_KEY}}"
 

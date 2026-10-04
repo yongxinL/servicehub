@@ -17,7 +17,7 @@ services:
         build:
             context: ../shared/forgejo/server/
             args:
-                - IMAGE_TAG=${DEPOT_VTAG}
+                - IMAGE_TAG=${SOURCECODE_TAG}
         depends_on:
             infrapgsql:
                 condition: service_healthy
@@ -27,15 +27,15 @@ services:
             - TZ=${TIME_ZONE}
             - USER_UID=1000
             - USER_GID=1000
-            - FORGEJO__server__DOMAIN=${DEPOT_DOMAIN}
-            - FORGEJO__server__ROOT_URL=https://${DEPOT_DOMAIN}/
+            - FORGEJO__server__DOMAIN=${SOURCECODE_DOMAIN}
+            - FORGEJO__server__ROOT_URL=https://${SOURCECODE_DOMAIN}/
             # SSH port is not published; advertise HTTPS clone URLs only
             - FORGEJO__server__DISABLE_SSH=true
             - FORGEJO__database__DB_TYPE=postgres
-            - FORGEJO__database__HOST=${PGRSQL_HOST}:${PGRSQL_PORT}
-            - FORGEJO__database__NAME=${DEPOT_DBNAME}
-            - FORGEJO__database__USER=${SQLDB_USER}
-            - FORGEJO__database__PASSWD=${SQLDB_PASS}
+            - FORGEJO__database__HOST=${POSTGRES_HOST}:${POSTGRES_PORT}
+            - FORGEJO__database__NAME=${SOURCECODE_DBNAME}
+            - FORGEJO__database__USER=${DB_ADMIN_USER}
+            - FORGEJO__database__PASSWD=${DB_ADMIN_PASSWORD}
             - FORGEJO__openid__ENABLE_OPENID_SIGNIN=false
             - FORGEJO__openid__ENABLE_OPENID_SIGNUP=false
             - FORGEJO__actions__ENABLED=true
@@ -52,7 +52,7 @@ services:
         labels:
             - "traefik.enable=true"
             - "traefik.http.routers.devopsforgejo.entrypoints=websecure"
-            - "traefik.http.routers.devopsforgejo.rule=Host(`${DEPOT_DOMAIN}`)"
+            - "traefik.http.routers.devopsforgejo.rule=Host(`${SOURCECODE_DOMAIN}`)"
             - "traefik.http.routers.devopsforgejo.service=devopsforgejo"
             - "traefik.http.services.devopsforgejo.loadbalancer.server.port=3000"
             - "traefik.http.routers.devopsforgejo.tls=true"
@@ -73,7 +73,7 @@ services:
         build:
             context: ../shared/forgejo/actions/
             args:
-                - IMAGE_TAG=${DEPOT_RUNNER_VTAG}
+                - IMAGE_TAG=${SOURCECODE_RUNNER_TAG}
         depends_on:
             devopsforgejoinit:
                 condition: service_completed_successfully
@@ -81,7 +81,7 @@ services:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
-            - DEPOT_RUNNER_SECRET=${DEPOT_RUNNER_SECRET}
+            - SOURCECODE_RUNNER_SECRET=${SOURCECODE_RUNNER_SECRET}
             - FORGEJO_INSTANCE_URL=http://devopsforgejo:3000
             - FORGEJO_RUNNER_NAME=devopsrunner
         # The runner daemon has no HTTP endpoint; the healthcheck verifies the

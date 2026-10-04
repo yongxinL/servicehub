@@ -23,12 +23,12 @@ services:
             - HOME=/opt/data
             # Internal workspace port is always 12320; external port mapped via 'ports' below.
             - HERMES_WORKSPACE_PORT=12320
-            - LITELLM_API_KEY=${LITEM_API_KEY}
-            - LITELLM_API_URL=${LITEM_API_URL:-http://aiservlitellm:12380/v1}
+            - LITELLM_API_KEY=${AIGATE_API_KEY}
+            - LITELLM_API_URL=${AIGATE_API_URL:-http://aiservlitellm:12380/v1}
             - FIRECRAWL_API_URL=${FCRW_API_URL:-http://aiagnfastcrw:12360}
-            - FIRECRAWL_API_KEY=${LITEM_API_KEY}
+            - FIRECRAWL_API_KEY=${AIGATE_API_KEY}
             - API_SERVER_ENABLED=true
-            - API_SERVER_KEY=${LITEM_API_KEY}
+            - API_SERVER_KEY=${AIGATE_API_KEY}
             - API_SERVER_PORT=12330
             - API_SERVER_HOST=0.0.0.0
             - HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_00}
@@ -65,23 +65,23 @@ services:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
-            - LLM_MASTER_KEY=${LITEM_API_KEY}
-            - DATABASE_URL=postgresql://${SQLDB_USER}:${SQLDB_PASS}@${PGRSQL_HOST}:${PGRSQL_PORT}/${LITEM_DBNAME}
+            - LLM_MASTER_KEY=${AIGATE_API_KEY}
+            - DATABASE_URL=postgresql://${DB_ADMIN_USER}:${DB_ADMIN_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${AIGATE_DBNAME}
             - UI_PORT=12380
-            - UI_USERNAME=${LITEM_ADMUSR}
-            - UI_PASSWORD=${LITEM_ADMPWD}
+            - UI_USERNAME=${AIGATE_ADMIN_USER}
+            - UI_PASSWORD=${AIGATE_ADMIN_PASSWORD}
             # Edge — local llama.cpp or remote edge service
-            - LITEM_EDGE_API_BASE=${LITEM_HPH_APIURL:-http://aiservllamacpp:12386/v1}
-            - LITEM_EDGE_API_KEY=${LITEM_HPH_APIKEY:-none}
+            - LITEM_EDGE_API_BASE=${AIGATE_HERMES_API_URL:-http://aiservllamacpp:12386/v1}
+            - LITEM_EDGE_API_KEY=${AIGATE_HERMES_API_KEY:-none}
             # Health check for auto-failover routing (used by smartrouter.py)
-            - LITEM_EDGE_HEALTH_URL=${LITEM_HPH_HLTURL:-http://aiservllamacpp:12386/health}
+            - LITEM_EDGE_HEALTH_URL=${AIGATE_HERMES_HEALTH_URL:-http://aiservllamacpp:12386/health}
             - LITEM_EDGE_HEALTH_TIMEOUT=3
             - LITEM_EDGE_HEALTH_CACHE_TTL=30
             # Cloud — public or remote cloud provider
-            - LITEM_CLOUD_API_BASE=${LITEM_PRM_APIBASE}
-            - LITEM_CLOUD_API_KEY=${LITEM_PRM_APIKEY}
+            - LITEM_CLOUD_API_BASE=${AIGATE_PROVIDER_API_BASE}
+            - LITEM_CLOUD_API_KEY=${AIGATE_PROVIDER_API_KEY}
         healthcheck:
-            test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${LITEM_API_KEY}", "http://localhost:12380/health/liveliness" ]
+            test: [ "CMD", "curl", "-sf", "-H", "Authorization: Bearer ${AIGATE_API_KEY}", "http://localhost:12380/health/liveliness" ]
             interval: 60s
             timeout: 5s
             retries: 3

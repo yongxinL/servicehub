@@ -94,10 +94,10 @@ services:
             - GF_ALERTING_enabled=true
             - GF_ALERTING_render_only_panels=true
             - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
-            - GF_SECURITY_ADMIN_PASSWORD=${OBSVC_ADMPWD}
-            - GF_SECURITY_ADMIN_USER=${OBSVC_ADMUSR}
-            - GF_SERVER_DOMAIN=${OBSVC_DOMAIN}
-            - GF_SERVER_ROOT_URL=https://${OBSVC_DOMAIN}
+            - GF_SECURITY_ADMIN_PASSWORD=${OBSERVABILITY_ADMIN_PASSWORD}
+            - GF_SECURITY_ADMIN_USER=${OBSERVABILITY_ADMIN_USER}
+            - GF_SERVER_DOMAIN=${OBSERVABILITY_DOMAIN}
+            - GF_SERVER_ROOT_URL=https://${OBSERVABILITY_DOMAIN}
             - GF_USERS_ALLOW_SIGN_UP=false
             - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource
         healthcheck:
@@ -110,7 +110,7 @@ services:
         labels:
             - "traefik.enable=true"
             - "traefik.http.routers.obsvcegrafana.entrypoints=websecure"
-            - "traefik.http.routers.obsvcegrafana.rule=Host(`${OBSVC_DOMAIN}`)"
+            - "traefik.http.routers.obsvcegrafana.rule=Host(`${OBSERVABILITY_DOMAIN}`)"
             - "traefik.http.routers.obsvcegrafana.tls=true"
             - "traefik.http.services.obsvcegrafana.loadbalancer.server.port=3000"
             # uncomment when Domain Level Forward Authentication enabled in Authentik
