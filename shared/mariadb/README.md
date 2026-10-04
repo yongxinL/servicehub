@@ -4,7 +4,7 @@
 
 ## Overview
 
-[MariaDB 11.8](https://mariadb.org/) provides a MySQL-compatible relational database. It is defined by the `dbsvcmariadb` service in [`compose/dbsvc.yml`](../../compose/dbsvc.yml) and built from [`shared/mariadb/Dockerfile`](Dockerfile) (`FROM mariadb:11.8`).
+[MariaDB 11.8](https://mariadb.org/) provides a MySQL-compatible relational database. It is defined by the `inframariadb` service in [`compose/infra.yml`](../../compose/infra.yml) and built from [`shared/mariadb/Dockerfile`](Dockerfile) (`FROM mariadb:11.8`).
 
 > **Note:** No service in the default stack uses MariaDB — Authentik, Forgejo, LiteLLM and Confluence all use [PostgreSQL](../postgresql/README.md). The service is kept available for future MySQL-backed services; leave `MARIADB_DB_LIST` empty if you don't need it.
 
@@ -12,7 +12,7 @@
 
 | Detail | Value |
 |---|---|
-| Service name | `dbsvcmariadb` |
+| Service name | `inframariadb` |
 | Internal port | 3306 (not published to the host) |
 | Data persistence | `${APPS_DATA}/databases/mariadb` |
 | Health check | `healthcheck.sh --connect --innodb_initialized` every 10 s |
@@ -27,7 +27,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 | `SQLDB_USER` | Shared username created as the superuser |
 | `SQLDB_PASS` | Password for `SQLDB_USER` (also used as the root password) |
 | `MARIADB_DB_LIST` | Comma-separated databases to create on first start (default: `${WBHOME_DBNAME}`) |
-| `MySQL_HOST` / `MySQL_PORT` | In-network connection target exposed to other services (`dbsvcmariadb:3306`) |
+| `MySQL_HOST` / `MySQL_PORT` | In-network connection target exposed to other services (`inframariadb:3306`) |
 
 ## Multiple databases
 
@@ -51,7 +51,7 @@ MARIADB_DB_LIST="appdb,analytics"
 Other services on the `subnet` network connect with the hostname and port:
 
 ```
-host: ${MySQL_HOST}   # dbsvcmariadb
+host: ${MySQL_HOST}   # inframariadb
 port: ${MySQL_PORT}   # 3306
 user: ${SQLDB_USER}
 pass: ${SQLDB_PASS}
@@ -61,13 +61,13 @@ pass: ${SQLDB_PASS}
 
 ```bash
 # Start / restart
-docker compose up -d dbsvcmariadb
+docker compose up -d inframariadb
 
 # Follow logs
-docker compose logs -f dbsvcmariadb
+docker compose logs -f inframariadb
 
 # Open a SQL shell inside the container
-docker compose exec dbsvcmariadb mariadb -u"${SQLDB_USER}" -p
+docker compose exec inframariadb mariadb -u"${SQLDB_USER}" -p
 ```
 
 ### Reset the database
@@ -75,9 +75,9 @@ docker compose exec dbsvcmariadb mariadb -u"${SQLDB_USER}" -p
 To wipe all data and re-run the init script (this also deletes every database):
 
 ```bash
-docker compose down dbsvcmariadb
+docker compose down inframariadb
 rm -rf ${APPS_DATA}/databases/mariadb/*
-docker compose up -d dbsvcmariadb
+docker compose up -d inframariadb
 ```
 
 ## Files

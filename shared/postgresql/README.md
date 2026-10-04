@@ -4,13 +4,13 @@
 
 ## Overview
 
-[PostgreSQL 16](https://www.postgresql.org/) is the primary relational database in the stack. It is defined by the `dbsvcpgsqldb` service in [`compose/dbsvc.yml`](../../compose/dbsvc.yml) and built from [`shared/postgresql/Dockerfile`](Dockerfile) (`FROM postgres:16-alpine`).
+[PostgreSQL 16](https://www.postgresql.org/) is the primary relational database in the stack. It is defined by the `infrapgsql` service in [`compose/infra.yml`](../../compose/infra.yml) and built from [`shared/postgresql/Dockerfile`](Dockerfile) (`FROM postgres:16-alpine`).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `dbsvcpgsqldb` |
+| Service name | `infrapgsql` |
 | Internal port | 5432 (not published to the host) |
 | Data persistence | `${APPS_DATA}/databases/pgsqldb` |
 | Health check | `pg_isready` every 30 s (20 s startup delay, 5 retries) |
@@ -21,13 +21,13 @@
 
 | Service | Database variable |
 |---|---|
-| Authentik (`authnservice` / `authnworkers`) | `AUTHN_DBNAME` |
-| Forgejo (`depotservice`) | `DEPOT_DBNAME` |
-| LiteLLM (`aiagnlitellm`) | `LITEM_DBNAME` |
-| Confluence (`wbappcmshome`, default homepage) | `WBHOME_DBNAME` |
-| Stalwart (`posteservice`) | `POSTE_DBNAME` — sole mail data store (accounts, messages, indexes, blobs) |
+| Authentik (`infraauth` / `infraauthwrk`) | `AUTHN_DBNAME` |
+| Forgejo (`devopsforgejo`) | `DEPOT_DBNAME` |
+| LiteLLM (`aiservlitellm`) | `LITEM_DBNAME` |
+| Confluence (`webappconf`, default homepage) | `WBHOME_DBNAME` |
+| Stalwart (`mailsvstalwart`) | `POSTE_DBNAME` — sole mail data store (accounts, messages, indexes, blobs) |
 
-`wbappmydrive` (oCIS) is **not** a PostgreSQL consumer. It uses local configuration and file storage under `${APPS_DATA}/cloud/ocis`; PostgreSQL still holds the Authentik identity data used by the oCIS OIDC flow.
+`webappocis` (oCIS) is **not** a PostgreSQL consumer. It uses local configuration and file storage under `${APPS_DATA}/cloud/ocis`; PostgreSQL still holds the Authentik identity data used by the oCIS OIDC flow.
 
 ## Configuration
 
@@ -38,7 +38,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 | `SQLDB_USER` | Shared username created as the superuser |
 | `SQLDB_PASS` | Password for `SQLDB_USER` |
 | `PGRSQL_DBLIST` | Comma-separated databases to create on first start |
-| `PGRSQL_HOST` / `PGRSQL_PORT` | In-network connection target exposed to other services (`dbsvcpgsqldb:5432`) |
+| `PGRSQL_HOST` / `PGRSQL_PORT` | In-network connection target exposed to other services (`infrapgsql:5432`) |
 
 The default `PGRSQL_DBLIST` creates every service database:
 
@@ -70,19 +70,19 @@ LiteLLM, for example, uses it directly:
 
 ```bash
 # Start / restart
-docker compose up -d dbsvcpgsqldb
+docker compose up -d infrapgsql
 
 # Follow logs
-docker compose logs -f dbsvcpgsqldb
+docker compose logs -f infrapgsql
 
 # Open a psql shell inside the container
-docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}"
+docker compose exec infrapgsql psql -U "${SQLDB_USER}"
 ```
 
 ### List databases
 
 ```bash
-docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -c "\l"
+docker compose exec infrapgsql psql -U "${SQLDB_USER}" -c "\l"
 ```
 
 ### Reset the database
@@ -90,9 +90,9 @@ docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -c "\l"
 To wipe all data and re-run the init script (this also deletes every database):
 
 ```bash
-docker compose down dbsvcpgsqldb
+docker compose down infrapgsql
 rm -rf ${APPS_DATA}/databases/pgsqldb/*
-docker compose up -d dbsvcpgsqldb
+docker compose up -d infrapgsql
 ```
 
 ## Files

@@ -4,16 +4,16 @@
 
 ## Overview
 
-[Grafana Alloy](https://grafana.com/docs/alloy/) is the collector of the observability stack (`obsvc`). It gathers host metrics, container metrics and logs, enriches Traefik access logs with GeoIP data, and writes metrics to [VictoriaMetrics](../../victoriametrics/README.md) and logs to [VictoriaLogs](../../victorialogs/README.md). It is defined by the `obsvcgrafaly` service in [`compose/obsvc.yml`](../../../compose/obsvc.yml) and built from [`shared/grafana/alloy/Dockerfile`](Dockerfile) (`FROM grafana/alloy:latest`).
+[Grafana Alloy](https://grafana.com/docs/alloy/) is the collector of the observability stack (`obsvce`). It gathers host metrics, container metrics and logs, enriches Traefik access logs with GeoIP data, and writes metrics to [VictoriaMetrics](../../victoriametrics/README.md) and logs to [VictoriaLogs](../../victorialogs/README.md). It is defined by the `obsvcealloy` service in [`compose/obsvce.yml`](../../../compose/obsvce.yml) and built from [`shared/grafana/alloy/Dockerfile`](Dockerfile) (`FROM grafana/alloy:latest`).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `obsvcgrafaly` |
+| Service name | `obsvcealloy` |
 | HTTP API port | 9080 (internal only) |
 | Config | [`config.alloy`](config.alloy) (mounted read-only at `/etc/alloy`) |
-| Depends on | `obsvcvicmtrx` and `obsvcviclogs` (healthy) |
+| Depends on | `obsvcevm` and `obsvcevlogs` (healthy) |
 | Health check | `curl -fsS http://localhost:9080/health` every 30 s |
 | Privileged | yes — cAdvisor needs the host `/proc`, `/sys` and Docker socket |
 
@@ -26,7 +26,7 @@
 | Host metrics | built-in `unix` exporter (procfs/sysfs/rootfs) | VictoriaMetrics |
 | Container metrics | built-in cAdvisor (`docker_only=true`) | VictoriaMetrics |
 | Traefik metrics | scrape `routetraefik:8080` | VictoriaMetrics |
-| LiteLLM metrics | scrape `aiagnlitellm:12380/metrics/` | VictoriaMetrics |
+| LiteLLM metrics | scrape `aiservlitellm:12380/metrics/` | VictoriaMetrics |
 | Alloy self-metrics | scrape `localhost:9080` | VictoriaMetrics (log-derived counters) |
 | Container logs | Docker socket discovery | VictoriaLogs (GeoIP-enriched) |
 
@@ -48,10 +48,10 @@ GeoIP enrichment uses [`../geoip/GeoLite2-City.mmdb`](../geoip/GeoLite2-City.mmd
 
 ```bash
 # Start / restart
-docker compose up -d obsvcgrafaly
+docker compose up -d obsvcealloy
 
 # Follow logs
-docker compose logs -f obsvcgrafaly
+docker compose logs -f obsvcealloy
 
 # Open the Alloy UI (host)
 open http://localhost:9080
@@ -69,4 +69,4 @@ open http://localhost:9080
 - [VictoriaMetrics](../../victoriametrics/README.md) — metrics destination
 - [VictoriaLogs](../../victorialogs/README.md) — logs destination
 - [Grafana](../README.md) — dashboards
-- [Root README — Observability](../../../README.md#observability-stack-obsvc)
+- [Root README — Observability](../../../README.md#observability-stack-obsvce)

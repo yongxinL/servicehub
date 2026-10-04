@@ -473,7 +473,7 @@
   </div>
 
   <p>
-    Hermes Agent is an open-source AI agent platform by <a href="https://nousresearch.com">Nous Research</a>. In ServiceHub it runs as a <strong>single container</strong> (<code>aiagnherm00</code>) with its own workspace, gateway, and data directory. Internal user profiles (code, research, etc.) are available via <code>hermes profile create</code>. No messaging platform setup needed.
+    Hermes Agent is an open-source AI agent platform by <a href="https://nousresearch.com">Nous Research</a>. In ServiceHub it runs as a <strong>single container</strong> (<code>aiservhermes</code>) with its own workspace, gateway, and data directory. Internal user profiles (code, research, etc.) are available via <code>hermes profile create</code>. No messaging platform setup needed.
   </p>
 
   <div class="callout note">
@@ -488,7 +488,7 @@
 
   <div class="arch-box"><pre>
 ┌─────────────────────────────────────────────────────────────────────┐
-│  aiagnherm00
+│  aiservhermes
 │  ──────────────
 │  Workspace :12320
 │  Gateway   :12330
@@ -496,13 +496,13 @@
 └─────────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────▼─────────────────┐
-              │  aiagnlitellm  (LiteLLM Proxy)  │
+              │  aiservlitellm  (LiteLLM Proxy)  │
               │  Port 12380                     │
               │  Smart Router (smart_router.py) │
               └─────────────┬────────┬─────────────┘
                             │        │
              ┌──────────────▼──┐  ┌──▼──────────────────┐
-             │  aiagnchatllm  │  │  MiniMax 2.7 API    │
+             │  aiservllamacpp  │  │  MiniMax 2.7 API    │
              │  Gemma-4-4B    │  │  (cloud, 200K ctx)  │
              │  Port 12386    │  └────────────────────┘
              └────────────────┘</pre></div>
@@ -511,7 +511,7 @@
   <div class="port-grid">
     <div class="port-card">
       <div class="pnum">12320</div>
-      <div class="plabel">aiagnherm00 Workspace</div>
+      <div class="plabel">aiservhermes Workspace</div>
       <div class="pdesc">Web UI — login with HERMES_WORKSPACE_PASSWD_00</div>
     </div>
   </div>
@@ -640,17 +640,17 @@ docker compose logs agsvchermagt | head -40</code></pre>
   <h2 id="s32">3.2 AI Provider &amp; Search</h2>
 
   <h3>LiteLLM proxy</h3>
-  <p>The LiteLLM proxy (<code>aiagnlitellm</code>) is the single AI endpoint Hermes uses. It routes between local and cloud models transparently based on message content.</p>
+  <p>The LiteLLM proxy (<code>aiservlitellm</code>) is the single AI endpoint Hermes uses. It routes between local and cloud models transparently based on message content.</p>
 
   <pre><span class="lang-tag">bash</span><code><span class="cm"># Reachability check from inside the Hermes container</span>
 docker compose exec agsvchermagt \
   curl -sf -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_API_KEY}</span>"</span> \
-  http://aiagnlitellm:12380/health/liveliness &amp;&amp; echo <span class="ok">"LiteLLM OK"</span>
+  http://aiservlitellm:12380/health/liveliness &amp;&amp; echo <span class="ok">"LiteLLM OK"</span>
 
 <span class="cm"># List available models</span>
 docker compose exec agsvchermagt \
   curl -sf -H <span class="str">"Authorization: Bearer <span class="var">${LITEM_API_KEY}</span>"</span> \
-  http://aiagnlitellm:12380/v1/models | python3 -m json.tool</code></pre>
+  http://aiservlitellm:12380/v1/models | python3 -m json.tool</code></pre>
 
   <p>Expected models: <code>smartrouter</code>, <code>edgeai</code>, <code>cloudai</code>. Admin UI at <code>http://&lt;host-ip&gt;:12380/ui</code>.</p>
 
@@ -732,7 +732,7 @@ grep -r <span class="str">'&lt;your-'</span> <span class="var">${APPS_DATA}</spa
   &amp;&amp; echo <span class="warn">"WARN: placeholders remain"</span> || echo <span class="ok">"OK: no placeholders"</span>
 
 <span class="cm"># 2. Container status</span>
-docker compose ps agsvchermagt aiagnlitellm aiagnfastcrw aiagnsearxng aiagnchatllm
+docker compose ps agsvchermagt aiservlitellm aiagnfastcrw aiagnsearxng aiservllamacpp
 
 <span class="cm"># 3. API server</span>
 curl -sf http://localhost:12330/health &amp;&amp; echo <span class="ok">"API OK"</span>
@@ -820,7 +820,7 @@ curl -s http://localhost:12330/v1/chat/completions \
       <p><strong>Shortcut:</strong> <code>init-profile.sh</code> automates profile setup. It seeds all config files from defaults, substitutes API keys and base URLs. Both invocations are equivalent:</p>
       <p style="margin-top:8px;"><strong>Host</strong> (reads <code>LITEM_API_KEY</code>, <code>LITEM_API_URL</code>, <code>FCRW_API_URL</code>, <code>APPS_DATA</code> from root <code>.env</code>; writes to <code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/</code>):<br>
       <code>./shared/hermesagent/init-profile.sh alice --port 8643</code></p>
-      <p style="margin-top:8px;"><strong>Container</strong> (reads <code>LITELLM_API_KEY</code>, <code>LITELLM_API_URL</code>, <code>FIRECRAWL_API_URL</code>, <code>FIRECRAWL_API_KEY</code> from process env set by <code>compose/aiagn.yml</code>; writes to <code>/opt/data/profiles/&lt;name&gt;/</code>):<br>
+      <p style="margin-top:8px;"><strong>Container</strong> (reads <code>LITELLM_API_KEY</code>, <code>LITELLM_API_URL</code>, <code>FIRECRAWL_API_URL</code>, <code>FIRECRAWL_API_KEY</code> from process env set by <code>compose/aiserv.yml</code>; writes to <code>/opt/data/profiles/&lt;name&gt;/</code>):<br>
       <code>docker compose exec agsvchermagt init-profile.sh alice --port 8643</code></p>
     </div>
   </div>
@@ -842,7 +842,7 @@ docker compose exec agsvchermagt hermes profile create alice --clone --clone-fro
   <p>After creation, Hermes registers a convenience alias at <code>~/.local/bin/alice</code> inside the container, so you can use shorthand commands like <code>alice chat</code>, <code>alice setup</code>, and <code>alice gateway start</code>.</p>
 
   <h3>Step 2 — Declare the profile in the root <code>.env</code></h3>
-  <p>Add <code>HERMES_AGENT_PROFILES</code> to the <strong>root <code>.env</code></strong> at the ServiceHub project root — this is the Docker Compose environment file, not the hermesagent data <code>.env</code>. Docker Compose injects it into the container via <code>compose/aiagn.yml</code>, where <code>start-gateways.sh</code> reads it to know which gateway processes to launch on container start.</p>
+  <p>Add <code>HERMES_AGENT_PROFILES</code> to the <strong>root <code>.env</code></strong> at the ServiceHub project root — this is the Docker Compose environment file, not the hermesagent data <code>.env</code>. Docker Compose injects it into the container via <code>compose/aiserv.yml</code>, where <code>start-gateways.sh</code> reads it to know which gateway processes to launch on container start.</p>
   <pre><span class="lang-tag">root .env</span><code><span class="cm"># Single profile</span>
 <span class="var">HERMES_AGENT_PROFILES</span>=<span class="str">"alice"</span>
 
@@ -922,29 +922,29 @@ docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
     <table>
       <thead><tr><th>Need</th><th>Recommended approach</th></tr></thead>
       <tbody>
-        <tr><td>A shared team assistant</td><td>Use the single <code>aiagnherm00</code> as-is (shared memory is intentional).</td></tr>
-        <tr><td>A few people who each want a private agent</td><td>Add one <code>aiagnherm0X</code> container + data volume per person.</td></tr>
+        <tr><td>A shared team assistant</td><td>Use the single <code>aiservhermes</code> as-is (shared memory is intentional).</td></tr>
+        <tr><td>A few people who each want a private agent</td><td>Add one <code>aiservhermes0X</code> container + data volume per person.</td></tr>
         <tr><td>Many users (dozens+)</td><td>Per-user containers fronted by Authentik, or run Hermes per-user on each person's own machine / Portal account.</td></tr>
-        <tr><td>Separate personas for one person</td><td>Use internal <code>hermes profile create</code> profiles inside <code>aiagnherm00</code> (see 3.4).</td></tr>
+        <tr><td>Separate personas for one person</td><td>Use internal <code>hermes profile create</code> profiles inside <code>aiservhermes</code> (see 3.4).</td></tr>
       </tbody>
     </table>
   </div>
 
   <h3>Add another agent container</h3>
   <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
-    <li><strong>Add a data directory</strong> to <code>aiagnhermint</code> in <a href="../../compose/aiagn.yml"><code>compose/aiagn.yml</code></a> — mount <code>${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/data01</code> and <code>chown -R 10000:10000 /data01</code>.</li>
-    <li><strong>Duplicate the <code>aiagnherm00</code> service</strong> as <code>aiagnherm01</code> with its own <code>/opt/data</code> volume, its own <code>HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_01}</code>, a unique host port (<code>12321:12320</code>), and optional Traefik labels using <code>HERMES_WORKSPACE_DOMAIN_01</code>.</li>
+    <li><strong>Add a data directory</strong> to <code>aiservhermesinit</code> in <a href="../../compose/aiserv.yml"><code>compose/aiserv.yml</code></a> — mount <code>${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/data01</code> and <code>chown -R 10000:10000 /data01</code>.</li>
+    <li><strong>Duplicate the <code>aiservhermes</code> service</strong> as <code>aiservhermes01</code> with its own <code>/opt/data</code> volume, its own <code>HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_01}</code>, a unique host port (<code>12321:12320</code>), and optional Traefik labels using <code>HERMES_WORKSPACE_DOMAIN_01</code>.</li>
     <li><strong>Add the matching variables</strong> to the root <code>.env</code>:
       <pre><span class="lang-tag">root .env</span><code><span class="var">HERMES_WORKSPACE_PASSWD_01</span>=<span class="str">&lt;password&gt;</span>
 <span class="var">HERMES_DATA_01</span>=<span class="str">${APPS_DATA}/hermesagent/01</span>
 <span class="var">HERMES_WORKSPACE_DOMAIN_01</span>=<span class="str">space1.${DOMAIN_NAME}</span></code></pre>
     </li>
-    <li><strong>Recreate only the new service:</strong> <code>docker compose up -d --build aiagnherm01</code></li>
+    <li><strong>Recreate only the new service:</strong> <code>docker compose up -d --build aiservhermes01</code></li>
   </ol>
 
   <div class="callout tip">
     <span class="callout-icon">✓</span>
-    <p>All agents share the same <code>aiagnlitellm</code> router and <code>aiagnchatllm</code> model, so model capacity is scaled centrally, not per agent. Isolate user data strictly at the volume boundary — never point two people at the same <code>HERMES_DATA_0X</code>.</p>
+    <p>All agents share the same <code>aiservlitellm</code> router and <code>aiservllamacpp</code> model, so model capacity is scaled centrally, not per agent. Isolate user data strictly at the volume boundary — never point two people at the same <code>HERMES_DATA_0X</code>.</p>
   </div>
 
   <div class="callout warn">
@@ -957,7 +957,7 @@ docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
   <!-- ── 3.5 ────────────────────────────────────────────────────────── -->
   <h2 id="s35">3.5 Connect Open WebUI to Hermes via API</h2>
 
-  <p>Open WebUI (<code>wbappwebchat</code>) is accessible at <code>https://${OWEBUI_DOMAIN}</code>. Adding Hermes as an OpenAI-compatible connection lets family members chat via the browser.</p>
+  <p>Open WebUI (<code>webappowui</code>) is accessible at <code>https://${OWEBUI_DOMAIN}</code>. Adding Hermes as an OpenAI-compatible connection lets family members chat via the browser.</p>
 
   <h3>Connection details</h3>
   <div class="table-wrap">
@@ -1018,15 +1018,15 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Set a separate <code>BROWSERLESS_TOKEN</code> for Chromium: <code>echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env</code>. Update <code>TOKEN=${BROWSERLESS_TOKEN}</code> in <code>aiagnchromum</code> in <code>aiagn.yml</code>.</div>
+      <div class="check-label">Set a separate <code>BROWSERLESS_TOKEN</code> for Chromium: <code>echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env</code>. Update <code>TOKEN=${BROWSERLESS_TOKEN}</code> in <code>aiagnchromum</code> in <code>aiserv.yml</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs aiagnlitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
+      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs aiservlitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">MiniMax API key stored only as <code>LITEM_MMAX_APIKEY</code> in root <code>.env</code>. Confirm it is not echoed in logs: <code>docker compose logs aiagnlitellm | grep -i minimax</code>.</div>
+      <div class="check-label">MiniMax API key stored only as <code>LITEM_MMAX_APIKEY</code> in root <code>.env</code>. Confirm it is not echoed in logs: <code>docker compose logs aiservlitellm | grep -i minimax</code>.</div>
     </li>
 
     <div class="check-cat">Network Isolation</div>
@@ -1045,7 +1045,7 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Internal service ports (12380, 12360, 12361, 12363, 12386) not bound to <code>0.0.0.0</code> on a public host. Remove their <code>ports:</code> entries in <code>aiagn.yml</code> for production.</div>
+      <div class="check-label">Internal service ports (12380, 12360, 12361, 12363, 12386) not bound to <code>0.0.0.0</code> on a public host. Remove their <code>ports:</code> entries in <code>aiserv.yml</code> for production.</div>
     </li>
 
     <div class="check-cat">Docker Socket</div>
@@ -1056,14 +1056,14 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Check host Docker group GID: <code>getent group docker | cut -d: -f3</code>. If not 999, add <code>group_add: [&lt;host-gid&gt;]</code> to <code>agsvchermagt</code> in <code>aiagn.yml</code>.</div>
+      <div class="check-label">Check host Docker group GID: <code>getent group docker | cut -d: -f3</code>. If not 999, add <code>group_add: [&lt;host-gid&gt;]</code> to <code>agsvchermagt</code> in <code>aiserv.yml</code>.</div>
     </li>
 
     <div class="check-cat">Privacy Routing</div>
 
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Privacy keywords route to edge model. Test with <em>"Summarise my medical record"</em> and confirm <code>docker compose logs aiagnlitellm | grep route</code> shows <code>route=edgeai</code>.</div>
+      <div class="check-label">Privacy keywords route to edge model. Test with <em>"Summarise my medical record"</em> and confirm <code>docker compose logs aiservlitellm | grep route</code> shows <code>route=edgeai</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
@@ -1089,7 +1089,7 @@ curl -s http://localhost:12330/v1/chat/completions \
 
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label"><code>restart: unless-stopped</code> is set in <code>aiagn.yml</code> so gateways reconnect after host reboots.</div>
+      <div class="check-label"><code>restart: unless-stopped</code> is set in <code>aiserv.yml</code> so gateways reconnect after host reboots.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
@@ -1097,18 +1097,18 @@ curl -s http://localhost:12330/v1/chat/completions \
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Add memory limits to <code>agsvchermagt</code> in <code>aiagn.yml</code>: <code>mem_limit: 2g</code> and <code>memswap_limit: 2g</code>.</div>
+      <div class="check-label">Add memory limits to <code>agsvchermagt</code> in <code>aiserv.yml</code>: <code>mem_limit: 2g</code> and <code>memswap_limit: 2g</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Enable log rotation in <code>aiagn.yml</code> under <code>agsvchermagt</code>:<br><code>logging: {driver: "json-file", options: {max-size: "50m", max-file: "5"}}</code></div>
+      <div class="check-label">Enable log rotation in <code>aiserv.yml</code> under <code>agsvchermagt</code>:<br><code>logging: {driver: "json-file", options: {max-size: "50m", max-file: "5"}}</code></div>
     </li>
 
     <div class="check-cat">Observability</div>
 
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs aiagnlitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
+      <div class="check-label">LiteLLM routing decisions are logged: <code>docker compose logs aiservlitellm | grep route</code> shows <code>route=edgeai</code> and <code>route=cloudai</code> lines.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>

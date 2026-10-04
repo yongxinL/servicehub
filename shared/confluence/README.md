@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Confluence](https://www.atlassian.com/software/confluence) runs as a custom Data Center image and serves `WBHOME_DOMAIN` plus the apex `${DOMAIN_NAME}`. It is defined by the `wbappcmshome` service in [`compose/wbapp.yml`](../../compose/wbapp.yml) and built from [`shared/confluence/Dockerfile`](Dockerfile) (`FROM atlassian/confluence:${IMAGE_TAG}`).
+[Confluence](https://www.atlassian.com/software/confluence) runs as a custom Data Center image and serves `WBHOME_DOMAIN` plus the apex `${DOMAIN_NAME}`. It is defined by the `webappconf` service in [`compose/webapp.yml`](../../compose/webapp.yml) and built from [`shared/confluence/Dockerfile`](Dockerfile) (`FROM atlassian/confluence:${IMAGE_TAG}`).
 
 Confluence is the default homepage and is backed by [PostgreSQL](../postgresql/README.md).
 
@@ -12,15 +12,15 @@ Confluence is the default homepage and is backed by [PostgreSQL](../postgresql/R
 
 | Detail | Value |
 |---|---|
-| Service name | `wbappcmshome` |
-| Compose file | `compose/wbapp.yml` |
+| Service name | `webappconf` |
+| Compose file | `compose/webapp.yml` |
 | URL | `https://${WBHOME_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
 | Internal port | 8090 (Tomcat; TLS terminated by Traefik) |
 | Database | PostgreSQL (`${WBHOME_DBNAME}`) |
 | Data persistence | `${APPS_DATA}/webapps/confluence` (mounted at `/var/atlassian/application-data/confluence`) |
 | Image tag | `WBHOME_TAG` (default `10.2`) |
 | JVM memory | `JVM_MINIMUM_MEMORY=1024m` / `JVM_MAXIMUM_MEMORY=3072m` |
-| Middleware | `wbappcmshome-compress` (Traefik gzip compression) |
+| Middleware | `webappconf-compress` (Traefik gzip compression) |
 | Image extras | Java agent (`com.custom.confluence.mcp.connector`) plus SAML SSO, Draw.io, Table Filter, Questions and Aura (formatting) plugins |
 
 ## Configuration
@@ -33,7 +33,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 | `WBHOME_DBNAME` | PostgreSQL database name (must be in `PGRSQL_DBLIST`) |
 | `WBHOME_TAG` | Confluence image tag passed to the Dockerfile as `IMAGE_TAG` |
 | `SQLDB_USER` / `SQLDB_PASS` | Shared PostgreSQL credentials |
-| `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL connection target (`dbsvcpgsqldb:5432`) |
+| `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL connection target (`infrapgsql:5432`) |
 | `APPS_DATA` | Host path for the data bind mount |
 | `TIME_ZONE` | Container timezone |
 
@@ -58,7 +58,7 @@ Container settings applied by the compose file:
 1. Start Confluence (with Traefik and PostgreSQL healthy):
 
     ```bash
-    docker compose up -d wbappcmshome
+    docker compose up -d webappconf
     ```
 
 2. Open `https://${WBHOME_DOMAIN}` and complete the setup wizard, pointing it at the
@@ -70,20 +70,20 @@ Container settings applied by the compose file:
 
 ```bash
 # Start / restart
-docker compose up -d wbappcmshome
+docker compose up -d webappconf
 
 # Rebuild after a Dockerfile or plugin change
-docker compose up -d --build wbappcmshome
+docker compose up -d --build webappconf
 
 # Follow logs
-docker compose logs -f wbappcmshome
+docker compose logs -f webappconf
 ```
 
 ## Security hardening
 
 - **Edge protection** — the router carries `secure-chain` (rate limit + security headers, before the compression middleware). See [Traefik — Security middlewares](../traefik/README.md#security-middlewares).
 - **Admin console** — restrict the admin UI to trusted networks (Confluence Administration → General Configuration → **Security and Permissions** → admin session / network restrictions) and never leave anonymous access on a public space (Space Settings → Permissions → check *Anonymous* is off).
-- **Delegate accounts to Authentik** — set up a SAML/OIDC user directory pointing at `authnservice` (Administration → User Management → User Directories) so passwords and MFA live in Authentik; keep one local `confluence-admin` as break-glass.
+- **Delegate accounts to Authentik** — set up a SAML/OIDC user directory pointing at `infraauth` (Administration → User Management → User Directories) so passwords and MFA live in Authentik; keep one local `confluence-admin` as break-glass.
 
 ## Files
 

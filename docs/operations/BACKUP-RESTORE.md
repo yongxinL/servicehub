@@ -54,7 +54,7 @@ Database and full-archive same-host retention values are required protected secr
 | Home Server | Primary recovery target | Restic over SSH/SFTP | Configuration added; transfer not runtime-validated |
 | Google Drive | Independent off-site copy | Rclone | Configuration added; transfer not runtime-validated |
 
-Forgejo Actions uses the existing `depotrunner` image, extended with `restic`, `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq`, to orchestrate database dumps, persistent-data archives, retention, transfers, and integrity checks. The runner configuration is documented in [`shared/forgejo/README.md`](../../shared/forgejo/README.md). Because deployment and backup jobs share one capacity-one runner, they queue behind one another.
+Forgejo Actions uses the existing `devopsrunner` image, extended with `restic`, `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq`, to orchestrate database dumps, persistent-data archives, retention, transfers, and integrity checks. The runner configuration is documented in [`shared/forgejo/README.md`](../../shared/forgejo/README.md). Because deployment and backup jobs share one capacity-one runner, they queue behind one another.
 
 The target scope includes Compose and service configuration, PostgreSQL role and database dumps, oCIS configuration and file data, Forgejo data, mail data, Authentik data, certificates, and the remaining inventoried persistent state. The same-host archive remains an intermediate artifact; it is not sufficient disaster recovery by itself.
 

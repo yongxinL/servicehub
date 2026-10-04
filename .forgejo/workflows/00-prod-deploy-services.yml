@@ -10,7 +10,7 @@
 #
 # Inputs (same as the previous Gitea Actions workflow):
 #   - service:     app service to deploy, or "all" (default). Foundational
-#                  services (dbsvc*, authn*, depot*, route*) are never deployed
+#                  services (infra*, devops*, route*) are never deployed
 #                  by CI.
 #   - environment: deploy target, stag (default) or prod
 #   - branch:      branch to deploy (default main)
@@ -37,18 +37,18 @@ on:
         type: choice
         options:
           - all
-          - wbappcmshome
-          - wbappwebchat
-          - wbappmydrive
-          - aiagnlitellm
-          - aiagnchatllm
-          - aiagnherm00
-          - obsvcvicmtrx
-          - obsvcviclogs
-          - obsvcgrafaly
-          - obsvcgrafana
-          - posteservice
-          - postewebmail
+          - webappconf
+          - webappowui
+          - webappocis
+          - aiservlitellm
+          - aiservllamacpp
+          - aiservhermes
+          - obsvcevm
+          - obsvcevlogs
+          - obsvcealloy
+          - obsvcegrafana
+          - mailsvstalwart
+          - mailsvbulwark
       environment:
         description: 'Target environment'
         required: true
@@ -70,7 +70,7 @@ concurrency:
 
 jobs:
   deploy:
-    # Host-mode runner: the job runs directly in the depotrunner container,
+    # Host-mode runner: the job runs directly in the devopsrunner container,
     # which already ships git/openssh/sshpass (shared/forgejo/actions/Dockerfile).
     runs-on: ssh-deploy
     steps:
@@ -86,8 +86,8 @@ jobs:
         #
         #   DEPLOY_TARGET        stag|prod (default: stag)
         #   DEPLOY_TASK          app service name, or "all"/empty for all app
-        #                        services. Foundational services (dbsvc*, authn*,
-        #                        depot*, route*) are never deployed here.
+        #                        services. Foundational services (infra*,
+        #                        devops*, route*) are never deployed here.
         #   BRANCH               branch to deploy (default: main)
         #   REPO_CLONE_URL       clonable URL of this repository
         #   DEPOT_DEPLOY_TOKEN Forgejo access token (repo read scope)
@@ -262,11 +262,11 @@ jobs:
           set -e
           if command -v docker-compose >/dev/null 2>&1; then COMPOSE='docker-compose'; else COMPOSE='docker compose'; fi
           if [ '$DEPLOY_TASK' = all ]; then
-            SERVICES=\$(\$COMPOSE config --services | grep -vE '^(dbsvc|authn|depot|route)')
+            SERVICES=\$(\$COMPOSE config --services | grep -vE '^(infra|devops|route)')
             \$COMPOSE up -d --build --no-deps \$SERVICES
-          elif [ '$DEPLOY_TASK' = wbappmydrive ]; then
-            \$COMPOSE up -d --build wbappdriveinit
-            \$COMPOSE up -d --build --no-deps wbappmydrive
+          elif [ '$DEPLOY_TASK' = webappocis ]; then
+            \$COMPOSE up -d --build webappocisinit
+            \$COMPOSE up -d --build --no-deps webappocis
           else
             \$COMPOSE up -d --build --no-deps '$DEPLOY_TASK'
           fi"
@@ -275,7 +275,7 @@ jobs:
           echo "Deployment of '$DEPLOY_TASK' from branch '$BRANCH' to $DEPLOY_TARGET completed"
         env:
           # github.server_url is the runner's internal connection URL
-          # (http://depotservice:3000), unreachable from the deploy servers.
+          # (http://devopsforgejo:3000), unreachable from the deploy servers.
           # DEPOT_PUBLIC_URL is a repository variable holding the public
           # Forgejo base URL (e.g. https://git.example.com).
           REPO_CLONE_URL: ${{ vars.DEPOT_PUBLIC_URL || github.server_url }}/${{ github.repository }}.git

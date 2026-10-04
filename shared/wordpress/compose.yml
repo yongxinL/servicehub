@@ -1,8 +1,8 @@
 # Optional WordPress homepage — NOT included by docker-compose.yml.
 #
 # To switch the default homepage from Confluence to WordPress:
-#   1. Stop wbappcmshome:  docker compose stop wbappcmshome
-#   2. In docker-compose.yml, replace `- compose/wbapp.yml` with `- shared/wordpress/compose.yml`
+#   1. Stop webappconf:  docker compose stop webappconf
+#   2. In docker-compose.yml, replace `- compose/webapp.yml` with `- shared/wordpress/compose.yml`
 #   3. Ensure MARIADB_DB_LIST="${WBHOME_DBNAME}" in .env, then: docker compose up -d --build
 #
 # Docs: shared/wordpress/README.md
@@ -14,9 +14,9 @@ services:
         depends_on:
             routetraefik:
                 condition: service_healthy
-            dbsvcmariadb:
+            inframariadb:
                 condition: service_healthy
-            authnservice:
+            infraauth:
                 condition: service_started
         environment:
             - WORDPRESS_DB_HOST=${MySQL_HOST}

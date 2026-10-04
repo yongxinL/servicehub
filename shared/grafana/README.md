@@ -4,20 +4,20 @@
 
 ## Overview
 
-[Grafana](https://grafana.com/) is the visualization layer of the observability stack (`obsvc`). It reads metrics from [VictoriaMetrics](../victoriametrics/README.md) and logs from [VictoriaLogs](../victorialogs/README.md). The `obsvcgrafana` service is defined in [`compose/obsvc.yml`](../../compose/obsvc.yml) and built from [`shared/grafana/Dockerfile`](Dockerfile) (`FROM grafana/grafana:latest`). A one-shot `obsvcgrafint` container fixes data-directory ownership before Grafana starts.
+[Grafana](https://grafana.com/) is the visualization layer of the observability stack (`obsvce`). It reads metrics from [VictoriaMetrics](../victoriametrics/README.md) and logs from [VictoriaLogs](../victorialogs/README.md). The `obsvcegrafana` service is defined in [`compose/obsvce.yml`](../../compose/obsvce.yml) and built from [`shared/grafana/Dockerfile`](Dockerfile) (`FROM grafana/grafana:latest`). A one-shot `obsvcegrafanainit` container fixes data-directory ownership before Grafana starts.
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `obsvcgrafana` (+ one-shot `obsvcgrafint`) |
+| Service name | `obsvcegrafana` (+ one-shot `obsvcegrafanainit`) |
 | URL | `https://${OBSVC_DOMAIN}` |
 | Internal port | 3000 |
 | Database | SQLite (embedded, persisted to `${APPS_DATA}/grafana`) |
-| Data sources | VictoriaMetrics (`obsvcvicmtrx:8428`), VictoriaLogs (`obsvcviclogs:9428`) |
+| Data sources | VictoriaMetrics (`obsvcevm:8428`), VictoriaLogs (`obsvcevlogs:9428`) |
 | Auth | Authentik forward-auth (`authentik-forwardauth@file`) |
 | Plugin | `victoriametrics-logs-datasource` |
-| Depends on | `routetraefik`, `obsvcgrafint`, `obsvcgrafaly` |
+| Depends on | `routetraefik`, `obsvcegrafanainit`, `obsvcealloy` |
 
 ## Configuration
 
@@ -63,19 +63,19 @@ Pre-built dashboards in [`dashboards/`](dashboards) are mounted at `/var/lib/gra
 |---|---|---|
 | `/var/lib/grafana` | `${APPS_DATA}/grafana` | SQLite database, users, settings, local dashboard edits |
 
-`obsvcgrafint` runs as root and normalizes ownership to UID/GID `472` (the Grafana user) and permissions to `775` on every boot, so the bind mount stays writable.
+`obsvcegrafanainit` runs as root and normalizes ownership to UID/GID `472` (the Grafana user) and permissions to `775` on every boot, so the bind mount stays writable.
 
 ## Operations
 
 ```bash
 # Start / restart
-docker compose up -d obsvcgrafana
+docker compose up -d obsvcegrafana
 
 # Follow logs
-docker compose logs -f obsvcgrafana
+docker compose logs -f obsvcegrafana
 
 # Re-run the ownership fix
-docker compose up obsvcgrafint
+docker compose up obsvcegrafanainit
 ```
 
 ## Files
@@ -94,4 +94,4 @@ docker compose up obsvcgrafint
 - [VictoriaLogs](../victorialogs/README.md) — logs data source
 - [Grafana Alloy](alloy/README.md) — collector
 - [Authentik](../authentik/README.md) — forward-auth
-- [Root README — Observability](../../README.md#observability-stack-obsvc)
+- [Root README — Observability](../../README.md#observability-stack-obsvce)

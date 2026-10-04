@@ -4,17 +4,17 @@
 
 ## Overview
 
-[LiteLLM](https://github.com/BerriAI/litellm) is the single LLM endpoint for the AI agent platform (`aiagn`). Every Hermes Agent request uses the virtual model `hermes`; [`smartrouter.py`](smartrouter.py) rewrites each request to either `hephaestus` (local Gemma via [llama.cpp](../llamacpp/README.md)) or `prometheus` (MiniMax cloud) before the provider call is made. The `aiagnlitellm` service is defined in [`compose/aiagn.yml`](../../compose/aiagn.yml) and built from [`shared/litellm/Dockerfile`](Dockerfile) (`FROM ghcr.io/berriai/litellm-database:main-latest`).
+[LiteLLM](https://github.com/BerriAI/litellm) is the single LLM endpoint for the AI agent platform (`aiserv`). Every Hermes Agent request uses the virtual model `hermes`; [`smartrouter.py`](smartrouter.py) rewrites each request to either `hephaestus` (local Gemma via [llama.cpp](../llamacpp/README.md)) or `prometheus` (MiniMax cloud) before the provider call is made. The `aiservlitellm` service is defined in [`compose/aiserv.yml`](../../compose/aiserv.yml) and built from [`shared/litellm/Dockerfile`](Dockerfile) (`FROM ghcr.io/berriai/litellm-database:main-latest`).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `aiagnlitellm` |
+| Service name | `aiservlitellm` |
 | Admin UI | `http://<host>:12380/ui` |
 | Port | 12380 (UI + API + metrics) |
-| Database | PostgreSQL (`${LITEM_DBNAME}`, via `aiagnlitellm` → `dbsvcpgsqldb`) |
-| Local tier | `hephaestus` → `aiagnchatllm` (Gemma-4, via `LITEM_HPH_*`) |
+| Database | PostgreSQL (`${LITEM_DBNAME}`, via `aiservlitellm` → `infrapgsql`) |
+| Local tier | `hephaestus` → `aiservllamacpp` (Gemma-4, via `LITEM_HPH_*`) |
 | Cloud tier | `prometheus` → MiniMax 2.7 (via `LITEM_PRM_*`) |
 | Health check | `GET /health/liveliness` with Bearer token |
 | Metrics | Prometheus `/metrics` on the UI port (scraped by VictoriaMetrics) |
@@ -27,13 +27,13 @@ Set in `.env` (see [`env.example`](../../env.example)):
 | Variable | Default | Description |
 |---|---|---|
 | `LITEM_API_KEY` | Auto-generated | Master API key (Bearer token `sk-...`) used by Hermes, FastCRW and other clients |
-| `LITEM_API_URL` | `http://aiagnlitellm:12380/v1` | Base URL clients use to reach the proxy |
+| `LITEM_API_URL` | `http://aiservlitellm:12380/v1` | Base URL clients use to reach the proxy |
 | `LITEM_ADMUSR` | `admin` | Admin UI username |
 | `LITEM_ADMPWD` | | Admin UI password |
 | `LITEM_DBNAME` | `litellm` | PostgreSQL database for usage tracking |
-| `LITEM_HPH_APIURL` | `http://aiagnchatllm:12386/v1` | Local (hephaestus) inference base URL |
+| `LITEM_HPH_APIURL` | `http://aiservllamacpp:12386/v1` | Local (hephaestus) inference base URL |
 | `LITEM_HPH_APIKEY` | `none` | Local inference API key |
-| `LITEM_HPH_HLTURL` | `http://aiagnchatllm:12386/health` | Local inference health-check URL |
+| `LITEM_HPH_HLTURL` | `http://aiservllamacpp:12386/health` | Local inference health-check URL |
 | `LITEM_PRM_APIBASE` | `https://api.minimax.io/anthropic` | MiniMax Anthropic-compatible API base |
 | `LITEM_PRM_APIKEY` | | MiniMax API key |
 
@@ -71,19 +71,19 @@ The explicit tags are stripped from the message before forwarding so the model n
 The image bakes in [`config.default.yaml`](config.default.yaml). At startup [`entrypoint.sh`](entrypoint.sh) copies it to `/opt/litellm/config.yaml` if no user override exists, so you can edit it in place:
 
 ```bash
-docker compose exec aiagnlitellm cat /app/config.default.yaml
+docker compose exec aiservlitellm cat /app/config.default.yaml
 # edit a copy, then place it at ${APPS_DATA}/litellm/config.yaml and restart
-docker compose restart aiagnlitellm
+docker compose restart aiservlitellm
 ```
 
 ## Operations
 
 ```bash
 # Start / restart
-docker compose up -d aiagnlitellm
+docker compose up -d aiservlitellm
 
 # Follow logs (routing decisions are logged)
-docker compose logs -f aiagnlitellm | grep route
+docker compose logs -f aiservlitellm | grep route
 
 # Liveness check
 curl -sf -H "Authorization: Bearer ${LITEM_API_KEY}" \
@@ -105,4 +105,4 @@ curl -sf -H "Authorization: Bearer ${LITEM_API_KEY}" \
 - [Hermes Agent](../hermesagent/README.md) — primary client (`model: hermes`)
 - [FastCRW](../fastcrw/README.md) — optional web-search backend for Hermes
 - [PostgreSQL](../postgresql/README.md) — usage database
-- [Root README — AI Agent Platform](../../README.md#ai-agent-platform-aiagn)
+- [Root README — AI Agent Platform](../../README.md#ai-agent-platform-aiserv)

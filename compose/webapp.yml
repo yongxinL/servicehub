@@ -1,12 +1,12 @@
 services:
-    # wbappcmshome — Confluence homepage / CMS. Docs: shared/confluence/README.md
-    wbappcmshome:
+    # webappconf — Confluence homepage / CMS. Docs: shared/confluence/README.md
+    webappconf:
         build:
             context: ../shared/confluence/
             args:
                 - IMAGE_TAG=${WBHOME_TAG}
         depends_on:
-            authnservice:
+            infraauth:
                 condition: service_healthy
         environment:
             - ATL_PROXY_NAME=${WBHOME_DOMAIN}
@@ -30,34 +30,34 @@ services:
             interval: 30s
             retries: 5
             timeout: 5s
-        image: wbappcmshome:latest
+        image: webappconf:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.wbappcmshome.entrypoints=websecure"
+            - "traefik.http.routers.webappconf.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.wbappcmshome.rule=Host(`${WBHOME_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            - "traefik.http.routers.webappconf.rule=Host(`${WBHOME_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.wbappcmshome.service=wbappcmshome"
+            - "traefik.http.routers.webappconf.service=webappconf"
             # Define the internal container port for routing
-            - "traefik.http.services.wbappcmshome.loadbalancer.server.port=8090"
+            - "traefik.http.services.webappconf.loadbalancer.server.port=8090"
             # Enable TLS on this router
-            - "traefik.http.routers.wbappcmshome.tls=true"
+            - "traefik.http.routers.webappconf.tls=true"
             # Apply a compression middleware
-            - "traefik.http.routers.wbappcmshome.middlewares=secure-chain@file,wbappcmshome-compress"
+            - "traefik.http.routers.webappconf.middlewares=secure-chain@file,webappconf-compress"
             # Define settings for the compression middleware
-            - "traefik.http.middlewares.wbappcmshome-compress.compress=true"
+            - "traefik.http.middlewares.webappconf-compress.compress=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.wbappcmshome.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.webappconf.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/webapps/confluence:/var/atlassian/application-data/confluence
 
-    # wbappwebchat — Open WebUI LLM chat interface. Docs: shared/openwebui/README.md
-    wbappwebchat:
+    # webappowui — Open WebUI LLM chat interface. Docs: shared/openwebui/README.md
+    webappowui:
         build:
             context: ../shared/openwebui/
         depends_on:
@@ -65,32 +65,32 @@ services:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
-        image: wbappwebchat:latest
+        image: webappowui:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.wbappwebchat.entrypoints=websecure"
+            - "traefik.http.routers.webappowui.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.wbappwebchat.rule=Host(`${OWEBUI_DOMAIN}`)"
+            - "traefik.http.routers.webappowui.rule=Host(`${OWEBUI_DOMAIN}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.wbappwebchat.service=wbappwebchat"
+            - "traefik.http.routers.webappowui.service=webappowui"
             # Define the internal container port for routing
-            - "traefik.http.services.wbappwebchat.loadbalancer.server.port=8080"
+            - "traefik.http.services.webappowui.loadbalancer.server.port=8080"
             # Enable TLS on this router
-            - "traefik.http.routers.wbappwebchat.tls=true"
+            - "traefik.http.routers.webappowui.tls=true"
             # Rate limit + security headers (defined in shared/traefik/advanced/middlewares-security.yml)
-            - "traefik.http.routers.wbappwebchat.middlewares=secure-chain@file"
+            - "traefik.http.routers.webappowui.middlewares=secure-chain@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.wbappwebchat.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.webappowui.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/openwebui:/app/backend/data
 
-    # wbappdriveinit — oCIS config/data directory ownership initialiser. Docs: shared/owncloud/README.md
-    wbappdriveinit:
+    # webappocisinit — oCIS config/data directory ownership initialiser. Docs: shared/owncloud/README.md
+    webappocisinit:
         command: >
             sh -c 'mkdir -p /config /data &&
                    chown -R 1000:1000 /config /data &&
@@ -103,18 +103,18 @@ services:
             - ${APPS_DATA}/cloud/ocis/config:/config
             - ${APPS_DATA}/cloud/ocis/data:/data
 
-    # wbappmydrive — ownCloud Infinite Scale cloud drive. Docs: shared/owncloud/README.md
-    wbappmydrive:
+    # webappocis — ownCloud Infinite Scale cloud drive. Docs: shared/owncloud/README.md
+    webappocis:
         build:
             context: ../shared/owncloud/
             args:
                 - IMAGE_TAG=${WBDRIVE_TAG}
         depends_on:
-            authnservice:
+            infraauth:
                 condition: service_healthy
             routetraefik:
                 condition: service_healthy
-            wbappdriveinit:
+            webappocisinit:
                 condition: service_completed_successfully
         environment:
             - TZ=${TIME_ZONE}
@@ -149,16 +149,16 @@ services:
             interval: 30s
             retries: 5
             timeout: 5s
-        image: wbappmydrive:latest
+        image: webappocis:latest
         labels:
             - "traefik.enable=true"
-            - "traefik.http.routers.wbappmydrive.entrypoints=websecure"
-            - "traefik.http.routers.wbappmydrive.rule=Host(`${WBDRIVE_DOMAIN}`)"
-            - "traefik.http.routers.wbappmydrive.service=wbappmydrive"
-            - "traefik.http.services.wbappmydrive.loadbalancer.server.port=9200"
-            - "traefik.http.routers.wbappmydrive.tls=true"
-            - "traefik.http.routers.wbappmydrive.middlewares=secure-chain@file"
-            - "traefik.http.routers.wbappmydrive.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.webappocis.entrypoints=websecure"
+            - "traefik.http.routers.webappocis.rule=Host(`${WBDRIVE_DOMAIN}`)"
+            - "traefik.http.routers.webappocis.service=webappocis"
+            - "traefik.http.services.webappocis.loadbalancer.server.port=9200"
+            - "traefik.http.routers.webappocis.tls=true"
+            - "traefik.http.routers.webappocis.middlewares=secure-chain@file"
+            - "traefik.http.routers.webappocis.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped

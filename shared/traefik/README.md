@@ -117,7 +117,7 @@ Dynamic configuration lives in `advanced/` and is loaded by the file provider.
 
 | File | Provides |
 |---|---|
-| [`advanced/middlewares-authentik.yml`](advanced/middlewares-authentik.yml) | `authentik-forwardauth` — forward-auth to `authnservice:9000` (Authentik outpost) |
+| [`advanced/middlewares-authentik.yml`](advanced/middlewares-authentik.yml) | `authentik-forwardauth` — forward-auth to `infraauth:9000` (Authentik outpost) |
 | [`advanced/middlewares-security.yml`](advanced/middlewares-security.yml) | `secure-chain` — security headers + rate limit, applied to every router |
 | [`advanced/certificates.yml`](advanced/certificates.yml) | Default self-signed TLS certificate store |
 | [`advanced/metrics.yml`](advanced/metrics.yml) | Prometheus metrics (entrypoint/service labels + `client_ip` header label) |

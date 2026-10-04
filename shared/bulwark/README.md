@@ -4,19 +4,19 @@
 
 ## Overview
 
-[Bulwark](https://github.com/bulwarkmail/webmail) provides the web UI for the ServiceHub email domain (`poste`): mail, calendar, contacts and files over JMAP against [Stalwart](../stalwart/README.md). It is defined by the `postewebmail` service in [`compose/poste.yml`](../../compose/poste.yml) and built from [`Dockerfile`](Dockerfile) (`FROM ghcr.io/bulwarkmail/webmail:${IMAGE_TAG}`). Upstream configuration reference: [Configuration](https://github.com/bulwarkmail/webmail#configuration).
+[Bulwark](https://github.com/bulwarkmail/webmail) provides the web UI for the ServiceHub email domain (`mailsv`): mail, calendar, contacts and files over JMAP against [Stalwart](../stalwart/README.md). It is defined by the `mailsvbulwark` service in [`compose/mailsv.yml`](../../compose/mailsv.yml) and built from [`Dockerfile`](Dockerfile) (`FROM ghcr.io/bulwarkmail/webmail:${IMAGE_TAG}`). Upstream configuration reference: [Configuration](https://github.com/bulwarkmail/webmail#configuration).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `postewebmail` |
+| Service name | `mailsvbulwark` |
 | HTTP port | 3000, routed by Traefik at `https://${WEBMAIL_DOMAIN}` |
-| JMAP backend | `https://${EMAIL_HOST}` — resolves via Docker DNS because `posteservice` sets its container hostname to `${EMAIL_HOST}` |
+| JMAP backend | `https://${EMAIL_HOST}` — resolves via Docker DNS because `mailsvstalwart` sets its container hostname to `${EMAIL_HOST}` |
 | Health check | Node HTTP check of `http://localhost:3000/api/health` every 30 s |
-| Depends on | `postesvcinit` (completed) — creates/chowns the data dirs; `posteservice` (healthy) |
+| Depends on | `mailsvbulwarkinit` (completed) — creates/chowns the data dirs; `mailsvstalwart` (healthy) |
 | Data persistence | `${APPS_DATA}/platform/webmail/...` |
-| Volume ownership | `1001:1001` (`nextjs:nodejs`) — set by `postesvcinit` on every boot |
+| Volume ownership | `1001:1001` (`nextjs:nodejs`) — set by `mailsvbulwarkinit` on every boot |
 | Onboarding | Setup wizard on first launch unless `JMAP_SERVER_URL` is preset (it is, here) |
 
 ## Traefik routing
@@ -27,12 +27,12 @@ Traefik serves the webmail at `https://${WEBMAIL_DOMAIN}` with automatic TLS. It
 
 For *any* sign-in — password form or OIDC — two Stalwart settings must hold:
 
-1. **Permissive CORS** — the browser talks to Stalwart's JMAP endpoint cross-origin (webmail origin `${WEBMAIL_DOMAIN}`, JMAP origin `${EMAIL_HOST}`), so Stalwart must answer with CORS headers. Stalwart's setting is all-or-nothing: enable **Permissive CORS policy** (`usePermissiveCors`) under **Settings → Network → HTTP → Security**, then reload/restart Stalwart. Every JMAP endpoint requires authentication and the admin router is IP-allow-listed at Traefik, which keeps the exposure bounded. Origin-restricted CORS can instead be injected by a Traefik `headers` middleware on the `posteservice` router if permissive is not acceptable.
-2. **Trusted certificate on Stalwart's HTTPS listener** — the webmail server checks `JMAP_SERVER_URL` itself (server-side), and the browser opens the JMAP session against it. `https://${EMAIL_HOST}` must (a) resolve inside the container network — `posteservice`'s hostname makes Docker DNS do this — and (b) serve the exported Let's Encrypt certificate via a Stalwart Certificate object (see [Stalwart — TLS certificates](../stalwart/README.md#tls-certificates)); the 2-day bootstrap self-signed cert fails server-side checks with `DEPTH_ZERO_SELF_SIGNED_CERT` in the container logs.
+1. **Permissive CORS** — the browser talks to Stalwart's JMAP endpoint cross-origin (webmail origin `${WEBMAIL_DOMAIN}`, JMAP origin `${EMAIL_HOST}`), so Stalwart must answer with CORS headers. Stalwart's setting is all-or-nothing: enable **Permissive CORS policy** (`usePermissiveCors`) under **Settings → Network → HTTP → Security**, then reload/restart Stalwart. Every JMAP endpoint requires authentication and the admin router is IP-allow-listed at Traefik, which keeps the exposure bounded. Origin-restricted CORS can instead be injected by a Traefik `headers` middleware on the `mailsvstalwart` router if permissive is not acceptable.
+2. **Trusted certificate on Stalwart's HTTPS listener** — the webmail server checks `JMAP_SERVER_URL` itself (server-side), and the browser opens the JMAP session against it. `https://${EMAIL_HOST}` must (a) resolve inside the container network — `mailsvstalwart`'s hostname makes Docker DNS do this — and (b) serve the exported Let's Encrypt certificate via a Stalwart Certificate object (see [Stalwart — TLS certificates](../stalwart/README.md#tls-certificates)); the 2-day bootstrap self-signed cert fails server-side checks with `DEPTH_ZERO_SELF_SIGNED_CERT` in the container logs.
 
 ## Volume ownership
 
-Bulwark's image runs as non-root `uid=1001 gid=1001` (`nextjs:nodejs`) and has no ownership-fixing entrypoint, so the host directories mounted at `/data/*` (`platform/webmail/{settings,admin,admin-state,telemetry}`) must be writable by `1001:1001`. The one-shot `postesvcinit` service (busybox — same pattern as [`depotsvcinit`](../forgejo/README.md)) creates the directories and `chown -R 1001:1001`s them on every boot, so they can be created empty beforehand. Wrong ownership shows as `EACCES` warnings on boot and breaks login (the auth session cannot be persisted).
+Bulwark's image runs as non-root `uid=1001 gid=1001` (`nextjs:nodejs`) and has no ownership-fixing entrypoint, so the host directories mounted at `/data/*` (`platform/webmail/{settings,admin,admin-state,telemetry}`) must be writable by `1001:1001`. The one-shot `mailsvbulwarkinit` service (busybox — same pattern as [`devopsforgejoinit`](../forgejo/README.md)) creates the directories and `chown -R 1001:1001`s them on every boot, so they can be created empty beforehand. Wrong ownership shows as `EACCES` warnings on boot and breaks login (the auth session cannot be persisted).
 
 ## Configuration (env)
 
@@ -69,7 +69,7 @@ If you ever switch Stalwart to an OIDC directory, see upstream [Authentication](
 
 ## First boot
 
-1. `docker compose up -d postesvcinit postewebmail` (the init service creates/chowns the data dirs)
+1. `docker compose up -d mailsvbulwarkinit mailsvbulwark` (the init service creates/chowns the data dirs)
 2. Open `https://${WEBMAIL_DOMAIN}` — users sign in with their email + Authentik password (see [Login prerequisites](#login-prerequisites-stalwart-side) for the required Stalwart-side CORS and certificate settings).
 
 ## Security hardening
@@ -82,10 +82,10 @@ If you ever switch Stalwart to an OIDC directory, see upstream [Authentication](
 
 ```bash
 # Start / restart
-docker compose up -d postewebmail
+docker compose up -d mailsvbulwark
 
 # Follow logs
-docker compose logs -f postewebmail
+docker compose logs -f mailsvbulwark
 ```
 
 ## Files
@@ -99,4 +99,4 @@ docker compose logs -f postewebmail
 - [Stalwart Mail Server](../stalwart/README.md) — the JMAP backend this client talks to
 - [Authentik](../authentik/README.md) — IdP; serves the LDAP directory behind all webmail/IMAP/SMTP logins
 - [Traefik](../traefik/README.md) — edge routing and TLS termination
-- [Root README — Email stack](../../README.md#email-stack-poste)
+- [Root README — Email stack](../../README.md#email-stack-mailsv)

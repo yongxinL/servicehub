@@ -4,18 +4,18 @@
 
 ## Overview
 
-[VictoriaLogs](https://victoriametrics.com/products/victorialogs/) is the log store for the observability stack (`obsvc`). It receives container and Traefik access logs from [Grafana Alloy](../grafana/alloy/README.md) and is queried from [Grafana](../grafana/README.md) through the `victoriametrics-logs-datasource` plugin. It is defined by the `obsvcviclogs` service in [`compose/obsvc.yml`](../../compose/obsvc.yml) and built from [`shared/victorialogs/Dockerfile`](Dockerfile) (`FROM victoriametrics/victoria-logs:latest`).
+[VictoriaLogs](https://victoriametrics.com/products/victorialogs/) is the log store for the observability stack (`obsvce`). It receives container and Traefik access logs from [Grafana Alloy](../grafana/alloy/README.md) and is queried from [Grafana](../grafana/README.md) through the `victoriametrics-logs-datasource` plugin. It is defined by the `obsvcevlogs` service in [`compose/obsvce.yml`](../../compose/obsvce.yml) and built from [`shared/victorialogs/Dockerfile`](Dockerfile) (`FROM victoriametrics/victoria-logs:latest`).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `obsvcviclogs` |
+| Service name | `obsvcevlogs` |
 | HTTP API port | 9428 (published to the host for remote Alloy/log push) |
 | Data persistence | `${APPS_DATA}/victorialogs` (mounted at `/vlogs`) |
 | Log source | Grafana Alloy — Docker logs, container stats, Traefik access logs |
 | Health check | `curl -fsS http://localhost:9428/health` every 30 s |
-| Depended on by | `obsvcgrafaly` (healthy), `obsvcgrafana` (via Alloy) |
+| Depended on by | `obsvcealloy` (healthy), `obsvcegrafana` (via Alloy) |
 
 ## Server flags
 
@@ -29,7 +29,7 @@
 Alloy pushes logs to the Loki-compatible endpoint:
 
 ```
-http://obsvcviclogs:9428/insert/loki/api/v1/push
+http://obsvcevlogs:9428/insert/loki/api/v1/push
 ```
 
 ## Data & persistence
@@ -42,10 +42,10 @@ http://obsvcviclogs:9428/insert/loki/api/v1/push
 
 ```bash
 # Start / restart
-docker compose up -d obsvcviclogs
+docker compose up -d obsvcevlogs
 
 # Follow logs
-docker compose logs -f obsvcviclogs
+docker compose logs -f obsvcevlogs
 
 # Query recent logs (host)
 curl -s 'http://localhost:9428/select/logsql/query' \
@@ -63,4 +63,4 @@ curl -s 'http://localhost:9428/select/logsql/query' \
 - [VictoriaMetrics](../victoriametrics/README.md) — metrics store
 - [Grafana Alloy](../grafana/alloy/README.md) — collector shipping logs here
 - [Grafana](../grafana/README.md) — dashboards and log exploration
-- [Root README — Observability](../../README.md#observability-stack-obsvc)
+- [Root README — Observability](../../README.md#observability-stack-obsvce)

@@ -9,11 +9,11 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
 - [Core Services](#core-services)
-- [Depot (Source Control + CI)](#depot-source-control--ci)
-- [AI Agent Platform (aiagn)](#ai-agent-platform-aiagn)
+- [DevOps (Source Control + CI)](#devops-source-control--ci)
+- [AI Agent Platform (aiserv)](#ai-agent-platform-aiserv)
 - [Web Applications](#web-applications)
-- [Observability Stack (obsvc)](#observability-stack-obsvc)
-- [Email Stack (poste)](#email-stack-poste)
+- [Observability Stack (obsvce)](#observability-stack-obsvce)
+- [Email Stack (mailsv)](#email-stack-mailsv)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
@@ -49,13 +49,13 @@ Compose files are split by functional domain:
 | File | Prefix | Purpose |
 |---|---|---|
 | `compose/route.yml` | `route*` | Edge routing + TLS termination (Traefik) |
-| `compose/dbsvc.yml` | `dbsvc*` | Relational databases (MariaDB + PostgreSQL) |
-| `compose/authn.yml` | `authn*` | Authentication / SSO (Authentik) |
-| `compose/depot.yml` | `depot*` | Source control, CI, and backups (Forgejo plus its Actions runner) |
-| `compose/wbapp.yml` | `wbapp*` | Homepage / CMS (Confluence), Open WebUI, and oCIS cloud drive |
-| `compose/aiagn.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
-| `compose/obsvc.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
-| `compose/poste.yml` | `poste*` | Email services (Stalwart mail server + Bulwark webmail) |
+| `compose/infra.yml` | `infra*` | Relational databases (MariaDB + PostgreSQL) |
+| `compose/infra.yml` | `infra*` | Authentication / SSO (Authentik) |
+| `compose/devops.yml` | `devops*` | Source control, CI, and backups (Forgejo plus its Actions runner) |
+| `compose/webapp.yml` | `webapp*` | Homepage / CMS (Confluence), Open WebUI, and oCIS cloud drive |
+| `compose/aiserv.yml` | `aiserv*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
+| `compose/obsvce.yml` | `obsvce*` | Observability (metrics + logs + Grafana) |
+| `compose/mailsv.yml` | `mailsv*` | Email services (Stalwart mail server + Bulwark webmail) |
 
 ```mermaid
 graph TD
@@ -65,30 +65,30 @@ graph TD
     subgraph subnet[Docker Network: subnet]
         Traefik[routetraefik\nReverse Proxy + TLS]
         Traefik -->|traefik.domain| Dashboard[Traefik Dashboard]
-        Traefik -->|login.domain| Authentik[authnservice\nIdP / SSO]
-        Traefik -->|git.domain| Forgejo[depotservice\nForgejo + Actions]
-        Traefik -->|www.domain + apex| Confluence[wbappcmshome\nConfluence]
-        Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
-        Traefik -->|drive.domain| Cloud[wbappmydrive\nownCloud Infinite Scale]
-        Traefik -->|space0.domain| Hermes[aiagnherm00\nHermes Agent]
-        Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
-        Traefik -->|mail.domain| Stalwart[posteservice\nStalwart Mail Server]
-        Traefik -->|webmail.domain| Bulwark[postewebmail\nBulwark Webmail]
+        Traefik -->|login.domain| Authentik[infraauth\nIdP / SSO]
+        Traefik -->|git.domain| Forgejo[devopsforgejo\nForgejo + Actions]
+        Traefik -->|www.domain + apex| Confluence[webappconf\nConfluence]
+        Traefik -->|chats.domain| OpenWebUI[webappowui\nOpen WebUI]
+        Traefik -->|drive.domain| Cloud[webappocis\nownCloud Infinite Scale]
+        Traefik -->|space0.domain| Hermes[aiservhermes\nHermes Agent]
+        Traefik -->|stats.domain| Grafana[obsvcegrafana\nGrafana]
+        Traefik -->|mail.domain| Stalwart[mailsvstalwart\nStalwart Mail Server]
+        Traefik -->|webmail.domain| Bulwark[mailsvbulwark\nBulwark Webmail]
         Bulwark -->|JMAP via Docker DNS| Stalwart
         Authentik -.->|forward-auth| Grafana
         Authentik -.->|OIDC| Cloud
         Cloud --> CloudData[(Local filesystem)]
-        Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
+        Forgejo -->|depends on| PostgreSQL[(infrapgsql\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
         Confluence -->|depends on| Authentik
-        Forgejo -->|dispatches| Runner[depotrunner\nForgejo Actions Runner]
-        Hermes -->|hermes| LiteLLM[aiagnlitellm\nComplexity Router]
+        Forgejo -->|dispatches| Runner[devopsrunner\nForgejo Actions Runner]
+        Hermes -->|hermes| LiteLLM[aiservlitellm\nComplexity Router]
         LiteLLM -->|depends on| PostgreSQL
-        LiteLLM -->|hephaestus| Gemma[aiagnchatllm\nllama.cpp Gemma-4 local]
+        LiteLLM -->|hephaestus| Gemma[aiservllamacpp\nllama.cpp Gemma-4 local]
         LiteLLM -->|prometheus| MiniMax[MiniMax 2.7\nCloud API]
-        Grafana -.->|metrics| VM[obsvcvicmtrx\nVictoriaMetrics]
-        Grafana -.->|logs| VL[obsvcviclogs\nVictoriaLogs]
-        VM -.->|scrapes| Alloy[obsvcgrafaly\nGrafana Alloy]
+        Grafana -.->|metrics| VM[obsvcevm\nVictoriaMetrics]
+        Grafana -.->|logs| VL[obsvcevlogs\nVictoriaLogs]
+        VM -.->|scrapes| Alloy[obsvcealloy\nGrafana Alloy]
         VL -.->|receives| Alloy
     end
 
@@ -116,13 +116,13 @@ servicehub/
 │       └── 50-test-remote-access.yml     # Forgejo Actions SSH/Docker prerequisite test workflow
 ├── compose/                    # Per-domain Docker Compose files
 │   ├── route.yml               # Traefik (routetraefik)
-│   ├── dbsvc.yml               # MariaDB + PostgreSQL
-│   ├── authn.yml               # Authentik server + worker + init
-│   ├── wbapp.yml               # Confluence + Open WebUI + oCIS cloud drive
-│   ├── aiagn.yml               # Hermes agents + LiteLLM + llama.cpp
-│   ├── depot.yml               # Forgejo + Forgejo Actions runner
-│   ├── obsvc.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
-│   └── poste.yml               # Email services (Stalwart mail server + Bulwark webmail)
+│   ├── infra.yml               # MariaDB + PostgreSQL
+│   ├── infra.yml               # Authentik server + worker + init
+│   ├── webapp.yml               # Confluence + Open WebUI + oCIS cloud drive
+│   ├── aiserv.yml               # Hermes agents + LiteLLM + llama.cpp
+│   ├── devops.yml               # Forgejo + Forgejo Actions runner
+│   ├── obsvce.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
+│   └── mailsv.yml               # Email services (Stalwart mail server + Bulwark webmail)
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
 │   │   ├── README.md                     # Traefik service documentation
@@ -167,7 +167,7 @@ servicehub/
 │   │   └── Dockerfile
 │   ├── owncloud/
 │   │   ├── README.md                     # ownCloud Infinite Scale documentation
-│   │   ├── Dockerfile                    # wbappmydrive image build
+│   │   ├── Dockerfile                    # webappocis image build
 │   │   └── entrypoint.sh                 # oCIS init and server startup
 │   ├── fastcrw/                          # Optional web-search stack (not included by default)
 │   │   ├── README.md                     # FastCRW + renderers + SearXNG documentation
@@ -206,13 +206,13 @@ servicehub/
 │   │   ├── README.md                     # PostgreSQL service documentation
 │   │   ├── Dockerfile
 │   │   └── create-multiple-databases.sh
-│   ├── stalwart/                          # Stalwart Mail Server (posteservice)
+│   ├── stalwart/                          # Stalwart Mail Server (mailsvstalwart)
 │   │   ├── README.md                      # Stalwart service documentation
 │   │   ├── Dockerfile
 │   │   ├── config.json                    # Stalwart PostgreSQL DataStore template (rendered at container start)
 │   │   ├── entrypoint.sh                  # Bootstrap cert + privilege drop
 │   │   └── acme-export.sh                 # Extracts certs from Traefik's acme.json
-│   ├── bulwark/                           # Bulwark Webmail (postewebmail)
+│   ├── bulwark/                           # Bulwark Webmail (mailsvbulwark)
 │   │   ├── README.md                      # Bulwark service documentation
 │   │   └── Dockerfile
 │   └── wordpress/                        # Optional alternative homepage (not included by default)
@@ -233,32 +233,32 @@ servicehub/
 | Service | Runs as | Full documentation |
 |---|---|---|
 | Traefik v3 — edge router + TLS termination | `routetraefik` | [shared/traefik/README.md](shared/traefik/README.md) |
-| MariaDB 11.8 — MySQL-compatible database | `dbsvcmariadb` | [shared/mariadb/README.md](shared/mariadb/README.md) |
-| PostgreSQL 16 — primary database | `dbsvcpgsqldb` | [shared/postgresql/README.md](shared/postgresql/README.md) |
+| MariaDB 11.8 — MySQL-compatible database | `inframariadb` | [shared/mariadb/README.md](shared/mariadb/README.md) |
+| PostgreSQL 16 — primary database | `infrapgsql` | [shared/postgresql/README.md](shared/postgresql/README.md) |
 
 > Service-specific configuration, data layout, first-boot steps and operations notes live in each service's own `README.md` under `shared/`.
 
 ---
 
-## Depot (Source Control + CI)
+## DevOps (Source Control + CI)
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Forgejo — self-hosted Git service + Actions | `depotservice`, `depotrunner` | [shared/forgejo/README.md](shared/forgejo/README.md) |
+| Forgejo — self-hosted Git service + Actions | `devopsforgejo`, `devopsrunner` | [shared/forgejo/README.md](shared/forgejo/README.md) |
 
 Setup, configuration, Actions runner registration and operations are documented in the service README. Forgejo Actions also deploys the application services (databases, Authentik, Forgejo and Traefik are foundational and deployed manually) — see [Deployment (Forgejo Actions)](#deployment-forgejo-actions).
 
 ---
 
-## AI Agent Platform (aiagn)
+## AI Agent Platform (aiserv)
 
-Local and cloud LLM services power the Hermes AI agents. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers. All AI services live in [`compose/aiagn.yml`](compose/aiagn.yml).
+Local and cloud LLM services power the Hermes AI agents. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers. All AI services live in [`compose/aiserv.yml`](compose/aiserv.yml).
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Hermes Agent — single shared agent workspace + gateway | `aiagnherm00` (+ one-shot `aiagnhermint`) | [shared/hermesagent/README.md](shared/hermesagent/README.md) |
-| LiteLLM Proxy — unified API gateway + complexity router | `aiagnlitellm` | [shared/litellm/README.md](shared/litellm/README.md) |
-| llama.cpp chat inference — local Gemma tier | `aiagnchatllm` | [shared/llamacpp/README.md](shared/llamacpp/README.md) |
+| Hermes Agent — single shared agent workspace + gateway | `aiservhermes` (+ one-shot `aiservhermesinit`) | [shared/hermesagent/README.md](shared/hermesagent/README.md) |
+| LiteLLM Proxy — unified API gateway + complexity router | `aiservlitellm` | [shared/litellm/README.md](shared/litellm/README.md) |
+| llama.cpp chat inference — local Gemma tier | `aiservllamacpp` | [shared/llamacpp/README.md](shared/llamacpp/README.md) |
 
 **At a glance:**
 
@@ -285,17 +285,17 @@ See [shared/litellm/README.md](shared/litellm/README.md#routing-logic) for the f
 
 Hermes Agent is **single-user / single-tenant**: one container serves exactly one login and one agent identity. Everything under a Hermes home — sessions, `MEMORY.md`, `USER.md`, skills and `state.db` — is shared by anyone logged into that container. Upstream is explicit that profiles are *configuration, not a person* and that profile multiplexing "does not authenticate or authorize end users". See [shared/hermesagent/README.md](shared/hermesagent/README.md#multi-user-support) for the full findings.
 
-The stack therefore ships **one** Hermes Agent (`aiagnherm00`) that acts as a shared team assistant. When more people need their **own** private agent, add another isolated container rather than sharing one login. To scale to N users, replicate the `aiagnherm00` pattern in [`compose/aiagn.yml`](compose/aiagn.yml):
+The stack therefore ships **one** Hermes Agent (`aiservhermes`) that acts as a shared team assistant. When more people need their **own** private agent, add another isolated container rather than sharing one login. To scale to N users, replicate the `aiservhermes` pattern in [`compose/aiserv.yml`](compose/aiserv.yml):
 
-1. **Add a data volume + init entry** — extend `aiagnhermint` with `/data0X`, or add a sibling init container, pointing at `${APPS_DATA}/hermesagent/0X`.
-2. **Duplicate the `aiagnherm00` service** as `aiagnherm0X`, with:
+1. **Add a data volume + init entry** — extend `aiservhermesinit` with `/data0X`, or add a sibling init container, pointing at `${APPS_DATA}/hermesagent/0X`.
+2. **Duplicate the `aiservhermes` service** as `aiservhermes0X`, with:
    - its own `${HERMES_DATA_0X}:/opt/data` volume,
    - its own `HERMES_WORKSPACE_PASSWD_0X` and (optionally) `HERMES_WORKSPACE_DOMAIN_0X`,
    - a unique host port (`1232X:12320`).
 3. **Add the matching `HERMES_WORKSPACE_PASSWD_0X`, `HERMES_DATA_0X` and `HERMES_WORKSPACE_DOMAIN_0X`** variables to `.env` / [`env.example`](env.example).
-4. **Recreate** with `docker compose up -d --build aiagnherm0X`.
+4. **Recreate** with `docker compose up -d --build aiservhermes0X`.
 
-All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so GPU/RAM scaling is handled centrally there — only per-user data and the workspace need duplicating. For identity-aware routing you can front the agents with Authentik and map each user to a container, but do **not** point multiple people at a single Hermes login.
+All agents share the same `aiservlitellm` router and `aiservllamacpp` model, so GPU/RAM scaling is handled centrally there — only per-user data and the workspace need duplicating. For identity-aware routing you can front the agents with Authentik and map each user to a container, but do **not** point multiple people at a single Hermes login.
 
 ---
 
@@ -303,10 +303,10 @@ All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so GPU
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Authentik — IdP / SSO | `authnservice`, `authnworkers` (+ one-shot `authnsvcinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
-| Confluence Data Center — homepage / CMS | `wbappcmshome` | [shared/confluence/README.md](shared/confluence/README.md) |
-| Open WebUI — browser LLM chat interface | `wbappwebchat` | [shared/openwebui/README.md](shared/openwebui/README.md) |
-| ownCloud Infinite Scale — family cloud drive | `wbappmydrive` (+ one-shot `wbappdriveinit`) | [shared/owncloud/README.md](shared/owncloud/README.md) |
+| Authentik — IdP / SSO | `infraauth`, `infraauthwrk` (+ one-shot `infraauthinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
+| Confluence Data Center — homepage / CMS | `webappconf` | [shared/confluence/README.md](shared/confluence/README.md) |
+| Open WebUI — browser LLM chat interface | `webappowui` | [shared/openwebui/README.md](shared/openwebui/README.md) |
+| ownCloud Infinite Scale — family cloud drive | `webappocis` (+ one-shot `webappocisinit`) | [shared/owncloud/README.md](shared/owncloud/README.md) |
 
 Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`. oCIS is served at `https://${WBDRIVE_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
 
@@ -316,28 +316,28 @@ Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `$
 
 ---
 
-## Observability Stack (obsvc)
+## Observability Stack (obsvce)
 
-A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy. All components live in [`compose/obsvc.yml`](compose/obsvc.yml).
+A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy. All components live in [`compose/obsvce.yml`](compose/obsvce.yml).
 
 | Component | Runs as | Full documentation |
 |---|---|---|
-| VictoriaMetrics — time-series metrics store | `obsvcvicmtrx` | [shared/victoriametrics/README.md](shared/victoriametrics/README.md) |
-| VictoriaLogs — log aggregation | `obsvcviclogs` | [shared/victorialogs/README.md](shared/victorialogs/README.md) |
-| Grafana Alloy — host/container/metrics/log collector | `obsvcgrafaly` | [shared/grafana/alloy/README.md](shared/grafana/alloy/README.md) |
-| Grafana — dashboards for metrics and logs | `obsvcgrafana` (+ one-shot `obsvcgrafint`) | [shared/grafana/README.md](shared/grafana/README.md) |
+| VictoriaMetrics — time-series metrics store | `obsvcevm` | [shared/victoriametrics/README.md](shared/victoriametrics/README.md) |
+| VictoriaLogs — log aggregation | `obsvcevlogs` | [shared/victorialogs/README.md](shared/victorialogs/README.md) |
+| Grafana Alloy — host/container/metrics/log collector | `obsvcealloy` | [shared/grafana/alloy/README.md](shared/grafana/alloy/README.md) |
+| Grafana — dashboards for metrics and logs | `obsvcegrafana` (+ one-shot `obsvcegrafanainit`) | [shared/grafana/README.md](shared/grafana/README.md) |
 
 ```mermaid
 graph LR
     subgraph Collectors[Collection]
-        Alloy[obsvcgrafaly\nHost + Container + Traefik]
+        Alloy[obsvcealloy\nHost + Container + Traefik]
     end
     subgraph Storage[Storage]
-        VM[obsvcvicmtrx\nTime-series metrics]
-        VL[obsvcviclogs\nLog aggregation]
+        VM[obsvcevm\nTime-series metrics]
+        VL[obsvcevlogs\nLog aggregation]
     end
     subgraph Visualization[Visualization]
-        Grafana[obsvcgrafana\nDashboards]
+        Grafana[obsvcegrafana\nDashboards]
     end
     Alloy -->|metrics push| VM
     Alloy -->|logs push| VL
@@ -349,14 +349,14 @@ Grafana is reachable at `https://${OBSVC_DOMAIN}` behind Authentik forward-auth 
 
 ---
 
-## Email Stack (poste)
+## Email Stack (mailsv)
 
-A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. All services live in [`compose/poste.yml`](compose/poste.yml).
+A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. All services live in [`compose/mailsv.yml`](compose/mailsv.yml).
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `posteservice` | [shared/stalwart/README.md](shared/stalwart/README.md) |
-| Bulwark Webmail — JMAP webmail client | `postewebmail` | [shared/bulwark/README.md](shared/bulwark/README.md) |
+| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `mailsvstalwart` | [shared/stalwart/README.md](shared/stalwart/README.md) |
+| Bulwark Webmail — JMAP webmail client | `mailsvbulwark` | [shared/bulwark/README.md](shared/bulwark/README.md) |
 
 **At a glance:**
 
@@ -365,7 +365,7 @@ A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) 
 | Mail server (Stalwart admin) | `https://${EMAIL_HOST}` — reachable from trusted IPs only |
 | Webmail (Bulwark) | `https://${WEBMAIL_DOMAIN}` |
 | Ports published to the host | 25 / 465 / 587 / 993 (SMTP server-to-server, submission ×2, IMAP) |
-| Storage | PostgreSQL (`${POSTE_DBNAME}` on `dbsvcpgsqldb`) holds all mail data — accounts, messages, indexes, blobs |
+| Storage | PostgreSQL (`${POSTE_DBNAME}` on `infrapgsql`) holds all mail data — accounts, messages, indexes, blobs |
 | TLS | Reused from Traefik's shared `acme.json` via an in-container certificate exporter |
 | Webmail → Stalwart | JMAP at `https://${EMAIL_HOST}` — browser-side, so Stalwart needs **Permissive CORS** (`usePermissiveCors`) and a trusted certificate (see [Bulwark — Login prerequisites](shared/bulwark/README.md#login-prerequisites-stalwart-side)) |
 | Single sign-on | Authentik serves the directory: webmail users log in with their Authentik password through the JMAP password form, IMAP/SMTP/JMAP logins bind against Authentik's LDAP outpost |
@@ -443,7 +443,7 @@ For remote deployments via the Forgejo Actions workflow, `acme.json` is restored
 
 ### 5. Prepare Data Directories
 
-Service init containers (`authnsvcinit`, `depotsvcinit`, `aiagnhermint`, `obsvcgrafint`) fix ownership on every boot. To prepare directories ahead of time:
+Service init containers (`infraauthinit`, `devopsforgejoinit`, `aiservhermesinit`, `obsvcegrafanainit`) fix ownership on every boot. To prepare directories ahead of time:
 
 ```bash
 mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
@@ -468,7 +468,7 @@ docker compose up -d
 Or start a specific service:
 
 ```bash
-docker compose up -d depotservice
+docker compose up -d devopsforgejo
 ```
 
 ---
@@ -540,7 +540,7 @@ git-crypt unlock ./servicehub.key
 
 ## Deployment (Forgejo Actions)
 
-The Forgejo Actions workflow at [.forgejo/workflows/00-prod-deploy-services.yml](.forgejo/workflows/00-prod-deploy-services.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs, secrets and variables are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`depotrunner`). A companion workflow (`.forgejo/workflows/50-test-remote-access.yml`) verifies SSH, Docker and sudo access to the target without deploying anything.
+The Forgejo Actions workflow at [.forgejo/workflows/00-prod-deploy-services.yml](.forgejo/workflows/00-prod-deploy-services.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs, secrets and variables are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`devopsrunner`). A companion workflow (`.forgejo/workflows/50-test-remote-access.yml`) verifies SSH, Docker and sudo access to the target without deploying anything.
 
 | Trigger | Behaviour |
 |---|---|
@@ -557,7 +557,7 @@ The Forgejo Actions workflow at [.forgejo/workflows/00-prod-deploy-services.yml]
 7. Restores `acme.json` from the `*_B64ENC_ACME` secret if the secret is newer than the existing file
 8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to every app service)
 
-> **Deploy scope:** databases (`dbsvc*`), Authentik (`authn*`), Depot / Forgejo + runner (`depot*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
+> **Deploy scope:** databases (`infra*`), Authentik (`infra*`), DevOps / Forgejo + runner (`devops*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
 >
 > **Timestamp-based restore:** Both `.env` and `acme.json` are gzip-compressed before base64-encoding, which preserves the file's original mtime in the gzip header. On deploy, the workflow compares that mtime against the existing file on the server — the newer file always wins. This prevents a stale secret from overwriting a `.env` edited directly on the server or an `acme.json` renewed by Traefik since the last encode.
 
@@ -591,7 +591,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Variables**:
 
 | Variable | Example value | Description |
 |---|---|---|
-| `DEPOT_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://depotservice:3000` and cannot be reached from the deploy servers). |
+| `DEPOT_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://devopsforgejo:3000` and cannot be reached from the deploy servers). |
 
 #### Secrets (Settings → Actions → Secrets)
 
@@ -659,7 +659,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 1. Open the repository in Forgejo (`https://${DEPOT_DOMAIN}`) → **Actions**
 2. Select the **deploy** workflow and click **Run workflow**
 3. Set the inputs:
-   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `wbappmydrive`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `posteservice`, `postewebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`webappconf`, `webappowui`, `webappocis`, `aiservlitellm`, `aiservllamacpp`, `aiservhermes`, `obsvcevm`, `obsvcevlogs`, `obsvcealloy`, `obsvcegrafana`, `mailsvstalwart`, `mailsvbulwark`). Foundational services are not listed — see [Deploy scope](#how-it-works).
    - **environment** — `stag` (default) or `prod`
    - **branch** — branch to deploy (default `main`)
 4. Click the green **Run workflow** button — progress and logs appear in the workflow run page
@@ -668,9 +668,9 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 ### Data Backups (Forgejo Actions)
 
-The `30-prod-backup-services.yml` workflow runs on the existing `depotrunner` with the `ssh-deploy` label, creates archives under `*_BACKUP_ROOT`, then configures Restic and Rclone copies to the two accepted targets. Repository configuration exists; successful transfers and restores are not yet evidenced.
+The `30-prod-backup-services.yml` workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, creates archives under `*_BACKUP_ROOT`, then configures Restic and Rclone copies to the two accepted targets. Repository configuration exists; successful transfers and restores are not yet evidenced.
 
-**Database dumps (daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `dbsvcpgsqldb` container while the services keep running, then packed into a single daily archive so each day has exactly one database backup file:
+**Database dumps (daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `infrapgsql` container while the services keep running, then packed into a single daily archive so each day has exactly one database backup file:
 
 ```
 <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-dbBK-<YYYYMMDD>.tar.gz
@@ -719,16 +719,16 @@ docker compose up -d
 docker compose down
 
 # Restart a single service
-docker compose restart depotservice
+docker compose restart devopsforgejo
 
 # View logs
-docker compose logs -f depotservice
+docker compose logs -f devopsforgejo
 ```
 
 ### Rebuild After a Config Change
 
 ```bash
-docker compose up -d --build depotservice
+docker compose up -d --build devopsforgejo
 ```
 
 ### Update All Images
@@ -768,7 +768,7 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `TRAEFIK_BAAUTH` | Dashboard basic-auth credentials (htpasswd format) |
 | `CERTRESOLVER` | Set to `letsencrypt` for ACME; leave empty for self-signed |
 
-### Authentik (authn)
+### Authentik (infra)
 
 | Variable | Description |
 |---|---|
@@ -778,7 +778,7 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `AUTHN_PASSWD` | Auto-generated by `setup.sh`; Authentik DB password |
 | `AUTHN_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
 
-### Web Applications (wbapp)
+### Web Applications (webapp)
 
 | Variable | Description |
 |---|---|
@@ -792,7 +792,7 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `WBDRIVE_OIDC_CLIENT_ID` | Public Authentik OIDC client ID |
 | `WBDRIVE_INSECURE` | `true` only when Authentik uses a self-signed certificate |
 
-### AI Agent Platform (aiagn)
+### AI Agent Platform (aiserv)
 
 The agent platform variables are documented in the service READMEs — see [Hermes Agent](shared/hermesagent/README.md#configuration-in-env), [LiteLLM](shared/litellm/README.md#configuration) and [llama.cpp](shared/llamacpp/README.md#configuration). In short:
 
@@ -805,7 +805,7 @@ The agent platform variables are documented in the service READMEs — see [Herm
 | `LITEM_*` | LiteLLM proxy, admin UI and provider routing settings |
 | `LLAMA_CHTMDL` / `LLAMA_CHTARG` / `HF_TOKEN` | llama.cpp model, server flags, HuggingFace token |
 
-### Observability (obsvc)
+### Observability (obsvce)
 
 | Variable | Description |
 |---|---|
@@ -842,7 +842,7 @@ These lists only initialize empty database data directories. Preserve existing d
 | `EMAIL_USER` / `EMAIL_PASS` | SMTP credentials used by stack components to send mail through Stalwart |
 | `EMAIL_FROM` | From address for outbound email (display name + address) |
 
-### Email Services (poste)
+### Email Services (mailsv)
 
 The webmail variables are documented in the service READMEs — see [Bulwark](shared/bulwark/README.md#configuration-env) and [Stalwart](shared/stalwart/README.md#configuration-env). In short:
 

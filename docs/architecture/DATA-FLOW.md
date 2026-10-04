@@ -64,7 +64,7 @@ Other application integrations remain recommendations or runtime configuration n
 ```mermaid
 flowchart LR
     U[User or sync client] --> T[Traefik]
-    T --> O[wbappmydrive / oCIS]
+    T --> O[webappocis / oCIS]
     O <-->|OIDC| A[Authentik]
     A --> P[(PostgreSQL)]
     O <--> C[(oCIS config)]
@@ -79,7 +79,7 @@ The oCIS service mounts configuration and file data beneath `${APPS_DATA}/cloud/
 sequenceDiagram
     participant O as Operator
     participant F as Forgejo
-    participant R as depotrunner
+    participant R as devopsrunner
     participant H as Staging or production host
     O->>F: Dispatch workflow with service, target, branch
     F->>R: Run job on ssh-deploy label
@@ -92,15 +92,15 @@ sequenceDiagram
     R->>H: docker compose up --build --no-deps
 ```
 
-Foundational `dbsvc*`, `authn*`, `depot*`, and `route*` services are excluded from CI deployment. The deployment workflow does not implement rollback.
+Foundational `infra*`, `infra*`, `devops*`, and `route*` services are excluded from CI deployment. The deployment workflow does not implement rollback.
 
 ## AI Request Routing Flow
 
 ```mermaid
 flowchart LR
-    C[Clients: Hermes or Open WebUI] --> L[aiagnlitellm]
+    C[Clients: Hermes or Open WebUI] --> L[aiservlitellm]
     L --> R{Smart router}
-    R -->|local/default/privacy| H[hephaestus: aiagnchatllm]
+    R -->|local/default/privacy| H[hephaestus: aiservllamacpp]
     R -->|cloud/large/complex/fallback| P[prometheus: configured cloud API]
     L --> DB[(PostgreSQL usage data)]
 ```
@@ -111,7 +111,7 @@ The smart router can disable fallback for explicit tags and privacy requests. Co
 
 ```mermaid
 flowchart LR
-    Host[Host exporter] --> Alloy[obsvcgrafaly]
+    Host[Host exporter] --> Alloy[obsvcealloy]
     Containers[cAdvisor] --> Alloy
     Traefik[Traefik metrics] --> Alloy
     LiteLLM[LiteLLM metrics] --> Alloy
@@ -127,21 +127,21 @@ Alloy discovers Docker container logs through the Docker socket, applies GeoIP e
 
 ## Database Access Flow
 
-- Authentik, Forgejo, LiteLLM, Confluence, and Stalwart connect to `dbsvcpgsqldb` through `servicehub_subnet`.
-- oCIS does not connect to `dbsvcpgsqldb`; its configuration and file data are filesystem state.
+- Authentik, Forgejo, LiteLLM, Confluence, and Stalwart connect to `infrapgsql` through `servicehub_subnet`.
+- oCIS does not connect to `infrapgsql`; its configuration and file data are filesystem state.
 - MariaDB is available for optional WordPress and is not used by the default stack according to `env.example`.
 - Database containers do not publish host ports.
 - Database credentials and names are interpolated from `.env`; their values are not documented.
 
 ## Backup and Restore Flow
 
-The backup workflow runs on the existing `depotrunner` with the `ssh-deploy` label, SSHes to the remote target, discovers `APPS_DATA`, creates per-database PostgreSQL dumps and a globals dump, packs them into a daily archive, and optionally archives the full `APPS_DATA` tree. Full archives are taken on Sundays in `auto` mode.
+The backup workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, SSHes to the remote target, discovers `APPS_DATA`, creates per-database PostgreSQL dumps and a globals dump, packs them into a daily archive, and optionally archives the full `APPS_DATA` tree. Full archives are taken on Sundays in `auto` mode.
 
 The database archive is transaction-consistent because it uses `pg_dump`; the live filesystem archive is only crash-consistent for database directories. The created files remain under the configured backup root and are streamed or copied to both accepted targets by the same workflow.
 
 Both `${APPS_DATA}/cloud/ocis/config` and `${APPS_DATA}/cloud/ocis/data` are in the current full-archive scope, but no oCIS-specific consistency or restore validation exists.
 
-[ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts a target flow in which Forgejo Actions uses the existing `depotrunner` toolchain to copy database dumps and persistent-data archives to a Home Server with Restic over SSH/SFTP and independently to Google Drive with Rclone. Repository configuration for this flow is present, but transfers and restores are not runtime-validated.
+[ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts a target flow in which Forgejo Actions uses the existing `devopsrunner` toolchain to copy database dumps and persistent-data archives to a Home Server with Restic over SSH/SFTP and independently to Google Drive with Rclone. Repository configuration for this flow is present, but transfers and restores are not runtime-validated.
 
 ```mermaid
 flowchart LR
@@ -157,7 +157,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    W[Accepted Forgejo Actions target] --> B[depotrunner backup toolchain]
+    W[Accepted Forgejo Actions target] --> B[devopsrunner backup toolchain]
     B --> D[Database dumps and data archives]
     D -->|Configured; runtime pending| H[Home Server via Restic and SSH/SFTP]
     D -->|Configured; runtime pending| G[Google Drive via Rclone]

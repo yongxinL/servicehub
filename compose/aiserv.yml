@@ -1,6 +1,6 @@
 services:
-    # aiagnhermint — one-shot: set ownership of the Hermes data dir. Docs: shared/hermesagent/README.md
-    aiagnhermint:
+    # aiservhermesinit — one-shot: set ownership of the Hermes data dir. Docs: shared/hermesagent/README.md
+    aiservhermesinit:
         command: >
             sh -c 'chown -R 10000:10000 /data00;
                    chmod -R 775 /data00'
@@ -11,14 +11,14 @@ services:
         volumes:
             - ${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}:/data00
 
-    # aiagnherm00 — Hermes Agent (single shared agent). Docs: shared/hermesagent/README.md
+    # aiservhermes — Hermes Agent (single shared agent). Docs: shared/hermesagent/README.md
     # Note: /var/run/docker.sock is mounted read-only for the terminal sandbox.
     # If the host docker group GID differs from 999, add group_add: [<host-gid>]
-    aiagnherm00:
+    aiservhermes:
         build:
             context: ../shared/hermesagent/
         depends_on:
-            aiagnhermint:
+            aiservhermesinit:
                 condition: service_completed_successfully
         environment:
             - TZ=${TIME_ZONE}
@@ -26,7 +26,7 @@ services:
             # Internal workspace port is always 12320; external port mapped via 'ports' below.
             - HERMES_WORKSPACE_PORT=12320
             - LITELLM_API_KEY=${LITEM_API_KEY}
-            - LITELLM_API_URL=${LITEM_API_URL:-http://aiagnlitellm:12380/v1}
+            - LITELLM_API_URL=${LITEM_API_URL:-http://aiservlitellm:12380/v1}
             - FIRECRAWL_API_URL=${FCRW_API_URL:-http://aiagnfastcrw:12360}
             - FIRECRAWL_API_KEY=${LITEM_API_KEY}
             - API_SERVER_ENABLED=true
@@ -40,7 +40,7 @@ services:
             timeout: 5s
             retries: 3
             start_period: 30s
-        image: aiagnherm00:latest
+        image: aiservhermes:latest
         networks:
             - subnet
         ports:
@@ -51,20 +51,20 @@ services:
             - /var/run/docker.sock:/var/run/docker.sock:ro
         labels:
             - "traefik.enable=true"
-            - "traefik.http.routers.aiagnherm00.enabled=${HERMES_WORKSPACE_DOMAIN_00:+true}"
-            - "traefik.http.routers.aiagnherm00.rule=Host(`${HERMES_WORKSPACE_DOMAIN_00}`)"
-            - "traefik.http.routers.aiagnherm00.tls=true"
-            - "traefik.http.routers.aiagnherm00.middlewares=secure-chain@file"
-            - "traefik.http.routers.aiagnherm00.tls.certresolver=${CERTRESOLVER}"
-            - "traefik.http.services.aiagnherm00.loadbalancer.server.port=12320"
+            - "traefik.http.routers.aiservhermes.enabled=${HERMES_WORKSPACE_DOMAIN_00:+true}"
+            - "traefik.http.routers.aiservhermes.rule=Host(`${HERMES_WORKSPACE_DOMAIN_00}`)"
+            - "traefik.http.routers.aiservhermes.tls=true"
+            - "traefik.http.routers.aiservhermes.middlewares=secure-chain@file"
+            - "traefik.http.routers.aiservhermes.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.services.aiservhermes.loadbalancer.server.port=12320"
 
-    # aiagnlitellm — LiteLLM complexity router (local Gemma + MiniMax).
+    # aiservlitellm — LiteLLM complexity router (local Gemma + MiniMax).
     # Docs: shared/litellm/README.md
-    aiagnlitellm:
+    aiservlitellm:
         build:
             context: ../shared/litellm/
         depends_on:
-            dbsvcpgsqldb:
+            infrapgsql:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
@@ -74,10 +74,10 @@ services:
             - UI_USERNAME=${LITEM_ADMUSR}
             - UI_PASSWORD=${LITEM_ADMPWD}
             # Edge — local llama.cpp or remote edge service
-            - LITEM_EDGE_API_BASE=${LITEM_HPH_APIURL:-http://aiagnchatllm:12386/v1}
+            - LITEM_EDGE_API_BASE=${LITEM_HPH_APIURL:-http://aiservllamacpp:12386/v1}
             - LITEM_EDGE_API_KEY=${LITEM_HPH_APIKEY:-none}
             # Health check for auto-failover routing (used by smartrouter.py)
-            - LITEM_EDGE_HEALTH_URL=${LITEM_HPH_HLTURL:-http://aiagnchatllm:12386/health}
+            - LITEM_EDGE_HEALTH_URL=${LITEM_HPH_HLTURL:-http://aiservllamacpp:12386/health}
             - LITEM_EDGE_HEALTH_TIMEOUT=3
             - LITEM_EDGE_HEALTH_CACHE_TTL=30
             # Cloud — public or remote cloud provider
@@ -89,7 +89,7 @@ services:
             timeout: 5s
             retries: 3
             start_period: 30s
-        image: aiagnlitellm:latest
+        image: aiservlitellm:latest
         networks:
             - subnet
         ports:
@@ -98,9 +98,9 @@ services:
         volumes:
             - ${APPS_DATA}/litellm:/opt/litellm   # place config.yaml here to override default
 
-    # aiagnchatllm — llama.cpp Gemma chat inference.
+    # aiservllamacpp — llama.cpp Gemma chat inference.
     # Docs: shared/llamacpp/README.md
-    aiagnchatllm:
+    aiservllamacpp:
         build:
             context: ../shared/llamacpp/
         cap_add:
@@ -118,7 +118,7 @@ services:
             timeout: 10s
             retries: 3
             start_period: 120s   # 5.6 GB model + mmproj; ~60-90s to mlock into RAM
-        image: aiagnchatllm:latest
+        image: aiservllamacpp:latest
         networks:
             - subnet
         restart: unless-stopped

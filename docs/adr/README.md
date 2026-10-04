@@ -29,10 +29,10 @@ These ADRs record both retrospective decisions inferred from the current impleme
 |---|---|---|---|---|---|---|
 | ADR-001 | Use Docker Compose for Orchestration | Accepted | 2026-10-01 | `docker-compose.yml`, `compose/*.yml` | None | [ADR-001](ADR-001-use-docker-compose.md) |
 | ADR-002 | Use Traefik as the Single HTTP Ingress | Accepted | 2026-10-01 | `compose/route.yml`, Traefik labels | None | [ADR-002](ADR-002-use-traefik-as-ingress.md) |
-| ADR-003 | Use PostgreSQL as the Primary Relational Platform | Accepted | 2026-10-01 | `compose/dbsvc.yml`, PostgreSQL consumers | None | [ADR-003](ADR-003-use-postgresql-as-primary-database.md) |
-| ADR-004 | Use Authentik for Central Identity | Accepted | 2026-10-01 | `compose/authn.yml`, forward-auth and LDAP configuration | None | [ADR-004](ADR-004-use-authentik-for-central-identity.md) |
-| ADR-005 | Use LiteLLM for AI Workload Routing | Accepted | 2026-10-01 | `compose/aiagn.yml`, `shared/litellm/` | None | [ADR-005](ADR-005-use-litellm-for-ai-routing.md) |
-| ADR-006 | Adopt oCIS with Local Filesystem Storage | Accepted | 2026-10-03 | `compose/wbapp.yml`, `env.example`, `compose/route.yml`, `shared/owncloud/`; runtime validation pending | None | [ADR-006](ADR-006-adopt-ocis-with-local-filesystem-storage.md) |
+| ADR-003 | Use PostgreSQL as the Primary Relational Platform | Accepted | 2026-10-01 | `compose/infra.yml`, PostgreSQL consumers | None | [ADR-003](ADR-003-use-postgresql-as-primary-database.md) |
+| ADR-004 | Use Authentik for Central Identity | Accepted | 2026-10-01 | `compose/infra.yml`, forward-auth and LDAP configuration | None | [ADR-004](ADR-004-use-authentik-for-central-identity.md) |
+| ADR-005 | Use LiteLLM for AI Workload Routing | Accepted | 2026-10-01 | `compose/aiserv.yml`, `shared/litellm/` | None | [ADR-005](ADR-005-use-litellm-for-ai-routing.md) |
+| ADR-006 | Adopt oCIS with Local Filesystem Storage | Accepted | 2026-10-03 | `compose/webapp.yml`, `env.example`, `compose/route.yml`, `shared/owncloud/`; runtime validation pending | None | [ADR-006](ADR-006-adopt-ocis-with-local-filesystem-storage.md) |
 | ADR-007 | Adopt Dual-Target Backup and Disaster Recovery | Accepted | 2026-10-03 | `.forgejo/workflows/30-prod-backup-services.yml` and `shared/forgejo/actions/`; shared runner revision recorded; runtime validation pending | None | [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) |
 | ADR-008 | Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables | Proposed | 2026-10-04 | None; `compose/*.yml`, `env.example`, workflows, and storage layout pending | None | [ADR-008](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) |
 

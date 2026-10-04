@@ -1,6 +1,6 @@
 services:
-    # depotsvcinit — one-shot: create Forgejo and runner data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
-    depotsvcinit:
+    # devopsforgejoinit — one-shot: create Forgejo and runner data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
+    devopsforgejoinit:
         command: >
             sh -c 'mkdir -p /data /var/lib/forgejo-runner &&
                    chown -R 1000:1000 /data /var/lib/forgejo-runner'
@@ -12,16 +12,16 @@ services:
             - ${APPS_DATA}/platform/repos:/data
             - ${APPS_DATA}/platform/buildexec:/var/lib/forgejo-runner
 
-    # depotservice — Forgejo git server + Actions (HTTPS clone via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
-    depotservice:
+    # devopsforgejo — Forgejo git server + Actions (HTTPS clone via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
+    devopsforgejo:
         build:
             context: ../shared/forgejo/server/
             args:
                 - IMAGE_TAG=${DEPOT_VTAG}
         depends_on:
-            dbsvcpgsqldb:
+            infrapgsql:
                 condition: service_healthy
-            authnservice:
+            infraauth:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
@@ -48,17 +48,17 @@ services:
             interval: 30s
             retries: 5
             timeout: 5s
-        image: depotservice:latest
+        image: devopsforgejo:latest
         labels:
             - "traefik.enable=true"
-            - "traefik.http.routers.depotservice.entrypoints=websecure"
-            - "traefik.http.routers.depotservice.rule=Host(`${DEPOT_DOMAIN}`)"
-            - "traefik.http.routers.depotservice.service=depotservice"
-            - "traefik.http.services.depotservice.loadbalancer.server.port=3000"
-            - "traefik.http.routers.depotservice.tls=true"
+            - "traefik.http.routers.devopsforgejo.entrypoints=websecure"
+            - "traefik.http.routers.devopsforgejo.rule=Host(`${DEPOT_DOMAIN}`)"
+            - "traefik.http.routers.devopsforgejo.service=devopsforgejo"
+            - "traefik.http.services.devopsforgejo.loadbalancer.server.port=3000"
+            - "traefik.http.routers.devopsforgejo.tls=true"
             # Rate limit + security headers (defined in shared/traefik/advanced/middlewares-security.yml)
-            - "traefik.http.routers.depotservice.middlewares=secure-chain@file"
-            - "traefik.http.routers.depotservice.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.devopsforgejo.middlewares=secure-chain@file"
+            - "traefik.http.routers.devopsforgejo.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
@@ -66,25 +66,25 @@ services:
             - /etc/localtime:/etc/localtime:ro
             - ${APPS_DATA}/platform/repos:/data
 
-    # depotrunner — Forgejo Actions runner using host-mode execution.
+    # devopsrunner — Forgejo Actions runner using host-mode execution.
     # Workflow jobs run inside this runner container and deploy to Docker hosts
     # over SSH. No temporary job container or Docker socket is required.
     # Docs: shared/forgejo/README.md
-    depotrunner:
+    devopsrunner:
         build:
             context: ../shared/forgejo/actions/
             args:
                 - IMAGE_TAG=${DEPOT_RUNNER_VTAG}
         depends_on:
-            depotsvcinit:
+            devopsforgejoinit:
                 condition: service_completed_successfully
-            depotservice:
+            devopsforgejo:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
             - DEPOT_RUNNER_SECRET=${DEPOT_RUNNER_SECRET}
-            - FORGEJO_INSTANCE_URL=http://depotservice:3000
-            - FORGEJO_RUNNER_NAME=depotrunner
+            - FORGEJO_INSTANCE_URL=http://devopsforgejo:3000
+            - FORGEJO_RUNNER_NAME=devopsrunner
         # The runner daemon has no HTTP endpoint; the healthcheck verifies the
         # daemon process is alive and the registration file is non-empty.
         # `pidof` is provided by Alpine's busybox and is always available.
@@ -94,7 +94,7 @@ services:
             timeout: 5s
             retries: 5
             start_period: 30s
-        image: depotrunner:latest
+        image: devopsrunner:latest
         networks:
             - subnet
         restart: unless-stopped

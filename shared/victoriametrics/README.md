@@ -4,18 +4,18 @@
 
 ## Overview
 
-[VictoriaMetrics](https://victoriametrics.com/products/open-source/) is the metrics store for the observability stack (`obsvc`). It receives metrics pushed by [Grafana Alloy](../grafana/alloy/README.md) and stored by Prometheus scrape jobs, and serves them to [Grafana](../grafana/README.md). It is defined by the `obsvcvicmtrx` service in [`compose/obsvc.yml`](../../compose/obsvc.yml) and built from [`shared/victoriametrics/Dockerfile`](Dockerfile) (`FROM victoriametrics/victoria-metrics:latest`).
+[VictoriaMetrics](https://victoriametrics.com/products/open-source/) is the metrics store for the observability stack (`obsvce`). It receives metrics pushed by [Grafana Alloy](../grafana/alloy/README.md) and stored by Prometheus scrape jobs, and serves them to [Grafana](../grafana/README.md). It is defined by the `obsvcevm` service in [`compose/obsvce.yml`](../../compose/obsvce.yml) and built from [`shared/victoriametrics/Dockerfile`](Dockerfile) (`FROM victoriametrics/victoria-metrics:latest`).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `obsvcvicmtrx` |
+| Service name | `obsvcevm` |
 | HTTP API port | 8428 (published to the host for remote Alloy/metrics push) |
 | Data persistence | `${APPS_DATA}/victoriametrics` (mounted at `/storage`) |
 | Scrape config | [`scrape.yaml`](scrape.yaml) (mounted read-only at `/etc/vm/scrape.yaml`) |
 | Health check | `curl -fsS http://localhost:8428/health` every 30 s |
-| Depended on by | `obsvcgrafaly` (healthy), `obsvcgrafana` (via Alloy) |
+| Depended on by | `obsvcealloy` (healthy), `obsvcegrafana` (via Alloy) |
 
 ## Server flags
 
@@ -35,8 +35,8 @@ VictoriaMetrics scrapes two endpoints itself (in addition to metrics pushed by A
 
 | Job | Target | Path |
 |---|---|---|
-| `alloy` | `obsvcgrafaly:9080` | `/metrics` |
-| `litellm` | `aiagnlitellm:12380` | `/metrics` |
+| `alloy` | `obsvcealloy:9080` | `/metrics` |
+| `litellm` | `aiservlitellm:12380` | `/metrics` |
 
 Alloy pushes host, container and Traefik metrics through `/api/v1/write` (see [`../grafana/alloy/config.alloy`](../grafana/alloy/config.alloy)), so most metrics arrive by remote write rather than scrape.
 
@@ -50,10 +50,10 @@ Alloy pushes host, container and Traefik metrics through `/api/v1/write` (see [`
 
 ```bash
 # Start / restart
-docker compose up -d obsvcvicmtrx
+docker compose up -d obsvcevm
 
 # Follow logs
-docker compose logs -f obsvcvicmtrx
+docker compose logs -f obsvcevm
 
 # Query the API directly (host)
 curl -s 'http://localhost:8428/api/v1/query?query=up' | jq .
@@ -71,4 +71,4 @@ curl -s 'http://localhost:8428/api/v1/query?query=up' | jq .
 - [VictoriaLogs](../victorialogs/README.md) — log aggregation
 - [Grafana Alloy](../grafana/alloy/README.md) — collector pushing metrics here
 - [Grafana](../grafana/README.md) — dashboards
-- [Root README — Observability](../../README.md#observability-stack-obsvc)
+- [Root README — Observability](../../README.md#observability-stack-obsvce)

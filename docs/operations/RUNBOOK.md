@@ -60,13 +60,13 @@ docker compose up -d
 Start one service and its dependencies:
 
 ```bash
-docker compose up -d depotservice
+docker compose up -d devopsforgejo
 ```
 
 Rebuild one service after a configuration or image change:
 
 ```bash
-docker compose up -d --build depotservice
+docker compose up -d --build devopsforgejo
 ```
 
 ## Stop
@@ -90,13 +90,13 @@ docker compose down
 Restart one service:
 
 ```bash
-docker compose restart depotservice
+docker compose restart devopsforgejo
 ```
 
 Restart the identity server and worker:
 
 ```bash
-docker compose restart authnservice authnworkers
+docker compose restart infraauth infraauthwrk
 ```
 
 Use the [service inventory](SERVICE-INVENTORY.md) to identify dependencies before restarting.
@@ -110,7 +110,7 @@ docker compose ps
 Check a specific service's declared health through Compose status:
 
 ```bash
-docker compose ps depotservice
+docker compose ps devopsforgejo
 ```
 
 For routed services, combine container health with a redacted HTTPS request to the configured hostname. Health definitions are recorded in the [component catalogue](../architecture/COMPONENT-CATALOGUE.md).
@@ -120,13 +120,13 @@ For routed services, combine container health with a redacted HTTPS request to t
 Follow one service:
 
 ```bash
-docker compose logs -f depotservice
+docker compose logs -f devopsforgejo
 ```
 
 Read recent logs:
 
 ```bash
-docker compose logs --tail 200 depotservice
+docker compose logs --tail 200 devopsforgejo
 ```
 
 Container logs are also collected by Grafana Alloy into VictoriaLogs when the observability stack is healthy. Do not record credentials or private request data from logs.
@@ -134,9 +134,9 @@ Container logs are also collected by Grafana Alloy into VictoriaLogs when the ob
 ## Service Dependency Awareness
 
 - Start or verify `routetraefik` before Authentik, Forgejo, Confluence, Open WebUI, Grafana, and Stalwart as declared in Compose.
-- Verify `dbsvcpgsqldb` before Authentik, Forgejo, LiteLLM, Confluence, and Stalwart.
+- Verify `infrapgsql` before Authentik, Forgejo, LiteLLM, Confluence, and Stalwart.
 - Complete one-shot initialisers before their dependent services.
-- Keep `depotrunner` with `depotservice`; remote workflows depend on both.
+- Keep `devopsrunner` with `devopsforgejo`; remote workflows depend on both.
 - Traefik discovers new labelled containers automatically, but middleware and certificate files are read from repository configuration.
 
 Compose conditions enforce some ordering, but full health and route validation remains required.

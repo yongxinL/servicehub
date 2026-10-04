@@ -51,7 +51,7 @@ The repository does not contain evidence that a production deployment, certifica
 
 ## Runner Role
 
-- `depotrunner` runs Forgejo Actions jobs in host mode on the `ssh-deploy` label.
+- `devopsrunner` runs Forgejo Actions jobs in host mode on the `ssh-deploy` label.
 - Jobs execute inside the runner container, not in per-job containers.
 - The shared runner has Git, OpenSSH, `sshpass`, Bash, jq, Restic, Rclone, and the PostgreSQL client.
 - It reaches Forgejo internally for checkout when the internal server URL is used.
@@ -74,7 +74,7 @@ The workflow validates SSH connectivity and repository inputs, but it does not p
 
 ## Backup Transfer Flow
 
-The `backup-data` workflow runs on the existing `depotrunner`. It validates protected target and retention inputs, creates database and full-data archives on the target, applies same-host retention, streams archives to the Restic Home Server repository, runs a Restic integrity check, copies archives through the configured Rclone destination, compares each destination file, and applies target retention.
+The `backup-data` workflow runs on the existing `devopsrunner`. It validates protected target and retention inputs, creates database and full-data archives on the target, applies same-host retention, streams archives to the Restic Home Server repository, runs a Restic integrity check, copies archives through the configured Rclone destination, compares each destination file, and applies target retention.
 
 The repository contains this configuration. Image build, target connectivity, successful transfers, integrity results, retention execution, and restores are `Not yet verified`.
 

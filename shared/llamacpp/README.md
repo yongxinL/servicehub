@@ -4,13 +4,13 @@
 
 ## Overview
 
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with a Gemma 4 GGUF model provides the local inference tier (`hephaestus`) of the AI agent platform (`aiagn`). It is used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host. The `aiagnchatllm` service is defined in [`compose/aiagn.yml`](../../compose/aiagn.yml) and built from [`shared/llamacpp/Dockerfile`](Dockerfile) (`FROM ghcr.io/ggml-org/llama.cpp:server`).
+[llama.cpp server](https://github.com/ggerganov/llama.cpp) with a Gemma 4 GGUF model provides the local inference tier (`hephaestus`) of the AI agent platform (`aiserv`). It is used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host. The `aiservllamacpp` service is defined in [`compose/aiserv.yml`](../../compose/aiserv.yml) and built from [`shared/llamacpp/Dockerfile`](Dockerfile) (`FROM ghcr.io/ggml-org/llama.cpp:server`).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `aiagnchatllm` |
+| Service name | `aiservllamacpp` |
 | Port | 12386 |
 | Model | `unsloth/gemma-4-E4B-it-GGUF:Q4_K_M` (default, via `LLAMA_CHTMDL`) |
 | Context | Configurable via `LLAMA_CHTARG` (default `--ctx-size 65536`, 64K) |
@@ -47,10 +47,10 @@ Models are auto-downloaded on first start via llama.cpp's `--hf-repo` flag and c
 
 ```bash
 # Start / restart
-docker compose up -d aiagnchatllm
+docker compose up -d aiservllamacpp
 
 # Follow logs (model download can take a while on first boot)
-docker compose logs -f aiagnchatllm
+docker compose logs -f aiservllamacpp
 
 # Health
 curl -sf http://localhost:12386/health
@@ -67,4 +67,4 @@ curl -sf http://localhost:12386/health
 
 - [LiteLLM Proxy](../litellm/README.md) — routes `hephaestus` to this service
 - [Hermes Agent](../hermesagent/README.md) — consumes the `hermes` virtual model
-- [Root README — AI Agent Platform](../../README.md#ai-agent-platform-aiagn)
+- [Root README — AI Agent Platform](../../README.md#ai-agent-platform-aiserv)

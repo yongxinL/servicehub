@@ -38,7 +38,7 @@ flowchart LR
     Traefik --> Authentik[Authentik]
     Traefik --> Forgejo[Forgejo]
     Traefik --> Web[Confluence and Open WebUI]
-    Traefik --> Cloud[wbappmydrive (oCIS)]
+    Traefik --> Cloud[webappocis (oCIS)]
     Traefik --> AI[Clients and Hermes]
     Traefik --> Grafana[Grafana]
     Traefik --> Email[Stalwart and Bulwark]
@@ -81,13 +81,13 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 | Subsystem | Compose domain | Principal services |
 |---|---|---|
 | Routing and TLS | `compose/route.yml` | `routetraefik` |
-| Relational data | `compose/dbsvc.yml` | `dbsvcpgsqldb`, `dbsvcmariadb` |
-| Identity | `compose/authn.yml` | `authnservice`, `authnworkers`, `authnsvcinit` |
-| Developer services | `compose/depot.yml` | `depotservice`, `depotrunner`, `depotsvcinit` |
-| Web applications | `compose/wbapp.yml` | `wbappcmshome`, `wbappwebchat`, `wbappmydrive`, `wbappdriveinit` |
-| AI platform | `compose/aiagn.yml` | `aiagnherm00`, `aiagnlitellm`, `aiagnchatllm`, `aiagnhermint` |
-| Observability | `compose/obsvc.yml` | `obsvcgrafaly`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafana`, `obsvcgrafint` |
-| Email | `compose/poste.yml` | `posteservice`, `postewebmail`, `postesvcinit` |
+| Relational data | `compose/infra.yml` | `infrapgsql`, `inframariadb` |
+| Identity | `compose/infra.yml` | `infraauth`, `infraauthwrk`, `infraauthinit` |
+| Developer services | `compose/devops.yml` | `devopsforgejo`, `devopsrunner`, `devopsforgejoinit` |
+| Web applications | `compose/webapp.yml` | `webappconf`, `webappowui`, `webappocis`, `webappocisinit` |
+| AI platform | `compose/aiserv.yml` | `aiservhermes`, `aiservlitellm`, `aiservllamacpp`, `aiservhermesinit` |
+| Observability | `compose/obsvce.yml` | `obsvcealloy`, `obsvcevm`, `obsvcevlogs`, `obsvcegrafana`, `obsvcegrafanainit` |
+| Email | `compose/mailsv.yml` | `mailsvstalwart`, `mailsvbulwark`, `mailsvbulwarkinit` |
 
 ## Security Boundaries
 
@@ -108,7 +108,7 @@ These boundaries are Confirmed from configuration. Their security effectiveness 
 - **VictoriaLogs:** log storage under `${APPS_DATA}/victorialogs`.
 - **Grafana:** dashboard and alert-rendering state under `${APPS_DATA}/grafana`.
 
-The `wbappmydrive` oCIS service uses local filesystem storage and has no dedicated PostgreSQL database. PostgreSQL continues to store Authentik identity data used by the OIDC flow. Repository configuration is recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md); runtime authentication and file operations remain unvalidated.
+The `webappocis` oCIS service uses local filesystem storage and has no dedicated PostgreSQL database. PostgreSQL continues to store Authentik identity data used by the OIDC flow. Repository configuration is recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md); runtime authentication and file operations remain unvalidated.
 
 ## Identity Architecture
 
@@ -144,7 +144,7 @@ Grafana alerting is enabled with `render_only_panels=true`. No notification chan
 
 Forgejo Actions deployment workflows run on the host-mode `ssh-deploy` runner. Deployment SSHes to a staging or production target, updates a Git checkout, restores git-crypt and environment material when configured, and rebuilds application services with `--no-deps`. Foundational services are excluded from CI deployment.
 
-The backup workflow runs on the existing `depotrunner` with the `ssh-deploy` label. It SSHes to the target to create PostgreSQL dumps and a periodic `APPS_DATA` archive, then configures Restic transfer to the Home Server and Rclone transfer to Google Drive under [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is present; image build, transfers, integrity checks, retention, and restores are not runtime-validated.
+The backup workflow runs on the existing `devopsrunner` with the `ssh-deploy` label. It SSHes to the target to create PostgreSQL dumps and a periodic `APPS_DATA` archive, then configures Restic transfer to the Home Server and Rclone transfer to Google Drive under [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is present; image build, transfers, integrity checks, retention, and restores are not runtime-validated.
 
 See [deployment architecture](DEPLOYMENT-ARCHITECTURE.md) for details and validation gaps.
 

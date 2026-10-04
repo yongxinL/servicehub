@@ -26,10 +26,10 @@ The service is kept ready to run in [`compose.yml`](compose.yml) but is **not** 
 1. Stop the running Confluence homepage:
 
     ```bash
-    docker compose stop wbappcmshome
+    docker compose stop webappconf
     ```
 
-2. In [`docker-compose.yml`](../../docker-compose.yml), replace `- compose/wbapp.yml` with `- shared/wordpress/compose.yml`.
+2. In [`docker-compose.yml`](../../docker-compose.yml), replace `- compose/webapp.yml` with `- shared/wordpress/compose.yml`.
 3. In `.env`, ensure `MARIADB_DB_LIST` contains `${WBHOME_DBNAME}` (the default) and set `WBHOME_DOMAIN` / `WBHOME_DBNAME` as desired.
 4. Start it:
 
@@ -48,7 +48,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 | `WBHOME_DOMAIN` | Homepage hostname (default `www.${DOMAIN_NAME}`) |
 | `WBHOME_DBNAME` | MariaDB database name (must be in `MARIADB_DB_LIST`) |
 | `SQLDB_USER` / `SQLDB_PASS` | Shared MariaDB credentials |
-| `MySQL_HOST` / `MySQL_PORT` | MariaDB connection target (`dbsvcmariadb:3306`) |
+| `MySQL_HOST` / `MySQL_PORT` | MariaDB connection target (`inframariadb:3306`) |
 | `APPS_DATA` | Host path for the data bind mount |
 | `TIME_ZONE` | Container timezone |
 
@@ -56,7 +56,7 @@ Container settings applied by the compose file:
 
 | Setting | Value | Purpose |
 |---|---|---|
-| `WORDPRESS_DB_HOST` | `${MySQL_HOST}` | Database host (`dbsvcmariadb`) |
+| `WORDPRESS_DB_HOST` | `${MySQL_HOST}` | Database host (`inframariadb`) |
 | `WORDPRESS_DB_NAME` | `${WBHOME_DBNAME}` | Database name |
 | `WORDPRESS_DB_USER` / `WORDPRESS_DB_PASSWORD` | `${SQLDB_USER}` / `${SQLDB_PASS}` | Database credentials |
 
@@ -95,7 +95,7 @@ docker compose logs -f wbappcmswppv
 
 | Path | Purpose |
 |---|---|
-| [`compose.yml`](compose.yml) | Service definition (swap this in for `compose/wbapp.yml` to enable) |
+| [`compose.yml`](compose.yml) | Service definition (swap this in for `compose/webapp.yml` to enable) |
 | [`Dockerfile`](Dockerfile) | Image build (`FROM wordpress:fpm-alpine`) + Nginx/supervisord/PHP setup |
 | [`etc/nginx/nginx.conf`](etc/nginx/nginx.conf) | Nginx base configuration |
 | [`etc/nginx/http.d/00-common.inc`](etc/nginx/http.d/00-common.inc) | Shared locations (caching, hidden-file denial) |

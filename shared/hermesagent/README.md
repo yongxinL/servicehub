@@ -1,6 +1,6 @@
 # Hermes Agent — ServiceHub image
 
-Build context for the `aiagnherm00` hermesagent container. Wraps the upstream
+Build context for the `aiservhermes` hermesagent container. Wraps the upstream
 [`nousresearch/hermes-agent`](https://hermes-agent.nousresearch.com) image with
 ServiceHub-specific seeding, placeholder substitution, and an **overlay
 system** for persisting source-code edits to `/opt/hermes` across container
@@ -23,7 +23,7 @@ A single Hermes Agent container. It has:
 
 | Container | Workspace Port | Data Directory |
 |-----------|---------------|----------------|
-| `aiagnherm00` | 12320 | `${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}` |
+| `aiservhermes` | 12320 | `${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}` |
 
 > Hermes is **single-user / single-tenant**. Anyone who logs into the workspace
 > shares the same agent memory, sessions and skills. See
@@ -83,17 +83,17 @@ All accept paths absolute (`/opt/hermes/foo/bar.py`) or relative (`foo/bar.py`).
 
 ```bash
 # 1. Before editing — snapshot the baseline
-docker compose exec aiagnherm00 overlay-track /opt/hermes/agent/router.py
+docker compose exec aiservhermes overlay-track /opt/hermes/agent/router.py
 
 # 2. Edit the file (you, or hand the task to the agent)
-docker compose exec -it aiagnherm00 nano /opt/hermes/agent/router.py
+docker compose exec -it aiservhermes nano /opt/hermes/agent/router.py
 
 # 3. After editing — persist the change
-docker compose exec aiagnherm00 overlay-save /opt/hermes/agent/router.py
+docker compose exec aiservhermes overlay-save /opt/hermes/agent/router.py
 
 # 4. Recreate the container — your edit comes back automatically
-docker compose up -d --force-recreate aiagnherm00
-docker compose logs aiagnherm00 | grep '\[overlay\]'
+docker compose up -d --force-recreate aiservhermes
+docker compose logs aiservhermes | grep '\[overlay\]'
 ```
 
 ### Disabling the overlay
@@ -173,20 +173,20 @@ shared agent identity.** This is confirmed by upstream design:
 
 | Need | Recommendation |
 |---|---|
-| A shared team assistant | Use the single `aiagnherm00` as-is (shared memory is intentional). |
-| A few people who each want a private agent | Add one `aiagnherm0X` container + data volume per person. |
+| A shared team assistant | Use the single `aiservhermes` as-is (shared memory is intentional). |
+| A few people who each want a private agent | Add one `aiservhermes0X` container + data volume per person. |
 | Many users (dozens+) | Add per-user containers fronted by Authentik, or run Hermes per-user on the user's own machine / Portal account. |
-| Separate personas for one person (code, research, …) | Use internal `hermes profile create` profiles inside `aiagnherm00`. |
+| Separate personas for one person (code, research, …) | Use internal `hermes profile create` profiles inside `aiservhermes`. |
 
 ### Scaling to more users
 
 The platform ships one agent because Hermes is single-user. To extend it, copy
-the `aiagnherm00` pattern in [`compose/aiagn.yml`](../../compose/aiagn.yml):
+the `aiservhermes` pattern in [`compose/aiserv.yml`](../../compose/aiserv.yml):
 
-1. **Add the data directory** to `aiagnhermint` (or add a sibling init
+1. **Add the data directory** to `aiservhermesinit` (or add a sibling init
    container) — e.g. `${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/data01`
    with `chown -R 10000:10000 /data01`.
-2. **Duplicate the `aiagnherm00` service** as `aiagnherm01` with:
+2. **Duplicate the `aiservhermes` service** as `aiservhermes01` with:
    - its own volume `${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/opt/data`,
    - its own `HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_01}`,
    - a unique host port, e.g. `12321:12320`,
@@ -199,10 +199,10 @@ the `aiagnherm00` pattern in [`compose/aiagn.yml`](../../compose/aiagn.yml):
    ```
 4. **Recreate only the new service:**
    ```bash
-   docker compose up -d --build aiagnherm01
+   docker compose up -d --build aiservhermes01
    ```
 
-All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so
+All agents share the same `aiservlitellm` router and `aiservllamacpp` model, so
 model capacity is scaled centrally, not per agent. Isolate user data strictly at
 the volume boundary; never point two people at the same `HERMES_DATA_0X`.
 

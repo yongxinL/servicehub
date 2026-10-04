@@ -1,6 +1,6 @@
-# Forgejo Actions runner configuration for depotrunner.
-# Bind-mounted read-only at /etc/forgejo-runner/config.yml by compose/depot.yml;
-# edit this file and restart depotrunner to apply changes.
+# Forgejo Actions runner configuration for devopsrunner.
+# Bind-mounted read-only at /etc/forgejo-runner/config.yml by compose/devops.yml;
+# edit this file and restart devopsrunner to apply changes.
 # Full reference: https://code.forgejo.org/forgejo/runner (internal/pkg/config/config.example.yaml)
 # Generated defaults can be obtained with `forgejo-runner generate-config`.
 

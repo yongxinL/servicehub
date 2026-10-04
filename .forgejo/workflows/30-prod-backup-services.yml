@@ -221,7 +221,7 @@ jobs:
             SQLDB_USER=\$(grep -E '^SQLDB_USER=' .env 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
             [ -n \"\$SQLDB_USER\" ] || SQLDB_USER=postgres
 
-            DB_LIST=\$(\$COMPOSE exec -T dbsvcpgsqldb psql -U \"\$SQLDB_USER\" -d postgres -Atc \"SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres' ORDER BY datname\")
+            DB_LIST=\$(\$COMPOSE exec -T infrapgsql psql -U \"\$SQLDB_USER\" -d postgres -Atc \"SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres' ORDER BY datname\")
             [ -n \"\$DB_LIST\" ] || { echo 'Error: no non-template databases found' >&2; exit 1; }
 
             DB_STAGE=\$(mktemp -d)
@@ -234,7 +234,7 @@ jobs:
               NAME=\"\$DOMAIN_NAME-dbBK-\$db-\$STAMP.dump\"
               TMP=\$(mktemp)
               echo \"Dumping database \$db -> stage:\$NAME\"
-              \$COMPOSE exec -T dbsvcpgsqldb pg_dump -U \"\$SQLDB_USER\" -Fc \"\$db\" > \"\$TMP\"
+              \$COMPOSE exec -T infrapgsql pg_dump -U \"\$SQLDB_USER\" -Fc \"\$db\" > \"\$TMP\"
               [ -s \"\$TMP\" ] || { rm -f \"\$TMP\"; echo \"Error: dump of \$db is empty\" >&2; exit 1; }
               install -m 600 \"\$TMP\" \"\$DB_STAGE/\$NAME\"
               rm -f \"\$TMP\"
@@ -243,7 +243,7 @@ jobs:
             NAME=\"\$DOMAIN_NAME-dbBK-globals-\$STAMP.sql\"
             TMP=\$(mktemp)
             echo \"Dumping role globals -> stage:\$NAME\"
-            \$COMPOSE exec -T dbsvcpgsqldb pg_dumpall -U \"\$SQLDB_USER\" --globals-only > \"\$TMP\"
+            \$COMPOSE exec -T infrapgsql pg_dumpall -U \"\$SQLDB_USER\" --globals-only > \"\$TMP\"
             [ -s \"\$TMP\" ] || { rm -f \"\$TMP\"; echo 'Error: globals dump is empty' >&2; exit 1; }
             install -m 600 \"\$TMP\" \"\$DB_STAGE/\$NAME\"
             rm -f \"\$TMP\"

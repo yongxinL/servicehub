@@ -63,7 +63,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Likely causes:** Authentik service unhealthy, worker not started, PostgreSQL unavailable, initialiser failure, memory pressure, or certificate/configuration error.
 
-**Evidence to collect:** `docker compose ps authnservice authnworkers authnsvcinit dbsvcpgsqldb`, recent server and worker logs, PostgreSQL health, and disk or memory signals.
+**Evidence to collect:** `docker compose ps infraauth infraauthwrk infraauthinit infrapgsql`, recent server and worker logs, PostgreSQL health, and disk or memory signals.
 
 **Diagnostic steps:** Confirm PostgreSQL health, complete initialiser status, inspect Authentik logs for database or secret errors, and test the Authentik route separately from downstream applications.
 
@@ -97,7 +97,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Evidence to collect:** PostgreSQL health, Compose environment variable names only, dependent-service logs, disk space, database directory ownership, and connection errors with credentials redacted.
 
-**Diagnostic steps:** Confirm `dbsvcpgsqldb` health and logs, confirm the dependent service is on `subnet`, verify database name configuration, then test connectivity from the dependent container.
+**Diagnostic steps:** Confirm `infrapgsql` health and logs, confirm the dependent service is on `subnet`, verify database name configuration, then test connectivity from the dependent container.
 
 **Resolution:** Restore the database service or disk capacity, correct reviewed configuration, and create missing databases or grants using an approved procedure. Do not reset persistent data as a first action.
 
@@ -111,11 +111,11 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Likely causes:** Forgejo unhealthy, PostgreSQL or Authentik dependency failure, disk full, repository data permission problem, route failure, or disabled Actions unit.
 
-**Evidence to collect:** `docker compose ps depotservice`, Forgejo logs, PostgreSQL health, route result, repository path free space, and runner status.
+**Evidence to collect:** `docker compose ps devopsforgejo`, Forgejo logs, PostgreSQL health, route result, repository path free space, and runner status.
 
 **Diagnostic steps:** Check dependencies and health first, then test the internal port, route, and registration settings. Keep repository data untouched.
 
-**Resolution:** Restore dependencies or disk capacity, correct reviewed configuration, and rebuild only `depotservice` if its image changed.
+**Resolution:** Restore dependencies or disk capacity, correct reviewed configuration, and rebuild only `devopsforgejo` if its image changed.
 
 **Escalation:** Escalate repository corruption, access-control failure, or inability to recover repositories.
 
@@ -129,7 +129,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Evidence to collect:** Runner health and logs, Forgejo runner registration state, workflow log stage, secret names that are missing with values omitted, remote prerequisite test result, and Compose validation output.
 
-**Diagnostic steps:** Confirm `depotrunner` health and `.runner`, confirm `ssh-deploy` label, run the repository remote-access workflow, then isolate checkout, SSH, environment restore, and Compose stages.
+**Diagnostic steps:** Confirm `devopsrunner` health and `.runner`, confirm `ssh-deploy` label, run the repository remote-access workflow, then isolate checkout, SSH, environment restore, and Compose stages.
 
 **Resolution:** Correct the failing configuration or secret, re-register the runner only under the documented procedure, and rerun a low-impact staging deployment.
 
@@ -141,7 +141,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Symptoms:** The optional WordPress route fails, shows database errors, or the service is missing.
 
-**Likely causes:** WordPress Compose file not included, `dbsvcmariadb` unhealthy, database not in `MARIADB_DB_LIST`, route conflict with Confluence, or bind-mount ownership problem.
+**Likely causes:** WordPress Compose file not included, `inframariadb` unhealthy, database not in `MARIADB_DB_LIST`, route conflict with Confluence, or bind-mount ownership problem.
 
 **Evidence to collect:** Root include list, optional Compose definition, MariaDB health and logs, route rule, WordPress logs, and persistent directory state.
 
@@ -159,11 +159,11 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Likely causes:** Service unhealthy, PostgreSQL unavailable, invalid master key, provider configuration error, container restart, or host-port conflict.
 
-**Evidence to collect:** `docker compose ps aiagnlitellm dbsvcpgsqldb`, LiteLLM logs, health status, provider error class with keys redacted, and route or port reachability.
+**Evidence to collect:** `docker compose ps aiservlitellm infrapgsql`, LiteLLM logs, health status, provider error class with keys redacted, and route or port reachability.
 
 **Diagnostic steps:** Confirm PostgreSQL health, inspect LiteLLM startup and configuration-overwrite logs, test declared health, then isolate provider failures from proxy failure.
 
-**Resolution:** Restore the dependency or correct reviewed configuration, restart `aiagnlitellm`, and retest local and cloud routes separately.
+**Resolution:** Restore the dependency or correct reviewed configuration, restart `aiservlitellm`, and retest local and cloud routes separately.
 
 **Escalation:** Escalate suspected key exposure or persistent provider outage.
 
@@ -175,7 +175,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Likely causes:** Model missing or incomplete, insufficient memory, long startup, Hugging Face access issue, invalid model name, container health start period, or host resource pressure.
 
-**Evidence to collect:** `aiagnchatllm` health and logs, local port health, model cache path and free space without listing sensitive files, host memory pressure, and configured model name.
+**Evidence to collect:** `aiservllamacpp` health and logs, local port health, model cache path and free space without listing sensitive files, host memory pressure, and configured model name.
 
 **Diagnostic steps:** Confirm container health after the configured start period, review download or load errors, verify cache integrity and disk space, and test local inference directly before LiteLLM.
 

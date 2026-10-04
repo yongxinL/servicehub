@@ -1,6 +1,6 @@
 services:
     # Stalwart Mail Server - all-in-one mail & collaboration server
-    posteservice:
+    mailsvstalwart:
         build:
             context: ../shared/stalwart/
             args:
@@ -8,7 +8,7 @@ services:
         depends_on:
             routetraefik:
                 condition: service_healthy
-            dbsvcpgsqldb:
+            infrapgsql:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
@@ -17,7 +17,7 @@ services:
             - ACME_FILE=/letsencrypt/acme.json
             - ACME_RESOLVER=${CERTRESOLVER}
             - CERT_CHECK_INTERVAL=86400
-            # PostgreSQL data store (dbsvcpgsqldb); rendered into the Stalwart
+            # PostgreSQL data store (infrapgsql); rendered into the Stalwart
             # bootstrap config by the entrypoint at every start
             - STALWART_DB_HOST=${PGRSQL_HOST}
             - STALWART_DB_PORT=${PGRSQL_PORT}
@@ -36,29 +36,29 @@ services:
             start_period: 60s
             retries: 5
         hostname: ${EMAIL_HOST}
-        image: posteservice:latest
+        image: mailsvstalwart:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Public JMAP endpoints required by Bulwark
-            - "traefik.http.routers.posteservice-jmap.entrypoints=websecure"
-            - "traefik.http.routers.posteservice-jmap.rule=Host(`${EMAIL_HOST}`) && (PathPrefix(`/jmap`) || PathPrefix(`/.well-known/jmap`))"
-            - "traefik.http.routers.posteservice-jmap.service=posteservice"
-            - "traefik.http.routers.posteservice-jmap.middlewares=secure-chain@file"
-            - "traefik.http.routers.posteservice-jmap.priority=20"
-            - "traefik.http.routers.posteservice-jmap.tls=true"
-            - "traefik.http.routers.posteservice-jmap.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.mailsvstalwart-jmap.entrypoints=websecure"
+            - "traefik.http.routers.mailsvstalwart-jmap.rule=Host(`${EMAIL_HOST}`) && (PathPrefix(`/jmap`) || PathPrefix(`/.well-known/jmap`))"
+            - "traefik.http.routers.mailsvstalwart-jmap.service=mailsvstalwart"
+            - "traefik.http.routers.mailsvstalwart-jmap.middlewares=secure-chain@file"
+            - "traefik.http.routers.mailsvstalwart-jmap.priority=20"
+            - "traefik.http.routers.mailsvstalwart-jmap.tls=true"
+            - "traefik.http.routers.mailsvstalwart-jmap.tls.certresolver=${CERTRESOLVER}"
             # All other Stalwart paths, including the admin UI/API, remain restricted
-            - "traefik.http.routers.posteservice-admin.entrypoints=websecure"
-            - "traefik.http.routers.posteservice-admin.rule=Host(`${EMAIL_HOST}`) && !(PathPrefix(`/jmap`) || PathPrefix(`/.well-known/jmap`))"
-            - "traefik.http.routers.posteservice-admin.service=posteservice"
-            - "traefik.http.routers.posteservice-admin.middlewares=secure-chain@file,posteservice-whitelist"
-            - "traefik.http.routers.posteservice-admin.tls=true"
-            - "traefik.http.routers.posteservice-admin.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.mailsvstalwart-admin.entrypoints=websecure"
+            - "traefik.http.routers.mailsvstalwart-admin.rule=Host(`${EMAIL_HOST}`) && !(PathPrefix(`/jmap`) || PathPrefix(`/.well-known/jmap`))"
+            - "traefik.http.routers.mailsvstalwart-admin.service=mailsvstalwart"
+            - "traefik.http.routers.mailsvstalwart-admin.middlewares=secure-chain@file,mailsvstalwart-whitelist"
+            - "traefik.http.routers.mailsvstalwart-admin.tls=true"
+            - "traefik.http.routers.mailsvstalwart-admin.tls.certresolver=${CERTRESOLVER}"
             # Define the internal container port for routing
-            - "traefik.http.services.posteservice.loadbalancer.server.port=8080"
+            - "traefik.http.services.mailsvstalwart.loadbalancer.server.port=8080"
             # Restrict non-JMAP traffic to trusted IP ranges
-            - "traefik.http.middlewares.posteservice-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
+            - "traefik.http.middlewares.mailsvstalwart-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
         networks:
             - subnet
         ports:
@@ -77,8 +77,8 @@ services:
             - ${APPS_DATA}/platform/mailbox:/var/lib/stalwart
             - ${APPS_DATA}/certs:/letsencrypt
 
-    # postesvcinit — one-shot: create webmail data dirs, chown 1001:1001 (nextjs:nodejs). Docs: shared/bulwark/README.md
-    postesvcinit:
+    # mailsvbulwarkinit — one-shot: create webmail data dirs, chown 1001:1001 (nextjs:nodejs). Docs: shared/bulwark/README.md
+    mailsvbulwarkinit:
         command: >
             sh -c 'mkdir -p /data/settings /data/admin /data/admin-state /data/telemetry &&
                    chown -R 1001:1001 /data'
@@ -93,13 +93,13 @@ services:
 
     # Bulwark Webmail - self-hosted JMAP webmail for Stalwart
     # https://github.com/bulwarkmail/webmail
-    postewebmail:
+    mailsvbulwark:
         build:
             context: ../shared/bulwark/
         depends_on:
-            postesvcinit:
+            mailsvbulwarkinit:
                 condition: service_completed_successfully
-            posteservice:
+            mailsvstalwart:
                 condition: service_healthy
         environment:
             - TZ=${TIME_ZONE}
@@ -107,7 +107,7 @@ services:
             - APP_NAME=Webmail
             - APP_SHORT_NAME=Webmail
             - APP_DESCRIPTION=Self-hosted webmail
-            # JMAP endpoint — resolves via Docker DNS because posteservice
+            # JMAP endpoint — resolves via Docker DNS because mailsvstalwart
             # sets its container hostname to ${EMAIL_HOST}.
             - JMAP_SERVER_URL=https://${EMAIL_HOST}
             # Enable Stalwart-specific features (password change, Sieve UI, etc.)
@@ -135,24 +135,24 @@ services:
             timeout: 5s
             start_period: 60s
             retries: 5
-        image: postewebmail:latest
+        image: mailsvbulwark:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entrypoint
-            - "traefik.http.routers.postewebmail.entrypoints=websecure"
+            - "traefik.http.routers.mailsvbulwark.entrypoints=websecure"
             # Match incoming requests on a specific hostname
-            - "traefik.http.routers.postewebmail.rule=Host(`${WEBMAIL_DOMAIN}`)"
+            - "traefik.http.routers.mailsvbulwark.rule=Host(`${WEBMAIL_DOMAIN}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.postewebmail.service=postewebmail"
+            - "traefik.http.routers.mailsvbulwark.service=mailsvbulwark"
             # Define the internal container port for routing
-            - "traefik.http.services.postewebmail.loadbalancer.server.port=3000"
+            - "traefik.http.services.mailsvbulwark.loadbalancer.server.port=3000"
             # Enable TLS on this router
-            - "traefik.http.routers.postewebmail.tls=true"
+            - "traefik.http.routers.mailsvbulwark.tls=true"
             # Rate limit + security headers (defined in shared/traefik/advanced/middlewares-security.yml)
-            - "traefik.http.routers.postewebmail.middlewares=secure-chain@file"
+            - "traefik.http.routers.mailsvbulwark.middlewares=secure-chain@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.postewebmail.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.mailsvbulwark.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped

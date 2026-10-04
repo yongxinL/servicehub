@@ -1,6 +1,6 @@
 services:
-    # obsvcvicmtrx — VictoriaMetrics time-series database. Docs: shared/victoriametrics/README.md
-    obsvcvicmtrx:
+    # obsvcevm — VictoriaMetrics time-series database. Docs: shared/victoriametrics/README.md
+    obsvcevm:
         build:
             context: ../shared/victoriametrics/
         command:
@@ -15,7 +15,7 @@ services:
             timeout: 10s
             retries: 5
             start_period: 20s
-        image: obsvcvicmtrx:latest
+        image: obsvcevm:latest
         networks:
             - subnet
         ports:
@@ -25,8 +25,8 @@ services:
             - ${APPS_DATA}/victoriametrics:/storage
             - ../shared/victoriametrics/scrape.yaml:/etc/vm/scrape.yaml:ro
 
-    # obsvcviclogs — VictoriaLogs log aggregation. Docs: shared/victorialogs/README.md
-    obsvcviclogs:
+    # obsvcevlogs — VictoriaLogs log aggregation. Docs: shared/victorialogs/README.md
+    obsvcevlogs:
         build:
             context: ../shared/victorialogs/
         command:
@@ -38,7 +38,7 @@ services:
             timeout: 10s
             retries: 5
             start_period: 20s
-        image: obsvcviclogs:latest
+        image: obsvcevlogs:latest
         networks:
             - subnet
         ports:
@@ -47,8 +47,8 @@ services:
         volumes:
             - ${APPS_DATA}/victorialogs:/vlogs
 
-    # obsvcgrafaly — Grafana Alloy telemetry collector. Docs: shared/grafana/alloy/README.md
-    obsvcgrafaly:
+    # obsvcealloy — Grafana Alloy telemetry collector. Docs: shared/grafana/alloy/README.md
+    obsvcealloy:
         build:
             context: ../shared/grafana/alloy/
         command:
@@ -56,9 +56,9 @@ services:
             - --server.http.listen-addr=0.0.0.0:9080
             - /etc/alloy/config.alloy
         depends_on:
-            obsvcviclogs:
+            obsvcevlogs:
                 condition: service_healthy
-            obsvcvicmtrx:
+            obsvcevm:
                 condition: service_healthy
         healthcheck:
             test: [ "CMD-SHELL", "curl -fsS http://localhost:9080/health || exit 1" ]
@@ -66,7 +66,7 @@ services:
             timeout: 10s
             retries: 5
         hostname: ${DOMAIN_NAME}
-        image: obsvcgrafaly:latest
+        image: obsvcealloy:latest
         networks:
             - subnet
         privileged: true
@@ -82,16 +82,16 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup:ro # cAdvisor — cgroup stats (standard in-container path)
             - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
 
-    # obsvcgrafana — Grafana dashboards. Docs: shared/grafana/README.md
-    obsvcgrafana:
+    # obsvcegrafana — Grafana dashboards. Docs: shared/grafana/README.md
+    obsvcegrafana:
         build:
             context: ../shared/grafana/
         depends_on:
             routetraefik:
                 condition: service_healthy
-            obsvcgrafint:
+            obsvcegrafanainit:
                 condition: service_completed_successfully
-            obsvcgrafaly:
+            obsvcealloy:
                 condition: service_healthy
         environment:
             - GF_ALERTING_enabled=true
@@ -109,16 +109,16 @@ services:
             timeout: 10s
             retries: 5
             start_period: 30s
-        image: obsvcgrafana:latest
+        image: obsvcegrafana:latest
         labels:
             - "traefik.enable=true"
-            - "traefik.http.routers.obsvcgrafana.entrypoints=websecure"
-            - "traefik.http.routers.obsvcgrafana.rule=Host(`${OBSVC_DOMAIN}`)"
-            - "traefik.http.routers.obsvcgrafana.tls=true"
-            - "traefik.http.services.obsvcgrafana.loadbalancer.server.port=3000"
+            - "traefik.http.routers.obsvcegrafana.entrypoints=websecure"
+            - "traefik.http.routers.obsvcegrafana.rule=Host(`${OBSVC_DOMAIN}`)"
+            - "traefik.http.routers.obsvcegrafana.tls=true"
+            - "traefik.http.services.obsvcegrafana.loadbalancer.server.port=3000"
             # uncomment when Domain Level Forward Authentication enabled in Authentik
-            - "traefik.http.routers.obsvcgrafana.middlewares=secure-chain@file,authentik-forwardauth@file"
-            - "traefik.http.routers.obsvcgrafana.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.obsvcegrafana.middlewares=secure-chain@file,authentik-forwardauth@file"
+            - "traefik.http.routers.obsvcegrafana.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
@@ -127,8 +127,8 @@ services:
             - ../shared/grafana/provisioning:/etc/grafana/provisioning:ro
             - ../shared/grafana/dashboards:/var/lib/grafana/dashboards/observability:ro
 
-    # obsvcgrafint — one-shot: Grafana data dir ownership fix. Docs: shared/grafana/README.md
-    obsvcgrafint:
+    # obsvcegrafanainit — one-shot: Grafana data dir ownership fix. Docs: shared/grafana/README.md
+    obsvcegrafanainit:
         command: >
             sh -c '[ "$(stat -c %u /var/lib/grafana 2>/dev/null)" != "472" ] && chown -R 472:472 /var/lib/grafana || true; chmod -R 775 /var/lib/grafana'
         image: busybox:latest

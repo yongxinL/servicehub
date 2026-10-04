@@ -15,9 +15,9 @@ if [ ! -s "${RUNNER_FILE}" ]; then
     forgejo-runner \
         --config "${CONFIG_FILE}" \
         create-runner-file \
-        --instance "${FORGEJO_INSTANCE_URL:-http://depotservice:3000}" \
+        --instance "${FORGEJO_INSTANCE_URL:-http://devopsforgejo:3000}" \
         --secret "${DEPOT_RUNNER_SECRET}" \
-        --name "${FORGEJO_RUNNER_NAME:-depotrunner}"
+        --name "${FORGEJO_RUNNER_NAME:-devopsrunner}"
 else
     echo "Existing Forgejo Runner registration found."
 fi

@@ -4,13 +4,13 @@
 
 ## Overview
 
-[Stalwart](https://github.com/stalwartlabs/stalwart) is the email server of the ServiceHub email domain (`poste`). It handles server-to-server and submission SMTP, IMAP and JMAP, and serves the web admin UI and API over HTTP. Bulwark webmail ([`../bulwark/README.md`](../bulwark/README.md)) talks to Stalwart via JMAP. The service is defined by `posteservice` in [`compose/poste.yml`](../../compose/poste.yml) and built from [`Dockerfile`](Dockerfile) (`FROM stalwartlabs/stalwart:${IMAGE_TAG}`).
+[Stalwart](https://github.com/stalwartlabs/stalwart) is the email server of the ServiceHub email domain (`mailsv`). It handles server-to-server and submission SMTP, IMAP and JMAP, and serves the web admin UI and API over HTTP. Bulwark webmail ([`../bulwark/README.md`](../bulwark/README.md)) talks to Stalwart via JMAP. The service is defined by `mailsvstalwart` in [`compose/mailsv.yml`](../../compose/mailsv.yml) and built from [`Dockerfile`](Dockerfile) (`FROM stalwartlabs/stalwart:${IMAGE_TAG}`).
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `posteservice` |
+| Service name | `mailsvstalwart` |
 | Image tag | `v0.16` (build arg `IMAGE_TAG`) |
 | Web admin / API / JMAP (HTTP) | 8080, routed by Traefik at `https://${EMAIL_HOST}` |
 | SMTP server-to-server, STARTTLS | 25 (published to the host) |
@@ -19,8 +19,8 @@
 | IMAP, implicit TLS | 993 (published to the host) |
 | Optional listeners | 110, 143, 995, 4190 (commented out in the compose file) |
 | Health check | `curl -fsS -H "X-Forwarded-For: 127.0.0.1" http://localhost:8080/healthz/live` every 30 s |
-| Depends on | `routetraefik` (healthy) — Traefik must issue the public certificate first; `dbsvcpgsqldb` (healthy) — the PostgreSQL data store |
-| Depended on by | `postewebmail` (healthy) |
+| Depends on | `routetraefik` (healthy) — Traefik must issue the public certificate first; `infrapgsql` (healthy) — the PostgreSQL data store |
+| Depended on by | `mailsvbulwark` (healthy) |
 | Data persistence | `${APPS_DATA}/platform/mailbox` (mounted at `/var/lib/stalwart`; TLS key material + runtime state — mail data itself lives in PostgreSQL) |
 | Certificates | `${APPS_DATA}/certs` (mounted read-only at `/letsencrypt`) |
 
@@ -30,7 +30,7 @@ Stalwart keeps its whole dataset (metadata, indexes, message blobs, FTS) in one 
 
 | Setting | Value |
 |---|---|
-| Host / port | `${PGRSQL_HOST}:${PGRSQL_PORT}` (`dbsvcpgsqldb:5432`) |
+| Host / port | `${PGRSQL_HOST}:${PGRSQL_PORT}` (`infrapgsql:5432`) |
 | Database | `${POSTE_DBNAME}` (`svchubmboxdb`) — created by the PostgreSQL init script on first start |
 | Credentials | `${SQLDB_USER}` / `${SQLDB_PASS}` (shared stack superuser) |
 
@@ -47,18 +47,18 @@ The entrypoint exports `STALWART_RECOVERY_ADMIN=${STALWART_ADMIN_USER}:${STALWAR
 PostgreSQL is the config for **new installs**. If `${APPS_DATA}/platform/mailbox` already holds a SQLite dataset, migrate instead of switching cold:
 
 ```bash
-docker compose stop posteservice
+docker compose stop mailsvstalwart
 
 # 1. Export the SQLite store (server stopped; uses a throwaway SQLite config
 #    because the rendered config.json now points at PostgreSQL)
-docker compose run --rm --entrypoint sh posteservice -c '
+docker compose run --rm --entrypoint sh mailsvstalwart -c '
   printf "{\"@type\":\"Sqlite\",\"path\":\"/var/lib/stalwart/sqlite\",\"poolMaxConnections\":10}" > /tmp/sqlite.json
   /usr/local/bin/stalwart --config /tmp/sqlite.json --export /var/lib/stalwart/export'
 
 # 2. Import into PostgreSQL (entrypoint renders the PostgreSQL config.json)
-docker compose run --rm posteservice --import /var/lib/stalwart/export
+docker compose run --rm mailsvstalwart --import /var/lib/stalwart/export
 
-docker compose start posteservice
+docker compose start mailsvstalwart
 ```
 
 The export directory lives on the `platform/mailbox` volume so both steps see it. See upstream [migration](https://stalw.art/docs/management/maintenance/migration) for details. Keep the SQLite file until you have verified the import.
@@ -70,43 +70,43 @@ All mail data (accounts, messages, indexes, blobs) lives in `${POSTE_DBNAME}` (`
 **Create** — keep `${POSTE_DBNAME}` in `PGRSQL_DBLIST` for new installs ([first boot](#first-boot)). The init script only runs on an empty data directory, so on an existing cluster create the database manually; Stalwart creates its schema in the empty database on the next start:
 
 ```bash
-docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d postgres \
+docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d postgres \
   -c "CREATE DATABASE \"${POSTE_DBNAME}\";"
-docker compose up -d posteservice
+docker compose up -d mailsvstalwart
 ```
 
 **Delete** — stop the mail service first, then drop the database; this destroys the whole dataset and is irreversible:
 
 ```bash
-docker compose stop posteservice
-docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d postgres \
+docker compose stop mailsvstalwart
+docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d postgres \
   -c "DROP DATABASE IF EXISTS \"${POSTE_DBNAME}\";"
 ```
 
-To start over, create the database again and `docker compose start posteservice`, then re-run the [initial provisioning walkthrough](#initial-provisioning-walkthrough). Delete `${APPS_DATA}/platform/mailbox` too if the TLS material and runtime state should go as well.
+To start over, create the database again and `docker compose start mailsvstalwart`, then re-run the [initial provisioning walkthrough](#initial-provisioning-walkthrough). Delete `${APPS_DATA}/platform/mailbox` too if the TLS material and runtime state should go as well.
 
 **Backup** — `pg_dump` takes a transaction-consistent snapshot and is safe while Stalwart is serving mail (unlike copying the PostgreSQL data directory):
 
 ```bash
-docker compose exec -T dbsvcpgsqldb pg_dump -U "${SQLDB_USER}" -Fc "${POSTE_DBNAME}" \
-  > "poste-$(date +%F).dump"
+docker compose exec -T infrapgsql pg_dump -U "${SQLDB_USER}" -Fc "${POSTE_DBNAME}" \
+  > "mailsv-$(date +%F).dump"
 ```
 
-`-Fc` is the compressed custom format used by `pg_restore` (selective/parallel restore); for a plain-SQL dump use `-Fp | gzip > poste-$(date +%F).sql.gz` instead. Copy the dump off the server — the scheduled [Forgejo backup workflow](../../README.md#data-backups-forgejo-actions) also dumps every database daily (kept 6 months) and archives `APPS_DATA` weekly, so this section is the manual path.
+`-Fc` is the compressed custom format used by `pg_restore` (selective/parallel restore); for a plain-SQL dump use `-Fp | gzip > mailsv-$(date +%F).sql.gz` instead. Copy the dump off the server — the scheduled [Forgejo backup workflow](../../README.md#data-backups-forgejo-actions) also dumps every database daily (kept 6 months) and archives `APPS_DATA` weekly, so this section is the manual path.
 
 **Restore** — stop Stalwart (no writers), recreate the database, import the dump and start again:
 
 ```bash
-docker compose stop posteservice
-docker compose exec -T dbsvcpgsqldb psql -U "${SQLDB_USER}" -d postgres \
+docker compose stop mailsvstalwart
+docker compose exec -T infrapgsql psql -U "${SQLDB_USER}" -d postgres \
   -c "DROP DATABASE IF EXISTS \"${POSTE_DBNAME}\";" \
   -c "CREATE DATABASE \"${POSTE_DBNAME}\";"
-docker compose exec -T dbsvcpgsqldb pg_restore -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" --no-owner \
-  < poste-YYYY-MM-DD.dump
-docker compose start posteservice
+docker compose exec -T infrapgsql pg_restore -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" --no-owner \
+  < mailsv-YYYY-MM-DD.dump
+docker compose start mailsvstalwart
 ```
 
-For a `.sql.gz` dump, pipe it into `psql` instead: `gunzip -c poste-YYYY-MM-DD.sql.gz | docker compose exec -T dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}"`. Verify with `docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c '\dt'` and a test login; the fallback admin at `https://${EMAIL_HOST}/admin` works even if the LDAP directory is down.
+For a `.sql.gz` dump, pipe it into `psql` instead: `gunzip -c mailsv-YYYY-MM-DD.sql.gz | docker compose exec -T infrapgsql psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}"`. Verify with `docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c '\dt'` and a test login; the fallback admin at `https://${EMAIL_HOST}/admin` works even if the LDAP directory is down.
 
 > `-T` disables TTY allocation so the binary dump streams cleanly through the redirect; the `< dump` and `gunzip -c` pipes run in the host shell, not the container.
 
@@ -149,7 +149,7 @@ Click **Submit**: the application and provider are created together.
 
 ### Authentik: outpost
 
-Applications → Outposts → **New Outpost**: type **LDAP**, integration **Docker** (the local Docker-socket integration is used by `authnworkers`), applications: the LDAP application above. Then edit the outpost and set **Docker network** to `servicehub_subnet` — without it the outpost container lands on the default bridge and Stalwart cannot reach it. The container is named after the outpost (`ak-outpost-<name>`) and listens on `3389` (LDAP) / `6636` (LDAPS); with *Map ports* on (default) it also binds host ports `389`/`636`.
+Applications → Outposts → **New Outpost**: type **LDAP**, integration **Docker** (the local Docker-socket integration is used by `infraauthwrk`), applications: the LDAP application above. Then edit the outpost and set **Docker network** to `servicehub_subnet` — without it the outpost container lands on the default bridge and Stalwart cannot reach it. The container is named after the outpost (`ak-outpost-<name>`) and listens on `3389` (LDAP) / `6636` (LDAPS); with *Map ports* on (default) it also binds host ports `389`/`636`.
 
 ### Stalwart: LDAP directory
 
@@ -210,7 +210,7 @@ docker logs ak-outpost-<outpost name> 2>&1 | grep -iE "bind|error|flow"
 | No `"failed to execute flow"` error, retries log `"authenticated from session"`, yet Stalwart still gets `resultCode 49` | The provider's **Bind Flow** is unset, or — with *Cached binding* — an earlier failed bind is still cached: the outpost's cached binder stores the failed result code per (DN, password) and replays it. Set the flow, then clear the cache with `docker restart ak-outpost-<outpost name>` (only a restart resets it). *Direct binding* has no such cache. |
 | Bind succeeds but searches return nothing | By default a bound user only sees their own entry and groups. The service account needs **Search full LDAP directory** — grant it a role as a provider object permission (or a global permission), see [Service account, role and permissions](#authentik-service-account-role-and-permissions). |
 | Bind returns `50 insufficientAccessRights`, log says `Access denied for user` | The LDAP application's access bindings exclude the binding user/service account — grant access on the application. |
-| Bind returns `50 insufficientAccessRights` but the outpost log shows **no bind entry for the attempt at all** | The bind never targets a provider. Two shapes: `bindDN:""` means the DN never reached the outpost (broken multi-line command — a flattened `\ -D` turns the backslash into a bogus filter argument and drops the DN; run the command on one line); `bindDN:"<base DN>"` means Stalwart's directory **Bind DN** field contains the bare base DN (e.g. `dc=lifamy,dc=com`) instead of the service account DN (`cn=<user>,ou=users,<base DN>`) — fix the field, restart `posteservice` to drop pooled LDAP connections. The outpost replies `50` for "no provider found" binds, which Stalwart surfaces as "Temporary server failure" on the login page. |
+| Bind returns `50 insufficientAccessRights` but the outpost log shows **no bind entry for the attempt at all** | The bind never targets a provider. Two shapes: `bindDN:""` means the DN never reached the outpost (broken multi-line command — a flattened `\ -D` turns the backslash into a bogus filter argument and drops the DN; run the command on one line); `bindDN:"<base DN>"` means Stalwart's directory **Bind DN** field contains the bare base DN (e.g. `dc=lifamy,dc=com`) instead of the service account DN (`cn=<user>,ou=users,<base DN>`) — fix the field, restart `mailsvstalwart` to drop pooled LDAP connections. The outpost replies `50` for "no provider found" binds, which Stalwart surfaces as "Temporary server failure" on the login page. |
 | Stalwart logs `auth.failed ... details = "Auth bind lookup filter yielded no results"` | The lookup filter (e.g. `(&(objectClass=user)(mail=<address>))`) matched no entry: the user's **Email** field in Authentik is empty/different from the login name, or the service account's search can't see the user (missing **Search full LDAP directory**, or an outpost container still caching the pre-permission state — `docker restart ak-outpost-<outpost name>`). `ldapsearch` as the service account with the same filter shows exactly what Stalwart sees. |
 | `resultCode 49 invalidCredentials` with the flow set correctly | The stored **Bind Secret** does not match the service account password — reset it in Authentik (*Users → the service account → Set password*) and update Stalwart's directory. |
 | Binds or searches fail after changing the Base DN | Stalwart's directory still uses the old `baseDn`/`bindDn` — update both to the new DN, then `docker restart ak-outpost-<outpost name>` to clear the outpost's cached bind results. |
@@ -223,7 +223,7 @@ docker logs ak-outpost-<outpost name> 2>&1 | grep -iE "bind|error|flow"
 
 ## Traefik routing
 
-Incoming HTTPS requests for `${EMAIL_HOST}` are routed to the internal HTTP port 8080 by Traefik, which terminates TLS. The router has an IP allow-list middleware (`posteservice-whitelist`) built from `${TRUSTED_IP}`, so the web admin UI is only reachable from trusted networks.
+Incoming HTTPS requests for `${EMAIL_HOST}` are routed to the internal HTTP port 8080 by Traefik, which terminates TLS. The router has an IP allow-list middleware (`mailsvstalwart-whitelist`) built from `${TRUSTED_IP}`, so the web admin UI is only reachable from trusted networks.
 
 ## TLS certificates
 
@@ -248,26 +248,26 @@ Renewals need no further action: `acme-export.sh` replaces the files and restart
 Verify what the listeners actually serve:
 
 ```bash
-docker compose exec posteservice \
+docker compose exec mailsvstalwart \
   openssl s_client -connect localhost:993 -servername ${EMAIL_HOST} </dev/null 2>/dev/null \
   | openssl x509 -noout -subject -issuer -dates
 ```
 
 - `issuer=...Let's Encrypt...` — the exported certificate is in use.
-- `issuer` and `subject` are both `${EMAIL_HOST}` (self-signed within the container bootstrap) — still the bootstrap certificate; the Certificate object is missing or wrong. Run `docker compose restart posteservice` after fixing it.
+- `issuer` and `subject` are both `${EMAIL_HOST}` (self-signed within the container bootstrap) — still the bootstrap certificate; the Certificate object is missing or wrong. Run `docker compose restart mailsvstalwart` after fixing it.
 
 ## Logs & troubleshooting
 
 Stalwart logs through *Tracers* (**Settings → Telemetry → Tracers**). v0.16 has **no console tracer by default**: when no tracer exists, Stalwart creates a **Log (file)** tracer that writes `/var/log/stalwart/stalwart.log.<YYYY-MM-DD>` (daily rotation) at level *Info*. The entrypoint creates and chowns that directory so it works out of the box:
 
 ```bash
-docker compose exec posteservice ls -l /var/log/stalwart/
-docker compose exec posteservice tail -f "/var/log/stalwart/stalwart.log.$(date +%F)"
+docker compose exec mailsvstalwart ls -l /var/log/stalwart/
+docker compose exec mailsvstalwart tail -f "/var/log/stalwart/stalwart.log.$(date +%F)"
 ```
 
-> If the file is missing, the tracer was never able to open it (Stalwart does not create log directories, and the `stalwart` user cannot write into a root-owned one). Fix the directory ownership or point the tracer at `/var/lib/stalwart/logs` (also created by the entrypoint), then `docker compose restart posteservice`.
+> If the file is missing, the tracer was never able to open it (Stalwart does not create log directories, and the `stalwart` user cannot write into a root-owned one). Fix the directory ownership or point the tracer at `/var/lib/stalwart/logs` (also created by the entrypoint), then `docker compose restart mailsvstalwart`.
 
-`docker compose logs -f posteservice` shows only bootstrap output (e.g. the certificate retry notice) — tracer events do not go to stdout unless a **Stdout** tracer is configured (next section).
+`docker compose logs -f mailsvstalwart` shows only bootstrap output (e.g. the certificate retry notice) — tracer events do not go to stdout unless a **Stdout** tracer is configured (next section).
 
 ### Logging to the Docker console
 
@@ -278,7 +278,7 @@ To capture tracer events with `docker compose logs` — for example to keep all 
 3. Reproduce and follow the output:
 
     ```bash
-    docker compose logs -f posteservice
+    docker compose logs -f mailsvstalwart
     ```
 
 Notes:
@@ -289,7 +289,7 @@ Notes:
 
 To debug authentication (e.g. LDAP binds):
 
-1. **Settings → Telemetry → Tracers** → open the *Log* (or *Stdout*) tracer → set **Logging level** to *Debug* (or *Trace*), save, and restart `posteservice`.
+1. **Settings → Telemetry → Tracers** → open the *Log* (or *Stdout*) tracer → set **Logging level** to *Debug* (or *Trace*), save, and restart `mailsvstalwart`.
 2. Reproduce the failure and read the file or `docker compose logs` as above; bind errors show the LDAP result code (e.g. `49 invalidCredentials`).
 3. **Settings → Telemetry → Event Levels** overrides levels per `Event Id` when the global level is too noisy.
 
@@ -304,7 +304,7 @@ The file tracer's path is on the container filesystem, so those logs are lost wh
 | `CERTRESOLVER` | Which key of `acme.json` to read (`letsencrypt` or empty for self-signed staging) |
 | `CERT_CHECK_INTERVAL` | Certificate re-check interval (default `86400`) |
 | `POSTE_DBNAME` | PostgreSQL database name (must be in `PGRSQL_DBLIST`, created on first PostgreSQL start) |
-| `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL connection target (`dbsvcpgsqldb:5432`) |
+| `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL connection target (`infrapgsql:5432`) |
 | `SQLDB_USER` / `SQLDB_PASS` | PostgreSQL credentials |
 | `STALWART_ADMIN_USER` / `STALWART_ADMIN_PASS` | Fallback administrator, mapped to `STALWART_RECOVERY_ADMIN` (pass generated by `setup.sh`; empty disables) |
 
@@ -315,7 +315,7 @@ Directory settings (LDAP URL, bind DN/secret, filters) are applied once through 
 | Container path | Host path | Purpose |
 |---|---|---|
 | `/var/lib/stalwart` | `${APPS_DATA}/platform/mailbox` | TLS key material (`tls/`) and runtime state (mail data lives in PostgreSQL) |
-| PostgreSQL database | `${APPS_DATA}/databases/pgsqldb` (via `dbsvcpgsqldb`) | All mail data: accounts metadata, messages, indexes, FTS |
+| PostgreSQL database | `${APPS_DATA}/databases/pgsqldb` (via `infrapgsql`) | All mail data: accounts metadata, messages, indexes, FTS |
 | `/letsencrypt` | `${APPS_DATA}/certs` | Traefik's shared `acme.json` (read-only `acme-export.sh`) |
 
 ## First boot
@@ -323,7 +323,7 @@ Directory settings (LDAP URL, bind DN/secret, filters) are applied once through 
 1. Add `${POSTE_DBNAME}` to `PGRSQL_DBLIST` if not already present, then bring up the database and the server:
 
     ```bash
-    docker compose up -d posteservice
+    docker compose up -d mailsvstalwart
     ```
 
 2. Open `https://${EMAIL_HOST}/admin` (from a trusted IP) and sign in with `${STALWART_ADMIN_USER}` / `${STALWART_ADMIN_PASS}` — the recovery admin.
@@ -334,37 +334,37 @@ For external clients to reach ports 25/465/587/993, DNS `MX`/`A` records for `${
 
 ## Initial provisioning walkthrough
 
-PostgreSQL holds everything, so the fastest path is: first `docker compose up -d posteservice` boots straight into the admin UI with the recovery admin, provision the directory + accounts, then deploy Bulwark. Complete steps, in order:
+PostgreSQL holds everything, so the fastest path is: first `docker compose up -d mailsvstalwart` boots straight into the admin UI with the recovery admin, provision the directory + accounts, then deploy Bulwark. Complete steps, in order:
 
-1. **Database** — `${POSTE_DBNAME}` in `PGRSQL_DBLIST`; `docker compose up -d dbsvcpgsqldb` creates it on first start.
-2. **Stalwart** — `docker compose up -d posteservice`; sign in at `https://${EMAIL_HOST}/admin` with `${STALWART_ADMIN_USER}` / `${STALWART_ADMIN_PASS}` (recovery admin).
+1. **Database** — `${POSTE_DBNAME}` in `PGRSQL_DBLIST`; `docker compose up -d infrapgsql` creates it on first start.
+2. **Stalwart** — `docker compose up -d mailsvstalwart`; sign in at `https://${EMAIL_HOST}/admin` with `${STALWART_ADMIN_USER}` / `${STALWART_ADMIN_PASS}` (recovery admin).
 3. **LDAP provider in Authentik** — Application `stalwart-mail` with provider type **LDAP Provider** (Base DN: default `dc=ldap,dc=goauthentik,dc=io` or your own — see the [directory section](#directory-authentik-ldap-sso); full field-by-field provider settings — Bind/Unbind Flow, bind/search modes — in [Authentik: application and LDAP provider](#authentik-application-and-ldap-provider)).
 4. **LDAP service account in Authentik** — Directory → Users → New User `stalwart-ldap`; set a password under Recovery. Create a role `LDAP search` with the **Search full LDAP directory** permission, add the service account to it, and assign the role to the provider under its **Permissions** tab (object vs global permission, and application access: [Authentik: service account, role and permissions](#authentik-service-account-role-and-permissions)).
 5. **LDAP outpost in Authentik** — **Applications → Outposts → Create Outpost**, type **LDAP**, integration **Docker**, applications: `stalwart-mail`; edit the outpost config and set **Docker network** to `servicehub_subnet`. The outpost container is named after the outpost (`ak-outpost-<name>`) and listens on `3389`/`6636` — note it also maps host ports `389`/`636` unless you untick *Map ports*. Verify with the `ldapsearch` command in the [directory section](#directory-authentik-ldap-sso).
 6. **Point Stalwart at the outpost** — Stalwart admin → **Settings → Authentication → Directories → Create directory** (type LDAP), using the values from the [directory table](#directory-authentik-ldap-sso) above. Then bind the mail domain: **Management → Domains → Domains** → `${EMAIL_HOST}` → **Domain** section → **Directory** (or, for all domains at once, **Settings → Authentication → General** → **Authentication Directory**).
 7. **Technical sender account in Authentik** — since the mail domain is bound to LDAP, create `servicehub@${EMAIL_HOST}` as an Authentik service account with that address as its **email**; `${EMAIL_PASS}` is the account's password. Stack components send with `${EMAIL_USER}` / `${EMAIL_PASS}` on port `${EMAIL_PORT}` (see [Root README — Email](../../README.md#configuration)).
 8. **Mailboxes for users** — for LDAP-backed users authentication needs no extra setup; create the mailbox in Stalwart (matching the user's `mail` attribute) to assign quota and groups. Verify a login with the user's **email + Authentik password** from an IMAP/JMAP client or Bulwark's password form.
-9. **Bulwark webmail** — `docker compose up -d postesvcinit postewebmail`; users sign in at `https://${WEBMAIL_DOMAIN}` with their **email + Authentik password** (the password form validates through Stalwart's LDAP directory). Before first login, enable **Permissive CORS policy** (**Settings → Network → HTTP → Security**, `usePermissiveCors`) and confirm the [Certificate object](#tls-certificates) is in place — both are login prerequisites documented in [Bulwark — Login prerequisites](../bulwark/README.md#login-prerequisites-stalwart-side). OIDC SSO is not used in this stack (requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](../bulwark/README.md#sso--oidc-not-used)).
+9. **Bulwark webmail** — `docker compose up -d mailsvbulwarkinit mailsvbulwark`; users sign in at `https://${WEBMAIL_DOMAIN}` with their **email + Authentik password** (the password form validates through Stalwart's LDAP directory). Before first login, enable **Permissive CORS policy** (**Settings → Network → HTTP → Security**, `usePermissiveCors`) and confirm the [Certificate object](#tls-certificates) is in place — both are login prerequisites documented in [Bulwark — Login prerequisites](../bulwark/README.md#login-prerequisites-stalwart-side). OIDC SSO is not used in this stack (requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](../bulwark/README.md#sso--oidc-not-used)).
 
 ## Operations
 
 ```bash
 # Start / restart
-docker compose up -d posteservice
+docker compose up -d mailsvstalwart
 
 # Follow logs
-docker compose logs -f posteservice
+docker compose logs -f mailsvstalwart
 
 # Inspect the exported certificate state
 ls -l ${APPS_DATA}/platform/mailbox/tls/
 
 # Inspect Stalwart's PostgreSQL footprint
-docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c "\dt"
+docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c "\dt"
 ```
 
 ## Security hardening
 
-- **Edge protection** — the router carries `secure-chain` (rate limit + security headers) before the `posteservice-whitelist` IP allowlist; the admin UI is therefore unreachable from untrusted networks. See [Traefik — Security middlewares](../traefik/README.md#security-middlewares).
+- **Edge protection** — the router carries `secure-chain` (rate limit + security headers) before the `mailsvstalwart-whitelist` IP allowlist; the admin UI is therefore unreachable from untrusted networks. See [Traefik — Security middlewares](../traefik/README.md#security-middlewares).
 - **Recovery admin is break-glass** — `${STALWART_ADMIN_USER}` / `${STALWART_ADMIN_PASS}` bypasses the LDAP directory entirely; make the password long and unique (it is generated by `setup.sh`) and leave it alone.
 - **Auto-ban & rate limits** — enable auto-banning under **Settings → Security** (Settings › Security in the v0.16 UI) so repeated failed binds from one source are throttled/blocked; check the tracer log for `auth.failed` spikes.
 - **Submission hardening** — keep AUTH off port 25 (server-to-server only); authenticated submission is on 465/587.
@@ -374,7 +374,7 @@ docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](Dockerfile) | Image build — upstream image + curl/jq/inotify-tools for the cert watch tooling; `ldap-utils` for LDAP connectivity/debugging against the Authentik outpost (`docker compose exec posteservice ldapsearch ...`) |
+| [`Dockerfile`](Dockerfile) | Image build — upstream image + curl/jq/inotify-tools for the cert watch tooling; `ldap-utils` for LDAP connectivity/debugging against the Authentik outpost (`docker compose exec mailsvstalwart ldapsearch ...`) |
 | [`entrypoint.sh`](entrypoint.sh) | Generates the PostgreSQL `DataStore` config with `jq`, pins the recovery admin, bootstraps certs, drops privileges, starts the export watcher |
 | [`acme-export.sh`](acme-export.sh) | Extracts and installs the public certificate from Traefik's `acme.json` |
 
@@ -382,6 +382,6 @@ docker compose exec dbsvcpgsqldb psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c
 
 - [Bulwark Webmail](../bulwark/README.md) — JMAP webmail client for this server (password form via the LDAP directory; OIDC SSO not used)
 - [Authentik](../authentik/README.md) — IdP; the LDAP directory walkthrough is above
-- [PostgreSQL](../postgresql/README.md) — the shared database host (`dbsvcpgsqldb`)
+- [PostgreSQL](../postgresql/README.md) — the shared database host (`infrapgsql`)
 - [Traefik](../traefik/README.md) — edge routing and TLS termination
-- [Root README — Email stack](../../README.md#email-stack-poste)
+- [Root README — Email stack](../../README.md#email-stack-mailsv)

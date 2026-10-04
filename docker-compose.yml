@@ -3,14 +3,13 @@
 #
 # Domain files are loaded via `include` (Compose 2.20+).
 #
-#   compose/route.yml   route*  Edge routing + TLS termination (Traefik)
-#   compose/dbsvc.yml   dbsvc*  Relational databases (MariaDB + PostgreSQL)
-#   compose/authn.yml   authn*  Authentication / SSO (Authentik)
-#   compose/wbapp.yml   wbapp*  Homepage / CMS + Open WebUI (Confluence + Open WebUI)
-#   compose/aiagn.yml   aiagn*  AI agents + LLM inference (Hermes + LiteLLM + llama.cpp)
-#   compose/depot.yml   depot*  Source control + CI (Forgejo + Actions runner)
-#   compose/obsvc.yml   obsvc*  Observability (metrics + logs + Grafana)
-#   compose/poste.yml   poste*  Email services (Stalwart mail + Bulwark webmail)
+#   compose/route.yml   route*   Edge routing + TLS termination (Traefik)
+#   compose/infra.yml   infra*   Databases (MariaDB + PostgreSQL) + Authentik identity
+#   compose/devops.yml  devops*  Source control + CI (Forgejo + Actions runner)
+#   compose/webapp.yml  webapp*  Homepage / CMS + Open WebUI (Confluence + Open WebUI)
+#   compose/aiserv.yml  aiserv*  AI agents + LLM inference (Hermes + LiteLLM + llama.cpp)
+#   compose/obsvce.yml  obsvce*  Observability (metrics + logs + Grafana)
+#   compose/mailsv.yml  mailsv*  Email services (Stalwart mail + Bulwark webmail)
 #
 # Deploy with: docker compose up -d --build
 #
@@ -28,23 +27,20 @@ include:
     # --> routing + TLS termination (route)
     - compose/route.yml
 
-    # --> relational databases (dbsvc)
-    - compose/dbsvc.yml
+    # --> databases + authentication / SSO (infra)
+    - compose/infra.yml
 
-    # --> authentication / SSO (authn)
-    - compose/authn.yml
+    # --> DevOps: source control + CI runners (devops)
+    - compose/devops.yml
 
-    # --> Depot: source control + CI runners (depot)
-    - compose/depot.yml
+    # --> web applications (webapp)
+    - compose/webapp.yml
 
-    # --> web applications (wbapp)
-    - compose/wbapp.yml
+    # --> AI agent platform (aiserv)
+    - compose/aiserv.yml
 
-    # --> AI agent platform (aiagn)
-    - compose/aiagn.yml
+    # --> observability: metrics + logs + Grafana (obsvce)
+    - compose/obsvce.yml
 
-    # --> observability: metrics + logs + Grafana (obsvc)
-    - compose/obsvc.yml
-
-    # --> email services: mail server + webmail (poste)
-    - compose/poste.yml
+    # --> email services: mail server + webmail (mailsv)
+    - compose/mailsv.yml

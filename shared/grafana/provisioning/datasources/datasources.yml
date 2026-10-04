@@ -5,7 +5,7 @@ datasources:
     type: prometheus
     uid: victoriametrics
     access: proxy
-    url: http://obsvcvicmtrx:8428
+    url: http://obsvcevm:8428
     isDefault: true
     editable: false
     jsonData:
@@ -16,7 +16,7 @@ datasources:
     type: victoriametrics-logs-datasource
     uid: victorialogs
     access: proxy
-    url: http://obsvcviclogs:9428
+    url: http://obsvcevlogs:9428
     editable: false
     jsonData:
       httpMethod: POST

@@ -4,9 +4,9 @@
 
 ## Overview
 
-[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `wbappmydrive` service in [`compose/wbapp.yml`](../../compose/wbapp.yml) and is built from [`shared/owncloud/Dockerfile`](Dockerfile) (`FROM owncloud/ocis:${IMAGE_TAG}`). It is routed through Traefik at `https://${WBDRIVE_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/cloud/ocis`, and delegates sign-in to Authentik.
+[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `webappocis` service in [`compose/webapp.yml`](../../compose/webapp.yml) and is built from [`shared/owncloud/Dockerfile`](Dockerfile) (`FROM owncloud/ocis:${IMAGE_TAG}`). It is routed through Traefik at `https://${WBDRIVE_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/cloud/ocis`, and delegates sign-in to Authentik.
 
-The build passes `WBDRIVE_TAG` to the Dockerfile as `IMAGE_TAG` and tags the result `wbappmydrive:latest`. Its entrypoint initialises `${APPS_DATA}/cloud/ocis/config/ocis.yaml` only when it does not exist, then starts the supported single-container service set and persists configuration separately from file data.
+The build passes `WBDRIVE_TAG` to the Dockerfile as `IMAGE_TAG` and tags the result `webappocis:latest`. Its entrypoint initialises `${APPS_DATA}/cloud/ocis/config/ocis.yaml` only when it does not exist, then starts the supported single-container service set and persists configuration separately from file data.
 
 oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authentik stores identity and application state in PostgreSQL; oCIS stores its core state in its local configuration and data directories. See [ADR-006](../../docs/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) for the persistence decision and implementation note.
 
@@ -14,10 +14,10 @@ oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authe
 
 | Detail | Value |
 |---|---|
-| Service name | `wbappmydrive` |
-| Initialiser | `wbappdriveinit` |
-| Compose file | `compose/wbapp.yml` |
-| Image | `wbappmydrive:latest` |
+| Service name | `webappocis` |
+| Initialiser | `webappocisinit` |
+| Compose file | `compose/webapp.yml` |
+| Image | `webappocis:latest` |
 | Entrypoint | `/usr/local/bin/ocis-entrypoint` |
 | Build context | `shared/owncloud/` |
 | Base image | `owncloud/ocis:${WBDRIVE_TAG}` |
@@ -29,7 +29,7 @@ oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authe
 | Health check | `curl -fsS http://localhost:9200/status.php` |
 | Database | None for oCIS; Authentik uses ServiceHub PostgreSQL |
 
-The oCIS image runs as UID/GID `1000:1000`. `wbappdriveinit` creates and corrects ownership on both bind-mounted directories before the main service starts.
+The oCIS image runs as UID/GID `1000:1000`. `webappocisinit` creates and corrects ownership on both bind-mounted directories before the main service starts.
 
 ## Configuration in `.env`
 
@@ -47,7 +47,7 @@ Do not record the Authentik provider client secret in documentation. The browser
 
 ## Authentik OIDC Setup
 
-Perform this one-time setup before starting `wbappmydrive`:
+Perform this one-time setup before starting `webappocis`:
 
 1. Open the Authentik administration interface at `https://${AUTHN_DOMAIN}`.
 2. Create an **OAuth2 / OpenID Provider** with these settings:
@@ -83,21 +83,21 @@ docker compose --env-file env.example config --quiet
 Start the service:
 
 ```bash
-docker compose up -d --build wbappmydrive
+docker compose up -d --build webappocis
 ```
 
-For a first deployment where the bind-mount directories do not yet exist, the deployment workflow starts `wbappdriveinit` before `wbappmydrive`. From a local shell, the explicit sequence is:
+For a first deployment where the bind-mount directories do not yet exist, the deployment workflow starts `webappocisinit` before `webappocis`. From a local shell, the explicit sequence is:
 
 ```bash
-docker compose up -d wbappdriveinit
-docker compose up -d --build wbappmydrive
+docker compose up -d webappocisinit
+docker compose up -d --build webappocis
 ```
 
 Check status:
 
 ```bash
-docker compose ps wbappmydrive
-docker compose logs -f wbappmydrive
+docker compose ps webappocis
+docker compose logs -f webappocis
 curl -fsS "https://${WBDRIVE_DOMAIN}/status.php"
 ```
 
@@ -125,10 +125,10 @@ oCIS does not add a PostgreSQL dump. Its configuration and file paths are covere
 
 ```bash
 # Restart oCIS
-docker compose restart wbappmydrive
+docker compose restart webappocis
 
 # Follow logs
-docker compose logs -f wbappmydrive
+docker compose logs -f webappocis
 
 # Validate Compose after changes
 docker compose config --quiet

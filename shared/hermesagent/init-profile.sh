@@ -10,7 +10,7 @@
 #   ./shared/hermesagent/init-profile.sh <profile-name>
 #
 # Container mode (inside a hermes container):
-#   docker compose exec aiagnherm00 init-profile.sh <profile-name>
+#   docker compose exec aiservhermes init-profile.sh <profile-name>
 #
 # What it does:
 #   1. Seeds config.yaml, SOUL.md, and env.example → .env from the defaults
@@ -104,7 +104,7 @@ LITELLM_API_URL="${LITELLM_API_URL:-$(read_env_file LITEM_API_URL)}"
 FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-$(read_env_file FCRW_API_URL)}"
 FIRECRAWL_API_KEY="${FIRECRAWL_API_KEY:-${LITELLM_API_KEY}}"
 
-LITELLM_API_URL="${LITELLM_API_URL:-http://aiagnlitellm:12380/v1}"
+LITELLM_API_URL="${LITELLM_API_URL:-http://aiservlitellm:12380/v1}"
 FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-http://aiagnfastcrw:12360}"
 
 if [[ -z "${LITELLM_API_KEY}" || "${LITELLM_API_KEY}" == *"YOUR_"* || "${LITELLM_API_KEY}" == *"your-"* ]]; then
@@ -182,9 +182,9 @@ echo "  ${step}. Personalise SOUL.md for this profile's identity:"
 echo "     nano ${PROFILE_DIR}/SOUL.md"
 step=$((step+1))
 echo "  ${step}. Switch to this profile in the Workspace UI or CLI:"
-echo "     docker compose exec aiagnherm00 hermes profile use ${PROFILE_NAME}"
+echo "     docker compose exec aiservhermes hermes profile use ${PROFILE_NAME}"
 step=$((step+1))
 echo "  ${step}. List all profiles:"
-echo "     docker compose exec aiagnherm00 hermes profile list"
+echo "     docker compose exec aiservhermes hermes profile list"
 echo "────────────────────────────────────────────────────────────"
 echo ""
