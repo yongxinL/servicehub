@@ -68,56 +68,63 @@ migrate_env() {
     # names and moved the databases into the svchub_* namespace. Rewrite an
     # ADR-007-era .env in one pass (variable renames first so the database-value
     # rules below match the new names).
-    if grep -qE '^(AUTHN_|DEPOT_|WBHOME_|OWEBUI_|OBSVC_|POSTE_DBNAME|LITEM_|SQLDB_|PGRSQL_|MySQL_|MARIADB_DB_LIST|WBDRIVE_)' "$ENV_FILE" 2>/dev/null; then
+    if grep -qE '^(AUTHN_|DEPOT_|WBHOME_|OWEBUI_|OBSVC_|POSTE_DBNAME|LITEM_|SQLDB_|PGRSQL_|MySQL_|MARIADB_DB_LIST|WBDRIVE_|WBCLOUD_)' "$ENV_FILE" 2>/dev/null; then
         echo "Migrating ADR-008 environment variable names ..."
         sed -i.bak \
-            -e 's/\bAUTHN_DBNAME\b/IDENTITY_DBNAME/g' \
-            -e 's/\bAUTHN_DOMAIN\b/IDENTITY_DOMAIN/g' \
-            -e 's/\bAUTHN_TAG\b/IDENTITY_TAG/g' \
-            -e 's/\bAUTHN_PASSWD\b/IDENTITY_PASSWORD/g' \
-            -e 's/\bAUTHN_SECRET\b/IDENTITY_SECRET/g' \
-            -e 's/\bDEPOT_DBNAME\b/SOURCECODE_DBNAME/g' \
-            -e 's/\bDEPOT_DOMAIN\b/SOURCECODE_DOMAIN/g' \
-            -e 's/\bDEPOT_VTAG\b/SOURCECODE_TAG/g' \
-            -e 's/\bDEPOT_RUNNER_SECRET\b/SOURCECODE_RUNNER_SECRET/g' \
-            -e 's/\bDEPOT_RUNNER_VTAG\b/SOURCECODE_RUNNER_TAG/g' \
-            -e 's/\bWBHOME_DBNAME\b/WORKSPACE_DBNAME/g' \
-            -e 's/\bWBHOME_DOMAIN\b/WORKSPACE_DOMAIN/g' \
-            -e 's/\bWBHOME_TAG\b/WORKSPACE_TAG/g' \
-            -e 's/\bOWEBUI_DOMAIN\b/CHAT_DOMAIN/g' \
-            -e 's/\bOBSVC_DOMAIN\b/OBSERVABILITY_DOMAIN/g' \
-            -e 's/\bOBSVC_ADMUSR\b/OBSERVABILITY_ADMIN_USER/g' \
-            -e 's/\bOBSVC_ADMPWD\b/OBSERVABILITY_ADMIN_PASSWORD/g' \
-            -e 's/\bWEBMAIL_DOMAIN\b/POSTOFFICE_DOMAIN/g' \
-            -e 's/\bPOSTE_DBNAME\b/POSTOFFICE_DBNAME/g' \
-            -e 's/\bWBDRIVE_DOMAIN\b/CLOUD_DOMAIN/g' \
-            -e 's/\bWBDRIVE_TAG\b/CLOUD_TAG/g' \
-            -e 's/\bWBDRIVE_OIDC_ISSUER\b/CLOUD_OIDC_ISSUER/g' \
-            -e 's/\bWBDRIVE_OIDC_CLIENT_ID\b/CLOUD_OIDC_CLIENT_ID/g' \
-            -e 's/\bWBDRIVE_INSECURE\b/CLOUD_INSECURE/g' \
-            -e 's/\bLITEM_API_KEY\b/AIGATE_API_KEY/g' \
-            -e 's/\bLITEM_API_URL\b/AIGATE_API_URL/g' \
-            -e 's/\bLITEM_ADMUSR\b/AIGATE_ADMIN_USER/g' \
-            -e 's/\bLITEM_ADMPWD\b/AIGATE_ADMIN_PASSWORD/g' \
-            -e 's/\bLITEM_DBNAME\b/AIGATE_DBNAME/g' \
-            -e 's/\bLITEM_HPH_APIURL\b/AIGATE_HERMES_API_URL/g' \
-            -e 's/\bLITEM_HPH_APIKEY\b/AIGATE_HERMES_API_KEY/g' \
-            -e 's/\bLITEM_HPH_HLTURL\b/AIGATE_HERMES_HEALTH_URL/g' \
-            -e 's/\bLITEM_PRM_APIBASE\b/AIGATE_PROVIDER_API_BASE/g' \
-            -e 's/\bLITEM_PRM_APIKEY\b/AIGATE_PROVIDER_API_KEY/g' \
-            -e 's/\bSQLDB_USER\b/DB_ADMIN_USER/g' \
-            -e 's/\bSQLDB_PASS\b/DB_ADMIN_PASSWORD/g' \
-            -e 's/\bMySQL_HOST\b/MARIADB_HOST/g' \
-            -e 's/\bMySQL_PORT\b/MARIADB_PORT/g' \
-            -e 's/\bMARIADB_DB_LIST\b/MARIADB_DATABASES/g' \
-            -e 's/\bPGRSQL_HOST\b/POSTGRES_HOST/g' \
-            -e 's/\bPGRSQL_PORT\b/POSTGRES_PORT/g' \
-            -e 's/\bPGRSQL_DBLIST\b/POSTGRES_DATABASES/g' \
-            -e 's/^IDENTITY_DBNAME=svchubauthtk/IDENTITY_DBNAME=svchub_identity/' \
-            -e 's/^SOURCECODE_DBNAME=svchubsvnrep/SOURCECODE_DBNAME=svchub_sourcecode/' \
-            -e 's/^WORKSPACE_DBNAME=svchubwbhome/WORKSPACE_DBNAME=svchub_workspace/' \
-            -e 's/^POSTOFFICE_DBNAME=svchubmboxdb/POSTOFFICE_DBNAME=svchub_postoffice/' \
-            -e 's/^AIGATE_DBNAME=litellm/AIGATE_DBNAME=svchub_aigateway/' \
+            -e 's/AUTHN_DBNAME/IDENTITY_DBNAME/g' \
+            -e 's/AUTHN_DOMAIN/IDENTITY_DOMAIN/g' \
+            -e 's/AUTHN_TAG/IDENTITY_TAG/g' \
+            -e 's/AUTHN_PASSWD/IDENTITY_PASSWORD/g' \
+            -e 's/AUTHN_SECRET/IDENTITY_SECRET/g' \
+            -e 's/DEPOT_DBNAME/SOURCECODE_DBNAME/g' \
+            -e 's/DEPOT_DOMAIN/SOURCECODE_DOMAIN/g' \
+            -e 's/DEPOT_VTAG/SOURCECODE_TAG/g' \
+            -e 's/DEPOT_RUNNER_SECRET/SOURCECODE_RUNNER_SECRET/g' \
+            -e 's/DEPOT_RUNNER_VTAG/SOURCECODE_RUNNER_TAG/g' \
+            -e 's/WBHOME_DBNAME/WORKSPACE_DBNAME/g' \
+            -e 's/WBHOME_DOMAIN/WORKSPACE_DOMAIN/g' \
+            -e 's/WBHOME_TAG/WORKSPACE_TAG/g' \
+            -e 's/OWEBUI_DOMAIN/CHAT_DOMAIN/g' \
+            -e 's/OBSVC_DOMAIN/OBSERVABILITY_DOMAIN/g' \
+            -e 's/OBSVC_ADMUSR/OBSERVABILITY_ADMIN_USER/g' \
+            -e 's/OBSVC_ADMPWD/OBSERVABILITY_ADMIN_PASSWORD/g' \
+            -e 's/WEBMAIL_DOMAIN/POSTOFFICE_DOMAIN/g' \
+            -e 's/POSTE_DBNAME/POSTOFFICE_DBNAME/g' \
+            -e 's/WBDRIVE_DOMAIN/CLOUD_DOMAIN/g' \
+            -e 's/WBDRIVE_TAG/CLOUD_TAG/g' \
+            -e 's/WBDRIVE_OIDC_ISSUER/CLOUD_OIDC_ISSUER/g' \
+            -e 's/WBDRIVE_OIDC_CLIENT_ID/CLOUD_OIDC_CLIENT_ID/g' \
+            -e 's/WBDRIVE_INSECURE/CLOUD_INSECURE/g' \
+            -e 's/\${WBCLOUD_/${CLOUD_/g' \
+            -e 's/^WBCLOUD_/CLOUD_/' \
+            -e 's/LITEM_API_KEY/AIGATE_API_KEY/g' \
+            -e 's/LITEM_API_URL/AIGATE_API_URL/g' \
+            -e 's/LITEM_ADMUSR/AIGATE_ADMIN_USER/g' \
+            -e 's/LITEM_ADMPWD/AIGATE_ADMIN_PASSWORD/g' \
+            -e 's/LITEM_DBNAME/AIGATE_DBNAME/g' \
+            -e 's/LITEM_HPH_APIURL/AIGATE_HERMES_API_URL/g' \
+            -e 's/LITEM_HPH_APIKEY/AIGATE_HERMES_API_KEY/g' \
+            -e 's/LITEM_HPH_HLTURL/AIGATE_HERMES_HEALTH_URL/g' \
+            -e 's/LITEM_PRM_APIBASE/AIGATE_PROVIDER_API_BASE/g' \
+            -e 's/LITEM_PRM_APIKEY/AIGATE_PROVIDER_API_KEY/g' \
+            -e 's/SQLDB_USER/DB_ADMIN_USER/g' \
+            -e 's/SQLDB_PASS/DB_ADMIN_PASSWORD/g' \
+            -e 's/MySQL_HOST/MARIADB_HOST/g' \
+            -e 's/MySQL_PORT/MARIADB_PORT/g' \
+            -e 's/MARIADB_DB_LIST/MARIADB_DATABASES/g' \
+            -e 's/PGRSQL_HOST/POSTGRES_HOST/g' \
+            -e 's/PGRSQL_PORT/POSTGRES_PORT/g' \
+            -e 's/PGRSQL_DBLIST/POSTGRES_DATABASES/g' \
+            -e 's/^IDENTITY_DBNAME="svchubauthtk"/IDENTITY_DBNAME="svchub_identity"/' \
+            -e 's/^IDENTITY_DBNAME=svchubauthtk$/IDENTITY_DBNAME=svchub_identity/' \
+            -e 's/^SOURCECODE_DBNAME="svchubsvnrep"/SOURCECODE_DBNAME="svchub_sourcecode"/' \
+            -e 's/^SOURCECODE_DBNAME=svchubsvnrep$/SOURCECODE_DBNAME=svchub_sourcecode/' \
+            -e 's/^WORKSPACE_DBNAME="svchubwbhome"/WORKSPACE_DBNAME="svchub_workspace"/' \
+            -e 's/^WORKSPACE_DBNAME=svchubwbhome$/WORKSPACE_DBNAME=svchub_workspace/' \
+            -e 's/^POSTOFFICE_DBNAME="svchubmboxdb"/POSTOFFICE_DBNAME="svchub_postoffice"/' \
+            -e 's/^POSTOFFICE_DBNAME=svchubmboxdb$/POSTOFFICE_DBNAME=svchub_postoffice/' \
+            -e 's/^AIGATE_DBNAME="litellm"/AIGATE_DBNAME="svchub_aigateway"/' \
+            -e 's/^AIGATE_DBNAME=litellm$/AIGATE_DBNAME=svchub_aigateway/' \
             "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
     fi
 
