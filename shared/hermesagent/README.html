@@ -518,7 +518,7 @@
 
   <div class="callout note">
     <span class="callout-icon">ℹ</span>
-    <p><strong>Data persistence:</strong> The container has its own data directory (<code>${HERMES_DATA_00}</code>, defaults to <code>${APPS_DATA}/hermesagent/00</code>). Files are seeded from the image on first start and <strong>never overwritten</strong>. Source-code edits to <code>/opt/hermes</code> can be persisted via the <a href="#overlay">overlay system</a>.</p>
+    <p><strong>Data persistence:</strong> The container has its own data directory (<code>${HERMES_DATA_00}</code>, defaults to <code>${APPS_DATA}/aiserv/hermes/00</code>). Files are seeded from the image on first start and <strong>never overwritten</strong>. Source-code edits to <code>/opt/hermes</code> can be persisted via the <a href="#overlay">overlay system</a>.</p>
   </div>
 
   <hr />
@@ -534,7 +534,7 @@
         <tr><td>RAM</td><td>8 GB</td><td>5.6 GB for Gemma-4-4B model lock, remainder for services</td></tr>
         <tr><td>Disk</td><td>20 GB free</td><td>~5.6 GB model cache, logs, agent data</td></tr>
         <tr><td>CPU</td><td>4 cores</td><td>llama.cpp benefits from more cores for prompt processing</td></tr>
-        <tr><td>OS</td><td>Linux 64-bit</td><td>Docker socket at <code>/var/run/docker.sock</code> assumed</td></tr>
+        <tr><td>OS</td><td>Linux 64-bit</td><td>No Docker socket mount (ADR-008)</td></tr>
       </tbody>
     </table>
   </div>
@@ -592,7 +592,7 @@
       <div class="step-num">2</div>
       <div class="step-body">
         <h4>Start the stack</h4>
-        <p>On first start, <code>start-gateways.sh</code> seeds <code>config.yaml</code>, <code>.env</code>, and <code>SOUL.md</code> into <code>${APPS_DATA}/hermesagent/data/</code> and substitutes all <code>&lt;your-…&gt;</code> placeholders automatically.</p>
+        <p>On first start, <code>start-gateways.sh</code> seeds <code>config.yaml</code>, <code>.env</code>, and <code>SOUL.md</code> into <code>${APPS_DATA}/aiserv/hermes/data/</code> and substitutes all <code>&lt;your-…&gt;</code> placeholders automatically.</p>
       </div>
     </div>
     <div class="step">
@@ -818,7 +818,7 @@ curl -s http://localhost:12330/v1/chat/completions \
     <span class="callout-icon">✓</span>
     <div>
       <p><strong>Shortcut:</strong> <code>init-profile.sh</code> automates profile setup. It seeds all config files from defaults, substitutes API keys and base URLs. Both invocations are equivalent:</p>
-      <p style="margin-top:8px;"><strong>Host</strong> (reads <code>LITEM_API_KEY</code>, <code>LITEM_API_URL</code>, <code>FCRW_API_URL</code>, <code>APPS_DATA</code> from root <code>.env</code>; writes to <code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/</code>):<br>
+      <p style="margin-top:8px;"><strong>Host</strong> (reads <code>LITEM_API_KEY</code>, <code>LITEM_API_URL</code>, <code>FCRW_API_URL</code>, <code>APPS_DATA</code> from root <code>.env</code>; writes to <code>${APPS_DATA}/aiserv/hermes/data/profiles/&lt;name&gt;/</code>):<br>
       <code>./shared/hermesagent/init-profile.sh alice --port 8643</code></p>
       <p style="margin-top:8px;"><strong>Container</strong> (reads <code>LITELLM_API_KEY</code>, <code>LITELLM_API_URL</code>, <code>FIRECRAWL_API_URL</code>, <code>FIRECRAWL_API_KEY</code> from process env set by <code>compose/aiserv.yml</code>; writes to <code>/opt/data/profiles/&lt;name&gt;/</code>):<br>
       <code>docker compose exec agsvchermagt init-profile.sh alice --port 8643</code></p>
@@ -932,11 +932,11 @@ docker compose exec agsvchermagt ps aux | grep hermes</code></pre>
 
   <h3>Add another agent container</h3>
   <ol style="padding-left:20px; margin-bottom:12px; font-size:13.5px; line-height:2;">
-    <li><strong>Add a data directory</strong> to <code>aiservhermesinit</code> in <a href="../../compose/aiserv.yml"><code>compose/aiserv.yml</code></a> — mount <code>${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/data01</code> and <code>chown -R 10000:10000 /data01</code>.</li>
+    <li><strong>Add a data directory</strong> to <code>aiservhermesinit</code> in <a href="../../compose/aiserv.yml"><code>compose/aiserv.yml</code></a> — mount <code>${HERMES_DATA_01:-${APPS_DATA}/aiserv/hermes/01}:/data01</code> and <code>chown -R 10000:10000 /data01</code>.</li>
     <li><strong>Duplicate the <code>aiservhermes</code> service</strong> as <code>aiservhermes01</code> with its own <code>/opt/data</code> volume, its own <code>HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_01}</code>, a unique host port (<code>12321:12320</code>), and optional Traefik labels using <code>HERMES_WORKSPACE_DOMAIN_01</code>.</li>
     <li><strong>Add the matching variables</strong> to the root <code>.env</code>:
       <pre><span class="lang-tag">root .env</span><code><span class="var">HERMES_WORKSPACE_PASSWD_01</span>=<span class="str">&lt;password&gt;</span>
-<span class="var">HERMES_DATA_01</span>=<span class="str">${APPS_DATA}/hermesagent/01</span>
+<span class="var">HERMES_DATA_01</span>=<span class="str">${APPS_DATA}/aiserv/hermes/01</span>
 <span class="var">HERMES_WORKSPACE_DOMAIN_01</span>=<span class="str">space1.${DOMAIN_NAME}</span></code></pre>
     </li>
     <li><strong>Recreate only the new service:</strong> <code>docker compose up -d --build aiservhermes01</code></li>
@@ -1052,11 +1052,7 @@ curl -s http://localhost:12330/v1/chat/completions \
 
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Docker socket mounted read-only (<code>/var/run/docker.sock:ro</code>). Confirm: <code>docker inspect agsvchermagt | python3 -m json.tool | grep -A3 docker.sock</code> — <code>"RW": false</code>.</div>
-    </li>
-    <li onclick="toggle(this)">
-      <div class="check-box"></div>
-      <div class="check-label">Check host Docker group GID: <code>getent group docker | cut -d: -f3</code>. If not 999, add <code>group_add: [&lt;host-gid&gt;]</code> to <code>agsvchermagt</code> in <code>aiserv.yml</code>.</div>
+      <div class="check-label">Docker socket is <strong>not</strong> mounted (ADR-008 bind mount review). Confirm: <code>docker inspect aiservhermes | python3 -m json.tool | grep -c docker.sock</code> returns <code>0</code>.</div>
     </li>
 
     <div class="check-cat">Privacy Routing</div>
@@ -1074,15 +1070,15 @@ curl -s http://localhost:12330/v1/chat/completions \
 
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Each profile has a unique <code>DISCORD_BOT_TOKEN</code>. Verify: <code>grep DISCORD_BOT_TOKEN ${APPS_DATA}/hermesagent/data/profiles/*/.env</code>.</div>
+      <div class="check-label">Each profile has a unique <code>DISCORD_BOT_TOKEN</code>. Verify: <code>grep DISCORD_BOT_TOKEN ${APPS_DATA}/aiserv/hermes/data/profiles/*/.env</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Profile data directories owned by hermes uid 10000: <code>ls -lan ${APPS_DATA}/hermesagent/data/profiles/</code>.</div>
+      <div class="check-label">Profile data directories owned by hermes uid 10000: <code>ls -lan ${APPS_DATA}/aiserv/hermes/data/profiles/</code>.</div>
     </li>
     <li onclick="toggle(this)">
       <div class="check-box"></div>
-      <div class="check-label">Every profile's <code>SOUL.md</code> contains the boundary instruction: <code>grep -r "other family" ${APPS_DATA}/hermesagent/data/</code></div>
+      <div class="check-label">Every profile's <code>SOUL.md</code> contains the boundary instruction: <code>grep -r "other family" ${APPS_DATA}/aiserv/hermes/data/</code></div>
     </li>
 
     <div class="check-cat">Container Hardening</div>
@@ -1126,7 +1122,7 @@ curl -s http://localhost:12330/v1/chat/completions \
   <!-- ── 3.9 ────────────────────────────────────────────────────────── -->
   <h2 id="s37">3.7 Hermes CLI Reference</h2>
 
-  <p>The <code>hermes</code> binary is available inside the <code>agsvchermagt</code> container. Use <code>docker compose exec</code> to run commands directly, or <code>docker compose exec -it</code> for interactive sessions. All commands run as the <code>hermes</code> user (uid 10000); profile data lives at <code>/opt/data/profiles/&lt;name&gt;/</code> inside the container (<code>${APPS_DATA}/hermesagent/data/profiles/&lt;name&gt;/</code> on the host).</p>
+  <p>The <code>hermes</code> binary is available inside the <code>agsvchermagt</code> container. Use <code>docker compose exec</code> to run commands directly, or <code>docker compose exec -it</code> for interactive sessions. All commands run as the <code>hermes</code> user (uid 10000); profile data lives at <code>/opt/data/profiles/&lt;name&gt;/</code> inside the container (<code>${APPS_DATA}/aiserv/hermes/data/profiles/&lt;name&gt;/</code> on the host).</p>
 
   <h3>Profile management</h3>
   <div class="table-wrap">
@@ -1382,7 +1378,7 @@ docker compose exec agsvchermagt hermes profile list</code></pre>
 
   <h3>Layout</h3>
   <p>Overlay lives under the existing data mount — no new bind mount required.</p>
-  <pre><code>${APPS_DATA}/hermesagent/data/overlay/
+  <pre><code>${APPS_DATA}/aiserv/hermes/data/overlay/
 ├── files/      <span class="cm"># sparse mirror of /opt/hermes — saved files replayed at start</span>
 ├── originals/  <span class="cm"># pristine "before" copies for diff generation</span>
 └── patches/    <span class="cm"># *.patch files applied after files/, in lexical order</span></code></pre>
@@ -1444,7 +1440,7 @@ docker compose logs agsvchermagt | grep <span class="str">'\[overlay\]'</span>
   <h3>Generating a portable patch</h3>
   <p>When you want a reviewable diff (to share, version-control, or hand to the AI):</p>
   <pre><span class="lang-tag">bash</span><code>docker compose exec agsvchermagt overlay-patch fix-router-timeout
-<span class="cm"># → ${APPS_DATA}/hermesagent/data/overlay/patches/fix-router-timeout.patch</span></code></pre>
+<span class="cm"># → ${APPS_DATA}/aiserv/hermes/data/overlay/patches/fix-router-timeout.patch</span></code></pre>
   <p>The patch has <code>a/&lt;relpath&gt;</code> / <code>b/&lt;relpath&gt;</code> headers and applies cleanly to <code>/opt/hermes</code> with <code>patch -p1</code>. Once captured, you can delete the corresponding <code>files/&lt;relpath&gt;</code> and <code>originals/&lt;relpath&gt;</code> entries — the patch alone will reproduce the change.</p>
 
   <h3>Recovering a baseline you forgot to track</h3>

@@ -17,7 +17,7 @@ The service is kept ready to run in [`compose.yml`](compose.yml) but is **not** 
 | URL | `https://${WBHOME_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
 | Internal port | 80 (Nginx; TLS terminated by Traefik) |
 | Database | MariaDB (`${WBHOME_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/webapps/wordpress` (mounted at `/var/www/html`) |
+| Data persistence | `${APPS_DATA}/webapp/wordpress` (mounted at `/var/www/html`) |
 | Process manager | supervisord (PHP-FPM + Nginx) |
 | PHP extensions | intl, zip, gd, opcache, imagick, exif, fileinfo |
 
@@ -64,7 +64,7 @@ Container settings applied by the compose file:
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/var/www/html` | `${APPS_DATA}/webapps/wordpress` | WordPress core, plugins, themes, uploads and `wp-config.php` |
+| `/var/www/html` | `${APPS_DATA}/webapp/wordpress` | WordPress core, plugins, themes, uploads and `wp-config.php` |
 
 The image aligns `www-data` with UID/GID `1000` (`WWW_DATA_UID` / `WWW_DATA_GID`) so the bind mount is writable by the host user.
 

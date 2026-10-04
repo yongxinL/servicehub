@@ -128,7 +128,7 @@ else
     if [[ -n "${HERMES_DATA_0X}" ]]; then
         PROFILE_DIR="${HERMES_DATA_0X}/profiles/${PROFILE_NAME}"
     else
-        PROFILE_DIR="${APPS_DATA}/hermesagent/data/00/profiles/${PROFILE_NAME}"
+        PROFILE_DIR="${APPS_DATA}/aiserv/hermes/data/00/profiles/${PROFILE_NAME}"
     fi
 fi
 mkdir -p "${PROFILE_DIR}"

@@ -101,7 +101,7 @@ graph TD
 
 **TLS strategy:**
 - **Staging:** self-signed certificate from `shared/traefik/advanced/selfsigncert/` (git-crypt encrypted, referenced by `shared/traefik/advanced/certificates.yml`)
-- **Production:** Let's Encrypt ACME TLS challenge; `acme.json` is stored at `${APPS_DATA}/certs/acme.json` and restored from an encrypted Actions secret on deploy
+- **Production:** Let's Encrypt ACME TLS challenge; `acme.json` is stored at `${APPS_DATA}/shared/certs/acme.json` and restored from an encrypted Actions secret on deploy
 
 ---
 
@@ -287,7 +287,7 @@ Hermes Agent is **single-user / single-tenant**: one container serves exactly on
 
 The stack therefore ships **one** Hermes Agent (`aiservhermes`) that acts as a shared team assistant. When more people need their **own** private agent, add another isolated container rather than sharing one login. To scale to N users, replicate the `aiservhermes` pattern in [`compose/aiserv.yml`](compose/aiserv.yml):
 
-1. **Add a data volume + init entry** — extend `aiservhermesinit` with `/data0X`, or add a sibling init container, pointing at `${APPS_DATA}/hermesagent/0X`.
+1. **Add a data volume + init entry** — extend `aiservhermesinit` with `/data0X`, or add a sibling init container, pointing at `${APPS_DATA}/aiserv/hermes/0X`.
 2. **Duplicate the `aiservhermes` service** as `aiservhermes0X`, with:
    - its own `${HERMES_DATA_0X}:/opt/data` volume,
    - its own `HERMES_WORKSPACE_PASSWD_0X` and (optionally) `HERMES_WORKSPACE_DOMAIN_0X`,
@@ -381,7 +381,7 @@ The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` rec
 - **Git** 2.x
 - **git-crypt** (macOS: `brew install git-crypt`) — required to encrypt/decrypt self-signed certificates stored in the repo. The remote deploy server installs it automatically via the workflow.
 - A domain name with DNS A records pointing to your server (for Let's Encrypt) **or** a local domain with a self-signed certificate (for staging)
-- A Linux server with SSH access (for remote deployment). The deploy user needs Docker access and **passwordless sudo** (`NOPASSWD`) — the workflow installs the root-owned ACME store (`${APPS_DATA}/certs/acme.json`, mode `600`, contains private keys) and installs `git-crypt` when missing:
+- A Linux server with SSH access (for remote deployment). The deploy user needs Docker access and **passwordless sudo** (`NOPASSWD`) — the workflow installs the root-owned ACME store (`${APPS_DATA}/shared/certs/acme.json`, mode `600`, contains private keys) and installs `git-crypt` when missing:
 
   ```bash
   echo "deploy ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/servicehub-deploy
@@ -431,10 +431,10 @@ See [Configuration](#configuration) for the variable reference. For an existing 
 
 ### 4. Prepare TLS
 
-For **production** (Let's Encrypt), Traefik creates `${APPS_DATA}/certs/acme.json` automatically on the first successful certificate issuance — no manual step is needed. Verify its permissions are restricted after it is created (Traefik refuses to use a world-readable file):
+For **production** (Let's Encrypt), Traefik creates `${APPS_DATA}/shared/certs/acme.json` automatically on the first successful certificate issuance — no manual step is needed. Verify its permissions are restricted after it is created (Traefik refuses to use a world-readable file):
 
 ```bash
-chmod 600 ${APPS_DATA}/certs/acme.json
+chmod 600 ${APPS_DATA}/shared/certs/acme.json
 ```
 
 For **staging** (self-signed), place your `.pem` and `.key` files in `shared/traefik/advanced/selfsigncert/` matching `shared/traefik/advanced/certificates.yml`. These are encrypted with git-crypt before committing. No `acme.json` is needed.
@@ -446,16 +446,16 @@ For remote deployments via the Forgejo Actions workflow, `acme.json` is restored
 Service init containers (`infraauthinit`, `devopsforgejoinit`, `aiservhermesinit`, `obsvcegrafanainit`) fix ownership on every boot. To prepare directories ahead of time:
 
 ```bash
-mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
-mkdir -p ${APPS_DATA}/platform/authentik/{media,templates}
-mkdir -p ${APPS_DATA}/certs
-mkdir -p ${APPS_DATA}/platform/{repos,buildexec}
-mkdir -p ${APPS_DATA}/hermesagent/00
-mkdir -p ${APPS_DATA}/platform/{mailbox,webmail}
-chown -R 1000:1000 ${APPS_DATA}/platform/{repos,buildexec}
+mkdir -p ${APPS_DATA}/infra/{mariadb,postgresql}
+mkdir -p ${APPS_DATA}/infra/authentik/{media,templates}
+mkdir -p ${APPS_DATA}/shared/certs
+mkdir -p ${APPS_DATA}/devops/forgejo/{data,runner}
+mkdir -p ${APPS_DATA}/aiserv/hermes/00
+mkdir -p ${APPS_DATA}/mailsv/{stalwart,bulwark}
+chown -R 1000:1000 ${APPS_DATA}/devops/forgejo/{data,runner}
 ```
 
-Replace `${APPS_DATA}` with the actual path you set in `.env` (default: `~/Documents/containerd`). Homepage data lives under `${APPS_DATA}/webapps/confluence`; follow the service README for directory ownership.
+Replace `${APPS_DATA}` with the actual path you set in `.env` (default: `~/Documents/containerd`). Homepage data lives under `${APPS_DATA}/webapp/confluence`; follow the service README for directory ownership.
 
 ### 6. Start the Stack
 
@@ -620,7 +620,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 | `STAG_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `STAG_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the staging server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
 | `STAG_DEPLOY_PATH` | *(configured absolute path; do not record here)* | Absolute path on the staging server where the repo is cloned. Must include the repo directory name — git clones **into** this path. |
 | `STAG_BACKUP_ROOT` | *(configured absolute path; do not record here)* | Directory on the staging server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. |
-| `STAG_BACKUP_EXCLUDE` | `webapps/confluence/logs,platform/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from staging backups. `*` and `?` globs are allowed; leave unset to archive everything. |
+| `STAG_BACKUP_EXCLUDE` | `webapp/confluence/logs,devops/forgejo/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from staging backups. `*` and `?` globs are allowed; leave unset to archive everything. |
 | `STAG_DB_BACKUP_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for database archives under `STAG_BACKUP_ROOT`. |
 | `STAG_BACKUP_LOCAL_FULL_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for full archives. |
 | `STAG_BACKUP_RESTIC_REPOSITORY` | *(approved `sftp:` repository URI; do not record here)* | Home Server Restic repository used as the primary recovery target. |
@@ -642,7 +642,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 | `PROD_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `PROD_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the production server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
 | `PROD_DEPLOY_PATH` | *(configured absolute path; do not record here)* | Absolute path on the production server where the repo is cloned. |
 | `PROD_BACKUP_ROOT` | *(configured absolute path; do not record here)* | Directory on the production server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. |
-| `PROD_BACKUP_EXCLUDE` | `webapps/confluence/logs,platform/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from production backups. `*` and `?` globs are allowed; leave unset to archive everything. |
+| `PROD_BACKUP_EXCLUDE` | `webapp/confluence/logs,devops/forgejo/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from production backups. `*` and `?` globs are allowed; leave unset to archive everything. |
 | `PROD_DB_BACKUP_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for database archives under `PROD_BACKUP_ROOT`. |
 | `PROD_BACKUP_LOCAL_FULL_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for full archives. |
 | `PROD_BACKUP_RESTIC_REPOSITORY` | *(approved `sftp:` repository URI; do not record here)* | Home Server Restic repository used as the primary recovery target. |
@@ -687,19 +687,19 @@ The workflow deletes database archives older than the approved `*_DB_BACKUP_RETE
 <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
 ```
 
-The full archive includes `${APPS_DATA}/cloud/ocis/config` and `${APPS_DATA}/cloud/ocis/data`. oCIS does not add a PostgreSQL dump; restore both filesystem paths together and follow [shared/owncloud/README.md](shared/owncloud/README.md#backup-and-recovery).
+The full archive includes `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data`. oCIS does not add a PostgreSQL dump; restore both filesystem paths together and follow [shared/owncloud/README.md](shared/owncloud/README.md#backup-and-recovery).
 
 `<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data and the archive contains `.env` secrets and ACME private keys. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](#prerequisites).
 
 Paths can be excluded from the **full archive** with the optional `STAG_BACKUP_EXCLUDE` / `PROD_BACKUP_EXCLUDE` secrets — a comma-separated list relative to `APPS_DATA`, with `*` and `?` globs allowed. For example, to skip Confluence logs/caches and the runner workspace:
 
 ```
-webapps/confluence/logs,webapps/confluence/temp,webapps/confluence/plugins-temp,platform/workspace
+webapp/confluence/logs,webapp/confluence/temp,webapp/confluence/plugins-temp,devops/forgejo/workspace
 ```
 
 A leading `./` or `/` is ignored; leave the secret unset to archive everything.
 
-> **Consistency:** the weekly archive is taken while containers are running, so `databases/` inside it is crash-consistent rather than transaction-consistent — the daily `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](shared/stalwart/README.md#database-management-create--delete--backup--restore)). Backup and deployment jobs share the existing capacity-one runner, so long jobs queue behind one another.
+> **Consistency:** the weekly archive is taken while containers are running, so `infra/` inside it is crash-consistent rather than transaction-consistent — the daily `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](shared/stalwart/README.md#database-management-create--delete--backup--restore)). Backup and deployment jobs share the existing capacity-one runner, so long jobs queue behind one another.
 
 ---
 
@@ -799,7 +799,7 @@ The agent platform variables are documented in the service READMEs — see [Herm
 | Variable | Description |
 |---|---|
 | `HERMES_WORKSPACE_PASSWD_00` | Workspace web UI password (port 12320) |
-| `HERMES_DATA_00` | Agent data directory (default `${APPS_DATA}/hermesagent/00`) |
+| `HERMES_DATA_00` | Agent data directory (default `${APPS_DATA}/aiserv/hermes/00`) |
 | `HERMES_WORKSPACE_DOMAIN_00` | Optional Traefik domain (empty = IP:port only) |
 | `LITEM_API_KEY` | LiteLLM master API key, shared by Hermes and other in-stack clients |
 | `LITEM_*` | LiteLLM proxy, admin UI and provider routing settings |

@@ -12,7 +12,7 @@
 |---|---|
 | Service name | `obsvcevlogs` |
 | HTTP API port | 9428 (published to the host for remote Alloy/log push) |
-| Data persistence | `${APPS_DATA}/victorialogs` (mounted at `/vlogs`) |
+| Data persistence | `${APPS_DATA}/obsvce/victorialogs` (mounted at `/vlogs`) |
 | Log source | Grafana Alloy — Docker logs, container stats, Traefik access logs |
 | Health check | `curl -fsS http://localhost:9428/health` every 30 s |
 | Depended on by | `obsvcealloy` (healthy), `obsvcegrafana` (via Alloy) |
@@ -36,7 +36,7 @@ http://obsvcevlogs:9428/insert/loki/api/v1/push
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/vlogs` | `${APPS_DATA}/victorialogs` | Log data and index |
+| `/vlogs` | `${APPS_DATA}/obsvce/victorialogs` | Log data and index |
 
 ## Operations
 

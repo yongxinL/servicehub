@@ -43,4 +43,4 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/webapps/wordpress:/var/www/html
+            - ${APPS_DATA}/webapp/wordpress:/var/www/html

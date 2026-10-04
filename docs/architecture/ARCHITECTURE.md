@@ -102,11 +102,11 @@ These boundaries are Confirmed from configuration. Their security effectiveness 
 
 ## Data Platforms
 
-- **PostgreSQL 16:** default database for Authentik, Forgejo, LiteLLM, Confluence, and Stalwart; persistent path `${APPS_DATA}/databases/pgsqldb`.
+- **PostgreSQL 16:** default database for Authentik, Forgejo, LiteLLM, Confluence, and Stalwart; persistent path `${APPS_DATA}/infra/postgresql`.
 - **MariaDB 11.8:** retained for the optional WordPress service; not used by the default stack according to `env.example`.
-- **VictoriaMetrics:** Prometheus-compatible metric storage under `${APPS_DATA}/victoriametrics`.
-- **VictoriaLogs:** log storage under `${APPS_DATA}/victorialogs`.
-- **Grafana:** dashboard and alert-rendering state under `${APPS_DATA}/grafana`.
+- **VictoriaMetrics:** Prometheus-compatible metric storage under `${APPS_DATA}/obsvce/victoriametrics`.
+- **VictoriaLogs:** log storage under `${APPS_DATA}/obsvce/victorialogs`.
+- **Grafana:** dashboard and alert-rendering state under `${APPS_DATA}/obsvce/grafana`.
 
 The `webappocis` oCIS service uses local filesystem storage and has no dedicated PostgreSQL database. PostgreSQL continues to store Authentik identity data used by the OIDC flow. Repository configuration is recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md); runtime authentication and file operations remain unvalidated.
 
@@ -152,15 +152,15 @@ See [deployment architecture](DEPLOYMENT-ARCHITECTURE.md) for details and valida
 
 The default stack uses host bind mounts rather than named Docker volumes:
 
-- Relational data: `${APPS_DATA}/databases/...`
-- Identity: `${APPS_DATA}/platform/authentik/...`
-- Repositories and runner state: `${APPS_DATA}/platform/repos`, `.../buildexec`, and `.../workspace`
-- Web applications: `${APPS_DATA}/webapps/confluence` and `${APPS_DATA}/openwebui`
-- Cloud drive: `${APPS_DATA}/cloud/ocis/config` and `${APPS_DATA}/cloud/ocis/data`
-- AI: `${APPS_DATA}/litellm`, `${APPS_DATA}/llamacpp`, and `${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}`
-- Observability: `${APPS_DATA}/victoriametrics`, `.../victorialogs`, and `.../grafana`
-- Email: `${APPS_DATA}/platform/mailbox` and `${APPS_DATA}/platform/webmail/...`
-- Certificates: `${APPS_DATA}/certs`
+- Relational data: `${APPS_DATA}/infra/postgresql` and `${APPS_DATA}/infra/mariadb`
+- Identity: `${APPS_DATA}/infra/authentik/...`
+- Repositories and runner state: `${APPS_DATA}/devops/forgejo/data`, `.../runner`, and `.../workspace`
+- Web applications: `${APPS_DATA}/webapp/confluence` and `${APPS_DATA}/webapp/openwebui`
+- Cloud drive: `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data`
+- AI: `${APPS_DATA}/aiserv/litellm`, `${APPS_DATA}/aiserv/llamacpp`, and `${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}`
+- Observability: `${APPS_DATA}/obsvce/victoriametrics`, `.../victorialogs`, and `.../grafana`
+- Email: `${APPS_DATA}/mailsv/stalwart` and `${APPS_DATA}/mailsv/bulwark/...`
+- Certificates: `${APPS_DATA}/shared/certs`
 
 Configuration files under `shared/` are mostly read-only mounts. Off-host durability and restore capability are not yet verified.
 

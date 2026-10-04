@@ -74,8 +74,8 @@ services:
             # - "8080:8080"   # Web management
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/platform/mailbox:/var/lib/stalwart
-            - ${APPS_DATA}/certs:/letsencrypt
+            - ${APPS_DATA}/mailsv/stalwart:/var/lib/stalwart
+            - ${APPS_DATA}/shared/certs:/letsencrypt:ro
 
     # mailsvbulwarkinit — one-shot: create webmail data dirs, chown 1001:1001 (nextjs:nodejs). Docs: shared/bulwark/README.md
     mailsvbulwarkinit:
@@ -86,10 +86,10 @@ services:
         networks:
             - subnet
         volumes:
-            - ${APPS_DATA}/platform/webmail/settings:/data/settings
-            - ${APPS_DATA}/platform/webmail/admin:/data/admin
-            - ${APPS_DATA}/platform/webmail/admin-state:/data/admin-state
-            - ${APPS_DATA}/platform/webmail/telemetry:/data/telemetry
+            - ${APPS_DATA}/mailsv/bulwark/settings:/data/settings
+            - ${APPS_DATA}/mailsv/bulwark/admin:/data/admin
+            - ${APPS_DATA}/mailsv/bulwark/admin-state:/data/admin-state
+            - ${APPS_DATA}/mailsv/bulwark/telemetry:/data/telemetry
 
     # Bulwark Webmail - self-hosted JMAP webmail for Stalwart
     # https://github.com/bulwarkmail/webmail
@@ -157,8 +157,7 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - /etc/localtime:/etc/localtime:ro
-            - ${APPS_DATA}/platform/webmail/settings:/data/settings
-            - ${APPS_DATA}/platform/webmail/admin:/data/admin
-            - ${APPS_DATA}/platform/webmail/admin-state:/data/admin-state
-            - ${APPS_DATA}/platform/webmail/telemetry:/data/telemetry
+            - ${APPS_DATA}/mailsv/bulwark/settings:/data/settings
+            - ${APPS_DATA}/mailsv/bulwark/admin:/data/admin
+            - ${APPS_DATA}/mailsv/bulwark/admin-state:/data/admin-state
+            - ${APPS_DATA}/mailsv/bulwark/telemetry:/data/telemetry

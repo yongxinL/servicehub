@@ -71,7 +71,7 @@ flowchart LR
     O <--> D[(oCIS file data)]
 ```
 
-The oCIS service mounts configuration and file data beneath `${APPS_DATA}/cloud/ocis`. It has no direct PostgreSQL connection; Authentik's PostgreSQL database remains the identity source.
+The oCIS service mounts configuration and file data beneath `${APPS_DATA}/webapp/ocis`. It has no direct PostgreSQL connection; Authentik's PostgreSQL database remains the identity source.
 
 ## Forgejo Actions Deployment Flow
 
@@ -139,7 +139,7 @@ The backup workflow runs on the existing `devopsrunner` with the `ssh-deploy` la
 
 The database archive is transaction-consistent because it uses `pg_dump`; the live filesystem archive is only crash-consistent for database directories. The created files remain under the configured backup root and are streamed or copied to both accepted targets by the same workflow.
 
-Both `${APPS_DATA}/cloud/ocis/config` and `${APPS_DATA}/cloud/ocis/data` are in the current full-archive scope, but no oCIS-specific consistency or restore validation exists.
+Both `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data` are in the current full-archive scope, but no oCIS-specific consistency or restore validation exists.
 
 [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts a target flow in which Forgejo Actions uses the existing `devopsrunner` toolchain to copy database dumps and persistent-data archives to a Home Server with Restic over SSH/SFTP and independently to Google Drive with Rclone. Repository configuration for this flow is present, but transfers and restores are not runtime-validated.
 

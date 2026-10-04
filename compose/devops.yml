@@ -9,8 +9,8 @@ services:
             - subnet
         user: root
         volumes:
-            - ${APPS_DATA}/platform/repos:/data
-            - ${APPS_DATA}/platform/buildexec:/var/lib/forgejo-runner
+            - ${APPS_DATA}/devops/forgejo/data:/data
+            - ${APPS_DATA}/devops/forgejo/runner:/var/lib/forgejo-runner
 
     # devopsforgejo — Forgejo git server + Actions (HTTPS clone via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
     devopsforgejo:
@@ -63,8 +63,7 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - /etc/localtime:/etc/localtime:ro
-            - ${APPS_DATA}/platform/repos:/data
+            - ${APPS_DATA}/devops/forgejo/data:/data
 
     # devopsrunner — Forgejo Actions runner using host-mode execution.
     # Workflow jobs run inside this runner container and deploy to Docker hosts
@@ -99,10 +98,9 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - /etc/localtime:/etc/localtime:ro
             # Version-controlled runtime configuration.
             - ../shared/forgejo/actions/config.yml:/etc/forgejo-runner/config.yml:ro
             # Persistent registration identity and runner data.
-            - ${APPS_DATA}/platform/buildexec:/var/lib/forgejo-runner
+            - ${APPS_DATA}/devops/forgejo/runner:/var/lib/forgejo-runner
             # Host-mode job workspace.
-            - ${APPS_DATA}/platform/workspace:/workspace
+            - ${APPS_DATA}/devops/forgejo/workspace:/workspace

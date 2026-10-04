@@ -12,7 +12,7 @@
 |---|---|
 | Service name | `infrapgsql` |
 | Internal port | 5432 (not published to the host) |
-| Data persistence | `${APPS_DATA}/databases/pgsqldb` |
+| Data persistence | `${APPS_DATA}/infra/postgresql` |
 | Health check | `pg_isready` every 30 s (20 s startup delay, 5 retries) |
 | Shared memory | `shm_size: 128mb` |
 | Init script | [`create-multiple-databases.sh`](create-multiple-databases.sh) |
@@ -27,7 +27,7 @@
 | Confluence (`webappconf`, default homepage) | `WBHOME_DBNAME` |
 | Stalwart (`mailsvstalwart`) | `POSTE_DBNAME` — sole mail data store (accounts, messages, indexes, blobs) |
 
-`webappocis` (oCIS) is **not** a PostgreSQL consumer. It uses local configuration and file storage under `${APPS_DATA}/cloud/ocis`; PostgreSQL still holds the Authentik identity data used by the oCIS OIDC flow.
+`webappocis` (oCIS) is **not** a PostgreSQL consumer. It uses local configuration and file storage under `${APPS_DATA}/webapp/ocis`; PostgreSQL still holds the Authentik identity data used by the oCIS OIDC flow.
 
 ## Configuration
 
@@ -50,7 +50,7 @@ PGRSQL_DBLIST="${AUTHN_DBNAME},${DEPOT_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME},
 
 [`create-multiple-databases.sh`](create-multiple-databases.sh) is copied to `/docker-entrypoint-initdb.d/` and runs **only on first initialisation** of an empty data directory. For each entry in `PGRSQL_DBLIST` it creates the database if it does not exist and grants privileges to `POSTGRES_USER`.
 
-> The script only runs when `${APPS_DATA}/databases/pgsqldb` is empty. To re-run it on an existing cluster, you must reset the data directory (see below).
+> The script only runs when `${APPS_DATA}/infra/postgresql` is empty. To re-run it on an existing cluster, you must reset the data directory (see below).
 
 ## Connecting from another container
 
@@ -91,7 +91,7 @@ To wipe all data and re-run the init script (this also deletes every database):
 
 ```bash
 docker compose down infrapgsql
-rm -rf ${APPS_DATA}/databases/pgsqldb/*
+rm -rf ${APPS_DATA}/infra/postgresql/*
 docker compose up -d infrapgsql
 ```
 

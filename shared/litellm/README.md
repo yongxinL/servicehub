@@ -18,7 +18,7 @@
 | Cloud tier | `prometheus` → MiniMax 2.7 (via `LITEM_PRM_*`) |
 | Health check | `GET /health/liveliness` with Bearer token |
 | Metrics | Prometheus `/metrics` on the UI port (scraped by VictoriaMetrics) |
-| Config override | mount `${APPS_DATA}/litellm/config.yaml` → `/opt/litellm/config.yaml` |
+| Config override | mount `${APPS_DATA}/aiserv/litellm/config.yaml` → `/opt/litellm/config.yaml` |
 
 ## Configuration
 
@@ -72,7 +72,7 @@ The image bakes in [`config.default.yaml`](config.default.yaml). At startup [`en
 
 ```bash
 docker compose exec aiservlitellm cat /app/config.default.yaml
-# edit a copy, then place it at ${APPS_DATA}/litellm/config.yaml and restart
+# edit a copy, then place it at ${APPS_DATA}/aiserv/litellm/config.yaml and restart
 docker compose restart aiservlitellm
 ```
 

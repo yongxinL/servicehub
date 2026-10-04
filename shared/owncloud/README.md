@@ -4,9 +4,9 @@
 
 ## Overview
 
-[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `webappocis` service in [`compose/webapp.yml`](../../compose/webapp.yml) and is built from [`shared/owncloud/Dockerfile`](Dockerfile) (`FROM owncloud/ocis:${IMAGE_TAG}`). It is routed through Traefik at `https://${WBDRIVE_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/cloud/ocis`, and delegates sign-in to Authentik.
+[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `webappocis` service in [`compose/webapp.yml`](../../compose/webapp.yml) and is built from [`shared/owncloud/Dockerfile`](Dockerfile) (`FROM owncloud/ocis:${IMAGE_TAG}`). It is routed through Traefik at `https://${WBDRIVE_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/webapp/ocis`, and delegates sign-in to Authentik.
 
-The build passes `WBDRIVE_TAG` to the Dockerfile as `IMAGE_TAG` and tags the result `webappocis:latest`. Its entrypoint initialises `${APPS_DATA}/cloud/ocis/config/ocis.yaml` only when it does not exist, then starts the supported single-container service set and persists configuration separately from file data.
+The build passes `WBDRIVE_TAG` to the Dockerfile as `IMAGE_TAG` and tags the result `webappocis:latest`. Its entrypoint initialises `${APPS_DATA}/webapp/ocis/config/ocis.yaml` only when it does not exist, then starts the supported single-container service set and persists configuration separately from file data.
 
 oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authentik stores identity and application state in PostgreSQL; oCIS stores its core state in its local configuration and data directories. See [ADR-006](../../docs/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) for the persistence decision and implementation note.
 
@@ -24,8 +24,8 @@ oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authe
 | Internal port | 9200 |
 | Public route | `https://${WBDRIVE_DOMAIN}` |
 | Authentication | Authentik OAuth 2.0 / OIDC |
-| Configuration | `${APPS_DATA}/cloud/ocis/config` → `/etc/ocis` |
-| File data | `${APPS_DATA}/cloud/ocis/data` → `/var/lib/ocis` |
+| Configuration | `${APPS_DATA}/webapp/ocis/config` → `/etc/ocis` |
+| File data | `${APPS_DATA}/webapp/ocis/data` → `/var/lib/ocis` |
 | Health check | `curl -fsS http://localhost:9200/status.php` |
 | Database | None for oCIS; Authentik uses ServiceHub PostgreSQL |
 
@@ -116,8 +116,8 @@ These checks are required before the deployment is described as tested.
 
 Both oCIS paths are beneath `APPS_DATA`, so the current weekly full archive includes them unless they are explicitly excluded. Preserve both directories together:
 
-- `${APPS_DATA}/cloud/ocis/config`
-- `${APPS_DATA}/cloud/ocis/data`
+- `${APPS_DATA}/webapp/ocis/config`
+- `${APPS_DATA}/webapp/ocis/data`
 
 oCIS does not add a PostgreSQL dump. Its configuration and file paths are covered by the full-archive and configured dual-target transfer scope in [ADR-007](../../docs/adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration does not prove successful transfer or restore capability.
 
@@ -134,7 +134,7 @@ docker compose logs -f webappocis
 docker compose config --quiet
 ```
 
-Upgrades must pin a tested `WBDRIVE_TAG`, back up both oCIS directories, and record compatibility and rollback evidence. Do not remove `${APPS_DATA}/cloud/ocis` during a routine restart.
+Upgrades must pin a tested `WBDRIVE_TAG`, back up both oCIS directories, and record compatibility and rollback evidence. Do not remove `${APPS_DATA}/webapp/ocis` during a routine restart.
 
 ## Security Notes
 

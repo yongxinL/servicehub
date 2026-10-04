@@ -17,7 +17,7 @@ Confluence is the default homepage and is backed by [PostgreSQL](../postgresql/R
 | URL | `https://${WBHOME_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
 | Internal port | 8090 (Tomcat; TLS terminated by Traefik) |
 | Database | PostgreSQL (`${WBHOME_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/webapps/confluence` (mounted at `/var/atlassian/application-data/confluence`) |
+| Data persistence | `${APPS_DATA}/webapp/confluence` (mounted at `/var/atlassian/application-data/confluence`) |
 | Image tag | `WBHOME_TAG` (default `10.2`) |
 | JVM memory | `JVM_MINIMUM_MEMORY=1024m` / `JVM_MAXIMUM_MEMORY=3072m` |
 | Middleware | `webappconf-compress` (Traefik gzip compression) |
@@ -51,7 +51,7 @@ Container settings applied by the compose file:
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/var/atlassian/application-data/confluence` | `${APPS_DATA}/webapps/confluence` | Confluence home, attachments, indexes and configuration |
+| `/var/atlassian/application-data/confluence` | `${APPS_DATA}/webapp/confluence` | Confluence home, attachments, indexes and configuration |
 
 ## Setup (first boot)
 

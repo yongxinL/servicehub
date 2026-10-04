@@ -22,7 +22,7 @@ services:
             - "8428:8428" # HTTP API - for remote Alloy/metrics push
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/victoriametrics:/storage
+            - ${APPS_DATA}/obsvce/victoriametrics:/storage
             - ../shared/victoriametrics/scrape.yaml:/etc/vm/scrape.yaml:ro
 
     # obsvcevlogs — VictoriaLogs log aggregation. Docs: shared/victorialogs/README.md
@@ -45,7 +45,7 @@ services:
             - "9428:9428" # HTTP API - for remote Alloy/log push
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/victorialogs:/vlogs
+            - ${APPS_DATA}/obsvce/victorialogs:/vlogs
 
     # obsvcealloy — Grafana Alloy telemetry collector. Docs: shared/grafana/alloy/README.md
     obsvcealloy:
@@ -75,12 +75,9 @@ services:
             - ../shared/grafana/geoip/GeoLite2-City.mmdb:/geoip/GeoLite2-City.mmdb:ro # GeoLite2 City database for GeoIP enrichment
             - ../shared/grafana/alloy:/etc/alloy:ro # Alloy config files
             - /var/run/docker.sock:/var/run/docker.sock # Docker API — cAdvisor + Loki log discovery (writable required for cAdvisor)
-            - /var/lib/docker/:/var/lib/docker:ro # cAdvisor — container filesystem stats
             - /proc:/host/proc:ro # unix exporter — procfs_path (CPU, memory, network)
             - /sys:/host/sys:ro # unix exporter — sysfs_path (disk I/O, hardware info)
-            - /:/rootfs:ro # unix exporter — rootfs_path (disk space, /etc, /dev)
             - /sys/fs/cgroup:/sys/fs/cgroup:ro # cAdvisor — cgroup stats (standard in-container path)
-            - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
 
     # obsvcegrafana — Grafana dashboards. Docs: shared/grafana/README.md
     obsvcegrafana:
@@ -123,7 +120,7 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/grafana:/var/lib/grafana
+            - ${APPS_DATA}/obsvce/grafana:/var/lib/grafana
             - ../shared/grafana/provisioning:/etc/grafana/provisioning:ro
             - ../shared/grafana/dashboards:/var/lib/grafana/dashboards/observability:ro
 
@@ -136,4 +133,4 @@ services:
             - subnet
         user: root
         volumes:
-            - ${APPS_DATA}/grafana:/var/lib/grafana
+            - ${APPS_DATA}/obsvce/grafana:/var/lib/grafana

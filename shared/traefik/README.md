@@ -21,7 +21,7 @@ It is defined by the `routetraefik` service in [`compose/route.yml`](../../compo
 | Dashboard auth | HTTP basic auth (`dashboard-auth`) + IP allowlist (`dashboard-whitelist`) + `secure-chain` |
 | TLS (prod) | Let's Encrypt via ACME TLS challenge |
 | TLS (stag) | Self-signed certificate from `advanced/selfsigncert/` |
-| ACME store | `${APPS_DATA}/certs/acme.json` (mounted at `/letsencrypt`) |
+| ACME store | `${APPS_DATA}/shared/certs/acme.json` (mounted at `/letsencrypt`) |
 | Config directory | `/traefik/config/advanced` (mounted read-only from `shared/traefik/advanced/`) |
 | Health check | `traefik healthcheck --ping` every 60 s |
 | Logs | Access logs in JSON format (consumed by Grafana Alloy → VictoriaLogs) |
@@ -88,10 +88,10 @@ These are entry-point-wide settings. Review their impact on slow clients and con
 
 ### Production — Let's Encrypt
 
-`CERTRESOLVER=letsencrypt` activates the ACME resolver (TLS challenge). Certificates are stored in `${APPS_DATA}/certs/acme.json`. Traefik creates the file on first successful issuance; make sure its permissions are locked down afterwards:
+`CERTRESOLVER=letsencrypt` activates the ACME resolver (TLS challenge). Certificates are stored in `${APPS_DATA}/shared/certs/acme.json`. Traefik creates the file on first successful issuance; make sure its permissions are locked down afterwards:
 
 ```bash
-chmod 600 ${APPS_DATA}/certs/acme.json
+chmod 600 ${APPS_DATA}/shared/certs/acme.json
 ```
 
 On remote deploys the file is restored from the `PROD_B64ENC_ACME` Forgejo Actions secret — see the root [Deployment (Forgejo Actions)](../../README.md#deployment-forgejo-actions).

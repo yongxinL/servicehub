@@ -12,7 +12,7 @@
 |---|---|
 | Service name | `obsvcevm` |
 | HTTP API port | 8428 (published to the host for remote Alloy/metrics push) |
-| Data persistence | `${APPS_DATA}/victoriametrics` (mounted at `/storage`) |
+| Data persistence | `${APPS_DATA}/obsvce/victoriametrics` (mounted at `/storage`) |
 | Scrape config | [`scrape.yaml`](scrape.yaml) (mounted read-only at `/etc/vm/scrape.yaml`) |
 | Health check | `curl -fsS http://localhost:8428/health` every 30 s |
 | Depended on by | `obsvcealloy` (healthy), `obsvcegrafana` (via Alloy) |
@@ -44,7 +44,7 @@ Alloy pushes host, container and Traefik metrics through `/api/v1/write` (see [`
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/storage` | `${APPS_DATA}/victoriametrics` | Time-series data and index |
+| `/storage` | `${APPS_DATA}/obsvce/victoriametrics` | Time-series data and index |
 
 ## Operations
 

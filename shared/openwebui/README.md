@@ -13,7 +13,7 @@
 | Service name | `webappowui` |
 | URL | `https://${OWEBUI_DOMAIN}` |
 | Internal port | 8080 |
-| Data persistence | `${APPS_DATA}/openwebui` (mounted at `/app/backend/data`) |
+| Data persistence | `${APPS_DATA}/webapp/openwebui` (mounted at `/app/backend/data`) |
 | Depends on | `routetraefik` (healthy) |
 
 ## Configuration
@@ -39,7 +39,7 @@ When pointed at LiteLLM, requests use the `hermes` virtual model and are routed 
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/app/backend/data` | `${APPS_DATA}/openwebui` | SQLite database, users, chats and model settings |
+| `/app/backend/data` | `${APPS_DATA}/webapp/openwebui` | SQLite database, users, chats and model settings |
 
 ## Operations
 

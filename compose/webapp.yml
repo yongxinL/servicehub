@@ -54,7 +54,7 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/webapps/confluence:/var/atlassian/application-data/confluence
+            - ${APPS_DATA}/webapp/confluence:/var/atlassian/application-data/confluence
 
     # webappowui — Open WebUI LLM chat interface. Docs: shared/openwebui/README.md
     webappowui:
@@ -87,7 +87,7 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/openwebui:/app/backend/data
+            - ${APPS_DATA}/webapp/openwebui:/app/backend/data
 
     # webappocisinit — oCIS config/data directory ownership initialiser. Docs: shared/owncloud/README.md
     webappocisinit:
@@ -100,8 +100,8 @@ services:
             - subnet
         user: root
         volumes:
-            - ${APPS_DATA}/cloud/ocis/config:/config
-            - ${APPS_DATA}/cloud/ocis/data:/data
+            - ${APPS_DATA}/webapp/ocis/config:/config
+            - ${APPS_DATA}/webapp/ocis/data:/data
 
     # webappocis — ownCloud Infinite Scale cloud drive. Docs: shared/owncloud/README.md
     webappocis:
@@ -163,5 +163,5 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/cloud/ocis/config:/etc/ocis
-            - ${APPS_DATA}/cloud/ocis/data:/var/lib/ocis
+            - ${APPS_DATA}/webapp/ocis/config:/etc/ocis
+            - ${APPS_DATA}/webapp/ocis/data:/var/lib/ocis

@@ -3,13 +3,15 @@
 
 // =============================================
 // HOST METRICS — built-in unix/node_exporter
-// procfs/sysfs/rootfs paths point to bind-mounted host paths
+// procfs/sysfs paths point to bind-mounted host paths.
+// The host rootfs is not mounted (ADR-008), so rootfs-based
+// collectors (filesystem) are disabled rather than mis-reporting
+// the container's own filesystem.
 // =============================================
 prometheus.exporter.unix "host" {
-    disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs"]
+    disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs", "filesystem"]
     procfs_path        = "/host/proc"
     sysfs_path         = "/host/sys"
-    rootfs_path        = "/rootfs"
 }
 
 discovery.relabel "host" {

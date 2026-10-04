@@ -41,7 +41,7 @@ Container settings applied by the compose file:
 
 ## Model download & caching
 
-Models are auto-downloaded on first start via llama.cpp's `--hf-repo` flag and cached in `${APPS_DATA}/llamacpp` (mounted at `/models`). [`entrypoint.sh`](entrypoint.sh) first looks for `/models/<quant>.gguf` and loads it directly; if it is missing, it starts `llama-server --hf-repo <model>` to download and run.
+Models are auto-downloaded on first start via llama.cpp's `--hf-repo` flag and cached in `${APPS_DATA}/aiserv/llamacpp` (mounted at `/models`). [`entrypoint.sh`](entrypoint.sh) first looks for `/models/<quant>.gguf` and loads it directly; if it is missing, it starts `llama-server --hf-repo <model>` to download and run.
 
 ## Operations
 

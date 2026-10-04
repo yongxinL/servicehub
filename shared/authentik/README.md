@@ -28,7 +28,7 @@ Startup order: `infraauthinit` completes → `infraauthwrk` starts (after a heal
 | Initial setup | `https://${AUTHN_DOMAIN}/if/flow/initial-setup/` on first boot |
 | Internal port | 9000 |
 | Database | PostgreSQL (`${AUTHN_DBNAME}`) |
-| Data persistence | `${APPS_DATA}/platform/authentik/media` and `.../templates` |
+| Data persistence | `${APPS_DATA}/infra/authentik/media` and `.../templates` |
 | Image tag | `AUTHN_TAG` (e.g. `2026.8`) |
 | Shared memory | `shm_size: 512mb` |
 | Analytics / update checks | Disabled (`AUTHENTIK_DISABLE_STARTUP_ANALYTICS`, `AUTHENTIK_DISABLE_UPDATE_CHECK`) |
@@ -55,8 +55,8 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/data` | `${APPS_DATA}/platform/authentik/media` | Uploaded media |
-| `/templates` | `${APPS_DATA}/platform/authentik/templates` | Email / flow templates |
+| `/data` | `${APPS_DATA}/infra/authentik/media` | Uploaded media |
+| `/templates` | `${APPS_DATA}/infra/authentik/templates` | Email / flow templates |
 
 `infraauthinit` chowns both directories to UID/GID `1000` on every boot, so the directories can be created empty beforehand. `infraauthwrk` runs as `root` and mounts the Docker socket (it manages outpost containers).
 

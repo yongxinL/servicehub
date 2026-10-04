@@ -23,12 +23,12 @@ ENV_EXAMPLE_FILE="env.example"
 
 cd "$PROJECT_ROOT"
 
-# Traefik stores ACME certificates at ${APPS_DATA}/certs/acme.json
+# Traefik stores ACME certificates at ${APPS_DATA}/shared/certs/acme.json
 # (see compose/route.yml, which mounts that directory at /letsencrypt).
 # Resolve APPS_DATA from .env, expanding a leading ~ to $HOME.
 APPS_DATA=$(grep -E '^APPS_DATA=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '"')
 APPS_DATA="${APPS_DATA/#\~/$HOME}"
-ACME_FILE="${APPS_DATA:-$HOME/Documents/containerd}/certs/acme.json"
+ACME_FILE="${APPS_DATA:-$HOME/Documents/containerd}/shared/certs/acme.json"
 
 # Function to generate secrets and inject into .env
 inject_secrets() {

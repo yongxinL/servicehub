@@ -88,7 +88,7 @@ LiteLLM's cloud target is supplied by `LITEM_PRM_APIBASE` and `LITEM_PRM_APIKEY`
 ## DNS and Certificate Dependencies
 
 - Public routes use environment-defined hostnames derived from `DOMAIN_NAME`.
-- Production-style TLS uses Let's Encrypt with `${APPS_DATA}/certs/acme.json`.
+- Production-style TLS uses Let's Encrypt with `${APPS_DATA}/shared/certs/acme.json`.
 - Staging-style TLS may use the git-crypt protected self-signed certificate set when `CERTRESOLVER` is empty.
 - Stalwart watches and uses the ACME certificate path.
 - DNS propagation, certificate issuance, certificate renewal, and trust-chain results are `Requires runtime validation`.

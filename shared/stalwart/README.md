@@ -21,8 +21,8 @@
 | Health check | `curl -fsS -H "X-Forwarded-For: 127.0.0.1" http://localhost:8080/healthz/live` every 30 s |
 | Depends on | `routetraefik` (healthy) — Traefik must issue the public certificate first; `infrapgsql` (healthy) — the PostgreSQL data store |
 | Depended on by | `mailsvbulwark` (healthy) |
-| Data persistence | `${APPS_DATA}/platform/mailbox` (mounted at `/var/lib/stalwart`; TLS key material + runtime state — mail data itself lives in PostgreSQL) |
-| Certificates | `${APPS_DATA}/certs` (mounted read-only at `/letsencrypt`) |
+| Data persistence | `${APPS_DATA}/mailsv/stalwart` (mounted at `/var/lib/stalwart`; TLS key material + runtime state — mail data itself lives in PostgreSQL) |
+| Certificates | `${APPS_DATA}/shared/certs` (mounted read-only at `/letsencrypt`) |
 
 ## Storage: PostgreSQL backend
 
@@ -44,7 +44,7 @@ The entrypoint exports `STALWART_RECOVERY_ADMIN=${STALWART_ADMIN_USER}:${STALWAR
 
 ### Switching an existing installation from SQLite
 
-PostgreSQL is the config for **new installs**. If `${APPS_DATA}/platform/mailbox` already holds a SQLite dataset, migrate instead of switching cold:
+PostgreSQL is the config for **new installs**. If `${APPS_DATA}/mailsv/stalwart` already holds a SQLite dataset, migrate instead of switching cold:
 
 ```bash
 docker compose stop mailsvstalwart
@@ -61,11 +61,11 @@ docker compose run --rm mailsvstalwart --import /var/lib/stalwart/export
 docker compose start mailsvstalwart
 ```
 
-The export directory lives on the `platform/mailbox` volume so both steps see it. See upstream [migration](https://stalw.art/docs/management/maintenance/migration) for details. Keep the SQLite file until you have verified the import.
+The export directory lives on the `mailsv/stalwart` volume so both steps see it. See upstream [migration](https://stalw.art/docs/management/maintenance/migration) for details. Keep the SQLite file until you have verified the import.
 
 ### Database management (create / delete / backup / restore)
 
-All mail data (accounts, messages, indexes, blobs) lives in `${POSTE_DBNAME}` (`svchubmboxdb`); the `${APPS_DATA}/platform/mailbox` volume holds only TLS material and runtime state. Run these from the deploy directory on the host.
+All mail data (accounts, messages, indexes, blobs) lives in `${POSTE_DBNAME}` (`svchubmboxdb`); the `${APPS_DATA}/mailsv/stalwart` volume holds only TLS material and runtime state. Run these from the deploy directory on the host.
 
 **Create** — keep `${POSTE_DBNAME}` in `PGRSQL_DBLIST` for new installs ([first boot](#first-boot)). The init script only runs on an empty data directory, so on an existing cluster create the database manually; Stalwart creates its schema in the empty database on the next start:
 
@@ -83,7 +83,7 @@ docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d postgres \
   -c "DROP DATABASE IF EXISTS \"${POSTE_DBNAME}\";"
 ```
 
-To start over, create the database again and `docker compose start mailsvstalwart`, then re-run the [initial provisioning walkthrough](#initial-provisioning-walkthrough). Delete `${APPS_DATA}/platform/mailbox` too if the TLS material and runtime state should go as well.
+To start over, create the database again and `docker compose start mailsvstalwart`, then re-run the [initial provisioning walkthrough](#initial-provisioning-walkthrough). Delete `${APPS_DATA}/mailsv/stalwart` too if the TLS material and runtime state should go as well.
 
 **Backup** — `pg_dump` takes a transaction-consistent snapshot and is safe while Stalwart is serving mail (unlike copying the PostgreSQL data directory):
 
@@ -293,7 +293,7 @@ To debug authentication (e.g. LDAP binds):
 2. Reproduce the failure and read the file or `docker compose logs` as above; bind errors show the LDAP result code (e.g. `49 invalidCredentials`).
 3. **Settings → Telemetry → Event Levels** overrides levels per `Event Id` when the global level is too noisy.
 
-The file tracer's path is on the container filesystem, so those logs are lost when the container is recreated. To persist them, edit the tracer's **Path** to `/var/lib/stalwart/logs` (host `${APPS_DATA}/platform/mailbox/logs`); console output instead lives in Docker's logging driver (`docker compose logs`, no rotation unless configured on the daemon).
+The file tracer's path is on the container filesystem, so those logs are lost when the container is recreated. To persist them, edit the tracer's **Path** to `/var/lib/stalwart/logs` (host `${APPS_DATA}/mailsv/stalwart/logs`); console output instead lives in Docker's logging driver (`docker compose logs`, no rotation unless configured on the daemon).
 
 ## Configuration (env)
 
@@ -314,9 +314,9 @@ Directory settings (LDAP URL, bind DN/secret, filters) are applied once through 
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/var/lib/stalwart` | `${APPS_DATA}/platform/mailbox` | TLS key material (`tls/`) and runtime state (mail data lives in PostgreSQL) |
-| PostgreSQL database | `${APPS_DATA}/databases/pgsqldb` (via `infrapgsql`) | All mail data: accounts metadata, messages, indexes, FTS |
-| `/letsencrypt` | `${APPS_DATA}/certs` | Traefik's shared `acme.json` (read-only `acme-export.sh`) |
+| `/var/lib/stalwart` | `${APPS_DATA}/mailsv/stalwart` | TLS key material (`tls/`) and runtime state (mail data lives in PostgreSQL) |
+| PostgreSQL database | `${APPS_DATA}/infra/postgresql` (via `infrapgsql`) | All mail data: accounts metadata, messages, indexes, FTS |
+| `/letsencrypt` | `${APPS_DATA}/shared/certs` | Traefik's shared `acme.json` (read-only `acme-export.sh`) |
 
 ## First boot
 
@@ -356,7 +356,7 @@ docker compose up -d mailsvstalwart
 docker compose logs -f mailsvstalwart
 
 # Inspect the exported certificate state
-ls -l ${APPS_DATA}/platform/mailbox/tls/
+ls -l ${APPS_DATA}/mailsv/stalwart/tls/
 
 # Inspect Stalwart's PostgreSQL footprint
 docker compose exec infrapgsql psql -U "${SQLDB_USER}" -d "${POSTE_DBNAME}" -c "\dt"

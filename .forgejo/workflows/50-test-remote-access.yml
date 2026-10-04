@@ -4,10 +4,10 @@
 #   - SSH authentication (key or password) and host verification
 #   - Docker / Compose availability for the deploy user
 #   - Passwordless sudo (server prerequisite for the acme.json restore)
-#   - The privileged install path used to restore ${APPS_DATA}/certs/acme.json
+#   - The privileged install path used to restore ${APPS_DATA}/shared/certs/acme.json
 #
 # It only writes a marker file in the deploy user's home and a temporary
-# root-owned file under ${APPS_DATA}/certs (both removable, the latter deleted
+# root-owned file under ${APPS_DATA}/shared/certs (both removable, the latter deleted
 # again): it never clones the repository, replaces acme.json or touches running
 # services, so it is safe to run against staging or production.
 #

@@ -23,7 +23,7 @@
 
 | Pipeline | Source | Destination |
 |---|---|---|
-| Host metrics | built-in `unix` exporter (procfs/sysfs/rootfs) | VictoriaMetrics |
+| Host metrics | built-in `unix` exporter (procfs/sysfs; rootfs-based collectors disabled per ADR-008) | VictoriaMetrics |
 | Container metrics | built-in cAdvisor (`docker_only=true`) | VictoriaMetrics |
 | Traefik metrics | scrape `routetraefik:8080` | VictoriaMetrics |
 | LiteLLM metrics | scrape `aiservlitellm:12380/metrics/` | VictoriaMetrics |
@@ -39,10 +39,10 @@ GeoIP enrichment uses [`../geoip/GeoLite2-City.mmdb`](../geoip/GeoLite2-City.mmd
 | `/etc/alloy` | [`shared/grafana/alloy`](.) | Alloy configuration |
 | `/geoip/GeoLite2-City.mmdb` | [`shared/grafana/geoip`](../geoip) | GeoIP database |
 | `/var/run/docker.sock` | host Docker socket (rw) | cAdvisor + log discovery |
-| `/var/lib/docker` | host (ro) | cAdvisor container filesystem stats |
-| `/host/proc`, `/host/sys`, `/rootfs` | host (ro) | unix exporter paths |
+| `/host/proc`, `/host/sys` | host (ro) | unix exporter paths |
 | `/sys/fs/cgroup` | host (ro) | cAdvisor cgroup stats |
-| `/run/containerd/containerd.sock` | host (ro) | containerd discovery |
+
+The host root filesystem, `/var/lib/docker`, and the containerd socket are deliberately **not** mounted (ADR-008 bind mount review); rootfs-dependent host metrics such as filesystem usage are therefore disabled.
 
 ## Operations
 

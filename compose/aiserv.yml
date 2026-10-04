@@ -9,11 +9,9 @@ services:
             - subnet
         user: root
         volumes:
-            - ${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}:/data00
+            - ${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}:/data00
 
     # aiservhermes — Hermes Agent (single shared agent). Docs: shared/hermesagent/README.md
-    # Note: /var/run/docker.sock is mounted read-only for the terminal sandbox.
-    # If the host docker group GID differs from 999, add group_add: [<host-gid>]
     aiservhermes:
         build:
             context: ../shared/hermesagent/
@@ -47,8 +45,7 @@ services:
             - "12320:12320"    # Hermes workspace
         restart: unless-stopped
         volumes:
-            - ${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}:/opt/data
-            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - ${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}:/opt/data
         labels:
             - "traefik.enable=true"
             - "traefik.http.routers.aiservhermes.enabled=${HERMES_WORKSPACE_DOMAIN_00:+true}"
@@ -96,7 +93,7 @@ services:
             - 12380:12380
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/litellm:/opt/litellm   # place config.yaml here to override default
+            - ${APPS_DATA}/aiserv/litellm:/opt/litellm   # place config.yaml here to override default
 
     # aiservllamacpp — llama.cpp Gemma chat inference.
     # Docs: shared/llamacpp/README.md
@@ -129,4 +126,4 @@ services:
                 soft: -1
                 hard: -1         # unlimited memlock — needed alongside IPC_LOCK
         volumes:
-            - ${APPS_DATA}/llamacpp:/models
+            - ${APPS_DATA}/aiserv/llamacpp:/models

@@ -19,7 +19,7 @@ services:
             - subnet
         restart: unless-stopped
         volumes:
-            - ${APPS_DATA}/databases/mariadb:/var/lib/mysql
+            - ${APPS_DATA}/infra/mariadb:/var/lib/mysql
 
     # infrapgsql — PostgreSQL 16. Docs: shared/postgresql/README.md
     infrapgsql:
@@ -41,7 +41,7 @@ services:
         restart: unless-stopped
         shm_size: 128mb
         volumes:
-            - ${APPS_DATA}/databases/pgsqldb:/var/lib/postgresql/data
+            - ${APPS_DATA}/infra/postgresql:/var/lib/postgresql/data
 
     # infraauthinit — one-shot: Authentik data dir ownership fix. Docs: shared/authentik/README.md
     infraauthinit:
@@ -52,8 +52,8 @@ services:
             - subnet
         user: root
         volumes:
-            - ${APPS_DATA}/platform/authentik/media:/data
-            - ${APPS_DATA}/platform/authentik/templates:/templates
+            - ${APPS_DATA}/infra/authentik/media:/data
+            - ${APPS_DATA}/infra/authentik/templates:/templates
 
     # infraauth — Authentik server (UI/API). Docs: shared/authentik/README.md
     # First boot: https://${AUTHN_DOMAIN}/if/flow/initial-setup/
@@ -113,8 +113,8 @@ services:
         restart: unless-stopped
         shm_size: 512mb
         volumes:
-            - ${APPS_DATA}/platform/authentik/media:/data
-            - ${APPS_DATA}/platform/authentik/templates:/templates
+            - ${APPS_DATA}/infra/authentik/media:/data
+            - ${APPS_DATA}/infra/authentik/templates:/templates
 
     # infraauthwrk — Authentik background worker. Docs: shared/authentik/README.md
     infraauthwrk:
@@ -154,5 +154,5 @@ services:
         user: root
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
-            - ${APPS_DATA}/platform/authentik/media:/data
-            - ${APPS_DATA}/platform/authentik/templates:/templates
+            - ${APPS_DATA}/infra/authentik/media:/data
+            - ${APPS_DATA}/infra/authentik/templates:/templates

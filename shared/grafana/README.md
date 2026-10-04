@@ -13,7 +13,7 @@
 | Service name | `obsvcegrafana` (+ one-shot `obsvcegrafanainit`) |
 | URL | `https://${OBSVC_DOMAIN}` |
 | Internal port | 3000 |
-| Database | SQLite (embedded, persisted to `${APPS_DATA}/grafana`) |
+| Database | SQLite (embedded, persisted to `${APPS_DATA}/obsvce/grafana`) |
 | Data sources | VictoriaMetrics (`obsvcevm:8428`), VictoriaLogs (`obsvcevlogs:9428`) |
 | Auth | Authentik forward-auth (`authentik-forwardauth@file`) |
 | Plugin | `victoriametrics-logs-datasource` |
@@ -61,7 +61,7 @@ Pre-built dashboards in [`dashboards/`](dashboards) are mounted at `/var/lib/gra
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/var/lib/grafana` | `${APPS_DATA}/grafana` | SQLite database, users, settings, local dashboard edits |
+| `/var/lib/grafana` | `${APPS_DATA}/obsvce/grafana` | SQLite database, users, settings, local dashboard edits |
 
 `obsvcegrafanainit` runs as root and normalizes ownership to UID/GID `472` (the Grafana user) and permissions to `775` on every boot, so the bind mount stays writable.
 

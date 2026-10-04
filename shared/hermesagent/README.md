@@ -23,7 +23,7 @@ A single Hermes Agent container. It has:
 
 | Container | Workspace Port | Data Directory |
 |-----------|---------------|----------------|
-| `aiservhermes` | 12320 | `${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}` |
+| `aiservhermes` | 12320 | `${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}` |
 
 > Hermes is **single-user / single-tenant**. Anyone who logs into the workspace
 > shares the same agent memory, sessions and skills. See
@@ -37,7 +37,10 @@ A single Hermes Agent container. It has:
 |---|---|---|
 | `/opt/data` | `${HERMES_DATA_00}` | Hermes data (`$HOME`: profiles, sessions, memory, `.env`, `config.yaml`) |
 | `/opt/data/overlay` | `${HERMES_DATA_00}/overlay` | Persisted edits to `/opt/hermes` (see below) |
-| `/var/run/docker.sock` | host docker socket (ro) | Terminal sandbox spawning |
+
+The Docker socket is **not** mounted (ADR-008 bind mount review), so the
+Docker terminal-sandbox backend is unavailable; commands run in-container
+(`terminal.backend: local`).
 
 `/opt/hermes` (~1.4 GB) is **not** mounted — it ships with the image as a
 read-only baseline. The overlay system replays your changes onto it at start.
@@ -119,7 +122,7 @@ The image bundles [Hermes Workspace](https://github.com/outsourc-e/hermes-worksp
 |---|---|---|
 | `HERMES_WORKSPACE_PORT` | `12320` | Workspace listen port (container-internal) |
 | `HERMES_WORKSPACE_PASSWORD` | (from `HERMES_WORKSPACE_PASSWD_00`) | Login password |
-| `HERMES_DATA_00` | `${APPS_DATA}/hermesagent/00` | Data directory path |
+| `HERMES_DATA_00` | `${APPS_DATA}/aiserv/hermes/00` | Data directory path |
 | `HERMES_WORKSPACE_DOMAIN_00` | (empty) | Traefik domain for HTTPS access |
 
 **Internal user profiles:** Each container supports internal profiles
@@ -135,7 +138,7 @@ from messaging platform setup — no Discord/WhatsApp config needed.
 HERMES_WORKSPACE_PASSWD_00=<password>
 
 # Data directory (optional — default shown)
-HERMES_DATA_00=${APPS_DATA}/hermesagent/00
+HERMES_DATA_00=${APPS_DATA}/aiserv/hermes/00
 
 # Optional: Traefik domain for HTTPS
 HERMES_WORKSPACE_DOMAIN_00=space0.${DOMAIN_NAME}
@@ -184,17 +187,17 @@ The platform ships one agent because Hermes is single-user. To extend it, copy
 the `aiservhermes` pattern in [`compose/aiserv.yml`](../../compose/aiserv.yml):
 
 1. **Add the data directory** to `aiservhermesinit` (or add a sibling init
-   container) — e.g. `${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/data01`
+   container) — e.g. `${HERMES_DATA_01:-${APPS_DATA}/aiserv/hermes/01}:/data01`
    with `chown -R 10000:10000 /data01`.
 2. **Duplicate the `aiservhermes` service** as `aiservhermes01` with:
-   - its own volume `${HERMES_DATA_01:-${APPS_DATA}/hermesagent/01}:/opt/data`,
+   - its own volume `${HERMES_DATA_01:-${APPS_DATA}/aiserv/hermes/01}:/opt/data`,
    - its own `HERMES_WORKSPACE_PASSWORD=${HERMES_WORKSPACE_PASSWD_01}`,
    - a unique host port, e.g. `12321:12320`,
    - optional Traefik labels using `HERMES_WORKSPACE_DOMAIN_01`.
 3. **Add matching variables** to `.env`:
    ```bash
    HERMES_WORKSPACE_PASSWD_01=<password>
-   HERMES_DATA_01=${APPS_DATA}/hermesagent/01
+   HERMES_DATA_01=${APPS_DATA}/aiserv/hermes/01
    HERMES_WORKSPACE_DOMAIN_01=space1.${DOMAIN_NAME}
    ```
 4. **Recreate only the new service:**

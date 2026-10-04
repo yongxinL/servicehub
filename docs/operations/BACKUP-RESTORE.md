@@ -87,29 +87,29 @@ oCIS does not have a dedicated PostgreSQL database. Its local configuration and 
 
 The full archive covers `APPS_DATA`, which includes paths declared in the default Compose files:
 
-- `${APPS_DATA}/databases/mariadb`
-- `${APPS_DATA}/databases/pgsqldb`
-- `${APPS_DATA}/platform/authentik/media`
-- `${APPS_DATA}/platform/authentik/templates`
-- `${APPS_DATA}/platform/repos`
-- `${APPS_DATA}/platform/buildexec`
-- `${APPS_DATA}/platform/workspace`
-- `${APPS_DATA}/cloud/ocis/config`
-- `${APPS_DATA}/cloud/ocis/data`
-- `${APPS_DATA}/webapps/confluence`
-- `${APPS_DATA}/openwebui`
-- `${APPS_DATA}/litellm`
-- `${APPS_DATA}/llamacpp`
-- `${HERMES_DATA_00:-${APPS_DATA}/hermesagent/00}`
-- `${APPS_DATA}/victoriametrics`
-- `${APPS_DATA}/victorialogs`
-- `${APPS_DATA}/grafana`
-- `${APPS_DATA}/platform/mailbox`
-- `${APPS_DATA}/platform/webmail/settings`
-- `${APPS_DATA}/platform/webmail/admin`
-- `${APPS_DATA}/platform/webmail/admin-state`
-- `${APPS_DATA}/platform/webmail/telemetry`
-- `${APPS_DATA}/certs`
+- `${APPS_DATA}/infra/mariadb`
+- `${APPS_DATA}/infra/postgresql`
+- `${APPS_DATA}/infra/authentik/media`
+- `${APPS_DATA}/infra/authentik/templates`
+- `${APPS_DATA}/devops/forgejo/data`
+- `${APPS_DATA}/devops/forgejo/runner`
+- `${APPS_DATA}/devops/forgejo/workspace`
+- `${APPS_DATA}/webapp/ocis/config`
+- `${APPS_DATA}/webapp/ocis/data`
+- `${APPS_DATA}/webapp/confluence`
+- `${APPS_DATA}/webapp/openwebui`
+- `${APPS_DATA}/aiserv/litellm`
+- `${APPS_DATA}/aiserv/llamacpp`
+- `${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}`
+- `${APPS_DATA}/obsvce/victoriametrics`
+- `${APPS_DATA}/obsvce/victorialogs`
+- `${APPS_DATA}/obsvce/grafana`
+- `${APPS_DATA}/mailsv/stalwart`
+- `${APPS_DATA}/mailsv/bulwark/settings`
+- `${APPS_DATA}/mailsv/bulwark/admin`
+- `${APPS_DATA}/mailsv/bulwark/admin-state`
+- `${APPS_DATA}/mailsv/bulwark/telemetry`
+- `${APPS_DATA}/shared/certs`
 
 If `HERMES_DATA_00` points outside `APPS_DATA`, it is not covered by the full archive unless the operating system copies it separately. The workflow allows exclusions through `<PREFIX>_BACKUP_EXCLUDE`; actual exclusions are `TBD`.
 
@@ -119,7 +119,7 @@ No named Docker volumes are declared in the default root Compose files. Dynamic 
 
 ## Forgejo Repositories
 
-The current source-control service is Forgejo. Repositories and Forgejo application state live under `${APPS_DATA}/platform/repos`. Runner registration and workspaces live under `platform/buildexec` and `platform/workspace`.
+The current source-control service is Forgejo. Repositories and Forgejo application state live under `${APPS_DATA}/devops/forgejo/data`. Runner registration and workspaces live under `devops/forgejo/runner` and `devops/forgejo/workspace`.
 
 The full archive covers these paths only when they are beneath `APPS_DATA`.
 
@@ -129,12 +129,12 @@ The archive includes media and templates. Authentik's primary application state 
 
 ## WordPress Data
 
-The optional WordPress path is not included by the root Compose file. If enabled, `${APPS_DATA}/webapps/wordpress` is covered by a full archive, while its MariaDB data requires a separate database backup that is not implemented.
+The optional WordPress path is not included by the root Compose file. If enabled, `${APPS_DATA}/webapp/wordpress` is covered by a full archive, while its MariaDB data requires a separate database backup that is not implemented.
 
 ## AI Configuration and Model Considerations
 
-- LiteLLM configuration under `${APPS_DATA}/litellm` is included in a full archive.
-- Local model cache under `${APPS_DATA}/llamacpp` is included if not excluded; it may be large.
+- LiteLLM configuration under `${APPS_DATA}/aiserv/litellm` is included in a full archive.
+- Local model cache under `${APPS_DATA}/aiserv/llamacpp` is included if not excluded; it may be large.
 - Hermes state under the configured data path is included only when it is under `APPS_DATA`.
 - Cloud provider credentials remain in `.env` and repository secrets, not service bind mounts.
 - Restoring configuration does not prove model availability or cloud provider access.
@@ -148,7 +148,7 @@ The optional WordPress path is not included by the root Compose file. If enabled
 
 ## Traefik Certificate State
 
-`${APPS_DATA}/certs/acme.json` is included in a full archive. Repository-encoded self-signed material may be restored from git-crypt. Backup archive permissions and encryption are `TBD`.
+`${APPS_DATA}/shared/certs/acme.json` is included in a full archive. Repository-encoded self-signed material may be restored from git-crypt. Backup archive permissions and encryption are `TBD`.
 
 ## Secret Recovery Material
 

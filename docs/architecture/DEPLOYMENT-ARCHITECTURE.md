@@ -83,7 +83,7 @@ The repository contains this configuration. Image build, target connectivity, su
 | Mode | Repository mechanism | Evidence |
 |---|---|---|
 | Staging/self-signed | Empty `CERTRESOLVER`; files referenced by `shared/traefik/advanced/certificates.yml`; git-crypt protection | Configuration confirmed; trust and renewal unverified |
-| Production/Let's Encrypt | `CERTRESOLVER=letsencrypt`; ACME TLS challenge; `${APPS_DATA}/certs/acme.json` | Configuration confirmed; issuance and renewal unverified |
+| Production/Let's Encrypt | `CERTRESOLVER=letsencrypt`; ACME TLS challenge; `${APPS_DATA}/shared/certs/acme.json` | Configuration confirmed; issuance and renewal unverified |
 
 Stalwart shares the certificate store path and has ACME-related environment settings. DNS provider, propagation, rate limits, and certificate contents are not documented.
 

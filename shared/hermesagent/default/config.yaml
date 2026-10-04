@@ -33,9 +33,9 @@ api_server:
 
 # ---------------------------------------------------------------------------
 # Terminal sandbox-Docker isolation
-# Hermes runs agent commands inside a fresh Docker container, not on the host.
-# docker_forward_env: variables passed from Hermes env into the sandbox.
-# The hermes container needs /var/run/docker.sock mounted (see aiserv.yml).
+# Hermes can run agent commands inside a fresh Docker container, but the
+# container no longer mounts /var/run/docker.sock (ADR-008), so only the
+# in-container backend (local) is available.
 # ---------------------------------------------------------------------------
 terminal:
   backend: local

@@ -15,7 +15,7 @@
 | JMAP backend | `https://${EMAIL_HOST}` — resolves via Docker DNS because `mailsvstalwart` sets its container hostname to `${EMAIL_HOST}` |
 | Health check | Node HTTP check of `http://localhost:3000/api/health` every 30 s |
 | Depends on | `mailsvbulwarkinit` (completed) — creates/chowns the data dirs; `mailsvstalwart` (healthy) |
-| Data persistence | `${APPS_DATA}/platform/webmail/...` |
+| Data persistence | `${APPS_DATA}/mailsv/bulwark/...` |
 | Volume ownership | `1001:1001` (`nextjs:nodejs`) — set by `mailsvbulwarkinit` on every boot |
 | Onboarding | Setup wizard on first launch unless `JMAP_SERVER_URL` is preset (it is, here) |
 
@@ -32,7 +32,7 @@ For *any* sign-in — password form or OIDC — two Stalwart settings must hold:
 
 ## Volume ownership
 
-Bulwark's image runs as non-root `uid=1001 gid=1001` (`nextjs:nodejs`) and has no ownership-fixing entrypoint, so the host directories mounted at `/data/*` (`platform/webmail/{settings,admin,admin-state,telemetry}`) must be writable by `1001:1001`. The one-shot `mailsvbulwarkinit` service (busybox — same pattern as [`devopsforgejoinit`](../forgejo/README.md)) creates the directories and `chown -R 1001:1001`s them on every boot, so they can be created empty beforehand. Wrong ownership shows as `EACCES` warnings on boot and breaks login (the auth session cannot be persisted).
+Bulwark's image runs as non-root `uid=1001 gid=1001` (`nextjs:nodejs`) and has no ownership-fixing entrypoint, so the host directories mounted at `/data/*` (`mailsv/bulwark/{settings,admin,admin-state,telemetry}`) must be writable by `1001:1001`. The one-shot `mailsvbulwarkinit` service (busybox — same pattern as [`devopsforgejoinit`](../forgejo/README.md)) creates the directories and `chown -R 1001:1001`s them on every boot, so they can be created empty beforehand. Wrong ownership shows as `EACCES` warnings on boot and breaks login (the auth session cannot be persisted).
 
 ## Configuration (env)
 
@@ -62,10 +62,10 @@ If you ever switch Stalwart to an OIDC directory, see upstream [Authentication](
 
 | Variable | Host path |
 |---|---|
-| `SETTINGS_DATA_DIR=/data/settings` | `${APPS_DATA}/platform/webmail/settings` |
-| `ADMIN_CONFIG_DIR=/data/admin` | `${APPS_DATA}/platform/webmail/admin` |
-| `ADMIN_STATE_DIR=/data/admin-state` | `${APPS_DATA}/platform/webmail/admin-state` |
-| `TELEMETRY_DATA_DIR=/data/telemetry` | `${APPS_DATA}/platform/webmail/telemetry` |
+| `SETTINGS_DATA_DIR=/data/settings` | `${APPS_DATA}/mailsv/bulwark/settings` |
+| `ADMIN_CONFIG_DIR=/data/admin` | `${APPS_DATA}/mailsv/bulwark/admin` |
+| `ADMIN_STATE_DIR=/data/admin-state` | `${APPS_DATA}/mailsv/bulwark/admin-state` |
+| `TELEMETRY_DATA_DIR=/data/telemetry` | `${APPS_DATA}/mailsv/bulwark/telemetry` |
 
 ## First boot
 

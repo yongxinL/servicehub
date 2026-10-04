@@ -14,7 +14,7 @@
 |---|---|
 | Service name | `inframariadb` |
 | Internal port | 3306 (not published to the host) |
-| Data persistence | `${APPS_DATA}/databases/mariadb` |
+| Data persistence | `${APPS_DATA}/infra/mariadb` |
 | Health check | `healthcheck.sh --connect --innodb_initialized` every 10 s |
 | Init script | [`create-multiple-databases.sh`](create-multiple-databases.sh) |
 
@@ -44,7 +44,7 @@ Example:
 MARIADB_DB_LIST="appdb,analytics"
 ```
 
-> The script only runs when `${APPS_DATA}/databases/mariadb` is empty. To re-run it on an existing database, you must reset the data directory (see below).
+> The script only runs when `${APPS_DATA}/infra/mariadb` is empty. To re-run it on an existing database, you must reset the data directory (see below).
 
 ## Connecting from another container
 
@@ -76,7 +76,7 @@ To wipe all data and re-run the init script (this also deletes every database):
 
 ```bash
 docker compose down inframariadb
-rm -rf ${APPS_DATA}/databases/mariadb/*
+rm -rf ${APPS_DATA}/infra/mariadb/*
 docker compose up -d inframariadb
 ```
 
