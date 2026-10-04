@@ -105,7 +105,7 @@ FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-$(read_env_file FCRW_API_URL)}"
 FIRECRAWL_API_KEY="${FIRECRAWL_API_KEY:-${LITELLM_API_KEY}}"
 
 LITELLM_API_URL="${LITELLM_API_URL:-http://aiservlitellm:12380/v1}"
-FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-http://aiagnfastcrw:12360}"
+FIRECRAWL_API_URL="${FIRECRAWL_API_URL:-http://aiservfastcrw:12360}"
 
 if [[ -z "${LITELLM_API_KEY}" || "${LITELLM_API_KEY}" == *"YOUR_"* || "${LITELLM_API_KEY}" == *"your-"* ]]; then
     echo "Error: LiteLLM master key is not set or still a placeholder."

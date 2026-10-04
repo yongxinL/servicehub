@@ -63,11 +63,11 @@ These services exist in repository files but are not included by the root Compos
 
 | Compose service | Purpose | Compose file | Internal port | Route or exposure | Storage | State |
 |---|---|---|---|---|---|---|
-| `aiagnsearxng` | Search backend for FastCRW | `shared/searxng/compose.yml` | 12361 | Internal | Not evident in Compose | Proposed enablement |
-| `aiagnlighpda` | Lightweight JavaScript renderer | `shared/fastcrw/lightpanda/compose.yml` | 12362 | Internal | Ephemeral container state | Proposed enablement |
-| `aiagnchromum` | Browserless Chromium renderer | `shared/fastcrw/chromium/compose.yml` | 12363 | Internal | Bounded `/tmp` tmpfs | Proposed enablement |
-| `aiagnfastcrw` | Firecrawl-compatible search and scraping API | `shared/fastcrw/compose.yml` | 12360 | Internal | Read-only configuration | Proposed enablement |
-| `wbappcmswppv` | Optional WordPress homepage | `shared/wordpress/compose.yml` | 80 | `${WORKSPACE_DOMAIN}` and apex; `secure-chain` not declared | `${APPS_DATA}/webapp/wordpress` | Proposed alternative to Confluence |
+| `aiservsearxng` | Search backend for FastCRW | `shared/searxng/compose.yml` | 12361 | Internal | Not evident in Compose | Proposed enablement |
+| `aiservlighpda` | Lightweight JavaScript renderer | `shared/fastcrw/lightpanda/compose.yml` | 12362 | Internal | Ephemeral container state | Proposed enablement |
+| `aiservchromum` | Browserless Chromium renderer | `shared/fastcrw/chromium/compose.yml` | 12363 | Internal | Bounded `/tmp` tmpfs | Proposed enablement |
+| `aiservfastcrw` | Firecrawl-compatible search and scraping API | `shared/fastcrw/compose.yml` | 12360 | Internal | Read-only configuration | Proposed enablement |
+| `webappwpress` | Optional WordPress homepage | `shared/wordpress/compose.yml` | 80 | `${WORKSPACE_DOMAIN}` and apex; `secure-chain` not declared | `${APPS_DATA}/webapp/wordpress` | Proposed alternative to Confluence |
 
 ## Unverified Values
 

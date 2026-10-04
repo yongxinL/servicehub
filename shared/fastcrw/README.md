@@ -12,10 +12,10 @@ This deployment runs four containers together:
 
 | Container | Role | Internal address |
 |---|---|---|
-| `aiagnfastcrw` | FastCRW API server | `http://aiagnfastcrw:12360` |
-| `aiagnlighpda` | LightPanda JS renderer (lightweight) | `ws://aiagnlighpda:12362` |
-| `aiagnchromum` | Browserless/Chromium renderer (stealth) | `ws://aiagnchromum:12363` |
-| `aiagnsearxng` | SearXNG search engine sidecar | `http://aiagnsearxng:12361` |
+| `aiservfastcrw` | FastCRW API server | `http://aiservfastcrw:12360` |
+| `aiservlighpda` | LightPanda JS renderer (lightweight) | `ws://aiservlighpda:12362` |
+| `aiservchromum` | Browserless/Chromium renderer (stealth) | `ws://aiservchromum:12363` |
+| `aiservsearxng` | SearXNG search engine sidecar | `http://aiservsearxng:12361` |
 
 > **Optional stack:** These services are **not** included by the root `docker-compose.yml` by default. To enable Hermes web search, add all four files together to its `include` list: [`searxng/compose.yml`](../searxng/compose.yml), [`lightpanda/compose.yml`](lightpanda/compose.yml), [`chromium/compose.yml`](chromium/compose.yml) and [`compose.yml`](compose.yml).
 
@@ -119,7 +119,7 @@ curl -si http://localhost:12360/v1/scrape \
 Confirm the entrypoint substituted the key correctly (should show the real key, not the placeholder):
 
 ```bash
-docker compose exec aiagnfastcrw \
+docker compose exec aiservfastcrw \
   grep api_keys /app/config.active.toml
 ```
 
@@ -135,7 +135,7 @@ curl -s http://localhost:12360/v1/scrape \
 
 The `renderDecision.chain` field shows which tier(s) were tried.
 
-### Scrape — force LightPanda (aiagnlighpda)
+### Scrape — force LightPanda (aiservlighpda)
 
 ```bash
 curl -s http://localhost:12360/v1/scrape \
@@ -148,10 +148,10 @@ curl -s http://localhost:12360/v1/scrape \
 Check LightPanda logs if this fails:
 
 ```bash
-docker compose logs aiagnlighpda --tail 30
+docker compose logs aiservlighpda --tail 30
 ```
 
-### Scrape — force Chrome (aiagnchromum)
+### Scrape — force Chrome (aiservchromum)
 
 ```bash
 curl -s http://localhost:12360/v1/scrape \
@@ -161,10 +161,10 @@ curl -s http://localhost:12360/v1/scrape \
   | jq '{renderer: .data.renderDecision, bytes: (.data.markdown | length)}'
 ```
 
-Chrome communicates with `aiagnchromum` on the internal Docker network using `AIGATE_API_KEY` as the browserless `TOKEN`. If Chrome fails, check:
+Chrome communicates with `aiservchromum` on the internal Docker network using `AIGATE_API_KEY` as the browserless `TOKEN`. If Chrome fails, check:
 
 ```bash
-docker compose logs aiagnchromum --tail 30
+docker compose logs aiservchromum --tail 30
 ```
 
 ### Search (via SearXNG)

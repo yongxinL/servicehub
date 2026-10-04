@@ -12,7 +12,7 @@ The service is kept ready to run in [`compose.yml`](compose.yml) but is **not** 
 
 | Detail | Value |
 |---|---|
-| Service name | `wbappcmswppv` |
+| Service name | `webappwpress` |
 | Compose file | `shared/wordpress/compose.yml` (not included by default) |
 | URL | `https://${WORKSPACE_DOMAIN}` and `https://${DOMAIN_NAME}` (apex) |
 | Internal port | 80 (Nginx; TLS terminated by Traefik) |
@@ -73,7 +73,7 @@ The image aligns `www-data` with UID/GID `1000` (`WWW_DATA_UID` / `WWW_DATA_GID`
 1. Start WordPress (after switching the include, with Traefik and MariaDB healthy):
 
     ```bash
-    docker compose up -d wbappcmswppv
+    docker compose up -d webappwpress
     ```
 
 2. Open `https://${WORKSPACE_DOMAIN}/wp-admin/install.php` and complete the WordPress installer.
@@ -82,13 +82,13 @@ The image aligns `www-data` with UID/GID `1000` (`WWW_DATA_UID` / `WWW_DATA_GID`
 
 ```bash
 # Start / restart
-docker compose up -d wbappcmswppv
+docker compose up -d webappwpress
 
 # Rebuild after a Dockerfile or config change
-docker compose up -d --build wbappcmswppv
+docker compose up -d --build webappwpress
 
 # Follow logs
-docker compose logs -f wbappcmswppv
+docker compose logs -f webappwpress
 ```
 
 ## Files

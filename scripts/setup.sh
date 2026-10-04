@@ -68,7 +68,7 @@ migrate_env() {
     # names and moved the databases into the svchub_* namespace. Rewrite an
     # ADR-007-era .env in one pass (variable renames first so the database-value
     # rules below match the new names).
-    if grep -qE '^(AUTHN_|DEPOT_|WBHOME_|OWEBUI_|OBSVC_|POSTE_DBNAME|LITEM_|SQLDB_|PGRSQL_|MySQL_|MARIADB_DB_LIST|WBDRIVE_|WBCLOUD_)' "$ENV_FILE" 2>/dev/null; then
+    if grep -qE '^(AUTHN_|DEPOT_|WBHOME_|OWEBUI_|OBSVC_|POSTE_DBNAME|LITEM_|SQLDB_|PGRSQL_|MySQL_|MARIADB_DB_LIST|WBDRIVE_|WBCLOUD_|FCRW_API_URL)' "$ENV_FILE" 2>/dev/null; then
         echo "Migrating ADR-008 environment variable names ..."
         sed -i.bak \
             -e 's/AUTHN_DBNAME/IDENTITY_DBNAME/g' \
@@ -125,6 +125,7 @@ migrate_env() {
             -e 's/^POSTOFFICE_DBNAME=svchubmboxdb$/POSTOFFICE_DBNAME=svchub_postoffice/' \
             -e 's/^AIGATE_DBNAME="litellm"/AIGATE_DBNAME="svchub_aigateway"/' \
             -e 's/^AIGATE_DBNAME=litellm$/AIGATE_DBNAME=svchub_aigateway/' \
+            -e 's|http://aiagnfastcrw:|http://aiservfastcrw:|g' \
             "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
     fi
 

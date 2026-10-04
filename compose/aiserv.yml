@@ -25,7 +25,7 @@ services:
             - HERMES_WORKSPACE_PORT=12320
             - LITELLM_API_KEY=${AIGATE_API_KEY}
             - LITELLM_API_URL=${AIGATE_API_URL:-http://aiservlitellm:12380/v1}
-            - FIRECRAWL_API_URL=${FCRW_API_URL:-http://aiagnfastcrw:12360}
+            - FIRECRAWL_API_URL=${FCRW_API_URL:-http://aiservfastcrw:12360}
             - FIRECRAWL_API_KEY=${AIGATE_API_KEY}
             - API_SERVER_ENABLED=true
             - API_SERVER_KEY=${AIGATE_API_KEY}

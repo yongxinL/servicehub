@@ -170,18 +170,18 @@ servicehub/
 │   │   └── entrypoint.sh                 # oCIS init and server startup
 │   ├── fastcrw/                          # Optional web-search stack (not included by default)
 │   │   ├── README.md                     # FastCRW + renderers + SearXNG documentation
-│   │   ├── Dockerfile                    # aiagnfastcrw image build
-│   │   ├── compose.yml                   # aiagnfastcrw
+│   │   ├── Dockerfile                    # aiservfastcrw image build
+│   │   ├── compose.yml                   # aiservfastcrw
 │   │   ├── config.docker.toml
 │   │   ├── entrypoint.sh
-│   │   ├── chromium/                     # aiagnchromum — browserless stealth renderer
+│   │   ├── chromium/                     # aiservchromum — browserless stealth renderer
 │   │   │   ├── compose.yml
 │   │   │   └── Dockerfile
-│   │   └── lightpanda/                   # aiagnlighpda — LightPanda JS renderer
+│   │   └── lightpanda/                   # aiservlighpda — LightPanda JS renderer
 │   │       ├── compose.yml
 │   │       └── Dockerfile
 │   ├── searxng/                          # Optional search backend
-│   │   ├── compose.yml                   # aiagnsearxng
+│   │   ├── compose.yml                   # aiservsearxng
 │   │   └── Dockerfile
 │   ├── grafana/
 │   │   ├── README.md                     # Grafana service documentation

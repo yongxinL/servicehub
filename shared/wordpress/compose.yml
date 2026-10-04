@@ -7,8 +7,8 @@
 #
 # Docs: shared/wordpress/README.md
 services:
-    # wbappcmswppv — WordPress homepage / CMS. Docs: shared/wordpress/README.md
-    wbappcmswppv:
+    # webappwpress — WordPress homepage / CMS. Docs: shared/wordpress/README.md
+    webappwpress:
         build:
             context: .
         depends_on:
@@ -23,22 +23,22 @@ services:
             - WORDPRESS_DB_NAME=${WORKSPACE_DBNAME}
             - WORDPRESS_DB_USER=${DB_ADMIN_USER}
             - WORDPRESS_DB_PASSWORD=${DB_ADMIN_PASSWORD}
-        image: wbappcmswppv:latest
+        image: webappwpress:latest
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.wbappcmswppv.entrypoints=websecure"
+            - "traefik.http.routers.webappwpress.entrypoints=websecure"
             # Match incoming requests on a specific hostname (plus the apex domain)
-            - "traefik.http.routers.wbappcmswppv.rule=Host(`${WORKSPACE_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
+            - "traefik.http.routers.webappwpress.rule=Host(`${WORKSPACE_DOMAIN}`) || Host(`${DOMAIN_NAME}`)"
             # Assign the router to a named Traefik service
-            - "traefik.http.routers.wbappcmswppv.service=wbappcmswppv"
+            - "traefik.http.routers.webappwpress.service=webappwpress"
             # Define the internal container port for routing
-            - "traefik.http.services.wbappcmswppv.loadbalancer.server.port=80"
+            - "traefik.http.services.webappwpress.loadbalancer.server.port=80"
             # Enable TLS on this router
-            - "traefik.http.routers.wbappcmswppv.tls=true"
+            - "traefik.http.routers.webappwpress.tls=true"
             # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.wbappcmswppv.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.webappwpress.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped

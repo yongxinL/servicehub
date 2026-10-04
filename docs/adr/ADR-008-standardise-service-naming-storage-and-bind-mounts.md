@@ -100,8 +100,15 @@ Final service names and the current names they replace:
 | `mailsvstalwart` | `posteservice` | `mailsv.yml` |
 | `mailsvbulwark` | `postewebmail` | `mailsv.yml` |
 | `mailsvbulwarkinit` | `postesvcinit` | `mailsv.yml` |
+| `aiservfastcrw` | `aiagnfastcrw` | `shared/fastcrw/compose.yml` |
+| `aiservsearxng` | `aiagnsearxng` | `shared/searxng/compose.yml` |
+| `aiservchromum` | `aiagnchromum` | `shared/fastcrw/chromium/compose.yml` |
+| `aiservlighpda` | `aiagnlighpda` | `shared/fastcrw/lightpanda/compose.yml` |
+| `webappwpress` | `wbappcmswppv` | `shared/wordpress/compose.yml` |
 
-Product mapping for abbreviated names: `webappconf` is Confluence, `webappowui` is Open WebUI, `webappocis` is oCIS.
+Product mapping for abbreviated names: `webappconf` is Confluence, `webappowui` is Open WebUI, `webappocis` is oCIS, `webappwpress` is WordPress.
+
+The last five rows are optional-stack services (FastCRW, SearXNG, renderers, WordPress) that users enable by including their compose files; they follow the same convention as the default stack.
 
 `aiservllamacpp` is 14 characters and is retained as the practical exception to the 13-character guideline; init names are exempt by design.
 

@@ -1,4 +1,4 @@
-# FastCRW — Firecrawl-compatible crawler / search service (aiagnfastcrw).
+# FastCRW — Firecrawl-compatible crawler / search service (aiservfastcrw).
 #
 # NOT included by docker-compose.yml by default. Hermes' web-search tool loop
 # needs this service, so enable the whole FastCRW stack by adding all four files
@@ -11,16 +11,16 @@
 #
 # Docs: shared/fastcrw/README.md
 services:
-    # aiagnfastcrw — FastCRW API server. Docs: shared/fastcrw/README.md
-    aiagnfastcrw:
+    # aiservfastcrw — FastCRW API server. Docs: shared/fastcrw/README.md
+    aiservfastcrw:
         build:
             context: .
         depends_on:
-            aiagnlighpda:
+            aiservlighpda:
                 condition: service_healthy
-            aiagnsearxng:
+            aiservsearxng:
                 condition: service_healthy
-            aiagnchromum:
+            aiservchromum:
                 condition: service_healthy
         environment:
             - RUST_LOG=info
@@ -30,7 +30,7 @@ services:
             # renderer urls, search url, and auth key are all set in
             # config.docker.toml and substituted by entrypoint.sh at startup.
             - FIRECRAWL_API_KEY=${AIGATE_API_KEY}
-        image: aiagnfastcrw:latest
+        image: aiservfastcrw:latest
         networks:
             - subnet
         restart: unless-stopped

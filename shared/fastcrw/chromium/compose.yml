@@ -1,4 +1,4 @@
-# Browserless Chromium — stealth JS renderer for FastCRW (aiagnchromum).
+# Browserless Chromium — stealth JS renderer for FastCRW (aiservchromum).
 #
 # Part of the optional FastCRW web-search stack. NOT included by
 # docker-compose.yml by default — see shared/fastcrw/compose.yml for how to
@@ -6,15 +6,15 @@
 #
 # Docs: shared/fastcrw/README.md
 services:
-    # aiagnchromum — Browserless Chromium stealth renderer (fallback tier). Docs: shared/fastcrw/README.md
-    aiagnchromum:
+    # aiservchromum — Browserless Chromium stealth renderer (fallback tier). Docs: shared/fastcrw/README.md
+    aiservchromum:
         build:
             context: .
         environment:
             # TOKEN is required by browserless v2 — clients must pass `?token=...`.
             # Default is a published placeholder; override via `.env` in production:
             #   echo "BROWSERLESS_TOKEN=$(openssl rand -hex 24)" >> .env
-            - TOKEN=${AIGATE_API_KEY:-aiagnchromum}
+            - TOKEN=${AIGATE_API_KEY:-aiservchromum}
             - PORT=12363
             - CONCURRENT=15
             - MAX_QUEUE_LENGTH=30
@@ -36,7 +36,7 @@ services:
             timeout: 5s
             retries: 3
             start_period: 15s
-        image: aiagnchromum:latest
+        image: aiservchromum:latest
         mem_limit: 3g
         memswap_limit: 3g
         networks:
