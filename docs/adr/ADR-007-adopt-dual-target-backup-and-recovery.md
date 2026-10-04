@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-007
 title: Adopt Dual-Target Backup and Disaster Recovery
-version: "1.0"
+version: "1.2"
 status: Accepted
-decision_basis: Owner decision recorded on 2026-10-03; implementation pending
+decision_basis: Owner decision recorded on 2026-10-03 and runner consolidation revised on 2026-10-04; repository configuration added; runtime validation pending
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-03
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - architecture
@@ -32,7 +32,7 @@ related_documents:
 
 ## Context
 
-The repository currently implements daily PostgreSQL dumps and a weekly or on-demand `APPS_DATA` archive through Forgejo Actions. Those artifacts are written under a configured backup root on the target host. The current workflow does not provide an off-host copy or a tested restore.
+The repository implements daily PostgreSQL dumps and a weekly or on-demand `APPS_DATA` archive through Forgejo Actions. Those artifacts are written under a configured backup root on the target host, with configured Restic and Rclone transfers. No successful off-site transfer or tested restore is recorded.
 
 ServiceHub must be able to recover from VM loss, an Oracle Cloud outage, accidental deletion, data corruption, and configuration error. Protection must include service configuration, PostgreSQL databases, and persistent filesystem paths for oCIS, Forgejo, email, Authentik, and the other stateful services already in scope.
 
@@ -45,9 +45,9 @@ Use Forgejo Actions to create database dumps and persistent-data archives, then 
 1. **Home Server:** primary recovery target using Restic over SSH/SFTP.
 2. **Google Drive:** independent off-site recovery copy using Rclone.
 
-Provide a dedicated backup runner, `nexora/runner-backup`, containing `restic`, `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq`. The runner will create database dumps, enforce retention, upload the Home Server copy, synchronise the Google Drive copy, and support disaster-recovery procedures.
+Run every Forgejo Actions job on the existing `depotrunner` using the `ssh-deploy` label. Extend that runner image with `restic`, `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq`. The shared runner will create database dumps, enforce retention, upload the Home Server copy, synchronise the Google Drive copy, and support disaster-recovery procedures.
 
-The existing same-host backup workflow remains the implemented baseline until the dual-target workflow is committed, validated, and tested. Same-host artifacts must not be treated as sufficient disaster recovery.
+The owner revised the runner portion of the decision on 2026-10-04 to avoid a second runner service and registration identity. The repository now configures the shared runner and dual-target workflow. Successful image build, scheduled execution, transfers, integrity checks, retention, and restores remain unverified until recorded runtime evidence exists. Same-host artifacts must not be treated as sufficient disaster recovery.
 
 ## Decision Drivers
 
@@ -56,6 +56,7 @@ The existing same-host backup workflow remains the implemented baseline until th
 - Maintain an independent off-site copy.
 - Include databases, configuration, and persistent application data.
 - Automate retention and transfers through repository-hosted workflows.
+- Consolidate deployment, test, and backup jobs on one existing runner.
 - Keep credentials outside tracked documentation.
 - Support oCIS once it is deployed under [ADR-006](ADR-006-adopt-ocis-with-local-filesystem-storage.md).
 
@@ -90,8 +91,8 @@ The implementation must record actual paths and exclusions. Storage outside the 
 
 | Target | Purpose | Technology | Implementation status |
 |---|---|---|---|
-| Home Server | Primary recovery target | Restic over SSH/SFTP | Accepted; not implemented |
-| Google Drive | Independent off-site copy | Rclone | Accepted; not implemented |
+| Home Server | Primary recovery target | Restic over SSH/SFTP | Configuration added; transfer not runtime-validated |
+| Google Drive | Independent off-site copy | Rclone | Configuration added; transfer not runtime-validated |
 
 Target locations, account identifiers, hostnames, credentials, repository names, and retention values must remain in approved secret or environment configuration and must not be invented in documentation.
 
@@ -108,7 +109,7 @@ Database dumps and persistent-data archives
       +--> Rclone ---------------> Google Drive
 ```
 
-The workflow should fail visibly when required inputs, dumps, archives, transfers, retention operations, or integrity checks fail. Transfer and restore credentials must be available only to the backup runner through approved secrets.
+The configured workflow fails when required inputs, dumps, archives, transfers, retention operations, or integrity checks fail. Transfer and restore credentials are supplied only as protected Forgejo Actions secrets. Target locations, credentials, and approved retention values remain outside tracked documentation.
 
 ## Recovery Procedures
 
@@ -152,7 +153,7 @@ The dual-target design addresses host-loss and cloud-outage scenarios while pres
 - Database and filesystem layers have distinct consistency roles.
 - Retention and transfer behaviour can be automated and alerted.
 - The design can cover existing stateful services and the configured oCIS filesystem paths.
-- Backup creation remains traceable to Forgejo Actions history once implemented.
+- Backup creation and transfer remain traceable to Forgejo Actions history after execution evidence is available.
 
 ## Negative Consequences
 
@@ -160,6 +161,7 @@ The dual-target design addresses host-loss and cloud-outage scenarios while pres
 - Google Drive recovery depends on external service availability and account access.
 - Large filesystem archives may consume significant Home Server and network capacity.
 - Backup creation alone does not provide recovery assurance without restore tests.
+- Deployment and backup jobs queue behind one another because the shared runner has capacity one.
 
 ## Risks
 
@@ -175,11 +177,12 @@ The dual-target design addresses host-loss and cloud-outage scenarios while pres
 The current repository contains:
 
 - [Daily and weekly backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml)
+- [Shared Forgejo runner image and configuration](../../shared/forgejo/README.md)
 - [Backup and restore operations record](../operations/BACKUP-RESTORE.md)
 - [RFC-001 Reliability and Recovery Baseline](../rfc/RFC-001-reliability-and-recovery-baseline.md)
 - [ADR-006 oCIS filesystem configuration](ADR-006-adopt-ocis-with-local-filesystem-storage.md)
 
-No `nexora/runner-backup` image definition, Restic Home Server destination, Rclone Google Drive configuration, dual-target workflow, restore workflow, successful transfer evidence, or timed restore evidence is recorded as of 2026-10-03.
+Repository configuration now extends `depotrunner` with Restic, Rclone, and the PostgreSQL client; keeps the workflow on `ssh-deploy`; and defines both target contracts, same-host and target retention inputs, and integrity checks. No image-build result, successful transfer evidence, independently retrievable copy, restore workflow execution, or timed restore evidence is recorded as of 2026-10-04. Actual target locations and retention values remain in protected configuration.
 
 ## Related Documents
 
@@ -194,9 +197,9 @@ No `nexora/runner-backup` image definition, Restic Home Server destination, Rclo
 
 | Action | Owner | Due date | Status |
 |---|---|---|---|
-| Build or publish the `nexora/runner-backup` image with the decided tools | ServiceHub Architecture | TBD | Proposed |
-| Implement database dumps, archive creation, retention, Restic transfer, and Rclone synchronisation in Forgejo Actions | ServiceHub Architecture | TBD | Proposed |
-| Define protected target configuration, credentials, retention, encryption, and alerting without recording secret values | ServiceHub Architecture | TBD | Proposed |
-| Add oCIS configuration and persistent file storage to backup scope under ADR-006 | ServiceHub Architecture | TBD | Both paths present in current full-archive scope; dual-target transfer pending |
+| Build and validate the existing `depotrunner` image with the added backup tools | ServiceHub Architecture | TBD | Repository configuration added; build result pending |
+| Execute and validate database dumps, archive creation, retention, Restic transfer, and Rclone synchronisation in Forgejo Actions | ServiceHub Architecture | TBD | Repository implementation added; execution evidence pending |
+| Define protected target configuration, credentials, retention, encryption, and alerting without recording secret values | ServiceHub Architecture | TBD | Secret names and validation added; approved values and alerting pending |
+| Add oCIS configuration and persistent file storage to backup scope under ADR-006 | ServiceHub Architecture | TBD | Covered by full-archive and target-transfer configuration; execution pending |
 | Implement and execute isolated restores from both targets and record integrity, duration, and validation evidence | ServiceHub Architecture | TBD | Proposed |
 | Approve RPO and RTO values from measured restore evidence | George Li | TBD | Proposed |

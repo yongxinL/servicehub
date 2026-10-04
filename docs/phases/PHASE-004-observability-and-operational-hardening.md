@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: PHASE
 document_id: PHASE-004
 title: Observability and Operational Hardening
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Planning
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - phase
@@ -35,7 +35,7 @@ Establish observable services, governed operational procedures, tested backup an
 
 - Grafana Alloy, VictoriaMetrics, VictoriaLogs, Grafana provisioning, and dashboards.
 - Service health and logs.
-- Backup workflow and accepted dual-target recovery strategy.
+- Backup workflow and configured dual-target recovery strategy.
 - Runbook, service inventory, monitoring, and troubleshooting.
 - Test, release, lesson, and investigation governance.
 - Security and privileged-access review.
@@ -46,6 +46,7 @@ Establish observable services, governed operational procedures, tested backup an
 - [Alloy configuration](../../shared/grafana/alloy/config.alloy)
 - [Grafana provisioning and dashboards](../../shared/grafana/)
 - [Backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml)
+- [Forgejo runner and backup workflow runtime](../../shared/forgejo/README.md#backup-workflow-runtime)
 - Operations documentation under [docs/operations/](../operations/)
 - Test and release registers under [docs/testing/](../testing/) and [docs/releases/](../releases/)
 
@@ -62,7 +63,7 @@ Establish observable services, governed operational procedures, tested backup an
 - Healthy metrics and log stores.
 - Working Alloy host and Docker access.
 - Existing backup target secrets and backup root.
-- Protected Home Server and Google Drive target access under ADR-007.
+- Protected Home Server and Google Drive target access under ADR-007; secret names are configured but values are not recorded here.
 - Approved retention, RPO, RTO, and encryption controls.
 - Notification channels and owners.
 - Staging runtime and release evidence.
@@ -72,11 +73,13 @@ Establish observable services, governed operational procedures, tested backup an
 - [x] Metrics and log collection configuration exists.
 - [x] Grafana data sources and dashboards are provisioned.
 - [x] Backup workflow implements database dumps and full archives.
+- [x] Restic, Rclone, and PostgreSQL client configuration exists on the shared Forgejo runner image.
+- [x] Restic Home Server and Rclone Google Drive transfer, integrity-check, and retention configuration exists.
 - [x] Operations and test documentation exists in this documentation set.
 - [ ] Validate metrics, logs, dashboards, and retention.
 - [ ] Define alert severities, notifications, owners, and alert tests.
 - [x] Record the recovery-baseline decision in RFC-001 and ADR-007.
-- [ ] Implement Home Server and Google Drive backup copies under ADR-007.
+- [ ] Build the extended shared runner image, then execute and verify Home Server and Google Drive copies under ADR-007.
 - [ ] Execute restoration and record evidence.
 - [ ] Define and test rollback.
 - [ ] Define and execute the first governed release.
@@ -85,7 +88,7 @@ Establish observable services, governed operational procedures, tested backup an
 ## Risks
 
 - Telemetry exists without confirmed data or alert delivery.
-- Backups remain on the same host and may lack encryption.
+- Dual-target configuration exists but transfers and encryption controls are not runtime-validated.
 - Restore is untested.
 - Privileged and host-mounted collectors increase blast radius.
 - Documentation may drift from implementation.
@@ -113,10 +116,10 @@ Establish observable services, governed operational procedures, tested backup an
 
 ## Completion Summary
 
-**Retrospective validation required.** Collection and backup configuration exist; alert delivery, restoration, rollback, release, and phase completion do not.
+**Retrospective validation required.** Collection, same-host backup, and dual-target configuration exist; target transfers, alert delivery, restoration, rollback, release, and phase completion are not validated.
 
 ## Follow-up Work
 
-- Implement and validate [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
+- Execute and validate [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
 - Execute operational sections of [TEST-001](../testing/TEST-001-platform-baseline-validation.md).
 - Define the first release under [release governance](../releases/README.md).

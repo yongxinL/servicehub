@@ -1,5 +1,5 @@
 services:
-    # depotsvcinit — one-shot: create Depot data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
+    # depotsvcinit — one-shot: create Forgejo and runner data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
     depotsvcinit:
         command: >
             sh -c 'mkdir -p /data /var/lib/forgejo-runner &&

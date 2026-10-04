@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ROADMAP
 document_id: ROADMAP-001
 title: ServiceHub Roadmap
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Planning
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - roadmap
@@ -41,13 +41,13 @@ Current state is therefore **implemented in part, not yet verified as a governed
 - Traefik ingress, security middleware, TLS resolver configuration, and service routes.
 - PostgreSQL and MariaDB images with persistent bind mounts.
 - Authentik server and worker services.
-- Forgejo, host-mode runner, and repository workflows.
+- Forgejo, one host-mode Actions runner for deployment and backup jobs, and repository workflows.
 - Confluence and Open WebUI services.
-- Repository configuration for the `wbappcloudrv` oCIS service with Authentik OIDC and local filesystem paths.
+- Repository configuration for the `wbappmydrive` oCIS service with Authentik OIDC and local filesystem paths.
 - Hermes, LiteLLM, and llama.cpp AI services with configured local/cloud routing.
 - VictoriaMetrics, VictoriaLogs, Grafana Alloy, and Grafana provisioning.
 - Stalwart and Bulwark email services.
-- Daily PostgreSQL dump workflow and weekly full persistent-data archive workflow.
+- Daily PostgreSQL dump workflow, weekly full persistent-data archive workflow, and configured dual-target Restic and Rclone transfers.
 
 “Implemented” describes repository content only. Runtime results remain `Not yet verified`.
 
@@ -59,7 +59,7 @@ Current state is therefore **implemented in part, not yet verified as a governed
 4. Validate Authentik OIDC, local storage, routing, file operations, and recovery for oCIS.
 5. Validate phase evidence against Git history and runtime behaviour.
 6. Execute the platform baseline test in staging.
-7. Implement the ADR-007 Home Server and Google Drive backup targets, restoration tests, retention, RPO, and RTO.
+7. Build the extended existing runner image and execute the ADR-007 Home Server and Google Drive backup configuration; then record restoration, retention, RPO, and RTO evidence.
 8. Define the first governed release and its rollback evidence.
 
 ## Phase Sequence
@@ -78,6 +78,7 @@ No dates are assigned because the repository does not provide a reliable schedul
 | Feature | Phase | Priority | Decision | Delivery status |
 |---|---|---|---|---|
 | Cloud Drive Platform | Infrastructure Services | High | [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) | Repository configuration added; runtime validation pending |
+| Dual-Target Backup and Recovery | Observability and Operational Hardening | High | [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) | Repository configuration added; runtime and recovery evidence pending |
 
 Deploy oCIS integrated with Authentik SSO to provide personal and family storage, shared spaces, secure file sharing, and a foundation for future office integration.
 
@@ -86,7 +87,7 @@ Deploy oCIS integrated with Authentik SSO to provide personal and family storage
 - oCIS deployment with Traefik routing and health checks.
 - Authentik OIDC integration.
 - Persistent local configuration and file-storage paths included in backup scope.
-- Backup automation and Google Drive replication under ADR-007.
+- Backup automation and Google Drive replication configuration under ADR-007; execution evidence pending.
 - Recovery runbook and restoration evidence.
 - Monitoring dashboards and alert validation.
 
@@ -94,7 +95,7 @@ Deploy oCIS integrated with Authentik SSO to provide personal and family storage
 
 - Authentik, backed by PostgreSQL.
 - Forgejo Actions.
-- The dedicated backup runner and protected backup-target credentials.
+- Backup tooling on the existing runner and protected backup-target credentials.
 - Traefik.
 - An approved staging environment and validation evidence.
 
@@ -117,7 +118,7 @@ Deploy oCIS integrated with Authentik SSO to provide personal and family storage
 - Git-crypt recovery key availability.
 - Tested backups before recovery claims.
 - Home Server and Google Drive access for the ADR-007 backup targets.
-- Backup runner image, retention policy, and protected credentials.
+- Shared Forgejo Actions runner tooling, retention policy, and protected credentials.
 - DNS and certificate state for TLS validation.
 - Runtime logs and metrics for observability validation.
 

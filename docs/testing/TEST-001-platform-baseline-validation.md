@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: TEST
 document_id: TEST-001
 title: Platform Baseline Validation
-version: "1.0"
+version: "1.1"
 status: Not Executed
 lifecycle_stage: Testing
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - testing
@@ -20,6 +20,7 @@ related_documents:
   - DEPLOYMENT-ARCHITECTURE
   - BACKUP-RESTORE
   - ADR-006
+  - ADR-007
   - RELEASE-INDEX
 ---
 
@@ -54,7 +55,7 @@ This document is a test plan, not a test result.
 | TC-008 | TLS | Request each intended HTTPS route. Expect a trusted certificate in production mode or the approved self-signed result in staging. | Certificate chain and browser or CLI result |
 | TC-009 | Authentik authentication | Complete login through Authentik using an approved test account. Expect successful authentication without exposing credentials. | Redacted result |
 | TC-010 | Traefik forward authentication | Access Grafana unauthenticated and authenticated. Expect redirect to Authentik and authorised access after login. | Redirect and access evidence |
-| TC-011 | Forgejo and runner | Verify Forgejo health, registration controls, runner health, label availability, and a minimal workflow. The repository uses Forgejo Actions, not a `.gitea` workflow directory. | Service and workflow logs |
+| TC-011 | Forgejo and runner | Verify Forgejo health, registration controls, `depotrunner` health, the `ssh-deploy` label, backup-tool availability, and minimal deployment and backup workflows. The repository uses Forgejo Actions, not a `.gitea` workflow directory. | Service and workflow logs |
 | TC-012 | Deployment | Dispatch a controlled staging deployment for one low-impact application service. Expect checkout, environment merge, build, and `--no-deps` deployment to complete. | Workflow log |
 | TC-013 | Rollback | Restore the previous approved version using a documented method. Expect services and data to remain valid. | Rollback record; procedure currently TBD |
 | TC-014 | PostgreSQL | Confirm all default PostgreSQL consumers connect, health is healthy, and data persists across a controlled restart. | Query and restart evidence |
@@ -68,8 +69,9 @@ This document is a test plan, not a test result.
 | TC-022 | Dashboards | Open provisioned Grafana dashboards and confirm data sources return data. | Dashboard evidence |
 | TC-023 | Backup database | Dispatch a database backup in staging. Expect per-database dumps, globals dump, archive creation, permissions, and retention input validation. | Backup manifest and workflow log |
 | TC-024 | Backup full archive | Dispatch a full backup when approved. Expect an `APPS_DATA` archive and recorded exclusions. | Archive manifest and workflow log |
-| TC-025 | Restore | Restore database dumps and filesystem data into an isolated environment, then validate services. | Restore steps, duration, integrity checks, and service results |
+| TC-025 | Restore | Restore database dumps and filesystem data from each accepted target into isolated environments, then validate services. | Restore steps, duration, integrity checks, and service results |
 | TC-026 | oCIS cloud drive | Confirm both oCIS paths persist across a controlled restart; complete Authentik OIDC sign-in and sign-out; verify account provisioning, upload, download, encoded WebDAV paths, and sharing controls. | Redacted OIDC result, service logs, file checks, and persistence evidence |
+| TC-027 | Dual-target backup | Dispatch a controlled backup and expect Restic repository check, Rclone destination comparison, and all configured retention operations to succeed without exposing target locations or retention values. | Redacted workflow log, artifact manifest, and integrity results |
 
 ## Pass Criteria
 

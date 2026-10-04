@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-003
 title: Use PostgreSQL as the Primary Relational Platform
-version: "1.0"
+version: "1.1"
 status: Accepted
 decision_basis: Inferred from current implementation
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-04
 tags:
   - servicehub
   - architecture
@@ -70,7 +70,7 @@ All default database consumers in `compose/*.yml` connect to `dbsvcpgsqldb`. `en
 - No database replication or failover in the repository.
 - Full filesystem backup of live database files is only crash-consistent.
 - Database credentials are shared across several services.
-- Restore procedure and data integrity checks are not implemented in repository documentation.
+- Restore procedure documentation exists, but no executed restore or database integrity evidence is recorded.
 
 ## Implementation Evidence
 
@@ -89,6 +89,5 @@ All default database consumers in `compose/*.yml` connect to `dbsvcpgsqldb`. `en
 ## Follow-up Actions
 
 - Validate all PostgreSQL consumers and health dependencies.
-- Define and test a PostgreSQL restore procedure.
+- Execute and validate the documented PostgreSQL restore procedure.
 - Decide whether credential separation is required.
-

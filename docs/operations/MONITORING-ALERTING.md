@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: MONITORING-ALERTING
 title: ServiceHub Monitoring and Alerting
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-04
 tags:
   - servicehub
   - operations
@@ -20,6 +20,8 @@ related_documents:
   - ARCHITECTURE
   - SERVICE-INVENTORY
   - TEST-001
+  - BACKUP-RESTORE
+  - ADR-007
 ---
 
 # ServiceHub Monitoring and Alerting
@@ -171,8 +173,8 @@ A future test must:
 
 | Data | Repository evidence | Decision |
 |---|---|---|
-| Database backup archives | Default retention 182 days | Confirm required value |
-| Full archives | No retention rule evident | TBD |
+| Database backup archives | Approved protected retention input; value not tracked here | Confirm required value and successful retention execution |
+| Full archives | Approved protected retention input; value not tracked here | Confirm required value and successful retention execution |
 | VictoriaMetrics | No retention option in Compose | TBD |
 | VictoriaLogs | No retention option in Compose | TBD |
 | Grafana database | Persisted indefinitely under `APPS_DATA` | Review growth |
@@ -184,4 +186,3 @@ A future test must:
 - [Service inventory](SERVICE-INVENTORY.md)
 - [Troubleshooting](TROUBLESHOOTING.md)
 - [RFC-001](../rfc/RFC-001-reliability-and-recovery-baseline.md)
-

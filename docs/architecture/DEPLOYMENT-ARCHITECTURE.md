@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: DEPLOYMENT-ARCHITECTURE
 title: ServiceHub Deployment Architecture
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-04
 tags:
   - servicehub
   - architecture
@@ -19,6 +19,7 @@ related_documents:
   - ARCHITECTURE
   - RUNBOOK
   - TEST-001
+  - ADR-007
 ---
 
 # ServiceHub Deployment Architecture
@@ -52,10 +53,10 @@ The repository does not contain evidence that a production deployment, certifica
 
 - `depotrunner` runs Forgejo Actions jobs in host mode on the `ssh-deploy` label.
 - Jobs execute inside the runner container, not in per-job containers.
-- The runner has Git, OpenSSH, `sshpass`, and deployment tooling in its image.
+- The shared runner has Git, OpenSSH, `sshpass`, Bash, jq, Restic, Rclone, and the PostgreSQL client.
 - It reaches Forgejo internally for checkout when the internal server URL is used.
 - Remote targets use the public Forgejo URL supplied by `DEPOT_PUBLIC_URL`.
-- Backup and deployment workflows share the runner's single-capacity concurrency behaviour.
+- All deployment, test, and backup jobs use capacity one, so long jobs queue behind one another.
 
 ## SSH Deployment Flow
 
@@ -70,6 +71,12 @@ The repository does not contain evidence that a production deployment, certifica
 9. Run `docker compose up -d --build --no-deps` for the selected application service or all non-foundational services.
 
 The workflow validates SSH connectivity and repository inputs, but it does not perform post-deployment application checks.
+
+## Backup Transfer Flow
+
+The `backup-data` workflow runs on the existing `depotrunner`. It validates protected target and retention inputs, creates database and full-data archives on the target, applies same-host retention, streams archives to the Restic Home Server repository, runs a Restic integrity check, copies archives through the configured Rclone destination, compares each destination file, and applies target retention.
+
+The repository contains this configuration. Image build, target connectivity, successful transfers, integrity results, retention execution, and restores are `Not yet verified`.
 
 ## TLS Differences
 
@@ -116,4 +123,3 @@ No explicit rollback workflow or previous-version restoration procedure exists. 
 - Rollback procedure and first governed release.
 
 Use [TEST-001](../testing/TEST-001-platform-baseline-validation.md) as the baseline validation plan.
-

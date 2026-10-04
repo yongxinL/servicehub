@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: RFC
 document_id: RFC-001
 title: ServiceHub Reliability and Recovery Baseline
-version: "1.0"
+version: "1.1"
 status: Accepted
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - reliability
@@ -38,13 +38,15 @@ The repository implements a Forgejo Actions backup workflow that:
 - Creates one `pg_dump` per non-template PostgreSQL database.
 - Creates a role-globals `pg_dumpall` output.
 - Packs database dumps into one daily archive.
-- Prunes database archives using a configurable retention value with a default of 182 days.
+- Requires approved protected retention inputs for database and full archives.
 - Creates a full `APPS_DATA` archive on Sundays or on demand.
 - Writes archives under a repository-secret backup root on the same target host.
+- Runs on the existing Forgejo runner, whose image is extended with Restic, Rclone, SSH, the PostgreSQL client, Bash, and jq.
+- Configures Restic transfer to the Home Server and Rclone transfer to Google Drive, with repository or file integrity checks and target retention.
 
 The workflow explicitly states that the live full archive is crash-consistent for database directories, while the database dumps are the transaction-consistent layer.
 
-There is no committed restore workflow, off-host copy, encryption step, restoration evidence, RPO, or RTO.
+There is no successful image-build or transfer evidence, executed restore workflow, encryption-step evidence, restoration evidence, RPO, or RTO. Actual target locations and retention values remain in protected configuration.
 
 ## Evaluation
 
@@ -68,9 +70,9 @@ A host image can recover the operating system and Docker installation quickly bu
 
 ### Off-Host Copies
 
-**Assessment:** required for disaster or host-loss recovery; not present in the repository.
+**Assessment:** required for disaster or host-loss recovery; repository configuration is present but not runtime-validated.
 
-Archives written only beneath the configured backup root do not protect against loss of the target host.
+The workflow configures Restic and Rclone transfers in addition to the same-host archive. Until both target copies execute successfully and are independently retrieved, repository configuration does not protect against loss of the target host.
 
 ### Encryption
 
@@ -80,9 +82,9 @@ The repository documents git-crypt protection for self-signed certificates and s
 
 ### Retention
 
-**Assessment:** partially implemented for database archives.
+**Assessment:** configured for same-host and target archives; execution not evidenced.
 
-The default database retention is 182 days. Full-archive retention, off-host retention, and legal or family retention requirements are `TBD`.
+The workflow requires protected same-host, Restic, and Rclone retention inputs and fails when retention operations fail. Approved values and successful retention evidence remain `TBD` and are not recorded in tracked documentation.
 
 ### RPO and RTO
 
@@ -92,36 +94,34 @@ The schedule suggests a database RPO candidate of up to one day, but repository 
 
 ### Restoration Testing
 
-**Assessment:** not implemented.
+**Assessment:** procedure documented; execution not completed or tested.
 
-No restore procedure, isolated recovery environment, integrity check, timed test, or evidence template exists in the repository.
+The repository documents a restore sequence, validation requirements, and an evidence template. No isolated recovery execution, timed test, or recorded result exists.
 
 ## Recommended Direction
 
 **Accepted through ADR-007:** use database-native PostgreSQL backups plus protected filesystem backups, a Restic Home Server primary target, a Google Drive off-site copy, and periodic restoration tests.
 
-The recommended design should include:
+The repository now configures backup creation, dual-target transfer, integrity checks, and separate retention. The remaining assurance work is:
 
-1. Daily transaction-consistent PostgreSQL dumps.
-2. Regular persistent-data archives that include all non-database bind mounts.
-3. Copy protected backup sets to the Home Server with Restic over SSH/SFTP.
-4. Copy protected backup sets independently to Google Drive with Rclone.
-5. Separate retention rules for database and filesystem layers.
-6. Documented restoration into an isolated environment.
-7. Owner-approved RPO and RTO values derived from measured restores.
-8. Scheduled restore rehearsals with recorded duration, integrity, and service validation.
-9. Protected recovery material for `.env`, git-crypt keys, ACME state, and repository secrets.
+1. Execute and validate daily transaction-consistent PostgreSQL dumps and persistent-data archives.
+2. Verify Home Server Restic and Google Drive Rclone copies independently.
+3. Verify separate retention rules for database and filesystem layers.
+4. Restore into an isolated environment.
+5. Approve RPO and RTO values from measured restores.
+6. Schedule restore rehearsals with recorded duration, integrity, and service validation.
+7. Validate protected recovery material for `.env`, git-crypt keys, ACME state, and repository secrets.
 
 ## Decision
 
-Accepted on 2026-10-03 through [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). The strategy is decided but not implemented or tested. RPO, RTO, retention, encryption controls, successful transfers, and restoration evidence remain `TBD` until verified.
+Accepted on 2026-10-03 through [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is added but not tested. RPO, RTO, approved retention values, encryption controls, successful transfers, and restoration evidence remain `TBD` until verified.
 
 ## Consequences
 
 - Multiple backup layers increase storage and operational cost.
 - Encryption and off-host transfer require key and credential governance.
 - Restore rehearsals consume time and isolated resources.
-- The dedicated backup runner and both target integrations require new tooling, configuration, and validation.
+- The shared runner toolchain and both target integrations require build, execution, credential-governance, and recovery validation.
 
 ## Implementation and Assurance Criteria
 
@@ -136,6 +136,7 @@ Accepted on 2026-10-03 through [ADR-007](../adr/ADR-007-adopt-dual-target-backup
 ## Related Documents
 
 - [Backup and restore](../operations/BACKUP-RESTORE.md)
+- [Forgejo runner and backup workflow runtime](../../shared/forgejo/README.md#backup-workflow-runtime)
 - [Monitoring and alerting](../operations/MONITORING-ALERTING.md)
 - [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
 - [Observability and hardening phase](../phases/PHASE-004-observability-and-operational-hardening.md)

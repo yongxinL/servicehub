@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: DATA-FLOW
 title: ServiceHub Data Flow
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - architecture
@@ -64,7 +64,7 @@ Other application integrations remain recommendations or runtime configuration n
 ```mermaid
 flowchart LR
     U[User or sync client] --> T[Traefik]
-    T --> O[wbappcloudrv / oCIS]
+    T --> O[wbappmydrive / oCIS]
     O <-->|OIDC| A[Authentik]
     A --> P[(PostgreSQL)]
     O <--> C[(oCIS config)]
@@ -135,17 +135,17 @@ Alloy discovers Docker container logs through the Docker socket, applies GeoIP e
 
 ## Backup and Restore Flow
 
-The backup workflow runs on the remote target, discovers `APPS_DATA`, creates per-database PostgreSQL dumps and a globals dump, packs them into a daily archive, and optionally archives the full `APPS_DATA` tree. Full archives are taken on Sundays in `auto` mode.
+The backup workflow runs on the existing `depotrunner` with the `ssh-deploy` label, SSHes to the remote target, discovers `APPS_DATA`, creates per-database PostgreSQL dumps and a globals dump, packs them into a daily archive, and optionally archives the full `APPS_DATA` tree. Full archives are taken on Sundays in `auto` mode.
 
-The database archive is transaction-consistent because it uses `pg_dump`; the live filesystem archive is only crash-consistent for database directories. Backups remain under the configured backup root unless an external process moves them. No restore flow is implemented in the repository.
+The database archive is transaction-consistent because it uses `pg_dump`; the live filesystem archive is only crash-consistent for database directories. The created files remain under the configured backup root and are streamed or copied to both accepted targets by the same workflow.
 
 Both `${APPS_DATA}/cloud/ocis/config` and `${APPS_DATA}/cloud/ocis/data` are in the current full-archive scope, but no oCIS-specific consistency or restore validation exists.
 
-[ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts a target flow in which Forgejo Actions uses `nexora/runner-backup` to copy database dumps and persistent-data archives to a Home Server with Restic over SSH/SFTP and independently to Google Drive with Rclone. The target flow is not implemented or tested.
+[ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts a target flow in which Forgejo Actions uses the existing `depotrunner` toolchain to copy database dumps and persistent-data archives to a Home Server with Restic over SSH/SFTP and independently to Google Drive with Rclone. Repository configuration for this flow is present, but transfers and restores are not runtime-validated.
 
 ```mermaid
 flowchart LR
-    W[Forgejo backup workflow] --> SSH[SSH target]
+    W[Forgejo backup workflow on ssh-deploy] --> SSH[SSH target]
     SSH --> P[(PostgreSQL)]
     P --> D[Daily database archive]
     SSH --> F[APPS_DATA filesystem archive]
@@ -157,8 +157,8 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    W[Accepted Forgejo Actions target] --> B[nexora/runner-backup]
+    W[Accepted Forgejo Actions target] --> B[depotrunner backup toolchain]
     B --> D[Database dumps and data archives]
-    D -.->|Not implemented| H[Home Server via Restic and SSH/SFTP]
-    D -.->|Not implemented| G[Google Drive via Rclone]
+    D -->|Configured; runtime pending| H[Home Server via Restic and SSH/SFTP]
+    D -->|Configured; runtime pending| G[Google Drive via Rclone]
 ```

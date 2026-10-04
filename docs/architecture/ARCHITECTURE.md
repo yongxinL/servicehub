@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: ARCHITECTURE
 title: ServiceHub Architecture
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - architecture
@@ -38,7 +38,7 @@ flowchart LR
     Traefik --> Authentik[Authentik]
     Traefik --> Forgejo[Forgejo]
     Traefik --> Web[Confluence and Open WebUI]
-    Traefik --> Cloud[wbappcloudrv (oCIS)]
+    Traefik --> Cloud[wbappmydrive (oCIS)]
     Traefik --> AI[Clients and Hermes]
     Traefik --> Grafana[Grafana]
     Traefik --> Email[Stalwart and Bulwark]
@@ -53,6 +53,9 @@ flowchart LR
     Web --> PostgreSQL
     Email --> PostgreSQL
     Runner[Forgejo Actions runner] --> SSH[Staging or production SSH]
+    Runner --> SourceSSH[Backup source SSH]
+    Runner --> Home[Home Server via Restic]
+    Runner --> Drive[Google Drive via Rclone]
     Collector[Alloy] --> Metrics[(VictoriaMetrics)]
     Collector --> Logs[(VictoriaLogs)]
     Metrics --> Grafana
@@ -81,7 +84,7 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 | Relational data | `compose/dbsvc.yml` | `dbsvcpgsqldb`, `dbsvcmariadb` |
 | Identity | `compose/authn.yml` | `authnservice`, `authnworkers`, `authnsvcinit` |
 | Developer services | `compose/depot.yml` | `depotservice`, `depotrunner`, `depotsvcinit` |
-| Web applications | `compose/wbapp.yml` | `wbappcmshome`, `wbappwebchat`, `wbappcloudrv`, `wbappcloudrvinit` |
+| Web applications | `compose/wbapp.yml` | `wbappcmshome`, `wbappwebchat`, `wbappmydrive`, `wbappdriveinit` |
 | AI platform | `compose/aiagn.yml` | `aiagnherm00`, `aiagnlitellm`, `aiagnchatllm`, `aiagnhermint` |
 | Observability | `compose/obsvc.yml` | `obsvcgrafaly`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafana`, `obsvcgrafint` |
 | Email | `compose/poste.yml` | `posteservice`, `postewebmail`, `postesvcinit` |
@@ -92,7 +95,7 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 - **Docker network:** Included services communicate through `servicehub_subnet`; databases publish no host ports.
 - **Identity boundary:** Grafana uses Authentik forward auth; oCIS uses an Authentik OIDC authorization-code flow. Authentik itself is application-authenticated. Other Authentik integrations vary and are not all configured in Compose.
 - **Privileged boundary:** Traefik, Authentik's worker, and Alloy have Docker socket access; Alloy is privileged and mounts host filesystem paths.
-- **Deployment boundary:** Forgejo runner jobs reach remote hosts over SSH using repository secrets.
+- **Deployment and backup boundaries:** Forgejo runner jobs reach remote hosts over SSH using protected repository secrets; backup transfer credentials are supplied only to the backup workflow environment.
 - **Direct-host boundary:** Hermes, LiteLLM, llama.cpp, VictoriaMetrics, VictoriaLogs, and Stalwart publish selected host ports independent of Traefik.
 
 These boundaries are Confirmed from configuration. Their security effectiveness requires runtime review.
@@ -105,7 +108,7 @@ These boundaries are Confirmed from configuration. Their security effectiveness 
 - **VictoriaLogs:** log storage under `${APPS_DATA}/victorialogs`.
 - **Grafana:** dashboard and alert-rendering state under `${APPS_DATA}/grafana`.
 
-The `wbappcloudrv` oCIS service uses local filesystem storage and has no dedicated PostgreSQL database. PostgreSQL continues to store Authentik identity data used by the OIDC flow. Repository configuration is recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md); runtime authentication and file operations remain unvalidated.
+The `wbappmydrive` oCIS service uses local filesystem storage and has no dedicated PostgreSQL database. PostgreSQL continues to store Authentik identity data used by the OIDC flow. Repository configuration is recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md); runtime authentication and file operations remain unvalidated.
 
 ## Identity Architecture
 
@@ -139,9 +142,9 @@ Grafana alerting is enabled with `render_only_panels=true`. No notification chan
 
 ## Deployment Architecture
 
-Forgejo Actions workflows run on the host-mode `ssh-deploy` runner. Deployment SSHes to a staging or production target, updates a Git checkout, restores git-crypt and environment material when configured, and rebuilds application services with `--no-deps`. Foundational services are excluded from CI deployment.
+Forgejo Actions deployment workflows run on the host-mode `ssh-deploy` runner. Deployment SSHes to a staging or production target, updates a Git checkout, restores git-crypt and environment material when configured, and rebuilds application services with `--no-deps`. Foundational services are excluded from CI deployment.
 
-The current backup workflow SSHes separately and creates PostgreSQL dumps and a periodic `APPS_DATA` archive on the target host. [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts additional Home Server and Google Drive targets, but those transfers are not implemented in the repository.
+The backup workflow runs on the existing `depotrunner` with the `ssh-deploy` label. It SSHes to the target to create PostgreSQL dumps and a periodic `APPS_DATA` archive, then configures Restic transfer to the Home Server and Rclone transfer to Google Drive under [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is present; image build, transfers, integrity checks, retention, and restores are not runtime-validated.
 
 See [deployment architecture](DEPLOYMENT-ARCHITECTURE.md) for details and validation gaps.
 
@@ -174,7 +177,7 @@ Configuration files under `shared/` are mostly read-only mounts. Off-host durabi
 ## Open Architecture Concerns
 
 - Runtime validation of routes, TLS, identity, health, AI routing, telemetry, and backups.
-- Implementation and validation of the ADR-007 restore procedure, off-host protection, RPO, and RTO.
+- Runtime validation of the configured ADR-007 transfers and retention, plus execution of the restore procedure, RPO, and RTO evidence.
 - Alert notification, ownership, and testing.
 - High-privileged container and host mount review.
 - Authentik application coverage and break-glass account controls.

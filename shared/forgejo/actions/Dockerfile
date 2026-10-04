@@ -20,6 +20,9 @@ RUN apk add --no-cache \
     nodejs \
     npm \
     openssh-client \
+    postgresql-client \
+    restic \
+    rclone \
     sshpass
 
 COPY entrypoint.sh /usr/local/bin/runner-entrypoint

@@ -52,16 +52,16 @@ Container settings applied by the compose file:
 
 ## Forgejo Actions runner
 
-Workflows are executed by the Forgejo runner (`depotrunner`), built from [`shared/forgejo/actions/Dockerfile`](actions/Dockerfile) (`FROM code.forgejo.org/forgejo/runner:${IMAGE_TAG}`).
+All Forgejo Actions workflows are executed by `depotrunner`, built from [`shared/forgejo/actions/Dockerfile`](actions/Dockerfile). The existing image also contains the PostgreSQL client, Restic, and Rclone required by the backup workflow.
 
 | Detail | Value |
 |---|---|
 | Service name | `depotrunner` |
 | Compose file | `compose/depot.yml` |
-| Runner config | [`shared/forgejo/actions/config.yml`](actions/config.yml) (bind-mounted read-only at `/etc/forgejo-runner/config.yml`) |
-| Registration data | `${APPS_DATA}/platform/buildexec` (mounted at `/var/lib/forgejo-runner`) |
-| Registration | Runner writes `.runner` on first boot from `DEPOT_RUNNER_SECRET`; the same secret must be registered once on the Forgejo side (see [Setup](#setup-first-boot)) |
-| Labels | `ssh-deploy:host` — host mode: jobs run directly in the runner container; workflows declare `runs-on: ssh-deploy` |
+| Runner config | [`actions/config.yml`](actions/config.yml) (read-only at `/etc/forgejo-runner/config.yml`) |
+| Registration data | `${APPS_DATA}/platform/buildexec` |
+| Registration | Runner writes `.runner` on first boot from `DEPOT_RUNNER_SECRET`; the same secret must be registered on the Forgejo side (see [Setup](#setup-first-boot)) |
+| Labels | `ssh-deploy:host` — deployment, backup, and test workflows declare `runs-on: ssh-deploy` |
 | Image tag | `DEPOT_RUNNER_VTAG` (default `13`) |
 | Health check | `pidof forgejo-runner` + `.runner` non-empty every 30 s (30 s startup delay) |
 | Depends on | `depotsvcinit` (completed), `depotservice` (healthy) |
@@ -85,6 +85,12 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 | `/var/lib/forgejo-runner` (depotrunner) | `${APPS_DATA}/platform/buildexec` | Runner registration (`.runner`) |
 
 `depotsvcinit` runs as root and normalises ownership to UID/GID `1000` on every boot, so the directories can be created empty beforehand.
+
+## Backup Workflow Runtime
+
+The [`backup-data`](../../.forgejo/workflows/30-prod-backup-services.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `restic`, `rclone`, `postgresql-client`, `bash`, `jq`, OpenSSH, and `sshpass`, so database dumps, archive transfers, integrity checks, and retention share the same host-mode runner as deployment workflows.
+
+Because the runner has capacity one, long backup and deployment jobs queue behind each other. Protected target, credential, and retention values remain in Forgejo Actions secrets and are documented by name in [backup and restore](../../docs/operations/BACKUP-RESTORE.md) and the [root README](../../README.md#required-actions-secrets-and-variables).
 
 ## Setup (first boot)
 
@@ -155,7 +161,7 @@ docker compose logs -f depotrunner
 
 - **Edge protection** — the router carries `secure-chain` (rate limit + security headers); compose sets `FORGEJO__service__DISABLE_REGISTRATION=true`, so accounts are created by admins only. See [Traefik — Security middlewares](../traefik/README.md#security-middlewares).
 - **Delegate sign-in to Authentik** — configure an OAuth2/OIDC source (Site Administration → Identity & Access → OAuth2) pointing at the `authnservice` issuer; MFA policies configured in Authentik then apply to Forgejo logins too. Keep one local admin as break-glass with 2FA enabled (Authentication → Security → 2FA).
-- **Runner secret scope** — the `DEPOT_RUNNER_SECRET` is only valid for runner registration; rotate it from Site Administration → Actions → Runners if it ever leaks.
+- **Runner secret scope** — `DEPOT_RUNNER_SECRET` is only valid for runner registration; rotate it from Site Administration → Actions → Runners if it leaks.
 
 ### Reset (destructive)
 
@@ -179,5 +185,6 @@ docker compose up -d depotservice depotrunner
 ## See also
 
 - [Root README — Deployment (Forgejo Actions)](../../README.md#deployment-forgejo-actions) — deploy workflow and secrets
+- [Backup and restore](../../docs/operations/BACKUP-RESTORE.md) — shared-runner backup scope, targets, and recovery
 - [PostgreSQL](../postgresql/README.md) — database backend
 - [Root README — Architecture](../../README.md#architecture-overview)

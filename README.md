@@ -51,7 +51,7 @@ Compose files are split by functional domain:
 | `compose/route.yml` | `route*` | Edge routing + TLS termination (Traefik) |
 | `compose/dbsvc.yml` | `dbsvc*` | Relational databases (MariaDB + PostgreSQL) |
 | `compose/authn.yml` | `authn*` | Authentication / SSO (Authentik) |
-| `compose/depot.yml` | `depot*` | Source control + CI (Forgejo + Forgejo Actions runner) |
+| `compose/depot.yml` | `depot*` | Source control, CI, and backups (Forgejo plus its Actions runner) |
 | `compose/wbapp.yml` | `wbapp*` | Homepage / CMS (Confluence), Open WebUI, and oCIS cloud drive |
 | `compose/aiagn.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
 | `compose/obsvc.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
@@ -69,7 +69,7 @@ graph TD
         Traefik -->|git.domain| Forgejo[depotservice\nForgejo + Actions]
         Traefik -->|www.domain + apex| Confluence[wbappcmshome\nConfluence]
         Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
-        Traefik -->|drive.domain| Cloud[wbappcloudrv\nownCloud Infinite Scale]
+        Traefik -->|drive.domain| Cloud[wbappmydrive\nownCloud Infinite Scale]
         Traefik -->|space0.domain| Hermes[aiagnherm00\nHermes Agent]
         Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
         Traefik -->|mail.domain| Stalwart[posteservice\nStalwart Mail Server]
@@ -81,7 +81,7 @@ graph TD
         Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
         Confluence -->|depends on| Authentik
-        Forgejo -->|schedules| Runner[depotrunner\nForgejo Actions Runner]
+        Forgejo -->|dispatches| Runner[depotrunner\nForgejo Actions Runner]
         Hermes -->|hermes| LiteLLM[aiagnlitellm\nComplexity Router]
         LiteLLM -->|depends on| PostgreSQL
         LiteLLM -->|hephaestus| Gemma[aiagnchatllm\nllama.cpp Gemma-4 local]
@@ -92,7 +92,11 @@ graph TD
         VL -.->|receives| Alloy
     end
 
-    WPDeploy[deploy workflow\n.forgejo/workflows/00-prod-deploy-services.yml] -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
+    Runner -->|executes| WPDeploy[deploy workflow\n.forgejo/workflows/00-prod-deploy-services.yml]
+    Runner -->|executes| BackupFlow[backup workflow\n.forgejo/workflows/30-prod-backup-services.yml]
+    WPDeploy -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
+    BackupFlow -->|SSH create + transfer| Home[Home Server\nRestic]
+    BackupFlow -->|Rclone| Drive[Google Drive]
 ```
 
 **TLS strategy:**
@@ -108,7 +112,7 @@ servicehub/
 ├── .forgejo/
 │   └── workflows/
 │       ├── 00-prod-deploy-services.yml   # Forgejo Actions deployment workflow (self-contained)
-│       ├── 30-prod-backup-services.yml   # Forgejo Actions backup workflow (daily DB dumps + weekly APPS_DATA archive)
+│       ├── 30-prod-backup-services.yml   # Dual-target backup creation, transfer, integrity, and retention workflow
 │       └── 50-test-remote-access.yml     # Forgejo Actions SSH/Docker prerequisite test workflow
 ├── compose/                    # Per-domain Docker Compose files
 │   ├── route.yml               # Traefik (routetraefik)
@@ -161,8 +165,10 @@ servicehub/
 │   ├── openwebui/
 │   │   ├── README.md                     # Open WebUI service documentation
 │   │   └── Dockerfile
-│   ├── ocis/
-│   │   └── README.md                     # oCIS cloud-drive documentation
+│   ├── owncloud/
+│   │   ├── README.md                     # ownCloud Infinite Scale documentation
+│   │   ├── Dockerfile                    # wbappmydrive image build
+│   │   └── entrypoint.sh                 # oCIS init and server startup
 │   ├── fastcrw/                          # Optional web-search stack (not included by default)
 │   │   ├── README.md                     # FastCRW + renderers + SearXNG documentation
 │   │   ├── Dockerfile                    # aiagnfastcrw image build
@@ -238,7 +244,7 @@ servicehub/
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Forgejo — self-hosted Git service + Actions | `depotservice`, `depotrunner` (runner) | [shared/forgejo/README.md](shared/forgejo/README.md) |
+| Forgejo — self-hosted Git service + Actions | `depotservice`, `depotrunner` | [shared/forgejo/README.md](shared/forgejo/README.md) |
 
 Setup, configuration, Actions runner registration and operations are documented in the service README. Forgejo Actions also deploys the application services (databases, Authentik, Forgejo and Traefik are foundational and deployed manually) — see [Deployment (Forgejo Actions)](#deployment-forgejo-actions).
 
@@ -300,9 +306,9 @@ All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so GPU
 | Authentik — IdP / SSO | `authnservice`, `authnworkers` (+ one-shot `authnsvcinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
 | Confluence Data Center — homepage / CMS | `wbappcmshome` | [shared/confluence/README.md](shared/confluence/README.md) |
 | Open WebUI — browser LLM chat interface | `wbappwebchat` | [shared/openwebui/README.md](shared/openwebui/README.md) |
-| ownCloud Infinite Scale — family cloud drive | `wbappcloudrv` (+ one-shot `wbappcloudrvinit`) | [shared/ocis/README.md](shared/ocis/README.md) |
+| ownCloud Infinite Scale — family cloud drive | `wbappmydrive` (+ one-shot `wbappdriveinit`) | [shared/owncloud/README.md](shared/owncloud/README.md) |
 
-Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`. oCIS is served at `https://${WBCLOUD_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
+Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`. oCIS is served at `https://${WBDRIVE_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
 
 > **Database lists only initialize empty data directories.** Updating `PGRSQL_DBLIST` or `MARIADB_DB_LIST` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
 >
@@ -599,19 +605,29 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 |---|---|---|
 | `DEPOT_DEPLOY_TOKEN` | Forgejo → Settings → Applications → Access Token (repo read scope) | Forgejo access token used by the deploy step to clone/pull the repository on the remote server. |
 | `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates on the remote server after git clone/pull. Generate with `git-crypt init && git-crypt export-key ./servicehub.key`. |
+| `BACKUP_RESTIC_PASSWORD` | *(protected value; do not record)* | Restic repository password used by the backup workflow. |
+| `BACKUP_HOME_SSH_KEY` | *(protected private key; do not record)* | Private key used for the Restic Home Server repository over SSH/SFTP. |
+| `BACKUP_HOME_SSH_KNOWN_HOSTS` | *(verified SSH host keys; do not record)* | Home Server host keys used for strict SSH host verification. |
+| `BACKUP_RCLONE_CONFIG` | *(protected Rclone configuration; do not record)* | Rclone configuration containing the Google Drive remote and credentials. |
 
 ##### Staging (`STAG_*`)
 
 | Secret | Example value | Description |
 |---|---|---|
-| `STAG_SERVER_HOST` | `192.168.1.10` or `stag.example.com` | IP address or hostname of the staging server. Used for SSH connection. |
-| `STAG_SERVER_USER` | `deploy` | SSH login username on the staging server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
+| `STAG_SERVER_HOST` | *(configured host; do not record here)* | Hostname or address of the staging server used for SSH connection. |
+| `STAG_SERVER_USER` | *(configured account; do not record here)* | SSH login account on the staging server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
 | `STAG_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `STAG_SERVER_KEY` must be set** — not both required. Ignored if `STAG_SERVER_KEY` is also set. |
 | `STAG_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `STAG_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the staging server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
-| `STAG_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the staging server where the repo is cloned. Must include the repo directory name — git clones **into** this path. |
-| `STAG_BACKUP_ROOT` | `/mnt/backup` | Directory on the staging server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. Only needed if you run the backup workflow for staging. |
+| `STAG_DEPLOY_PATH` | *(configured absolute path; do not record here)* | Absolute path on the staging server where the repo is cloned. Must include the repo directory name — git clones **into** this path. |
+| `STAG_BACKUP_ROOT` | *(configured absolute path; do not record here)* | Directory on the staging server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. |
 | `STAG_BACKUP_EXCLUDE` | `webapps/confluence/logs,platform/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from staging backups. `*` and `?` globs are allowed; leave unset to archive everything. |
-| `STAG_DB_BACKUP_RETENTION_DAYS` | `182` | Optional retention for the database dumps under `STAG_BACKUP_ROOT`: dumps older than this many days are deleted on each run. Defaults to `182` (~6 months) when unset. |
+| `STAG_DB_BACKUP_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for database archives under `STAG_BACKUP_ROOT`. |
+| `STAG_BACKUP_LOCAL_FULL_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for full archives. |
+| `STAG_BACKUP_RESTIC_REPOSITORY` | *(approved `sftp:` repository URI; do not record here)* | Home Server Restic repository used as the primary recovery target. |
+| `STAG_BACKUP_RESTIC_KEEP_WITHIN` | *(approved duration; do not record here)* | Restic snapshot retention applied after integrity checking. |
+| `STAG_BACKUP_RCLONE_DESTINATION` | *(configured remote and path; do not record here)* | Google Drive destination used for the independent off-site copy. |
+| `STAG_BACKUP_RCLONE_DB_KEEP_AGE` | *(approved duration; do not record here)* | Rclone retention for database archives. |
+| `STAG_BACKUP_RCLONE_FULL_KEEP_AGE` | *(approved duration; do not record here)* | Rclone retention for full archives. |
 | `STAG_B64ENC_ENVS` | *(output of `setup.sh --encode STAG`)* | Gzip+base64-encoded `.env` file. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
 | `STAG_B64ENC_ACME` | *(leave the value empty for staging)* | Gzip+base64-encoded `acme.json` (Let's Encrypt certificates). For staging, create the secret with an **empty value** — Traefik uses the self-signed cert from `shared/traefik/advanced/selfsigncert/` instead. |
 | `STAG_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The staging server's public SSH host key. Prevents man-in-the-middle attacks by verifying the server identity before connecting. **Optional** — if unset the deploy script falls back to `ssh-keyscan` at runtime with a warning. |
@@ -620,14 +636,20 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 | Secret | Example value | Description |
 |---|---|---|
-| `PROD_SERVER_HOST` | `203.0.113.10` or `prod.example.com` | IP address or hostname of the production server. |
-| `PROD_SERVER_USER` | `deploy` | SSH login username on the production server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
+| `PROD_SERVER_HOST` | *(configured host; do not record here)* | Hostname or address of the production server used for SSH connection. |
+| `PROD_SERVER_USER` | *(configured account; do not record here)* | SSH login account on the production server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
 | `PROD_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `PROD_SERVER_KEY` must be set** — not both required. Ignored if `PROD_SERVER_KEY` is also set. |
 | `PROD_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `PROD_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the production server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
-| `PROD_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the production server where the repo is cloned. |
-| `PROD_BACKUP_ROOT` | `/mnt/backup` | Directory on the production server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. Required by the `backup-data` workflow. |
+| `PROD_DEPLOY_PATH` | *(configured absolute path; do not record here)* | Absolute path on the production server where the repo is cloned. |
+| `PROD_BACKUP_ROOT` | *(configured absolute path; do not record here)* | Directory on the production server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. |
 | `PROD_BACKUP_EXCLUDE` | `webapps/confluence/logs,platform/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from production backups. `*` and `?` globs are allowed; leave unset to archive everything. |
-| `PROD_DB_BACKUP_RETENTION_DAYS` | `182` | Optional retention for the database dumps under `PROD_BACKUP_ROOT`: dumps older than this many days are deleted on each run. Defaults to `182` (~6 months) when unset. |
+| `PROD_DB_BACKUP_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for database archives under `PROD_BACKUP_ROOT`. |
+| `PROD_BACKUP_LOCAL_FULL_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for full archives. |
+| `PROD_BACKUP_RESTIC_REPOSITORY` | *(approved `sftp:` repository URI; do not record here)* | Home Server Restic repository used as the primary recovery target. |
+| `PROD_BACKUP_RESTIC_KEEP_WITHIN` | *(approved duration; do not record here)* | Restic snapshot retention applied after integrity checking. |
+| `PROD_BACKUP_RCLONE_DESTINATION` | *(configured remote and path; do not record here)* | Google Drive destination used for the independent off-site copy. |
+| `PROD_BACKUP_RCLONE_DB_KEEP_AGE` | *(approved duration; do not record here)* | Rclone retention for database archives. |
+| `PROD_BACKUP_RCLONE_FULL_KEEP_AGE` | *(approved duration; do not record here)* | Rclone retention for full archives. |
 | `PROD_B64ENC_ENVS` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded production `.env`. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
 | `PROD_B64ENC_ACME` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded `acme.json` containing your Let's Encrypt certificates. Generated by `setup.sh --encode PROD` when `acme.json` is larger than 1 KB (i.e. after Traefik has issued real certificates). Restored only if the secret is newer than the existing file. |
 | `PROD_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The production server's public SSH host key. Strongly recommended for production. Run `ssh-keyscan <prod-host>` locally to get the value. |
@@ -637,7 +659,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 1. Open the repository in Forgejo (`https://${DEPOT_DOMAIN}`) → **Actions**
 2. Select the **deploy** workflow and click **Run workflow**
 3. Set the inputs:
-   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `wbappcloudrv`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `posteservice`, `postewebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `wbappmydrive`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `posteservice`, `postewebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
    - **environment** — `stag` (default) or `prod`
    - **branch** — branch to deploy (default `main`)
 4. Click the green **Run workflow** button — progress and logs appear in the workflow run page
@@ -646,7 +668,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 ### Data Backups (Forgejo Actions)
 
-The `30-prod-backup-services.yml` workflow backs up the target server under the `*_BACKUP_ROOT` secret in two layers:
+The `30-prod-backup-services.yml` workflow runs on the existing `depotrunner` with the `ssh-deploy` label, creates archives under `*_BACKUP_ROOT`, then configures Restic and Rclone copies to the two accepted targets. Repository configuration exists; successful transfers and restores are not yet evidenced.
 
 **Database dumps (daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `dbsvcpgsqldb` container while the services keep running, then packed into a single daily archive so each day has exactly one database backup file:
 
@@ -657,7 +679,7 @@ The `30-prod-backup-services.yml` workflow backs up the target server under the 
 #    <domain>-dbBK-globals-<YYYYMMDD>.sql
 ```
 
-Dumps older than `*_DB_BACKUP_RETENTION_DAYS` (default `182` days ≈ 6 months) are deleted by the same run — only files matching `*-dbBK-*` are pruned (the full archives are kept), and empty `<YYYY>/<YYYYMM>` directories are removed too.
+The workflow deletes database archives older than the approved `*_DB_BACKUP_RETENTION_DAYS` value — only files matching `*-dbBK-*` are pruned, and empty `<YYYY>/<YYYYMM>` directories are removed too. The approved value is not recorded here.
 
 **Full archive (weekly, Sunday)** — the whole persistent data volume, the `APPS_DATA` path read from the server's `.env`:
 
@@ -665,9 +687,9 @@ Dumps older than `*_DB_BACKUP_RETENTION_DAYS` (default `182` days ≈ 6 months) 
 <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
 ```
 
-The full archive includes `${APPS_DATA}/cloud/ocis/config` and `${APPS_DATA}/cloud/ocis/data`. oCIS does not add a PostgreSQL dump; restore both filesystem paths together and follow [shared/ocis/README.md](shared/ocis/README.md#backup-and-recovery).
+The full archive includes `${APPS_DATA}/cloud/ocis/config` and `${APPS_DATA}/cloud/ocis/data`. oCIS does not add a PostgreSQL dump; restore both filesystem paths together and follow [shared/owncloud/README.md](shared/owncloud/README.md#backup-and-recovery).
 
-`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env` (`oneLijia.com` → `oneLijia`), so the backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they are owned by `root` with mode `600` because the dumps contain mail and identity data and the archive contains `.env` secrets and ACME private keys. The workflow uses the same server secrets as the deploy workflow and requires passwordless sudo — see [Prerequisites](#prerequisites).
+`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data and the archive contains `.env` secrets and ACME private keys. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](#prerequisites).
 
 Paths can be excluded from the **full archive** with the optional `STAG_BACKUP_EXCLUDE` / `PROD_BACKUP_EXCLUDE` secrets — a comma-separated list relative to `APPS_DATA`, with `*` and `?` globs allowed. For example, to skip Confluence logs/caches and the runner workspace:
 
@@ -677,7 +699,7 @@ webapps/confluence/logs,webapps/confluence/temp,webapps/confluence/plugins-temp,
 
 A leading `./` or `/` is ignored; leave the secret unset to archive everything.
 
-> **Consistency:** the weekly archive is taken while containers are running, so `databases/` inside it is crash-consistent rather than transaction-consistent — the daily `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](shared/stalwart/README.md#database-management-create--delete--backup--restore)). A long-running backup also queues deployments, because the runner has capacity 1.
+> **Consistency:** the weekly archive is taken while containers are running, so `databases/` inside it is crash-consistent rather than transaction-consistent — the daily `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](shared/stalwart/README.md#database-management-create--delete--backup--restore)). Backup and deployment jobs share the existing capacity-one runner, so long jobs queue behind one another.
 
 ---
 
@@ -721,7 +743,7 @@ docker compose pull && docker compose up -d
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
 
-> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo + Actions](shared/forgejo/README.md), [Confluence](shared/confluence/README.md), [oCIS](shared/ocis/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md), [Stalwart](shared/stalwart/README.md), [Bulwark](shared/bulwark/README.md)) also document their own variables there.
+> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo + Actions](shared/forgejo/README.md), [Confluence](shared/confluence/README.md), [oCIS](shared/owncloud/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md), [Stalwart](shared/stalwart/README.md), [Bulwark](shared/bulwark/README.md)) also document their own variables there.
 
 ### General
 
@@ -764,11 +786,11 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `WBHOME_DBNAME` | Homepage database name (default: `svchubwbhome`) |
 | `WBHOME_TAG` | Confluence image tag (default: `10.2`) |
 | `OWEBUI_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
-| `WBCLOUD_DOMAIN` | oCIS cloud-drive hostname (default: `drive.${DOMAIN_NAME}`) |
-| `WBCLOUD_TAG` | Pinned oCIS image tag (default: `8.2.0`) |
-| `WBCLOUD_OIDC_ISSUER` | Authentik OIDC issuer for the `ocis` application |
-| `WBCLOUD_OIDC_CLIENT_ID` | Public Authentik OIDC client ID |
-| `WBCLOUD_INSECURE` | `true` only when Authentik uses a self-signed certificate |
+| `WBDRIVE_DOMAIN` | oCIS cloud-drive hostname (default: `drive.${DOMAIN_NAME}`) |
+| `WBDRIVE_TAG` | Pinned oCIS image tag (default: `8.2.0`) |
+| `WBDRIVE_OIDC_ISSUER` | Authentik OIDC issuer for the `ocis` application |
+| `WBDRIVE_OIDC_CLIENT_ID` | Public Authentik OIDC client ID |
+| `WBDRIVE_INSECURE` | `true` only when Authentik uses a self-signed certificate |
 
 ### AI Agent Platform (aiagn)
 

@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: BACKUP-RESTORE
 title: ServiceHub Backup and Restore
-version: "1.0"
+version: "1.2"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - operations
@@ -28,35 +28,48 @@ related_documents:
 
 ## Status
 
-The repository implements same-host backup creation but does not implement the accepted dual-target strategy or validate restore. This document distinguishes confirmed backup behaviour from the target strategy recorded in [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
+The repository configures same-host backup creation, backup tooling on the existing Forgejo runner, and the accepted dual-target strategy. Runtime execution, independently retrievable copies, and restore remain unverified. This document distinguishes repository configuration from recovery evidence recorded under [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
 
 ## Implemented Backup Scope
 
-The [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml) runs through the `ssh-deploy` runner and writes to `<PREFIX>_BACKUP_ROOT` on the target host.
+The [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml) runs through the existing `ssh-deploy` label, creates archives on `<PREFIX>_BACKUP_ROOT`, and configures transfers to both accepted targets.
 
 | Backup type | Schedule or trigger | Content | Consistency | Status |
 |---|---|---|---|---|
 | PostgreSQL database | Daily at 02:30 in scheduled mode; manual `db` or `auto` | One `pg_dump` per non-template database plus `pg_dumpall --globals-only` packed into one daily archive | Transaction-consistent logical dump | Implemented; execution evidence not available |
 | Full `APPS_DATA` | Sundays in `auto`; manual `full` or `auto` | Entire configured persistent-data tree with optional exclusions | Crash-consistent for live database directories | Implemented; execution evidence not available |
-| Off-host copy | None evident | Home Server and Google Drive targets | Not applicable | Accepted under ADR-007; not implemented |
+| Off-host copy | Same backup workflow | Restic Home Server copy and Rclone Google Drive copy | Target-side integrity checks configured | Repository configuration added; execution evidence unavailable |
 | Encrypted backup archive | None evident | Encryption method and key governance | Not applicable | TBD |
 | Host recovery image | None evident | Not applicable | Not applicable | Optional; not selected |
-| Restore workflow | None evident | Recovery from either accepted target | Not applicable | Accepted under ADR-007; not implemented |
+| Restore workflow | No automated workflow | Recovery from either accepted target | Not applicable | Procedure documented; execution not implemented or tested |
 
-Database archive retention defaults to 182 days and can be overridden by `<PREFIX>_DB_BACKUP_RETENTION_DAYS`. Full-archive retention is `TBD`.
+Database and full-archive same-host retention values are required protected secrets. Their values are not recorded in this document.
 
 ## Target Backup Strategy
 
-**Accepted on 2026-10-03; not implemented or tested.**
+**Accepted on 2026-10-03; repository configuration added, not runtime-validated.**
 
 | Target | Purpose | Technology | Status |
 |---|---|---|---|
-| Home Server | Primary recovery target | Restic over SSH/SFTP | Accepted; not implemented |
-| Google Drive | Independent off-site copy | Rclone | Accepted; not implemented |
+| Home Server | Primary recovery target | Restic over SSH/SFTP | Configuration added; transfer not runtime-validated |
+| Google Drive | Independent off-site copy | Rclone | Configuration added; transfer not runtime-validated |
 
-Forgejo Actions will use a dedicated `nexora/runner-backup` image containing `restic`, `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq` to create database dumps and persistent-data archives, enforce retention, and copy each protected set to both targets.
+Forgejo Actions uses the existing `depotrunner` image, extended with `restic`, `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq`, to orchestrate database dumps, persistent-data archives, retention, transfers, and integrity checks. The runner configuration is documented in [`shared/forgejo/README.md`](../../shared/forgejo/README.md). Because deployment and backup jobs share one capacity-one runner, they queue behind one another.
 
-The target scope includes Compose and service configuration, PostgreSQL role and database dumps, oCIS configuration and file data, Forgejo data, mail data, Authentik data, certificates, and the remaining inventoried persistent state. The current same-host archive remains an intermediate or baseline artifact until the dual-target workflow is implemented; it is not sufficient disaster recovery by itself.
+The target scope includes Compose and service configuration, PostgreSQL role and database dumps, oCIS configuration and file data, Forgejo data, mail data, Authentik data, certificates, and the remaining inventoried persistent state. The same-host archive remains an intermediate artifact; it is not sufficient disaster recovery by itself.
+
+## Dual-Target Transfer
+
+For each archive created in the run, the workflow:
+
+1. Streams the file to the configured Restic `sftp:` repository.
+2. Runs a Restic repository integrity check.
+3. Applies the approved Restic retention policy.
+4. Copies the file through the configured Rclone destination.
+5. Compares the destination file with the source using Rclone download mode.
+6. Applies separate approved database and full-archive Rclone retention policies.
+
+The workflow fails on a missing required secret or command, failed dump or archive, failed transfer, failed integrity check, or failed retention operation. Configuration presence does not record a successful transfer.
 
 ## Databases
 
@@ -188,7 +201,7 @@ Exact commands, target layout, ordering details, and compatibility checks remain
 |---|---|---|
 | RPO | TBD | Requires owner decision and measured backup history |
 | RTO | TBD | Requires timed restoration test |
-| Backup retention | Database default 182 days; full archive TBD | Workflow default and owner decision |
+| Backup retention | Required protected secrets; values not tracked | ADR-007 configuration; no execution evidence |
 | Off-host objective | Two-target design accepted; objective TBD | ADR-007 decision; no transfer or restore evidence |
 
 ## Restoration Evidence Template

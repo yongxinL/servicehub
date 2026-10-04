@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: SYSTEM-CONTEXT
 title: ServiceHub System Context
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags:
   - servicehub
   - architecture
@@ -20,6 +20,7 @@ related_documents:
   - COMPONENT-CATALOGUE
   - DEPLOYMENT-ARCHITECTURE
   - ADR-006
+  - ADR-007
 ---
 
 # ServiceHub System Context
@@ -38,7 +39,7 @@ Named user organisations, teams, and support contacts are `TBD`.
 
 The core boundary consists of the `servicehub` Compose project, its included domain files, the `servicehub_subnet` network, `APPS_DATA` bind mounts, repository configuration under `shared/`, and Forgejo workflows under `.forgejo/workflows/`.
 
-Remote staging and production hosts are separate deployment targets. External DNS, certificate authorities, image registries, and AI providers are outside the platform boundary.
+Remote staging and production hosts are separate deployment targets. The Home Server and Google Drive backup targets, external DNS, certificate authorities, image registries, and AI providers are outside the platform boundary.
 
 ## Ingress
 
@@ -56,9 +57,11 @@ The workflows recognise `stag` and `prod` targets. Hostnames, users, deploy path
 ```mermaid
 flowchart LR
     Admin[Administrator] --> Forgejo[Forgejo repository]
-    Forgejo --> Runner[Host-mode Actions runner]
+    Forgejo --> Runner[Forgejo Actions runner]
     Runner -->|SSH| Stag[Staging target]
     Runner -->|SSH| Prod[Production target]
+    Runner -->|Restic over SSH/SFTP| Home[Home Server target]
+    Runner -->|Rclone| Drive[Google Drive target]
     Stag --> DockerStag[Docker Compose stack]
     Prod --> DockerProd[Docker Compose stack]
 ```
@@ -75,6 +78,8 @@ flowchart LR
 | MiniMax-compatible API | Configured cloud AI provider | Configuration present; availability and privacy behaviour `Not yet verified` |
 | Atlassian Marketplace | Confluence Docker build may download plug-ins | Dockerfile confirmed; build result not recorded |
 | Authentik-managed outpost | Forward-auth and LDAP integration | Configuration documented; runtime state `Not yet verified` |
+| Home Server backup target | Restic repository accessed over SSH/SFTP | Repository configuration documented; location protected; transfer `Not yet verified` |
+| Google Drive backup target | Off-site copy accessed through Rclone | Repository configuration documented; account protected; transfer `Not yet verified` |
 
 ## External AI Providers
 
@@ -93,6 +98,6 @@ LiteLLM's cloud target is supplied by `LITEM_PRM_APIBASE` and `LITEM_PRM_APIKEY`
 - The Docker bridge isolates unpublished service ports from the host network, subject to host firewall and direct `ports` mappings.
 - Traefik trusts forwarded headers only from `TRUSTED_IP`.
 - Remote SSH uses key or password authentication with a known-host check when configured.
-- Repository secrets may contain encoded `.env`, `acme.json`, SSH, runner, and deployment material.
+- Repository secrets may contain encoded `.env`, `acme.json`, SSH, runner, backup-target, and deployment material.
 - oCIS treats Authentik as its OIDC authority; provider configuration and token validation require runtime verification.
 - No assumption is made that staging and production have identical DNS, firewall, or certificate state.

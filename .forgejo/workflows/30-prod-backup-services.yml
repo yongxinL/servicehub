@@ -1,41 +1,3 @@
-# Forgejo Actions data backup for ServiceHub.
-#
-# Two backup kinds, both written on the target server under
-# <PREFIX>_BACKUP_ROOT:
-#
-#   * Database dumps (every run): one transaction-consistent pg_dump per
-#     PostgreSQL database (custom format) plus a role-globals SQL dump, taken
-#     through the dbsvcpgsqldb container while the services keep running,
-#     then packed into a single daily archive so each day has exactly one
-#     database backup file:
-#       <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-dbBK-<YYYYMMDD>.tar.gz
-#       # contains one <domain>-dbBK-<db>-<YYYYMMDD>.dump per database plus
-#       # <domain>-dbBK-globals-<YYYYMMDD>.sql
-#     Dumps older than <PREFIX>_DB_BACKUP_RETENTION_DAYS (default 182, ~6
-#     months) are deleted by the same run (matches *-dbBK-*).
-#
-#   * Full archive (weekly on Sunday, or on demand): the whole persistent data
-#     volume (APPS_DATA from the server's .env), as before:
-#       <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
-#
-# BACKUP_ROOT is an Actions secret; DOMAIN_NAME is read from the server's .env.
-# Optional archive exclusions: the <PREFIX>_BACKUP_EXCLUDE Actions secret holds
-# a comma-separated list of paths relative to APPS_DATA (globs allowed).
-#
-# The job SSHes to the target server like the deploy workflow: the runner
-# container only mounts APPS_DATA/platform/{buildexec,workspace}, not the data
-# volume itself.
-#
-# Caveat: the weekly archive is created while containers are running, so the
-# database directories in it are crash-consistent, not transaction-consistent;
-# the daily pg_dump files are the transaction-consistent layer and the ones to
-# restore from.
-#
-# Triggers:
-#   - schedule: daily at 02:30 server time (database dumps; the full archive
-#     additionally runs on Sundays) - defaults to prod
-#   - workflow_dispatch: environment + backup kind (auto/db/full)
-
 name: backup-data
 
 on:
@@ -61,8 +23,6 @@ on:
           - db
           - full
 
-# Never run two backups at once; the runner has capacity 1, so a long backup
-# also queues deploys rather than failing them.
 concurrency:
   group: backup-data
   cancel-in-progress: false
@@ -71,29 +31,31 @@ jobs:
   backup-data:
     runs-on: ssh-deploy
     steps:
-      - name: Back up the target server
+      - name: Create and replicate protected backups
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
-          # --- resolve target ------------------------------------------------
-          [ -n "$DEPLOY_TARGET" ] || DEPLOY_TARGET=prod
+          fail() {
+            echo "Error: $*" >&2
+            exit 1
+          }
+
+          [ -n "${DEPLOY_TARGET:-}" ] || DEPLOY_TARGET=prod
           DEPLOY_TARGET=$(printf '%s' "$DEPLOY_TARGET" | tr '[:upper:]' '[:lower:]')
 
           case "$DEPLOY_TARGET" in
             stag) PREFIX=STAG ;;
             prod) PREFIX=PROD ;;
-            *) echo "Error: unknown DEPLOY_TARGET '$DEPLOY_TARGET' (expected stag or prod)" >&2; exit 1 ;;
+            *) fail "unknown DEPLOY_TARGET '$DEPLOY_TARGET' (expected stag or prod)" ;;
           esac
 
-          # --- resolve backup kind -------------------------------------------
-          # RUN_DB: take database dumps + prune old ones.
-          # RUN_FULL: 0/1/auto; auto means "full archive on Sundays".
-          [ -n "$BACKUP_MODE" ] || BACKUP_MODE=auto
+          [ -n "${BACKUP_MODE:-}" ] || BACKUP_MODE=auto
           case "$BACKUP_MODE" in
             auto) RUN_DB=1; RUN_FULL=auto ;;
-            db)   RUN_DB=1; RUN_FULL=0 ;;
+            db) RUN_DB=1; RUN_FULL=0 ;;
             full) RUN_DB=0; RUN_FULL=1 ;;
-            *) echo "Error: unknown backup mode '$BACKUP_MODE' (expected auto, db or full)" >&2; exit 1 ;;
+            *) fail "unknown backup mode '$BACKUP_MODE' (expected auto, db or full)" ;;
           esac
 
           get() { eval "printf '%s' \"\${$1:-}\""; }
@@ -106,29 +68,80 @@ jobs:
           BACKUP_ROOT=$(get "${PREFIX}_BACKUP_ROOT")
           BACKUP_EXCLUDE=$(get "${PREFIX}_BACKUP_EXCLUDE")
           DB_RETENTION_DAYS=$(get "${PREFIX}_DB_BACKUP_RETENTION_DAYS")
+          FULL_RETENTION_DAYS=$(get "${PREFIX}_BACKUP_LOCAL_FULL_RETENTION_DAYS")
           SSH_KNOWN_HOST=$(get "${PREFIX}_SSHKWN_KEYS")
+          RESTIC_REPOSITORY=$(get "${PREFIX}_BACKUP_RESTIC_REPOSITORY")
+          RESTIC_KEEP_WITHIN=$(get "${PREFIX}_BACKUP_RESTIC_KEEP_WITHIN")
+          RESTIC_PASSWORD_VALUE=$(get "BACKUP_RESTIC_PASSWORD")
+          HOME_SSH_KEY=$(get "BACKUP_HOME_SSH_KEY")
+          HOME_SSH_KNOWN_HOSTS=$(get "BACKUP_HOME_SSH_KNOWN_HOSTS")
+          RCLONE_CONFIG_VALUE=$(get "BACKUP_RCLONE_CONFIG")
+          RCLONE_DESTINATION=$(get "${PREFIX}_BACKUP_RCLONE_DESTINATION")
+          RCLONE_DB_KEEP_AGE=$(get "${PREFIX}_BACKUP_RCLONE_DB_KEEP_AGE")
+          RCLONE_FULL_KEEP_AGE=$(get "${PREFIX}_BACKUP_RCLONE_FULL_KEEP_AGE")
 
-          [ -n "$SERVER_HOST" ] || { echo "Error: ${PREFIX}_SERVER_HOST is not set" >&2; exit 1; }
-          [ -n "$SERVER_USER" ] || { echo "Error: ${PREFIX}_SERVER_USER is not set" >&2; exit 1; }
+          [ -n "$SERVER_HOST" ] || fail "${PREFIX}_SERVER_HOST is not set"
+          [ -n "$SERVER_USER" ] || fail "${PREFIX}_SERVER_USER is not set"
           if [ -z "$SERVER_PASSWORD" ] && [ -z "$SERVER_KEY" ]; then
-            echo "Error: ${PREFIX}_SERVER_PASS or ${PREFIX}_SERVER_KEY must be set" >&2; exit 1
+            fail "${PREFIX}_SERVER_PASS or ${PREFIX}_SERVER_KEY must be set"
           fi
-          [ -n "$DEPLOY_PATH" ] || { echo "Error: ${PREFIX}_DEPLOY_PATH is not set" >&2; exit 1; }
-          [ -n "$BACKUP_ROOT" ] || { echo "Error: ${PREFIX}_BACKUP_ROOT is not set" >&2; exit 1; }
+          [ -n "$DEPLOY_PATH" ] || fail "${PREFIX}_DEPLOY_PATH is not set"
+          [ -n "$BACKUP_ROOT" ] || fail "${PREFIX}_BACKUP_ROOT is not set"
+          [ -n "$DB_RETENTION_DAYS" ] || fail "${PREFIX}_DB_BACKUP_RETENTION_DAYS is not set"
+          [ -n "$FULL_RETENTION_DAYS" ] || fail "${PREFIX}_BACKUP_LOCAL_FULL_RETENTION_DAYS is not set"
+          [ -n "$RESTIC_REPOSITORY" ] || fail "${PREFIX}_BACKUP_RESTIC_REPOSITORY is not set"
+          [ -n "$RESTIC_KEEP_WITHIN" ] || fail "${PREFIX}_BACKUP_RESTIC_KEEP_WITHIN is not set"
+          [ -n "$RESTIC_PASSWORD_VALUE" ] || fail "BACKUP_RESTIC_PASSWORD is not set"
+          [ -n "$HOME_SSH_KEY" ] || fail "BACKUP_HOME_SSH_KEY is not set"
+          [ -n "$HOME_SSH_KNOWN_HOSTS" ] || fail "BACKUP_HOME_SSH_KNOWN_HOSTS is not set"
+          [ -n "$RCLONE_CONFIG_VALUE" ] || fail "BACKUP_RCLONE_CONFIG is not set"
+          [ -n "$RCLONE_DESTINATION" ] || fail "${PREFIX}_BACKUP_RCLONE_DESTINATION is not set"
+          [ -n "$RCLONE_DB_KEEP_AGE" ] || fail "${PREFIX}_BACKUP_RCLONE_DB_KEEP_AGE is not set"
+          [ -n "$RCLONE_FULL_KEEP_AGE" ] || fail "${PREFIX}_BACKUP_RCLONE_FULL_KEEP_AGE is not set"
 
-          [ -n "$DB_RETENTION_DAYS" ] || DB_RETENTION_DAYS=182
           case "$DB_RETENTION_DAYS" in
-            *[!0-9]*) echo "Error: ${PREFIX}_DB_BACKUP_RETENTION_DAYS must be a number of days" >&2; exit 1 ;;
+            ''|*[!0-9]*) fail "${PREFIX}_DB_BACKUP_RETENTION_DAYS must be a number of days" ;;
+          esac
+          case "$FULL_RETENTION_DAYS" in
+            ''|*[!0-9]*) fail "${PREFIX}_BACKUP_LOCAL_FULL_RETENTION_DAYS must be a number of days" ;;
+          esac
+          case "$DEPLOY_PATH" in
+            /*) ;;
+            *) fail "${PREFIX}_DEPLOY_PATH must be an absolute path" ;;
+          esac
+          case "$BACKUP_ROOT" in
+            /*) ;;
+            *) fail "${PREFIX}_BACKUP_ROOT must be an absolute path" ;;
+          esac
+          case "$DEPLOY_PATH" in
+            *[!A-Za-z0-9._/-]*) fail "${PREFIX}_DEPLOY_PATH contains unsupported characters" ;;
+          esac
+          case "$BACKUP_ROOT" in
+            *[!A-Za-z0-9._/-]*) fail "${PREFIX}_BACKUP_ROOT contains unsupported characters" ;;
+          esac
+          case "$RESTIC_REPOSITORY" in
+            sftp:*) ;;
+            *) fail "${PREFIX}_BACKUP_RESTIC_REPOSITORY must use the Restic sftp backend" ;;
+          esac
+          case "$RESTIC_REPOSITORY" in
+            *[[:space:]]*) fail "${PREFIX}_BACKUP_RESTIC_REPOSITORY must not contain whitespace" ;;
+          esac
+          case "$RESTIC_KEEP_WITHIN" in
+            -*) fail "${PREFIX}_BACKUP_RESTIC_KEEP_WITHIN must not start with a dash" ;;
+          esac
+          case "$RCLONE_DESTINATION" in
+            *:*) ;;
+            *) fail "${PREFIX}_BACKUP_RCLONE_DESTINATION must include a configured remote" ;;
+          esac
+          case "$RCLONE_DB_KEEP_AGE$RCLONE_FULL_KEEP_AGE" in
+            *-*) fail "Rclone retention ages must not start with a dash" ;;
           esac
 
-          # Optional comma-separated exclusions relative to APPS_DATA, e.g.
-          # "platform/workspace,databases". Quotes keep * and ? for tar's own
-          # globbing on the server instead of the runner shell expanding them.
           EXCLUDE_ARGS=
           if [ -n "$BACKUP_EXCLUDE" ]; then
             for entry in $(printf '%s' "$BACKUP_EXCLUDE" | tr ',' ' '); do
               case "$entry" in
-                *[!A-Za-z0-9._/*?-]*) echo "Error: invalid character in ${PREFIX}_BACKUP_EXCLUDE entry '$entry'" >&2; exit 1 ;;
+                *[!A-Za-z0-9._/*?-]*) fail "invalid character in ${PREFIX}_BACKUP_EXCLUDE entry '$entry'" ;;
               esac
               entry=${entry#./}
               entry=${entry#/}
@@ -137,34 +150,41 @@ jobs:
             echo "Excluding from the archive: $BACKUP_EXCLUDE"
           fi
 
-          command -v ssh >/dev/null 2>&1 || { echo "Error: required command 'ssh' not found" >&2; exit 1; }
+          for command in ssh rclone restic jq psql; do
+            command -v "$command" >/dev/null 2>&1 || fail "required command '$command' not found"
+          done
           if [ -z "$SERVER_KEY" ]; then
-            command -v sshpass >/dev/null 2>&1 || { echo "Error: required command 'sshpass' not found (needed for password auth)" >&2; exit 1; }
+            command -v sshpass >/dev/null 2>&1 || fail "required command 'sshpass' not found for password authentication"
           fi
 
-          # Temp key + explicit known_hosts: ssh reads ~/.ssh/known_hosts via the
-          # passwd home, not $HOME (the runner image runs as root but sets
-          # HOME=/data), so the file path must be passed explicitly.
           SSH_KEY_FILE=
+          KNOWN_HOSTS_FILE=
+          RESTIC_HOME_DIR=
+          RCLONE_CONFIG_FILE=
+          BACKUP_LOG=
+          cleanup() {
+            [ -z "$SSH_KEY_FILE" ] || rm -f "$SSH_KEY_FILE"
+            [ -z "$KNOWN_HOSTS_FILE" ] || rm -f "$KNOWN_HOSTS_FILE"
+            [ -z "$RCLONE_CONFIG_FILE" ] || rm -f "$RCLONE_CONFIG_FILE"
+            [ -z "$BACKUP_LOG" ] || rm -f "$BACKUP_LOG"
+            [ -z "$RESTIC_HOME_DIR" ] || rm -rf "$RESTIC_HOME_DIR"
+          }
+          trap cleanup EXIT
+
           if [ -n "$SERVER_KEY" ]; then
             SSH_KEY_FILE=$(mktemp)
             chmod 600 "$SSH_KEY_FILE"
             printf '%s\n' "$SERVER_KEY" | tr -d '\r' > "$SSH_KEY_FILE"
           fi
           KNOWN_HOSTS_FILE=$(mktemp)
-          trap 'rm -f "$SSH_KEY_FILE" "$KNOWN_HOSTS_FILE"' EXIT
-
-          echo "Backing up $DEPLOY_TARGET ($SERVER_USER@$SERVER_HOST) mode=$BACKUP_MODE to $BACKUP_ROOT"
-
-          # --- SSH host verification ------------------------------------------
+          chmod 600 "$KNOWN_HOSTS_FILE"
           if [ -n "$SSH_KNOWN_HOST" ]; then
             printf '%s\n' "$SSH_KNOWN_HOST" >> "$KNOWN_HOSTS_FILE"
           else
             echo "WARNING: ${PREFIX}_SSHKWN_KEYS not set; falling back to ssh-keyscan" >&2
             ssh-keyscan -H "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
           fi
-          [ -s "$KNOWN_HOSTS_FILE" ] || { echo "Error: no SSH host keys for $SERVER_HOST (set ${PREFIX}_SSHKWN_KEYS)" >&2; exit 1; }
-          chmod 600 "$KNOWN_HOSTS_FILE"
+          [ -s "$KNOWN_HOSTS_FILE" ] || fail "no SSH host keys for $SERVER_HOST (set ${PREFIX}_SSHKWN_KEYS)"
 
           ssh_exec() {
             if [ -n "$SERVER_KEY" ]; then
@@ -174,13 +194,15 @@ jobs:
             fi
           }
 
-          # --- create the backups on the target --------------------------------
+          echo "Creating protected backups for $DEPLOY_TARGET"
+
+          BACKUP_LOG=$(mktemp)
           ssh_exec "set -e
           APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
           APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
-          [ -n \"\$APPS_DATA\" ] || { echo 'Error: APPS_DATA is not set in $DEPLOY_PATH/.env' >&2; exit 1; }
+          [ -n \"\$APPS_DATA\" ] || { echo 'Error: APPS_DATA is not set in the deployment environment' >&2; exit 1; }
           SRC=\"\$APPS_DATA\"
-          [ -d \"\$SRC\" ] || { echo \"Error: source directory \$SRC does not exist\" >&2; exit 1; }
+          [ -d \"\$SRC\" ] || { echo 'Error: the persistent-data source directory does not exist' >&2; exit 1; }
 
           DOMAIN_NAME=\$(grep -E '^DOMAIN_NAME=' '$DEPLOY_PATH/.env' 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
           DOMAIN_NAME=\${DOMAIN_NAME%%.*}
@@ -188,26 +210,20 @@ jobs:
 
           STAMP=\$(date +%Y%m%d)
           DST='$BACKUP_ROOT'/\$(date +%Y)/\$(date +%Y%m)
+          CREATED_ARCHIVES=
 
-          # sudo -n: fails fast when passwordless sudo is missing (server
-          # prerequisite); the successful mkdir also proves sudo works before
-          # the backups, whose exit codes would otherwise mask a sudo failure.
           sudo -n mkdir -p \"\$DST\"
 
           cd '$DEPLOY_PATH'
           if command -v docker-compose >/dev/null 2>&1; then COMPOSE='docker-compose'; else COMPOSE='docker compose'; fi
 
-          # --- database dumps ---------------------------------------------------
           if [ '$RUN_DB' = 1 ]; then
             SQLDB_USER=\$(grep -E '^SQLDB_USER=' .env 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
             [ -n \"\$SQLDB_USER\" ] || SQLDB_USER=postgres
 
             DB_LIST=\$(\$COMPOSE exec -T dbsvcpgsqldb psql -U \"\$SQLDB_USER\" -d postgres -Atc \"SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres' ORDER BY datname\")
-            [ -n \"\$DB_LIST\" ] || { echo 'Error: no databases found to dump' >&2; exit 1; }
+            [ -n \"\$DB_LIST\" ] || { echo 'Error: no non-template databases found' >&2; exit 1; }
 
-            # Stage each dump in a private dir, then tar.gz them into one
-            # daily archive so <BACKUP_ROOT>/<YYYY>/<YYYYMM>/ holds exactly
-            # one database backup file per day.
             DB_STAGE=\$(mktemp -d)
             trap 'rm -rf \"\$DB_STAGE\"' EXIT
 
@@ -246,16 +262,18 @@ jobs:
             [ -s \"\$ARCHIVE.part\" ] || { echo 'Error: db archive is empty' >&2; exit 1; }
             sudo -n mv -f \"\$ARCHIVE.part\" \"\$ARCHIVE\"
             sudo -n chmod 600 \"\$ARCHIVE\"
+            # The transfer steps below read the archive as the SSH user, not root.
+            sudo -n chown \"\$(id -u):\$(id -g)\" \"\$ARCHIVE\"
             rm -rf \"\$DB_STAGE\"
             trap - EXIT
-            echo \"Database backup complete: \$ARCHIVE (\$(sudo -n du -h \"\$ARCHIVE\" | cut -f1))\"
+            CREATED_ARCHIVES=\"\$CREATED_ARCHIVES \$ARCHIVE\"
+            echo \"Database backup complete: \$(basename \"\$ARCHIVE\")\"
 
             echo \"Pruning database backups older than $DB_RETENTION_DAYS days\"
             sudo -n find '$BACKUP_ROOT' -type f -name '*-dbBK-*' -mtime +$DB_RETENTION_DAYS -print -delete
             sudo -n find '$BACKUP_ROOT' -mindepth 2 -type d -empty -path '*/[0-9][0-9][0-9][0-9]/[0-9][0-9][0-9][0-9][0-9][0-9]' -delete
           fi
 
-          # --- full APPS_DATA archive (weekly on Sunday, or on demand) ----------
           RUN_FULL_NOW=0
           case '$RUN_FULL' in
             1) RUN_FULL_NOW=1 ;;
@@ -264,8 +282,6 @@ jobs:
           if [ \"\$RUN_FULL_NOW\" = 1 ]; then
             ARCHIVE=\"\$DST/\$DOMAIN_NAME-webapps-fullBK-\$STAMP.tar.gz\"
             echo \"Archiving \$SRC -> \$ARCHIVE\"
-            # tar exits 1 when files change while being read (live data); that is
-            # expected and the archive is still usable, so only 2+ is fatal.
             set +e
             sudo -n tar -czf \"\$ARCHIVE.part\"$EXCLUDE_ARGS -C \"\$SRC\" .
             rc=\$?
@@ -278,13 +294,127 @@ jobs:
             [ -s \"\$ARCHIVE.part\" ] || { echo 'Error: archive is empty' >&2; exit 1; }
             sudo -n mv -f \"\$ARCHIVE.part\" \"\$ARCHIVE\"
             sudo -n chmod 600 \"\$ARCHIVE\"
-            echo \"Backup complete: \$ARCHIVE (\$(sudo -n du -h \"\$ARCHIVE\" | cut -f1))\"
-          fi"
+            # The transfer steps below read the archive as the SSH user, not root.
+            sudo -n chown \"\$(id -u):\$(id -g)\" \"\$ARCHIVE\"
+            CREATED_ARCHIVES=\"\$CREATED_ARCHIVES \$ARCHIVE\"
+            echo \"Backup complete: \$(basename \"\$ARCHIVE\")\"
+          fi
 
-          echo "backup-data ($DEPLOY_TARGET) completed"
+          echo \"Pruning full archives older than $FULL_RETENTION_DAYS days\"
+          sudo -n find '$BACKUP_ROOT' -type f -name '*-fullBK-*' -mtime +$FULL_RETENTION_DAYS -print -delete
+          sudo -n find '$BACKUP_ROOT' -mindepth 2 -type d -empty -path '*/[0-9][0-9][0-9][0-9]/[0-9][0-9][0-9][0-9][0-9][0-9]' -delete
+
+          for CREATED_ARCHIVE in \$CREATED_ARCHIVES; do
+            printf 'BACKUP_ARTIFACT=%s\n' \"\$CREATED_ARCHIVE\"
+          done
+          echo 'backup-data ($DEPLOY_TARGET) creation completed'" | tee "$BACKUP_LOG" | sed '/^BACKUP_ARTIFACT=/d'
+
+          ARTIFACTS=()
+          while IFS= read -r line; do
+            case "$line" in
+              BACKUP_ARTIFACT=*) ARTIFACTS+=("${line#BACKUP_ARTIFACT=}") ;;
+            esac
+          done < "$BACKUP_LOG"
+          [ "${#ARTIFACTS[@]}" -gt 0 ] || fail "no protected backup artifact was created"
+
+          for artifact in "${ARTIFACTS[@]}"; do
+            case "$artifact" in
+              "$BACKUP_ROOT"/*-dbBK-*.tar.gz|"$BACKUP_ROOT"/*-fullBK-*.tar.gz) ;;
+              *) fail "workflow returned an unexpected backup artifact path" ;;
+            esac
+          done
+
+          RESTIC_HOME_DIR=$(mktemp -d)
+          chmod 700 "$RESTIC_HOME_DIR"
+          mkdir -p "$RESTIC_HOME_DIR/.ssh" "$RESTIC_HOME_DIR/.cache/restic"
+          chmod 700 "$RESTIC_HOME_DIR/.ssh"
+          printf '%s\n' "$HOME_SSH_KEY" | tr -d '\r' > "$RESTIC_HOME_DIR/.ssh/id_backup"
+          printf '%s\n' "$HOME_SSH_KNOWN_HOSTS" > "$RESTIC_HOME_DIR/.ssh/known_hosts"
+          chmod 600 "$RESTIC_HOME_DIR/.ssh/id_backup" "$RESTIC_HOME_DIR/.ssh/known_hosts"
+          {
+            printf 'Host *\n'
+            printf '  BatchMode yes\n'
+            printf '  IdentitiesOnly yes\n'
+            printf '  IdentityFile %s\n' "$RESTIC_HOME_DIR/.ssh/id_backup"
+            printf '  StrictHostKeyChecking yes\n'
+            printf '  UserKnownHostsFile %s\n' "$RESTIC_HOME_DIR/.ssh/known_hosts"
+          } > "$RESTIC_HOME_DIR/.ssh/config"
+          chmod 600 "$RESTIC_HOME_DIR/.ssh/config"
+          export RESTIC_PASSWORD="$RESTIC_PASSWORD_VALUE"
+
+          restic_cmd() {
+            HOME="$RESTIC_HOME_DIR" RESTIC_CACHE_DIR="$RESTIC_HOME_DIR/.cache/restic" restic -r "$RESTIC_REPOSITORY" "$@"
+          }
+
+          echo "Transferring protected backups with Restic"
+          if ! restic_cmd snapshots --json >/dev/null 2>&1; then
+            restic_cmd init
+          fi
+
+          for artifact in "${ARTIFACTS[@]}"; do
+            relative_artifact="${artifact#"$BACKUP_ROOT"/}"
+            case "$relative_artifact" in
+              *-dbBK-*.tar.gz) backup_type=db ;;
+              *-fullBK-*.tar.gz) backup_type=full ;;
+              *) fail "cannot determine backup type for '$artifact'" ;;
+            esac
+            ssh_exec cat "$artifact" |
+              restic_cmd backup --stdin --stdin-filename "$relative_artifact" --tag servicehub --tag "$DEPLOY_TARGET" --tag "$backup_type"
+          done
+          restic_cmd check --read-data-subset=1%
+          restic_cmd forget --keep-within "$RESTIC_KEEP_WITHIN" --tag "$DEPLOY_TARGET" --prune
+
+          RCLONE_CONFIG_FILE=$(mktemp)
+          chmod 600 "$RCLONE_CONFIG_FILE"
+          printf '%s\n' "$RCLONE_CONFIG_VALUE" > "$RCLONE_CONFIG_FILE"
+          RCLONE_SOURCE_AUTH=()
+          if [ -n "$SERVER_KEY" ]; then
+            RCLONE_SOURCE_AUTH=(key_file "$SSH_KEY_FILE")
+          else
+            RCLONE_SOURCE_AUTH=(pass "$SERVER_PASSWORD")
+          fi
+          rclone --config "$RCLONE_CONFIG_FILE" config create servicehub-source sftp \
+            host "$SERVER_HOST" \
+            user "$SERVER_USER" \
+            known_hosts_file "$KNOWN_HOSTS_FILE" \
+            "${RCLONE_SOURCE_AUTH[@]}" \
+            --obscure
+
+          RCLONE_DEST_REMOTE=${RCLONE_DESTINATION%%:*}
+          RCLONE_REMOTE_FOUND=0
+          while IFS= read -r remote; do
+            if [ "$remote" = "${RCLONE_DEST_REMOTE}:" ]; then
+              RCLONE_REMOTE_FOUND=1
+              break
+            fi
+          done < <(rclone --config "$RCLONE_CONFIG_FILE" listremotes)
+          [ "$RCLONE_REMOTE_FOUND" = 1 ] || fail "the configured Rclone destination remote is not present"
+
+          echo "Transferring protected backups with Rclone"
+          for artifact in "${ARTIFACTS[@]}"; do
+            relative_artifact="${artifact#"$BACKUP_ROOT"/}"
+            destination="${RCLONE_DESTINATION%/}/$relative_artifact"
+            rclone --config "$RCLONE_CONFIG_FILE" copyto "servicehub-source:$artifact" "$destination" --retries 3 --low-level-retries 3
+            rclone --config "$RCLONE_CONFIG_FILE" check "servicehub-source:$artifact" "$destination" --download
+          done
+
+          rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
+            --min-age "$RCLONE_DB_KEEP_AGE" \
+            --include '*-dbBK-*' \
+            --rmdirs
+          rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
+            --min-age "$RCLONE_FULL_KEEP_AGE" \
+            --include '*-fullBK-*' \
+            --rmdirs
+
+          echo "backup-data ($DEPLOY_TARGET) completed for ${#ARTIFACTS[@]} artifact(s)"
         env:
           DEPLOY_TARGET: ${{ inputs.environment }}
           BACKUP_MODE: ${{ inputs.backup }}
+          BACKUP_RESTIC_PASSWORD: ${{ secrets.BACKUP_RESTIC_PASSWORD }}
+          BACKUP_HOME_SSH_KEY: ${{ secrets.BACKUP_HOME_SSH_KEY }}
+          BACKUP_HOME_SSH_KNOWN_HOSTS: ${{ secrets.BACKUP_HOME_SSH_KNOWN_HOSTS }}
+          BACKUP_RCLONE_CONFIG: ${{ secrets.BACKUP_RCLONE_CONFIG }}
           STAG_SERVER_HOST: ${{ secrets.STAG_SERVER_HOST }}
           STAG_SERVER_USER: ${{ secrets.STAG_SERVER_USER }}
           STAG_SERVER_PASS: ${{ secrets.STAG_SERVER_PASS }}
@@ -293,6 +423,12 @@ jobs:
           STAG_BACKUP_ROOT: ${{ secrets.STAG_BACKUP_ROOT }}
           STAG_BACKUP_EXCLUDE: ${{ secrets.STAG_BACKUP_EXCLUDE }}
           STAG_DB_BACKUP_RETENTION_DAYS: ${{ secrets.STAG_DB_BACKUP_RETENTION_DAYS }}
+          STAG_BACKUP_LOCAL_FULL_RETENTION_DAYS: ${{ secrets.STAG_BACKUP_LOCAL_FULL_RETENTION_DAYS }}
+          STAG_BACKUP_RESTIC_REPOSITORY: ${{ secrets.STAG_BACKUP_RESTIC_REPOSITORY }}
+          STAG_BACKUP_RESTIC_KEEP_WITHIN: ${{ secrets.STAG_BACKUP_RESTIC_KEEP_WITHIN }}
+          STAG_BACKUP_RCLONE_DESTINATION: ${{ secrets.STAG_BACKUP_RCLONE_DESTINATION }}
+          STAG_BACKUP_RCLONE_DB_KEEP_AGE: ${{ secrets.STAG_BACKUP_RCLONE_DB_KEEP_AGE }}
+          STAG_BACKUP_RCLONE_FULL_KEEP_AGE: ${{ secrets.STAG_BACKUP_RCLONE_FULL_KEEP_AGE }}
           STAG_SSHKWN_KEYS: ${{ secrets.STAG_SSHKWN_KEYS }}
           PROD_SERVER_HOST: ${{ secrets.PROD_SERVER_HOST }}
           PROD_SERVER_USER: ${{ secrets.PROD_SERVER_USER }}
@@ -302,4 +438,10 @@ jobs:
           PROD_BACKUP_ROOT: ${{ secrets.PROD_BACKUP_ROOT }}
           PROD_BACKUP_EXCLUDE: ${{ secrets.PROD_BACKUP_EXCLUDE }}
           PROD_DB_BACKUP_RETENTION_DAYS: ${{ secrets.PROD_DB_BACKUP_RETENTION_DAYS }}
+          PROD_BACKUP_LOCAL_FULL_RETENTION_DAYS: ${{ secrets.PROD_BACKUP_LOCAL_FULL_RETENTION_DAYS }}
+          PROD_BACKUP_RESTIC_REPOSITORY: ${{ secrets.PROD_BACKUP_RESTIC_REPOSITORY }}
+          PROD_BACKUP_RESTIC_KEEP_WITHIN: ${{ secrets.PROD_BACKUP_RESTIC_KEEP_WITHIN }}
+          PROD_BACKUP_RCLONE_DESTINATION: ${{ secrets.PROD_BACKUP_RCLONE_DESTINATION }}
+          PROD_BACKUP_RCLONE_DB_KEEP_AGE: ${{ secrets.PROD_BACKUP_RCLONE_DB_KEEP_AGE }}
+          PROD_BACKUP_RCLONE_FULL_KEEP_AGE: ${{ secrets.PROD_BACKUP_RCLONE_FULL_KEEP_AGE }}
           PROD_SSHKWN_KEYS: ${{ secrets.PROD_SSHKWN_KEYS }}
