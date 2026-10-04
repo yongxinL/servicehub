@@ -390,11 +390,15 @@ Option 2 satisfies every driver in one migration window. Renaming services witho
 
 ## Implementation Evidence
 
-Repository changes applied on branch `service-renaming` as three atomic commits:
+Repository changes applied on branch `service-renaming` as atomic commits:
 
 - `975c701` — compose files restructured into the seven domains; the 25 services, Traefik labels, `depends_on` references, workflows, and documentation renamed (decisions 1 and 2).
 - `79e810a` — `${APPS_DATA}` migrated to the domain layout with hardened mounts (`:ro`, removal of `/etc/localtime` and the Hermes Docker socket mount, Alloy rootfs mount reduction) and certificates moved to `${APPS_DATA}/shared/certs` (decisions 3–7).
-- `41f6b1d` — environment variables and database names renamed across `env.example`, `compose/*.yml`, `scripts/setup.sh`, Forgejo workflows, `shared/` configuration, and living documentation, including a `setup.sh` migration block that rewrites ADR-007-era `.env` files (decision 9).
+- `41f6b1d` — environment variables and database names renamed across `env.example`, `compose/*.yml`, `scripts/setup.sh`, Forgejo workflows, `shared/` configuration, and living documentation, including a `setup.sh` migration block that rewrites ADR-007-era `.env` files (decision 9); hardened by `e60088a` (stale `WBCLOUD_*` oCIS keys and quoted database values migrate correctly).
+- `55e37ac` — optional-stack services (`aiservfastcrw`, `aiservsearxng`, `aiservchromum`, `aiservlighpda`, `webappwpress`) brought onto the same convention (decision 2).
+- `76ec13e` — the Forgejo Actions secret and variable renamed to `SOURCECODE_DEPLOY_TOKEN` / `SOURCECODE_PUBLIC_URL` (decision 9).
+- `9e636af` — prebuilt dashboard panels for metrics disabled by the mount removals stripped (decision 5 consequence).
+- `7f9bfe0` — the stale Hermes `README.html` guide retired (documentation hygiene; not part of the decision).
 
 Static validation on the branch: every compose file parses as YAML, all `depends_on` targets resolve, every compose-interpolated `${VAR}` exists in `env.example`, and no superseded service, path, or variable names remain outside historical records. Pending and owner-run: `docker compose config` and a `setup.sh` merge/migration check on a server, plus the database renames in their maintenance window.
 
@@ -420,6 +424,7 @@ Superseded baseline: the pre-change compose set (`route.yml`, `dbsvc.yml`, `auth
 | Apply the environment variable and database variable renames across `env.example`, `compose/*.yml`, `scripts/setup.sh`, workflows, `shared/` configuration, and documentation in one change | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`41f6b1d`) with a `setup.sh` migration block for existing `.env` files; server validation pending |
 | Update backup scope and exclusions to the tier classification under ADR-007 | ServiceHub Architecture | 2026-10-05 | Tier classification documented in [BACKUP-RESTORE](../operations/BACKUP-RESTORE.md); exclusion values remain deployment secrets |
 | Rename the five databases to the `svchub_<purpose>` values and update every consumer in one maintenance window | ServiceHub Architecture | TBD | Proposed; `.env` values migrate via `setup.sh`, server-side database rename and grants pending |
-| Update Forgejo Actions deploy and backup workflows, monitoring provisioning, and dashboards | ServiceHub Architecture | 2026-10-05 | Workflows and monitoring configuration renamed on `service-renaming` (`975c701`, `41f6b1d`); prebuilt Grafana dashboard JSONs still contain panels for removed filesystem mounts; runtime provisioning pending |
+| Update Forgejo Actions deploy and backup workflows, monitoring provisioning, and dashboards | ServiceHub Architecture | 2026-10-05 | Workflows and monitoring configuration renamed (`975c701`, `41f6b1d`, `76ec13e`); dead dashboard panels for the removed mounts stripped (`9e636af`); runtime provisioning pending |
+| Rename `SOURCECODE_PUBLIC_URL` and `SOURCECODE_DEPLOY_TOKEN` in Forgejo repository Actions settings on staging and production | George Li | TBD | Pending; repository side applied on `service-renaming` (`76ec13e`) |
 | Update documentation, service inventory, and architecture records in the same change | George Li | 2026-10-05 | Living documentation updated across the three `service-renaming` commits |
 | Validate with `docker compose config` and a staging deployment, and record the evidence | ServiceHub Architecture | TBD | Proposed |
