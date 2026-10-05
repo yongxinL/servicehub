@@ -86,7 +86,13 @@ def main():
         print(f"warning: {env_path} not found; falling back to env.example defaults",
               file=sys.stderr)
     env = load(EXAMPLE)
-    env.update(load(env_path))
+    user = load(env_path)
+    # DOMAIN_NAME and IDENTITY_DOMAIN fall back to the env.example defaults
+    # when unset or empty in .env; every other key keeps the .env value.
+    for key in ("DOMAIN_NAME", "IDENTITY_DOMAIN"):
+        if not user.get(key):
+            user[key] = env.get(key, "")
+    env.update(user)
     for key in ("TRUSTED_IP", "TRAEFIK_DOMAIN", "EMAIL_HOST", "IDENTITY_DOMAIN",
                 "CERTRESOLVER", "TRAEFIK_BAAUTH"):
         env[key] = expand(env.get(key, ""), env)
