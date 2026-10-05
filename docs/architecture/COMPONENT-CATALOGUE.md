@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: COMPONENT-CATALOGUE
 title: ServiceHub Component Catalogue
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-05
 tags:
   - servicehub
   - architecture
@@ -27,7 +27,7 @@ related_documents:
 
 ## Default Compose Components
 
-All default components use the `servicehub_subnet` network. Per [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) the `aiserv*` components run on local infrastructure and the `obsvce*` components are retained in the repository; neither is deployed to OCI. “No host route” means no Traefik label is present; direct `ports` mappings are listed separately.
+All default components use the `servicehub_subnet` network. `webappconf` uses the same network; its outbound egress is limited to private destinations by a host firewall rule in the Docker `DOCKER-USER` chain — the `restricted` entry for `webappconf` in [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf), applied by [scripts/egress-guard.sh](../../scripts/egress-guard.sh) together with a global Atlassian CIDR block for all containers ([ADR-009 §5](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md), [egress controls](../operations/EGRESS-CONTROLS.md)). Per [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) the `aiserv*` components run on local infrastructure and the `obsvce*` components are retained in the repository; neither is deployed to OCI. “No host route” means no Traefik label is present; direct `ports` mappings are listed separately.
 
 | Compose service | Purpose | Image or build | Compose file | Internal port | Published port | Dependencies | Persistent storage | Health check | Public route | Authentication | Evidence |
 |---|---|---|---|---|---|---|---|---|---|---|---|

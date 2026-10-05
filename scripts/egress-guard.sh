@@ -1,0 +1,310 @@
+#!/bin/sh
+# Container egress controls — ADR-009 decision 5.
+#
+# Two layers, both enforced in the Docker DOCKER-USER chain (container traffic
+# only — the host's own outbound traffic is unaffected):
+#
+#   1. Per-service policy, from scripts/egress-policies.conf:
+#        restricted        RFC1918 destinations only; logged, all else dropped
+#        allow-atlassian   full internet INCLUDING Atlassian (overrides layer 2)
+#        internet          default: full internet minus the Atlassian block
+#   2. Global Atlassian block: traffic from ANY container to the CIDRs
+#      published at https://ip-ranges.atlassian.com/ is logged and dropped
+#      (one ipset holds the ranges, so it is a single rule).
+#
+# Services are resolved by the Compose service label, so project-prefixed
+# container names (servicehub-webappconf-1) do not matter.
+#
+#   apply               apply all policies and the global block now
+#   watch               apply; re-apply when a listed container's address changes;
+#                       refreshes the Atlassian set at startup
+#   status              policies, addresses, rules, set size, counters
+#   atlassian-refresh   reload the Atlassian CIDRs into the ipset
+#   allow <service> <cidr>   time-boxed exception — record it, then revoke it
+#   revoke <service> <cidr>
+#   selftest            offline check of the rule logic (no root, no Docker)
+#
+# Requires Docker Engine (podman/netavark does not traverse DOCKER-USER),
+# ipset and python3 for the Atlassian block.
+set -eu
+
+CHAIN=${EGRESS_CHAIN:-DOCKER-USER}
+AUX=${EGRESS_AUX_CHAIN:-EGRESS_RESTRICTED}
+SET=${EGRESS_ATLASSIAN_SET:-atlassian}
+URL=https://ip-ranges.atlassian.com/
+Policies() { # 'service policy' lines from the policy file
+  conf=${EGRESS_POLICIES:-"$(dirname "$0")/egress-policies.conf"}
+  [ -f "$conf" ] || return 0
+  awk 'NF >= 2 && $1 !~ /^#/ { print $1, $2 }' "$conf"
+}
+LOG_RATE=20/min
+LIMIT="-m limit --limit $LOG_RATE"
+
+die() { echo "egress: $*" >&2; exit 1; }
+warn() { echo "egress: WARNING: $*" >&2; }
+
+if [ "$(id -u)" -ne 0 ] && [ "${1:-}" != "selftest" ] && [ -z "${EGRESS_NOSUDO:-}" ]; then
+  exec sudo "$0" "$@"
+fi
+
+ids_for() { # service name or exact container name -> running container ids
+  ids=$(docker ps -q --filter "label=com.docker.compose.service=$1" 2>/dev/null || true)
+  [ -n "$ids" ] || ids=$(docker ps -q --filter "name=^/$1$" 2>/dev/null || true)
+  printf '%s\n' "$ids"
+}
+
+ips_for() {
+  for id in $(ids_for "$1"); do
+    docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$id" 2>/dev/null |
+      awk '{print $1}'
+  done
+}
+
+# Remove our rebuildable rules (exception rules are kept), then the helper chain.
+# Match covers egress-restricted, egress-atlassian and egress-atlassian-ok.
+remove() {
+  nums=$(iptables -S "$CHAIN" 2>/dev/null | grep -En -- "--comment egress-(restricted|atlassian)" |
+    cut -d: -f1 || true)
+  for n in $(printf '%s\n' "$nums" | sort -rn); do
+    iptables -D "$CHAIN" $((n - 1))
+  done
+  iptables -F "$AUX" 2>/dev/null || true
+  iptables -X "$AUX" 2>/dev/null || true
+}
+
+set_ready() { command -v ipset >/dev/null 2>&1 && ipset list "$SET" -n >/dev/null 2>&1; }
+
+apply() {
+  remove
+  exc=$(iptables -S "$CHAIN" 2>/dev/null | grep -c -- "--comment egress-exception" || true)
+  pos=$((exc + 1)) # standing exceptions stay above everything we install
+
+  ready=0
+  if set_ready; then
+    ready=1
+  else
+    warn "Atlassian block inactive (need 'ipset' and a populated set) — run: $0 atlassian-refresh"
+  fi
+
+  restricted_ips=""; ok_ips=""
+  while read -r svc pol; do
+    [ -n "$svc" ] || continue
+    ips=$(ips_for "$svc")
+    [ -n "$ips" ] || warn "$svc: not running, no rules applied"
+    case $pol in
+      restricted) restricted_ips="$restricted_ips $ips" ;;
+      allow-atlassian) ok_ips="$ok_ips $ips" ;;
+      internet) : ;; # default, listed only for clarity
+      *) warn "$svc: unknown policy '$pol'" ;;
+    esac
+  done <<EOF
+$(Policies)
+EOF
+
+  # Insert bottom-up at $pos: the last insert lands on top.
+  if [ "$ready" -eq 1 ]; then
+    iptables -I "$CHAIN" "$pos" -m set --match-set "$SET" dst -m comment --comment egress-atlassian -j DROP
+    iptables -I "$CHAIN" "$pos" -m set --match-set "$SET" dst -m comment --comment egress-atlassian \
+      $LIMIT -j LOG --log-prefix "egress-atlassian: " --log-level 4
+  fi
+  if [ -n "$restricted_ips" ]; then
+    iptables -N "$AUX"
+    iptables -A "$AUX" -d 10.0.0.0/8 -j RETURN
+    iptables -A "$AUX" -d 172.16.0.0/12 -j RETURN
+    iptables -A "$AUX" -d 192.168.0.0/16 -j RETURN
+    iptables -A "$AUX" -m comment --comment egress-restricted $LIMIT \
+      -j LOG --log-prefix "egress-restricted: " --log-level 4
+    iptables -A "$AUX" -m comment --comment egress-restricted -j DROP
+    for ip in $restricted_ips; do
+      iptables -I "$CHAIN" "$pos" -s "$ip" -m comment --comment egress-restricted -j "$AUX"
+    done
+  fi
+  if [ "$ready" -eq 1 ]; then
+    for ip in $ok_ips; do
+      iptables -I "$CHAIN" "$pos" -s "$ip" -m set --match-set "$SET" dst \
+        -m comment --comment egress-atlassian-ok -j ACCEPT
+    done
+  fi
+  echo "egress: applied — restricted:[${restricted_ips# }] atlassian-ok:[${ok_ips# }] set=$ready"
+}
+
+snapshot() { # "service=ip,ip" per policy line — cheap change detection for watch
+  while read -r svc pol; do
+    [ -n "$svc" ] || continue
+    printf '%s=%s\n' "$svc" "$(ips_for "$svc" | tr '\n' ',')"
+  done <<EOF
+$(Policies)
+EOF
+}
+
+watch() {
+  atlassian_refresh || true
+  apply
+  last=$(snapshot)
+  echo "egress: watching (re-applies when a listed container's address changes)"
+  while :; do
+    docker events --filter event=create --filter event=start --filter event=die \
+      --filter event=stop --filter event=destroy --format '{{.Action}}' 2>/dev/null |
+      while read -r _ev; do
+        sleep 1
+        now=$(snapshot)
+        if [ "$now" != "$last" ]; then
+          apply
+          last=$now
+        fi
+      done
+    sleep 5 # events stream ended (daemon restart) — re-apply and re-attach
+  done
+}
+
+status() {
+  echo "-- policies --"
+  Policies || true
+  echo "-- addresses --"
+  while read -r svc pol; do
+    [ -n "$svc" ] || continue
+    printf '%-24s %-18s %s\n' "$svc" "$pol" "$(ips_for "$svc" | tr '\n' ' ')"
+  done <<EOF
+$(Policies)
+EOF
+  echo "-- $CHAIN --"
+  iptables -S "$CHAIN" | grep -E -- "--comment egress-" || echo "no egress rules installed"
+  echo "-- Atlassian set --"
+  ipset list "$SET" -t 2>/dev/null | sed -n '1p;3p' || echo "set absent"
+  echo "-- counters --"
+  iptables -nvL "$CHAIN" --line-numbers
+  iptables -nvL "$AUX" --line-numbers 2>/dev/null || echo "(helper chain absent)"
+}
+
+allow() {
+  [ $# -eq 2 ] || die "usage: allow <service> <cidr>"
+  ip=$(ips_for "$1" | head -1)
+  [ -n "$ip" ] || die "$1 is not running"
+  iptables -I "$CHAIN" 1 -s "$ip" -d "$2" -m comment --comment egress-exception -j ACCEPT
+  echo "egress: exception $1 ($ip) -> $2 granted; record it, revoke with: $0 revoke $1 $2"
+}
+
+revoke() {
+  [ $# -eq 2 ] || die "usage: revoke <service> <cidr>"
+  case $2 in */*) dest=$2 ;; *) dest=$2/32 ;; esac
+  nums=$(for ip in $(ips_for "$1"); do
+    # iptables -S prints host addresses as a.b.c.d/32, hence both forms.
+    iptables -S "$CHAIN" | awk -v s="$ip" -v d="$dest" '
+      /--comment egress-exception/ &&
+      (index($0, " -s " s " ") || index($0, " -s " s "/")) &&
+      index($0, " -d " d " ") { print NR }'
+  done | sort -rn)
+  [ -n "$nums" ] || die "no exception for $1 -> $2"
+  for n in $nums; do
+    iptables -D "$CHAIN" $((n - 1))
+  done
+  echo "egress: exception for $1 -> $2 revoked"
+}
+
+atlassian_refresh() {
+  command -v ipset >/dev/null 2>&1 || {
+    warn "ipset not installed — install it (apt install ipset / dnf install ipset)"
+    return 1
+  }
+  command -v python3 >/dev/null 2>&1 || {
+    warn "python3 not installed — required to read $URL"
+    return 1
+  }
+  cidrs=$(mktemp)
+  if ! python3 - "$cidrs" <<PY
+import json, sys, urllib.request
+with urllib.request.urlopen("$URL", timeout=20) as r:
+    data = json.load(r)
+with open(sys.argv[1], "w") as out:
+    for item in data.get("items", []):
+        if "cidr" in item:
+            out.write(item["cidr"] + "\\n")
+PY
+  then
+    rm -f "$cidrs"
+    warn "fetch failed — existing set kept"
+    return 1
+  fi
+  if [ ! -s "$cidrs" ]; then
+    rm -f "$cidrs"
+    warn "empty range list — existing set kept"
+    return 1
+  fi
+  ipset create "$SET-tmp" hash:net -exist
+  ipset flush "$SET-tmp"
+  while read -r c; do
+    ipset add "$SET-tmp" "$c" -exist 2>/dev/null || true
+  done <"$cidrs"
+  rm -f "$cidrs"
+  ipset create "$SET" hash:net -exist
+  ipset swap "$SET-tmp" "$SET"
+  ipset destroy "$SET-tmp"
+  echo "egress: '$SET' refreshed — $(ipset list "$SET" -t | awk -F': ' '/Number of entries/ {print $2}') CIDRs"
+}
+
+# Offline check: stub docker/iptables/ipset/python3, assert the rules produced.
+selftest() {
+  t=$(mktemp -d)
+  trap 'rm -rf "$t"' EXIT
+  mkdir "$t/bin"
+  printf '%s\n' '#!/bin/sh' \
+    'case "$*" in' \
+    '  *com.docker.compose.service=webappconf*) echo c1 ;;' \
+    '  *com.docker.compose.service=otherapp*) echo c2 ;;' \
+    '  *inspect*c1*) echo "10.89.1.42 " ;;' \
+    '  *inspect*c2*) echo "10.89.1.43 " ;;' \
+    'esac' 'exit 0' >"$t/bin/docker"
+  printf '%s\n' '#!/bin/sh' 'echo "$@" >>"$STUB_LOG"' \
+    'if [ "$1" = "-S" ]; then cat "$STUB_RULES"; exit 0; fi' 'exit 0' >"$t/bin/iptables"
+  printf '%s\n' '#!/bin/sh' 'echo "ipset $@" >>"$STUB_LOG"' \
+    '[ "$1" = "list" ] && [ -n "${STUB_SET_ABSENT:-}" ] && exit 1' 'exit 0' >"$t/bin/ipset"
+  printf '%s\n' '#!/bin/sh' 'echo "python3 $@" >>"$STUB_LOG"' \
+    'printf "%s\n" 192.0.2.0/24 198.51.100.0/24 >"$2"' 'exit 0' >"$t/bin/python3"
+  chmod +x "$t/bin/docker" "$t/bin/iptables" "$t/bin/ipset" "$t/bin/python3"
+  printf '%s\n' 'webappconf restricted' 'otherapp allow-atlassian' >"$t/policies"
+  PATH="$t/bin:$PATH" STUB_LOG="$t/log" STUB_RULES="$t/rules" EGRESS_POLICIES="$t/policies" EGRESS_NOSUDO=1
+  export PATH STUB_LOG STUB_RULES EGRESS_POLICIES EGRESS_NOSUDO
+  fail=0
+
+  : >"$STUB_LOG"
+  printf -- '-N DOCKER-USER\n-A DOCKER-USER -s 10.89.1.99 -d 203.0.113.9/32 -m comment --comment egress-exception -j ACCEPT\n-A DOCKER-USER -j RETURN\n' >"$STUB_RULES"
+  sh "$0" apply >/dev/null 2>&1
+  grep -Fqx -- "-I DOCKER-USER 2 -s 10.89.1.42 -m comment --comment egress-restricted -j EGRESS_RESTRICTED" "$STUB_LOG" &&
+    grep -Fqx -- "-A EGRESS_RESTRICTED -d 10.0.0.0/8 -j RETURN" "$STUB_LOG" &&
+    grep -Fq -- "-A EGRESS_RESTRICTED -m comment --comment egress-restricted -j DROP" "$STUB_LOG" &&
+    echo "ok: restricted policy installs jump + helper chain" || { echo "FAIL: restricted"; cat "$STUB_LOG"; fail=1; }
+
+  grep -Fq -- "-m set --match-set atlassian dst -m comment --comment egress-atlassian -j DROP" "$STUB_LOG" &&
+    grep -Fq -- "-j LOG --log-prefix egress-atlassian: " "$STUB_LOG" &&
+    echo "ok: global Atlassian DROP + LOG installed" || { echo "FAIL: atlassian block"; fail=1; }
+
+  grep -Fq -- "-s 10.89.1.43 -m set --match-set atlassian dst -m comment --comment egress-atlassian-ok -j ACCEPT" "$STUB_LOG" &&
+    echo "ok: allow-atlassian policy installed" || { echo "FAIL: allow-atlassian"; fail=1; }
+
+  grep -q '^-D' "$STUB_LOG" && { echo "FAIL: exception rule was deleted"; fail=1; } ||
+    echo "ok: standing exception preserved across apply"
+
+  : >"$STUB_LOG"
+  sh "$0" atlassian-refresh >/dev/null 2>&1
+  grep -Fq -- "ipset add atlassian-tmp 192.0.2.0/24 -exist" "$STUB_LOG" &&
+    grep -Fq -- "ipset swap atlassian-tmp atlassian" "$STUB_LOG" &&
+    echo "ok: refresh loads CIDRs and swaps the set atomically" || { echo "FAIL: refresh"; cat "$STUB_LOG"; fail=1; }
+
+  : >"$STUB_LOG"
+  STUB_SET_ABSENT=1 sh "$0" apply >/dev/null 2>&1
+  grep -q -- "--match-set" "$STUB_LOG" && { echo "FAIL: set rules without a set"; fail=1; } ||
+    echo "ok: no set rules when the set is absent (warning only)"
+
+  exit "$fail"
+}
+
+case ${1:-apply} in
+  apply) apply ;;
+  watch) watch ;;
+  status) status ;;
+  allow) shift; allow "$@" ;;
+  revoke) shift; revoke "$@" ;;
+  atlassian-refresh) atlassian_refresh ;;
+  selftest) selftest ;;
+  *) die "unknown command: $1 (apply|watch|status|allow|revoke|atlassian-refresh|selftest)" ;;
+esac

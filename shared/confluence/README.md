@@ -87,20 +87,24 @@ docker compose logs -f webappconf
 
 ## Outbound egress policy
 
-[ADR-009 §5](../../docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) treats Confluence as independent of Atlassian-hosted services. Outbound traffic is allowed only to approved dependency classes:
+[ADR-009 §5](../../docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) treats Confluence as independent of Atlassian-hosted services. Confluence stays on the single `subnet` network; its egress is restricted on the host by the `restricted` policy entry in [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf), enforced in the Docker `DOCKER-USER` chain by [`scripts/egress-guard.sh`](../../scripts/egress-guard.sh).
 
-| Allowed | Purpose |
+| Destination | Treatment |
 |---|---|
-| PostgreSQL | Primary persistence |
-| Authentik | Authentication and SSO |
-| SMTP (Stalwart) | Outbound notifications |
-| DNS | Name resolution |
-| NTP | Time synchronisation |
+| `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (PostgreSQL, Authentik, Stalwart SMTP, Traefik, Docker DNS, the host) | Allowed |
+| Everything else: Atlassian Marketplace, Atlassian Cloud Services, migration services, application tunnels, general internet, link-local/metadata (`169.254.0.0/16`) | Logged (`egress-restricted: ` prefix) then dropped |
 
-Blocked by default: Atlassian Marketplace, Atlassian Cloud Services, migration services, application tunnels, and general internet access. Temporary outbound access may be granted for marketplace app install/upgrade, data migration, or approved maintenance, and must be removed as soon as the activity completes.
+DNS resolution is unaffected (the Docker resolver sits on a private address), so external names may still resolve; the connection is what gets dropped.
 
-The allow list and exception procedure are still to be implemented and recorded in ADR-009 follow-up actions; blocked destinations should be logged during the initial observation period so unexpected app calls are surfaced.
+Install, persistent operation (`watch`), verification, the command reference, the time-boxed exception procedure, and the Atlassian block apply to every container: see [Container egress controls](../../docs/operations/EGRESS-CONTROLS.md).
 
+### Observing blocked destinations
+
+```bash
+docker compose logs -f webappconf 2>&1 | grep -Ei 'marketplace|atlassian\.com|unknown host|name resolution|connect timed out|no route to host'
+```
+
+Kernel-level drop logs come from the `LOG` rules: `sudo dmesg -w | grep -E 'egress-restricted: |egress-atlassian: '`, rate-limited to 20 lines per minute.
 
 ## Files
 

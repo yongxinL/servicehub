@@ -42,7 +42,7 @@ Use the [documentation home](docs/README.md) for requirements, testing, investig
 
 ## Architecture Overview
 
-All traffic enters through Traefik on ports 80/443. HTTP is redirected to HTTPS. Traefik routes requests to the appropriate service by hostname and terminates TLS using either Let's Encrypt (production) or a self-signed certificate (staging). All services communicate over an isolated Docker bridge network (`subnet`). Databases are not exposed outside the network.
+All traffic enters through Traefik on ports 80/443. HTTP is redirected to HTTPS. Traefik routes requests to the appropriate service by hostname and terminates TLS using either Let's Encrypt (production) or a self-signed certificate (staging). All services communicate over an isolated Docker bridge network (`subnet`); Confluence's outbound traffic is further restricted to private destinations by a host firewall rule ([ADR-009 §5](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)). Databases are not exposed outside the network.
 
 Compose files are split by functional domain:
 
