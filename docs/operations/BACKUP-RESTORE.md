@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: BACKUP-RESTORE
 title: ServiceHub Backup and Restore
-version: "1.2"
+version: "1.3"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-06
 tags:
   - servicehub
   - operations
@@ -32,7 +32,7 @@ The repository configures same-host backup creation, backup tooling on the exist
 
 ## Implemented Backup Scope
 
-The [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml) runs through the existing `ssh-deploy` label, creates archives on `<PREFIX>_BACKUP_ROOT`, and configures transfers to both accepted targets.
+The [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml) runs through the existing `ssh-deploy` label, creates archives at the `backup_root` key of the `<PREFIX>_CONFIG` secret, and configures transfers to both accepted targets.
 
 | Backup type | Schedule or trigger | Content | Consistency | Status |
 |---|---|---|---|---|
@@ -43,7 +43,7 @@ The [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml) runs
 | Host recovery image | None evident | Not applicable | Not applicable | Optional; not selected |
 | Restore workflow | No automated workflow | Recovery from either accepted target | Not applicable | Procedure documented; execution not implemented or tested |
 
-Database and full-archive same-host retention values are required protected secrets. Their values are not recorded in this document.
+Database and full-archive same-host retention values (`db_backup_retention_days`, `backup_local_full_retention_days`) are required keys of the `<PREFIX>_CONFIG` repository secret. Their values are not recorded in this document.
 
 ## Target Backup Strategy
 
@@ -113,17 +113,17 @@ The full archive covers `APPS_DATA`, which includes paths declared in the defaul
 
 Per [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) the AI platform moves to local infrastructure; backup, recovery, and retention coverage for the `aiserv/*` paths on local infrastructure is an open follow-up and is not yet re-scoped here.
 
-If `HERMES_DATA_00` points outside `APPS_DATA`, it is not covered by the full archive unless the operating system copies it separately. The workflow allows exclusions through `<PREFIX>_BACKUP_EXCLUDE`; set them per the tier classification below.
+If `HERMES_DATA_00` points outside `APPS_DATA`, it is not covered by the full archive unless the operating system copies it separately. The workflow allows exclusions through the `backup_exclude` key of `<PREFIX>_CONFIG`; set them per the tier classification below.
 
 ## Backup tiers
 
 [ADR-008 §8](../adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md) classifies the paths above:
 
-- **Tier 1 — critical** (`infra/`, `devops/forgejo/data`, `webapp/confluence`, `webapp/ocis`, `mailsv/stalwart`, `shared/certs`): must be included in all backups; never add to `<PREFIX>_BACKUP_EXCLUDE`.
+- **Tier 1 — critical** (`infra/`, `devops/forgejo/data`, `webapp/confluence`, `webapp/ocis`, `mailsv/stalwart`, `shared/certs`): must be included in all backups; never add to `backup_exclude`.
 - **Tier 2 — important** (`aiserv/openwebui`, `aiserv/hermes`, `aiserv/litellm`, `obsvce/grafana`): recommended backup; exclude only when storage constraints require it.
 - **Tier 3 — rebuildable** (`devops/forgejo/workspace`, `obsvce/victoriametrics`, `obsvce/victorialogs`, `mailsv/bulwark/telemetry`): shorter retention or exclusion, depending on storage constraints.
 
-The exclusion value itself is a deployment secret (`STAG_BACKUP_EXCLUDE` / `PROD_BACKUP_EXCLUDE`); the repository documents an example value in the README Actions secrets table (noisy logs and Tier 3 `devops/forgejo/workspace`). Add further Tier 3 paths when storage constraints require it; never exclude Tier 1.
+The exclusion value itself is stored in the `backup_exclude` key of `STAG_CONFIG` / `PROD_CONFIG` (a repository secret); the repository documents an example value in the README Actions secrets table (noisy logs and Tier 3 `devops/forgejo/workspace`). Add further Tier 3 paths when storage constraints require it; never exclude Tier 1.
 
 ## Named Volumes
 

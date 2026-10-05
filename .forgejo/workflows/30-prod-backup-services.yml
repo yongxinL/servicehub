@@ -60,44 +60,64 @@ jobs:
 
           get() { eval "printf '%s' \"\${$1:-}\""; }
 
-          SERVER_HOST=$(get "${PREFIX}_SERVER_HOST")
-          SERVER_USER=$(get "${PREFIX}_SERVER_USER")
+          # Connection and backup settings live in one JSON secret per
+          # environment (see README, ${PREFIX}_CONFIG); credentials and the
+          # Home Server transfer material stay as individual secrets.
+          CONFIG_JSON=$(get "${PREFIX}_CONFIG")
           SERVER_PASSWORD=$(get "${PREFIX}_SERVER_PASS")
           SERVER_KEY=$(get "${PREFIX}_SERVER_KEY")
-          DEPLOY_PATH=$(get "${PREFIX}_DEPLOY_PATH")
-          BACKUP_ROOT=$(get "${PREFIX}_BACKUP_ROOT")
-          BACKUP_EXCLUDE=$(get "${PREFIX}_BACKUP_EXCLUDE")
-          DB_RETENTION_DAYS=$(get "${PREFIX}_DB_BACKUP_RETENTION_DAYS")
-          FULL_RETENTION_DAYS=$(get "${PREFIX}_BACKUP_LOCAL_FULL_RETENTION_DAYS")
-          SSH_KNOWN_HOST=$(get "${PREFIX}_SSHKWN_KEYS")
-          RESTIC_REPOSITORY=$(get "${PREFIX}_BACKUP_RESTIC_REPOSITORY")
-          RESTIC_KEEP_WITHIN=$(get "${PREFIX}_BACKUP_RESTIC_KEEP_WITHIN")
           RESTIC_PASSWORD_VALUE=$(get "BACKUP_RESTIC_PASSWORD")
           HOME_SSH_KEY=$(get "BACKUP_HOME_SSH_KEY")
           HOME_SSH_KNOWN_HOSTS=$(get "BACKUP_HOME_SSH_KNOWN_HOSTS")
           RCLONE_CONFIG_VALUE=$(get "BACKUP_RCLONE_CONFIG")
-          RCLONE_DESTINATION=$(get "${PREFIX}_BACKUP_RCLONE_DESTINATION")
-          RCLONE_DB_KEEP_AGE=$(get "${PREFIX}_BACKUP_RCLONE_DB_KEEP_AGE")
-          RCLONE_FULL_KEEP_AGE=$(get "${PREFIX}_BACKUP_RCLONE_FULL_KEEP_AGE")
 
-          [ -n "$SERVER_HOST" ] || fail "${PREFIX}_SERVER_HOST is not set"
-          [ -n "$SERVER_USER" ] || fail "${PREFIX}_SERVER_USER is not set"
+          [ -n "$CONFIG_JSON" ] || fail "${PREFIX}_CONFIG is not set"
+          command -v jq >/dev/null 2>&1 || fail "required command 'jq' not found (runner image)"
+          cfg() {
+            printf '%s' "$CONFIG_JSON" | jq -r --arg k "$1" \
+              'if (.[$k] | type) == "string" then .[$k]
+               elif (.[$k] | type) == "number" then (.[$k] | tostring)
+               else empty end' ||
+              fail "${PREFIX}_CONFIG is not valid JSON"
+          }
+
+          SERVER_HOST=$(cfg server_host)
+          SERVER_USER=$(cfg server_user)
+          SERVER_PORT=$(cfg server_port)
+          DEPLOY_PATH=$(cfg deploy_path)
+          BACKUP_ROOT=$(cfg backup_root)
+          BACKUP_EXCLUDE=$(cfg backup_exclude)
+          DB_RETENTION_DAYS=$(cfg db_backup_retention_days)
+          FULL_RETENTION_DAYS=$(cfg backup_local_full_retention_days)
+          SSH_KNOWN_HOST=$(cfg sshkwn_keys)
+          RESTIC_REPOSITORY=$(cfg backup_restic_repository)
+          RESTIC_KEEP_WITHIN=$(cfg backup_restic_keep_within)
+          RCLONE_DESTINATION=$(cfg backup_rclone_destination)
+          RCLONE_DB_KEEP_AGE=$(cfg backup_rclone_db_keep_age)
+          RCLONE_FULL_KEEP_AGE=$(cfg backup_rclone_full_keep_age)
+
+          [ -n "$SERVER_HOST" ] || fail "${PREFIX}_CONFIG.server_host is not set"
+          [ -n "$SERVER_USER" ] || fail "${PREFIX}_CONFIG.server_user is not set"
+          [ -n "$SERVER_PORT" ] || SERVER_PORT=22
+          case "$SERVER_PORT" in
+            *[!0-9]*) fail "${PREFIX}_CONFIG.server_port must be a port number" ;;
+          esac
           if [ -z "$SERVER_PASSWORD" ] && [ -z "$SERVER_KEY" ]; then
             fail "${PREFIX}_SERVER_PASS or ${PREFIX}_SERVER_KEY must be set"
           fi
-          [ -n "$DEPLOY_PATH" ] || fail "${PREFIX}_DEPLOY_PATH is not set"
-          [ -n "$BACKUP_ROOT" ] || fail "${PREFIX}_BACKUP_ROOT is not set"
-          [ -n "$DB_RETENTION_DAYS" ] || fail "${PREFIX}_DB_BACKUP_RETENTION_DAYS is not set"
-          [ -n "$FULL_RETENTION_DAYS" ] || fail "${PREFIX}_BACKUP_LOCAL_FULL_RETENTION_DAYS is not set"
-          [ -n "$RESTIC_REPOSITORY" ] || fail "${PREFIX}_BACKUP_RESTIC_REPOSITORY is not set"
-          [ -n "$RESTIC_KEEP_WITHIN" ] || fail "${PREFIX}_BACKUP_RESTIC_KEEP_WITHIN is not set"
+          [ -n "$DEPLOY_PATH" ] || fail "${PREFIX}_CONFIG.deploy_path is not set"
+          [ -n "$BACKUP_ROOT" ] || fail "${PREFIX}_CONFIG.backup_root is not set"
+          [ -n "$DB_RETENTION_DAYS" ] || fail "${PREFIX}_CONFIG.db_backup_retention_days is not set"
+          [ -n "$FULL_RETENTION_DAYS" ] || fail "${PREFIX}_CONFIG.backup_local_full_retention_days is not set"
+          [ -n "$RESTIC_REPOSITORY" ] || fail "${PREFIX}_CONFIG.backup_restic_repository is not set"
+          [ -n "$RESTIC_KEEP_WITHIN" ] || fail "${PREFIX}_CONFIG.backup_restic_keep_within is not set"
           [ -n "$RESTIC_PASSWORD_VALUE" ] || fail "BACKUP_RESTIC_PASSWORD is not set"
           [ -n "$HOME_SSH_KEY" ] || fail "BACKUP_HOME_SSH_KEY is not set"
           [ -n "$HOME_SSH_KNOWN_HOSTS" ] || fail "BACKUP_HOME_SSH_KNOWN_HOSTS is not set"
           [ -n "$RCLONE_CONFIG_VALUE" ] || fail "BACKUP_RCLONE_CONFIG is not set"
-          [ -n "$RCLONE_DESTINATION" ] || fail "${PREFIX}_BACKUP_RCLONE_DESTINATION is not set"
-          [ -n "$RCLONE_DB_KEEP_AGE" ] || fail "${PREFIX}_BACKUP_RCLONE_DB_KEEP_AGE is not set"
-          [ -n "$RCLONE_FULL_KEEP_AGE" ] || fail "${PREFIX}_BACKUP_RCLONE_FULL_KEEP_AGE is not set"
+          [ -n "$RCLONE_DESTINATION" ] || fail "${PREFIX}_CONFIG.backup_rclone_destination is not set"
+          [ -n "$RCLONE_DB_KEEP_AGE" ] || fail "${PREFIX}_CONFIG.backup_rclone_db_keep_age is not set"
+          [ -n "$RCLONE_FULL_KEEP_AGE" ] || fail "${PREFIX}_CONFIG.backup_rclone_full_keep_age is not set"
 
           case "$DB_RETENTION_DAYS" in
             ''|*[!0-9]*) fail "${PREFIX}_DB_BACKUP_RETENTION_DAYS must be a number of days" ;;
@@ -181,16 +201,16 @@ jobs:
           if [ -n "$SSH_KNOWN_HOST" ]; then
             printf '%s\n' "$SSH_KNOWN_HOST" >> "$KNOWN_HOSTS_FILE"
           else
-            echo "WARNING: ${PREFIX}_SSHKWN_KEYS not set; falling back to ssh-keyscan" >&2
-            ssh-keyscan -H "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
+            echo "WARNING: ${PREFIX}_CONFIG.sshkwn_keys not set; falling back to ssh-keyscan" >&2
+            ssh-keyscan -H -p "$SERVER_PORT" "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
           fi
-          [ -s "$KNOWN_HOSTS_FILE" ] || fail "no SSH host keys for $SERVER_HOST (set ${PREFIX}_SSHKWN_KEYS)"
+          [ -s "$KNOWN_HOSTS_FILE" ] || fail "no SSH host keys for $SERVER_HOST (set ${PREFIX}_CONFIG.sshkwn_keys)"
 
           ssh_exec() {
             if [ -n "$SERVER_KEY" ]; then
-              ssh -i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
+              ssh -p "$SERVER_PORT" -i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
             else
-              SSHPASS="$SERVER_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
+              SSHPASS="$SERVER_PASSWORD" sshpass -e ssh -p "$SERVER_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
             fi
           }
 
@@ -375,6 +395,7 @@ jobs:
           fi
           rclone --config "$RCLONE_CONFIG_FILE" config create servicehub-source sftp \
             host "$SERVER_HOST" \
+            port "$SERVER_PORT" \
             user "$SERVER_USER" \
             known_hosts_file "$KNOWN_HOSTS_FILE" \
             "${RCLONE_SOURCE_AUTH[@]}" \
@@ -415,33 +436,9 @@ jobs:
           BACKUP_HOME_SSH_KEY: ${{ secrets.BACKUP_HOME_SSH_KEY }}
           BACKUP_HOME_SSH_KNOWN_HOSTS: ${{ secrets.BACKUP_HOME_SSH_KNOWN_HOSTS }}
           BACKUP_RCLONE_CONFIG: ${{ secrets.BACKUP_RCLONE_CONFIG }}
-          STAG_SERVER_HOST: ${{ secrets.STAG_SERVER_HOST }}
-          STAG_SERVER_USER: ${{ secrets.STAG_SERVER_USER }}
+          STAG_CONFIG: ${{ secrets.STAG_CONFIG }}
           STAG_SERVER_PASS: ${{ secrets.STAG_SERVER_PASS }}
           STAG_SERVER_KEY: ${{ secrets.STAG_SERVER_KEY }}
-          STAG_DEPLOY_PATH: ${{ secrets.STAG_DEPLOY_PATH }}
-          STAG_BACKUP_ROOT: ${{ secrets.STAG_BACKUP_ROOT }}
-          STAG_BACKUP_EXCLUDE: ${{ secrets.STAG_BACKUP_EXCLUDE }}
-          STAG_DB_BACKUP_RETENTION_DAYS: ${{ secrets.STAG_DB_BACKUP_RETENTION_DAYS }}
-          STAG_BACKUP_LOCAL_FULL_RETENTION_DAYS: ${{ secrets.STAG_BACKUP_LOCAL_FULL_RETENTION_DAYS }}
-          STAG_BACKUP_RESTIC_REPOSITORY: ${{ secrets.STAG_BACKUP_RESTIC_REPOSITORY }}
-          STAG_BACKUP_RESTIC_KEEP_WITHIN: ${{ secrets.STAG_BACKUP_RESTIC_KEEP_WITHIN }}
-          STAG_BACKUP_RCLONE_DESTINATION: ${{ secrets.STAG_BACKUP_RCLONE_DESTINATION }}
-          STAG_BACKUP_RCLONE_DB_KEEP_AGE: ${{ secrets.STAG_BACKUP_RCLONE_DB_KEEP_AGE }}
-          STAG_BACKUP_RCLONE_FULL_KEEP_AGE: ${{ secrets.STAG_BACKUP_RCLONE_FULL_KEEP_AGE }}
-          STAG_SSHKWN_KEYS: ${{ secrets.STAG_SSHKWN_KEYS }}
-          PROD_SERVER_HOST: ${{ secrets.PROD_SERVER_HOST }}
-          PROD_SERVER_USER: ${{ secrets.PROD_SERVER_USER }}
+          PROD_CONFIG: ${{ secrets.PROD_CONFIG }}
           PROD_SERVER_PASS: ${{ secrets.PROD_SERVER_PASS }}
           PROD_SERVER_KEY: ${{ secrets.PROD_SERVER_KEY }}
-          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
-          PROD_BACKUP_ROOT: ${{ secrets.PROD_BACKUP_ROOT }}
-          PROD_BACKUP_EXCLUDE: ${{ secrets.PROD_BACKUP_EXCLUDE }}
-          PROD_DB_BACKUP_RETENTION_DAYS: ${{ secrets.PROD_DB_BACKUP_RETENTION_DAYS }}
-          PROD_BACKUP_LOCAL_FULL_RETENTION_DAYS: ${{ secrets.PROD_BACKUP_LOCAL_FULL_RETENTION_DAYS }}
-          PROD_BACKUP_RESTIC_REPOSITORY: ${{ secrets.PROD_BACKUP_RESTIC_REPOSITORY }}
-          PROD_BACKUP_RESTIC_KEEP_WITHIN: ${{ secrets.PROD_BACKUP_RESTIC_KEEP_WITHIN }}
-          PROD_BACKUP_RCLONE_DESTINATION: ${{ secrets.PROD_BACKUP_RCLONE_DESTINATION }}
-          PROD_BACKUP_RCLONE_DB_KEEP_AGE: ${{ secrets.PROD_BACKUP_RCLONE_DB_KEEP_AGE }}
-          PROD_BACKUP_RCLONE_FULL_KEEP_AGE: ${{ secrets.PROD_BACKUP_RCLONE_FULL_KEEP_AGE }}
-          PROD_SSHKWN_KEYS: ${{ secrets.PROD_SSHKWN_KEYS }}

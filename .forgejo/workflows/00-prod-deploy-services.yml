@@ -1,8 +1,10 @@
 # Forgejo Actions deployment workflow for ServiceHub.
 #
-# Deploys this repository to a remote Docker server over SSH. Inputs and secrets
-# are declared here; the Deploy step contains the deploy logic (same steps as
-# the previous Woodpecker workflow, .woodpecker/deploy.yml).
+# Deploys this repository to a remote Docker server over SSH. The runner checks
+# out the selected branch, decrypts git-crypt files in the checkout, and syncs
+# the working tree to the target with rsync — the target never receives git
+# metadata (.git, .gitignore, .gitattributes) or repository-only files
+# (.forgejo/, AGENTS.md, docs/), and needs neither git nor git-crypt.
 #
 # Triggers:
 #   - workflow_dispatch (Run workflow button in the Forgejo UI, or the
@@ -83,14 +85,14 @@ jobs:
         #                        services. Foundational services (infra*,
         #                        devops*, route*) are never deployed here.
         #   BRANCH               branch to deploy (default: main)
-        #   REPO_CLONE_URL       clonable URL of this repository
-        #   SOURCECODE_DEPLOY_TOKEN Forgejo access token (repo read scope)
-        #   GIT_CRYPT_KEY        base64-encoded git-crypt symmetric key
+        #   GIT_CRYPT_KEY        base64-encoded git-crypt symmetric key,
+        #                        unlocked in the runner checkout before sync
         #
         # SSH auth: set ${PREFIX}_SERVER_PASS (password) OR ${PREFIX}_SERVER_KEY
         # (private key, passwordless). If both are set the key takes precedence.
         # When using a key, the corresponding public key must already be in
-        # ~/.ssh/authorized_keys on the target server.
+        # ~/.ssh/authorized_keys on the target server. The target needs rsync.
+        # Optional ${PREFIX}_SERVER_PORT sets a non-default SSH port (22).
         run: |
           set -e
 
@@ -99,7 +101,6 @@ jobs:
           DEPLOY_TARGET=$(printf '%s' "$DEPLOY_TARGET" | tr '[:upper:]' '[:lower:]')
           [ -n "$DEPLOY_TASK" ] || DEPLOY_TASK=all
           [ -n "$BRANCH" ] || BRANCH=main
-          [ -n "$SOURCECODE_DEPLOY_TOKEN" ] || SOURCECODE_DEPLOY_TOKEN=
           [ -n "$GIT_CRYPT_KEY" ] || GIT_CRYPT_KEY=
 
           case "$DEPLOY_TARGET" in
@@ -110,24 +111,44 @@ jobs:
 
           get() { eval "printf '%s' \"\${$1:-}\""; }
 
-          SERVER_HOST=$(get "${PREFIX}_SERVER_HOST")
-          SERVER_USER=$(get "${PREFIX}_SERVER_USER")
+          # Connection and backup-independent settings live in one JSON secret
+          # per environment (see README, ${PREFIX}_CONFIG). Credentials and the
+          # large encoded blobs stay as individual secrets.
+          CONFIG_JSON=$(get "${PREFIX}_CONFIG")
           SERVER_PASSWORD=$(get "${PREFIX}_SERVER_PASS")
           SERVER_KEY=$(get "${PREFIX}_SERVER_KEY")
-          DEPLOY_PATH=$(get "${PREFIX}_DEPLOY_PATH")
           ENV_B64=$(get "${PREFIX}_B64ENC_ENVS")
           ACME_B64=$(get "${PREFIX}_B64ENC_ACME")
-          SSH_KNOWN_HOST=$(get "${PREFIX}_SSHKWN_KEYS")
 
-          [ -n "$SERVER_HOST" ] || { echo "Error: ${PREFIX}_SERVER_HOST is not set" >&2; exit 1; }
-          [ -n "$SERVER_USER" ] || { echo "Error: ${PREFIX}_SERVER_USER is not set" >&2; exit 1; }
+          [ -n "$CONFIG_JSON" ] || { echo "Error: ${PREFIX}_CONFIG is not set" >&2; exit 1; }
+          command -v jq >/dev/null 2>&1 || { echo "Error: required command 'jq' not found (runner image)" >&2; exit 1; }
+          cfg() {
+            printf '%s' "$CONFIG_JSON" | jq -r --arg k "$1" \
+              'if (.[$k] | type) == "string" then .[$k]
+               elif (.[$k] | type) == "number" then (.[$k] | tostring)
+               else empty end' ||
+              { echo "Error: ${PREFIX}_CONFIG is not valid JSON" >&2; exit 1; }
+          }
+
+          SERVER_HOST=$(cfg server_host)
+          SERVER_USER=$(cfg server_user)
+          SERVER_PORT=$(cfg server_port)
+          DEPLOY_PATH=$(cfg deploy_path)
+          SSH_KNOWN_HOST=$(cfg sshkwn_keys)
+
+          [ -n "$SERVER_HOST" ] || { echo "Error: ${PREFIX}_CONFIG.server_host is not set" >&2; exit 1; }
+          [ -n "$SERVER_USER" ] || { echo "Error: ${PREFIX}_CONFIG.server_user is not set" >&2; exit 1; }
+          [ -n "$SERVER_PORT" ] || SERVER_PORT=22
+          case "$SERVER_PORT" in
+            *[!0-9]*) echo "Error: ${PREFIX}_CONFIG.server_port must be a port number" >&2; exit 1 ;;
+          esac
           if [ -z "$SERVER_PASSWORD" ] && [ -z "$SERVER_KEY" ]; then
             echo "Error: ${PREFIX}_SERVER_PASS or ${PREFIX}_SERVER_KEY must be set" >&2; exit 1
           fi
-          [ -n "$DEPLOY_PATH" ] || { echo "Error: ${PREFIX}_DEPLOY_PATH is not set" >&2; exit 1; }
-          [ -n "$REPO_CLONE_URL" ] || { echo "Error: REPO_CLONE_URL is not set" >&2; exit 1; }
+          [ -n "$DEPLOY_PATH" ] || { echo "Error: ${PREFIX}_CONFIG.deploy_path is not set" >&2; exit 1; }
 
           command -v ssh >/dev/null 2>&1 || { echo "Error: required command 'ssh' not found" >&2; exit 1; }
+          command -v rsync >/dev/null 2>&1 || { echo "Error: required command 'rsync' not found (runner image)" >&2; exit 1; }
           if [ -z "$SERVER_KEY" ]; then
             command -v sshpass >/dev/null 2>&1 || { echo "Error: required command 'sshpass' not found (needed for password auth)" >&2; exit 1; }
           fi
@@ -154,42 +175,77 @@ jobs:
           if [ -n "$SSH_KNOWN_HOST" ]; then
             printf '%s\n' "$SSH_KNOWN_HOST" >> "$KNOWN_HOSTS_FILE"
           else
-            echo "WARNING: ${PREFIX}_SSHKWN_KEYS not set; falling back to ssh-keyscan" >&2
-            ssh-keyscan -H "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
+            echo "WARNING: ${PREFIX}_CONFIG.sshkwn_keys not set; falling back to ssh-keyscan" >&2
+            ssh-keyscan -H -p "$SERVER_PORT" "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
           fi
-          [ -s "$KNOWN_HOSTS_FILE" ] || { echo "Error: no SSH host keys for $SERVER_HOST (set ${PREFIX}_SSHKWN_KEYS)" >&2; exit 1; }
+          [ -s "$KNOWN_HOSTS_FILE" ] || { echo "Error: no SSH host keys for $SERVER_HOST (set ${PREFIX}_CONFIG.sshkwn_keys)" >&2; exit 1; }
           chmod 600 "$KNOWN_HOSTS_FILE"
 
           ssh_exec() {
             if [ -n "$SERVER_KEY" ]; then
               # BatchMode: never prompt (passphrase-protected keys fail fast
               # instead of hanging the job; use a passphrase-less key).
-              ssh -i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
+              ssh -p "$SERVER_PORT" -i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
             else
-              SSHPASS="$SERVER_PASSWORD" sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
+              SSHPASS="$SERVER_PASSWORD" sshpass -e ssh -p "$SERVER_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" "$SERVER_USER@$SERVER_HOST" "$@"
             fi
           }
 
-          # --- clone or pull -------------------------------------------------
-          if [ -n "$SOURCECODE_DEPLOY_TOKEN" ]; then
-            AUTH_REPO_URL=$(printf '%s' "$REPO_CLONE_URL" | sed "s|://|://oauth2:$SOURCECODE_DEPLOY_TOKEN@|")
-          else
-            echo "WARNING: SOURCECODE_DEPLOY_TOKEN not set; using unauthenticated clone URL" >&2
-            AUTH_REPO_URL="$REPO_CLONE_URL"
-          fi
-
-          ssh_exec "set -e
-          if [ -d '$DEPLOY_PATH/.git' ]; then
-            cd '$DEPLOY_PATH' && git remote set-url origin '$AUTH_REPO_URL' && git pull origin '$BRANCH'
-          else
-            mkdir -p '$DEPLOY_PATH' && git clone --branch '$BRANCH' '$AUTH_REPO_URL' '$DEPLOY_PATH'
-          fi"
-
-          # --- decrypt git-crypt files ---------------------------------------
+          # --- decrypt git-crypt files in the runner checkout ----------------
+          # Certificates under shared/traefik/advanced/selfsigncert/ are
+          # encrypted at rest in the repository. The decrypted working tree is
+          # what gets synced; the target never needs git or git-crypt.
           if [ -n "$GIT_CRYPT_KEY" ]; then
-            ssh_exec "command -v git-crypt >/dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y -qq git-crypt)"
-            ssh_exec "printf '%s' '$GIT_CRYPT_KEY' | base64 -d > /tmp/gcrypt.key && (git -C '$DEPLOY_PATH' crypt unlock /tmp/gcrypt.key 2>/dev/null || true); rm -f /tmp/gcrypt.key"
+            printf '%s' "$GIT_CRYPT_KEY" | base64 -d > /tmp/gcrypt.key
+            git crypt unlock /tmp/gcrypt.key 2>/dev/null ||
+              echo "WARNING: git-crypt unlock skipped (repository may not be initialised)" >&2
+            rm -f /tmp/gcrypt.key
           fi
+
+          # --- sync the working tree (no git metadata on the target) ----------
+          # Never transferred and removed from the target, so deployments made
+          # by the old clone-based workflow migrate cleanly:
+          #   .git .gitignore .gitattributes .forgejo AGENTS.md docs
+          # Protected from --delete instead (restored or regenerated below):
+          #   .env (newest-file-wins restore), admin-routers.yml and *.b64
+          #   (regenerated by scripts/setup.sh).
+          # Root-anchored patterns (/name) only match top-level entries; .env
+          # and *.b64 stay unanchored so nested copies are protected too.
+          KEEP_EXCLUDES="--exclude=/.git --exclude=.env --exclude=/.gitignore --exclude=/.gitattributes"
+          KEEP_EXCLUDES="$KEEP_EXCLUDES --exclude=/.forgejo --exclude=/AGENTS.md --exclude=/docs"
+          KEEP_EXCLUDES="$KEEP_EXCLUDES --exclude=shared/traefik/advanced/admin-routers.yml --exclude=*.b64"
+          CLEAN_PATHS='.git .gitignore .gitattributes .forgejo AGENTS.md docs'
+
+          ssh_exec "command -v rsync >/dev/null 2>&1 || { echo 'Error: rsync not installed on the target server' >&2; exit 1; }"
+          ssh_exec "mkdir -p '$DEPLOY_PATH' && cd '$DEPLOY_PATH' && rm -rf $CLEAN_PATHS"
+
+          # If APPS_DATA resolves inside the deploy path, protect it from
+          # --delete rather than trusting that it never will be. The last line
+          # is taken so a pre-command ssh banner cannot pollute the answer,
+          # while the ssh exit status still fails the deploy on a bad layout.
+          APPS_OUT=$(ssh_exec "set -e
+          APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
+          APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
+          case \"\$APPS_DATA\" in
+            '$DEPLOY_PATH') echo 'Error: APPS_DATA must not equal DEPLOY_PATH' >&2; exit 1 ;;
+            '$DEPLOY_PATH'/*) rel=\${APPS_DATA#\"$DEPLOY_PATH\"/}; printf '%s' \"\$rel\" ;;
+          esac")
+          APPS_REL=$(printf '%s\n' "$APPS_OUT" | tail -1)
+          if [ -n "$APPS_REL" ]; then
+            echo "Protecting APPS_DATA inside the deploy path from --delete: $APPS_REL"
+            KEEP_EXCLUDES="$KEEP_EXCLUDES --exclude=$APPS_REL"
+          fi
+
+          if [ -n "$SERVER_KEY" ]; then
+            RSYNC_RSH="ssh -p $SERVER_PORT -i $SSH_KEY_FILE -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$KNOWN_HOSTS_FILE"
+          else
+            SSHPASS="$SERVER_PASSWORD"
+            export SSHPASS
+            RSYNC_RSH="sshpass -e ssh -p $SERVER_PORT -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$KNOWN_HOSTS_FILE"
+          fi
+
+          echo "Syncing working tree from branch '$BRANCH' to $DEPLOY_TARGET ($SERVER_USER@$SERVER_HOST:$DEPLOY_PATH)"
+          rsync -a --delete $KEEP_EXCLUDES -e "$RSYNC_RSH" ./ "$SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/"
 
           # --- restore .env (newer file wins) --------------------------------
           if [ -n "$ENV_B64" ]; then
@@ -226,7 +282,7 @@ jobs:
           APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' | tail -1 | cut -d '=' -f2- | tr -d '\"')
           APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
           [ -n \"\$APPS_DATA\" ] || APPS_DATA=/opt/containerd
-          ACME_PATH=\"\$APPS_DATA/certs/acme.json\"
+          ACME_PATH=\"\$APPS_DATA/shared/certs/acme.json\"
           sudo -n mkdir -p \"\$(dirname \"\$ACME_PATH\")\"
           base64 -d > /tmp/acme_restore.gz
           gunzip -f /tmp/acme_restore.gz
@@ -251,12 +307,13 @@ jobs:
           # are deployed manually: deploying Forgejo would kill the runner
           # mid-deploy, and Traefik picks up new containers automatically via its
           # Docker provider. --no-deps guarantees a deploy never starts or
-          # recreates them either.
+          # recreates them either. aiserv* and obsvce* are excluded per
+          # ADR-009 even if the local include set ever lists them again.
           REMOTE_CMD="
           set -e
           if command -v docker-compose >/dev/null 2>&1; then COMPOSE='docker-compose'; else COMPOSE='docker compose'; fi
           if [ '$DEPLOY_TASK' = all ]; then
-            SERVICES=\$(\$COMPOSE config --services | grep -vE '^(infra|devops|route)')
+            SERVICES=\$(\$COMPOSE config --services | grep -vE '^(infra|devops|route|aiserv|obsvce)')
             \$COMPOSE up -d --build --no-deps \$SERVICES
           elif [ '$DEPLOY_TASK' = webappocis ]; then
             \$COMPOSE up -d --build webappocisinit
@@ -268,29 +325,17 @@ jobs:
 
           echo "Deployment of '$DEPLOY_TASK' from branch '$BRANCH' to $DEPLOY_TARGET completed"
         env:
-          # github.server_url is the runner's internal connection URL
-          # (http://devopsforgejo:3000), unreachable from the deploy servers.
-          # SOURCECODE_PUBLIC_URL is a repository variable holding the public
-          # Forgejo base URL (e.g. https://git.example.com).
-          REPO_CLONE_URL: ${{ vars.SOURCECODE_PUBLIC_URL || github.server_url }}/${{ github.repository }}.git
           BRANCH: ${{ inputs.branch }}
           DEPLOY_TARGET: ${{ inputs.environment }}
           DEPLOY_TASK: ${{ inputs.service }}
-          SOURCECODE_DEPLOY_TOKEN: ${{ secrets.SOURCECODE_DEPLOY_TOKEN }}
           GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
-          STAG_SERVER_HOST: ${{ secrets.STAG_SERVER_HOST }}
-          STAG_SERVER_USER: ${{ secrets.STAG_SERVER_USER }}
+          STAG_CONFIG: ${{ secrets.STAG_CONFIG }}
           STAG_SERVER_PASS: ${{ secrets.STAG_SERVER_PASS }}
           STAG_SERVER_KEY: ${{ secrets.STAG_SERVER_KEY }}
-          STAG_DEPLOY_PATH: ${{ secrets.STAG_DEPLOY_PATH }}
           STAG_B64ENC_ENVS: ${{ secrets.STAG_B64ENC_ENVS }}
           STAG_B64ENC_ACME: ${{ secrets.STAG_B64ENC_ACME }}
-          STAG_SSHKWN_KEYS: ${{ secrets.STAG_SSHKWN_KEYS }}
-          PROD_SERVER_HOST: ${{ secrets.PROD_SERVER_HOST }}
-          PROD_SERVER_USER: ${{ secrets.PROD_SERVER_USER }}
+          PROD_CONFIG: ${{ secrets.PROD_CONFIG }}
           PROD_SERVER_PASS: ${{ secrets.PROD_SERVER_PASS }}
           PROD_SERVER_KEY: ${{ secrets.PROD_SERVER_KEY }}
-          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
           PROD_B64ENC_ENVS: ${{ secrets.PROD_B64ENC_ENVS }}
           PROD_B64ENC_ACME: ${{ secrets.PROD_B64ENC_ACME }}
-          PROD_SSHKWN_KEYS: ${{ secrets.PROD_SSHKWN_KEYS }}

@@ -75,7 +75,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 > Re-registering: delete `${APPS_DATA}/devops/forgejo/runner/.runner` (or the whole directory), re-run the Forgejo-side registration command if the secret changed, and restart `devopsrunner`.
 >
-> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://devopsforgejo:3000`), so `actions/checkout` needs no public TLS. The remote deploy servers clone via the public URL — set the `SOURCECODE_PUBLIC_URL` repository variable (see [Root README — Required Actions Secrets and Variables](../../README.md#required-actions-secrets-and-variables)) so they can reach it.
+> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://devopsforgejo:3000`), so `actions/checkout` needs no public TLS; deploy targets receive the working tree over rsync from the runner checkout and never clone the repository themselves (see [Root README — Deployment](../../README.md#deployment-forgejo-actions)).
 
 ## Data & persistence
 
@@ -88,7 +88,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 ## Backup Workflow Runtime
 
-The [`backup-data`](../../.forgejo/workflows/30-prod-backup-services.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `restic`, `rclone`, `postgresql-client`, `bash`, `jq`, OpenSSH, and `sshpass`, so database dumps, archive transfers, integrity checks, and retention share the same host-mode runner as deployment workflows.
+The [`backup-data`](../../.forgejo/workflows/30-prod-backup-services.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `restic`, `rclone`, `rsync`, `postgresql-client`, `bash`, `jq`, `git-crypt`, OpenSSH, and `sshpass`, so database dumps, archive transfers, integrity checks, and retention share the same host-mode runner as deployment workflows.
 
 Because the runner has capacity one, long backup and deployment jobs queue behind each other. Protected target, credential, and retention values remain in Forgejo Actions secrets and are documented by name in [backup and restore](../../docs/operations/BACKUP-RESTORE.md) and the [root README](../../README.md#required-actions-secrets-and-variables).
 

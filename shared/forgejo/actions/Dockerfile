@@ -16,6 +16,7 @@ RUN apk add --no-cache \
     bash \
     curl \
     git \
+    git-crypt \
     jq \
     nodejs \
     npm \
@@ -23,6 +24,7 @@ RUN apk add --no-cache \
     postgresql-client \
     restic \
     rclone \
+    rsync \
     sshpass
 
 COPY entrypoint.sh /usr/local/bin/runner-entrypoint
