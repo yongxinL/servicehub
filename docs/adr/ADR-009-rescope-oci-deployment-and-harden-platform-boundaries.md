@@ -91,25 +91,35 @@ The move follows the [ADR-008](ADR-008-standardise-service-naming-storage-and-bi
 
 ### 3. Observability strategy
 
-Oracle Cloud native observability services SHALL replace the self-hosted observability stack for OCI-hosted workloads:
+Oracle Cloud native observability services SHALL replace the self-hosted observability stack for OCI-hosted workloads.
+
+Oracle Cloud observability services include:
 
 - Oracle APM
 - Oracle Monitoring
 - Oracle Logging
 - Oracle Tracing
 
+This decision applies only to workloads hosted within the OCI ServiceHub environment.
+
+The observability requirements for locally hosted AI services (`aiserv`) are outside the scope of this ADR and SHALL be evaluated separately. Local AI services MAY use a different monitoring and observability approach appropriate to the local infrastructure.
+
 Deployment impact:
 
 - `compose/obsvce.yml` SHALL be removed from the OCI deployment.
-- The `include` reference to `compose/obsvce.yml` in [docker-compose.yml](../../docker-compose.yml) SHALL be removed.
+- The `include` reference to `compose/obsvce.yml` in ../../docker-compose.yml SHALL be removed.
 
-Repository strategy: `compose/obsvce.yml` MAY remain in source control for future reference but SHALL NOT be deployed to OCI.
+Repository strategy:
+
+- `compose/obsvce.yml` MAY remain in source control for future reference.
+- `compose/obsvce.yml` SHALL NOT be deployed to OCI.
 
 Benefits:
 
 - **Reduced resource consumption.** Lower CPU, memory, storage, and operational overhead.
-- **Managed service model.** Monitoring and tracing become native OCI responsibilities.
+- **Managed service model.** Monitoring and tracing become OCI-managed responsibilities for OCI-hosted workloads.
 - **Simplified operations.** Reduced patching, backup, and maintenance burden.
+- **Clear platform boundaries.** OCI monitoring is focused on OCI-hosted services, while local infrastructure monitoring can evolve independently as the AI platform grows.
 
 ### 4. OCI service scope
 
@@ -127,17 +137,19 @@ Principle: OCI SHALL host business-critical platform services; resource-intensiv
 
 ### 5. Confluence communication and internet egress policy
 
-Confluence Data Center operates as a self-hosted application whose normal operation depends only on PostgreSQL, Authentik, and SMTP.
+Confluence Data Center is intended to operate independently of Atlassian-hosted services during normal operation.
 
-Allowed outbound destinations:
+The platform requires communication with approved infrastructure dependencies such as database, identity, mail, DNS, and time-synchronisation services. Specific implementation details are intentionally not prescribed by this ADR.
 
-| Destination | Purpose |
+Approved dependency classes:
+
+| Dependency Type | Purpose |
 |---|---|
-| PostgreSQL | Primary database |
-| Authentik | Identity and SSO |
-| SMTP | Mail delivery |
+| Database | Primary persistence |
+| Identity | Authentication and SSO |
+| Mail Delivery | Outbound notifications |
 | DNS | Name resolution |
-| NTP | Time synchronisation |
+| Time Synchronisation | Time consistency |
 
 Blocked by default:
 
@@ -155,7 +167,9 @@ Benefits: reduced attack surface, reduced third-party dependency and privacy exp
 
 Administrative services SHALL continue to use IP allow-list protection.
 
-Unauthorised requests SHOULD be redirected to `https://login.<domain>` rather than displaying HTTP 403 responses.
+The redirect mechanism SHALL NOT grant access to protected endpoints and SHALL preserve the existing IP allow-list enforcement.
+
+Unauthorised requests SHALL be redirected to `https://login.<domain>` rather than displaying HTTP 403 responses.
 
 | Caller | Path |
 |---|---|
@@ -177,6 +191,20 @@ Benefits: consistent user experience with all authentication entry beginning at 
 - Local infrastructure can be expanded and can host future GPU acceleration.
 - Confluence has no operational need for routine Atlassian communication.
 - Administrative endpoints should present a consistent authentication entry point instead of an error page.
+
+## Non-Goals
+
+This ADR does not prescribe:
+
+- Docker network segmentation.
+- OCI network topology.
+- Firewall implementation details.
+- Traefik middleware implementation details.
+- Oracle Cloud networking configuration.
+
+These topics MAY be addressed by future ADRs if required.
+
+The decision to restrict Confluence communication with Atlassian services is independent of any future Docker network segmentation initiative.
 
 ## Options Considered
 
@@ -203,14 +231,14 @@ Option 2 satisfies every driver in a single, coherent rescope. Option 1 leaves A
 - Self-hosted dashboards, alerting, and historical metrics are lost when Grafana, VictoriaMetrics, VictoriaLogs, and Alloy are retired from OCI; existing history is not migrated.
 - Moving Open WebUI requires coordinated changes to compose placement, service name, Traefik router labels, storage path, environment variables, backup tiering, and documentation.
 - Confluence marketplace app installation and upgrades become a time-boxed exception procedure instead of a background capability.
-- The administrative redirect changes established Traefik middleware behaviour and must not weaken the underlying allow list.
+- The administrative redirect changes established Traefik middleware behaviour.
 
 ## Risks
 
 - The local AI platform inherits availability, backup, and recovery responsibilities that today sit inside the OCI deployment; mitigate by extending the [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) target model to local `aiserv` paths and recording the local recovery objectives, with residual uncertainty until a local restore is rehearsed.
 - Retiring the self-hosted stack removes container and host metrics that Oracle Monitoring does not automatically collect for local infrastructure; mitigate by defining what is observed on the local AI platform and by exporting OCI monitoring of OCI-hosted workloads to a retained dashboard, with residual uncertainty on coverage until configured.
 - An incorrect administrative redirect could expose an endpoint or bypass the allow list; mitigate by verifying that unauthorised requests are denied first and then redirected, and by testing both an allowed and a disallowed address on every administrative route.
-- A broad egress rule could silently re-open general internet access for Confluence; mitigate by allow-listing the five approved dependencies explicitly and reviewing rules after each exception window.
+- A broad egress rule could silently re-open general internet access for Confluence; mitigate by allow-listing only approved dependency classes and reviewing rules after each exception window.
 - The Open WebUI move could break existing chat sessions, model links, or backup scope; mitigate by running a backup before the move and re-checking `CHAT_DOMAIN` routing afterwards.
 - Some Confluence apps or Atlassian components may make unexpected outbound calls during normal operation; mitigate by logging blocked destinations during the observation period before treating the policy as complete.
 
@@ -242,11 +270,12 @@ Current-state evidence for the context above:
 
 | Action | Owner | Due date | Status |
 |---|---|---|---|
-| Move all AI services to local infrastructure and remove `compose/aiserv.yml` from the OCI deployment | ServiceHub Architecture | TBD | Proposed |
+| Move all AI services to local infrastructure and remove `compose/aiserv.yml` from the OCI deployment include set while retaining the compose definition in source control | ServiceHub Architecture | TBD | Proposed |
 | Move Open WebUI from `webapp` to `aiserv` (compose placement, `aiservowui` name, Traefik labels, storage path, variables, backup tier) | ServiceHub Architecture | TBD | Proposed |
+| Review and update backup, recovery, and retention coverage for `${APPS_DATA}/aiserv/openwebui` following the Open WebUI relocation | George Li | TBD | Proposed |
 | Remove `compose/obsvce.yml` and its `docker-compose.yml` `include` from the OCI deployment; retain the file in source control | ServiceHub Architecture | TBD | Proposed |
 | Configure Oracle APM, Monitoring, Logging, and Tracing for OCI-hosted workloads and record the configuration | ServiceHub Architecture | TBD | Proposed |
-| Define how the local AI platform is observed once Alloy and Grafana are removed from OCI | ServiceHub Architecture | TBD | Proposed |
+| Define and document the observability strategy for locally hosted `aiserv` services after removal of the OCI `obsvce` deployment | ServiceHub Architecture | TBD | Proposed |
 | Define the Confluence outbound allow list (PostgreSQL, Authentik, SMTP, DNS, NTP) and a time-boxed exception procedure | George Li | TBD | Proposed |
 | Replace the HTTP 403 response on `traefik.<domain>` and `mail.<domain>` with a redirect to `https://login.<domain>` while retaining the IP allow list | ServiceHub Architecture | TBD | Proposed |
 | Update architecture, deployment, monitoring, and service inventory documentation in the same change as the implementation | George Li | TBD | Proposed |
