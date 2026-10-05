@@ -82,6 +82,9 @@ def emit(obj, indent, out):
 
 def main():
     env_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, ".env")
+    if not os.path.exists(env_path):
+        print(f"warning: {env_path} not found; falling back to env.example defaults",
+              file=sys.stderr)
     env = load(EXAMPLE)
     env.update(load(env_path))
     for key in ("TRUSTED_IP", "TRAEFIK_DOMAIN", "EMAIL_HOST", "IDENTITY_DOMAIN",
@@ -165,7 +168,7 @@ def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w") as f:
         f.write("\n".join(lines) + "\n")
-    print(f"wrote {os.path.relpath(OUT, ROOT)} "
+    print(f"wrote {os.path.relpath(OUT, ROOT)} from {env_path} "
           f"({len(routers)} routers, {len(trusted)} trusted ranges)")
 
 
