@@ -378,9 +378,9 @@ The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` rec
 - **Docker** 24+ with **Compose 2.20+** (`docker compose` or standalone `docker-compose` v2) for `include` support
 - **python3** 3.8+ (required by `scripts/setup.sh`)
 - **Git** 2.x
-- **git-crypt** (macOS: `brew install git-crypt`) — required to encrypt/decrypt self-signed certificates stored in the repo. The remote deploy server installs it automatically via the workflow.
+- **git-crypt** (macOS: `brew install git-crypt`) — required to encrypt/decrypt self-signed certificates stored in the repo. The deploy workflow decrypts them in the runner checkout; the deploy server needs neither git nor git-crypt.
 - A domain name with DNS A records pointing to your server (for Let's Encrypt) **or** a local domain with a self-signed certificate (for staging)
-- A Linux server with SSH access (for remote deployment). The deploy user needs Docker access and **passwordless sudo** (`NOPASSWD`) — the workflow installs the root-owned ACME store (`${APPS_DATA}/shared/certs/acme.json`, mode `600`, contains private keys) and installs `git-crypt` when missing:
+- A Linux server with SSH access (for remote deployment). The deploy user needs Docker access, `rsync`, and **passwordless sudo** (`NOPASSWD`) — the workflow syncs the working tree with rsync and installs the root-owned ACME store (`${APPS_DATA}/shared/certs/acme.json`, mode `600`, contains private keys):
 
   ```bash
   echo "deploy ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/servicehub-deploy
@@ -406,7 +406,7 @@ Run the setup script to create your `.env` from the template. It auto-generates 
 bash scripts/setup.sh
 ```
 
-If `.env` already exists (e.g., after pulling updates), the script merges new variables from `env.example` without overwriting existing values, and migrates renamed legacy variables (e.g. `SECOB_*` → `OBSERVABILITY_*`, and the ADR-008 service prefixes).
+If `.env` already exists (e.g., after pulling updates), the script merges new variables from `env.example` without overwriting existing values. Variable renames are not migrated automatically — they are a manual one-time edit.
 
 ### 3. Configure Environment Variables
 
@@ -474,7 +474,7 @@ docker compose up -d devopsforgejo
 
 ## Managing Encrypted Files (git-crypt)
 
-Self-signed certificates for staging are stored **encrypted** in `shared/traefik/advanced/selfsigncert/` using [git-crypt](https://github.com/AGWA/git-crypt). They appear as binary blobs to anyone without the key, making it safe to commit them. The deploy workflow decrypts them automatically on the remote server.
+Self-signed certificates for staging are stored **encrypted** in `shared/traefik/advanced/selfsigncert/` using [git-crypt](https://github.com/AGWA/git-crypt). They appear as binary blobs to anyone without the key, making it safe to commit them. The deploy workflow decrypts them in the runner checkout before syncing the working tree to the remote server.
 
 ### One-time Setup (new repository)
 
@@ -549,12 +549,12 @@ The Forgejo Actions workflow at [.forgejo/workflows/00-prod-deploy-services.yml]
 
 1. Selects the `STAG_*` or `PROD_*` secrets from the **environment** input, defaulting to staging
 2. Configures SSH known hosts from a stored secret (or falls back to `ssh-keyscan`)
-3. On the remote server: clones the repo on first deploy (from the `SOURCECODE_PUBLIC_URL` variable), or pulls the branch on subsequent runs
-4. Installs git-crypt on the remote server if needed, then decrypts encrypted files (e.g. staging certs)
+3. Checks out the chosen branch in the runner and decrypts git-crypt files (e.g. staging certs) in the checkout
+4. Syncs the working tree to the deploy path with `rsync --delete` — the target keeps no `.git`, and repository-only files (`.git`, `.gitignore`, `.gitattributes`, `.forgejo/`, `AGENTS.md`, `docs/`) are excluded while `.env` and generated files are protected from deletion
 5. Restores `.env` from the `*_B64ENC_ENVS` secret if the secret is newer than the existing file
 6. Runs `scripts/setup.sh` to merge any new variables from `env.example` into `.env`
 7. Restores `acme.json` from the `*_B64ENC_ACME` secret if the secret is newer than the existing file
-8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to every app service)
+8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to every non-foundational service in the ADR-009 OCI scope; `aiserv*` and `obsvce*` are never deployed by CI)
 
 > **Deploy scope:** databases (`infra*`), Authentik (`infra*`), DevOps / Forgejo + runner (`devops*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deployment altogether per [ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md): the AI platform runs on local infrastructure and the observability stack is retained in source control only. Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
 >
@@ -580,19 +580,10 @@ Stored workflow configuration lives in two separate stores, both under **Forgejo
 
 | Where | Used for | Items |
 |---|---|---|
-| **Secrets** (Settings → Actions → **Secrets**) | Credentials, private keys and encoded `.env` / `acme.json` — encrypted and masked in logs | `SOURCECODE_DEPLOY_TOKEN`, `GIT_CRYPT_KEY`, and every `STAG_*` / `PROD_*` entry below |
-| **Variables** (Settings → Actions → **Variables**) | Non-sensitive configuration — plaintext, readable by anyone with repository access | `SOURCECODE_PUBLIC_URL` |
-| **Neither** — selected per run in the **Run workflow** dialog | Per-deployment choices | `service`, `environment`, `branch` |
+| **Secrets** (Settings → Actions → **Secrets**) | Credentials, private keys and encoded `.env` / `acme.json` — encrypted and masked in logs | `GIT_CRYPT_KEY`, and every `STAG_*` / `PROD_*` entry below |
+| **Neither** — selected per run in the **Run Workflow** dialog | Per-deployment choices | `service`, `environment`, `branch` |
 
-> **ADR-008 rename:** `DEPOT_PUBLIC_URL` → `SOURCECODE_PUBLIC_URL` and `DEPOT_DEPLOY_TOKEN` → `SOURCECODE_DEPLOY_TOKEN`. Rename both entries in **Forgejo → Settings → Actions** at the same time as this repository update, or deploys lose the clone URL and access token.
-
-#### Variables (Settings → Actions → Variables)
-
-Set these in **Forgejo → Repository → Settings → Actions → Variables**:
-
-| Variable | Example value | Description |
-|---|---|---|
-| `SOURCECODE_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://devopsforgejo:3000` and cannot be reached from the deploy servers). |
+> **Working-tree deploys:** the deploy workflow checks out the repository in the runner and syncs the working tree over SSH with rsync. `SOURCECODE_PUBLIC_URL` and `SOURCECODE_DEPLOY_TOKEN` are no longer read by any workflow and can be removed from **Forgejo → Settings → Actions**.
 
 #### Secrets (Settings → Actions → Secrets)
 
@@ -604,56 +595,73 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 | Secret | How to obtain | Description |
 |---|---|---|
-| `SOURCECODE_DEPLOY_TOKEN` | Forgejo → Settings → Applications → Access Token (repo read scope) | Forgejo access token used by the deploy step to clone/pull the repository on the remote server. |
-| `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates on the remote server after git clone/pull. Generate with `git-crypt init && git-crypt export-key ./servicehub.key`. |
+| `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates in the runner checkout before the working tree is synced to the remote server. Generate with `git-crypt init && git-crypt export-key ./servicehub.key`. |
 | `BACKUP_RESTIC_PASSWORD` | *(protected value; do not record)* | Restic repository password used by the backup workflow. |
 | `BACKUP_HOME_SSH_KEY` | *(protected private key; do not record)* | Private key used for the Restic Home Server repository over SSH/SFTP. |
 | `BACKUP_HOME_SSH_KNOWN_HOSTS` | *(verified SSH host keys; do not record)* | Home Server host keys used for strict SSH host verification. |
 | `BACKUP_RCLONE_CONFIG` | *(protected Rclone configuration; do not record)* | Rclone configuration containing the Google Drive remote and credentials. |
 
+##### Per-environment configuration (`${PREFIX}_CONFIG`)
+
+All non-credential target settings live in **one JSON secret per environment** — `STAG_CONFIG` and `PROD_CONFIG` — instead of one secret per key. Values may be strings or numbers; multi-line values (host keys) use `\n` escapes. Example:
+
+```json
+{
+  "server_host": "203.0.113.10",
+  "server_port": "2222",
+  "server_user": "deploy",
+  "deploy_path": "/srv/servicehub",
+  "sshkwn_keys": "ssh-ed25519 AAAA... host\nssh-rsa BBBB... host",
+  "backup_root": "/srv/backups/servicehub",
+  "backup_exclude": "webapp/confluence/logs,devops/forgejo/workspace",
+  "db_backup_retention_days": "14",
+  "backup_local_full_retention_days": "90",
+  "backup_restic_repository": "sftp:backup@home.example:/srv/restic/servicehub",
+  "backup_restic_keep_within": "30d",
+  "backup_rclone_destination": "gdrive:servicehub-backups",
+  "backup_rclone_db_keep_age": "30d",
+  "backup_rclone_full_keep_age": "90d"
+}
+```
+
+| Key | Required by | Description |
+|---|---|---|
+| `server_host` | all | Hostname or address of the target server used for SSH. |
+| `server_port` | no | SSH port; defaults to `22`. Applies to every SSH use: deploy, connectivity test and backup transfers. |
+| `server_user` | all | SSH login account. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
+| `deploy_path` | all | Absolute path that receives the deployed working tree. Created on first deploy; no git metadata is kept there. |
+| `sshkwn_keys` | no | The server's public SSH host key(s), verbatim `ssh-keyscan` output (use `ssh-keyscan -p <port> <host>` for a non-default port so entries use the `[host]:port` form). If unset, the workflows fall back to `ssh-keyscan` at runtime with a warning. |
+| `backup_root` | backup | Directory where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. |
+| `backup_exclude` | no | Comma-separated paths, relative to `APPS_DATA`, to exclude from the full archive. `*` and `?` globs are allowed; leave unset to archive everything. |
+| `db_backup_retention_days` | backup | Required same-host retention for database archives under `backup_root`. |
+| `backup_local_full_retention_days` | backup | Required same-host retention for full archives. |
+| `backup_restic_repository` | backup | Home Server Restic repository used as the primary recovery target (`sftp:` URI). |
+| `backup_restic_keep_within` | backup | Restic snapshot retention applied after integrity checking. |
+| `backup_rclone_destination` | backup | Google Drive destination used for the independent off-site copy. |
+| `backup_rclone_db_keep_age` | backup | Rclone retention for database archives. |
+| `backup_rclone_full_keep_age` | backup | Rclone retention for full archives. |
+
+> **Migration:** earlier releases used one secret per key (`STAG_SERVER_HOST`, `STAG_BACKUP_ROOT`, …). Build `STAG_CONFIG` / `PROD_CONFIG` from those values, run one workflow to confirm, then delete the obsolete rows. A missing required key fails fast with `${PREFIX}_CONFIG.<key> is not set`.
+
 ##### Staging (`STAG_*`)
 
 | Secret | Example value | Description |
 |---|---|---|
-| `STAG_SERVER_HOST` | *(configured host; do not record here)* | Hostname or address of the staging server used for SSH connection. |
-| `STAG_SERVER_USER` | *(configured account; do not record here)* | SSH login account on the staging server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
-| `STAG_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `STAG_SERVER_KEY` must be set** — not both required. Ignored if `STAG_SERVER_KEY` is also set. |
+| `STAG_CONFIG` | *(JSON; see the key table above)* | All non-credential staging settings as one JSON object. |
+| `STAG_SERVER_PASS` | `••••••••` | SSH password for `server_user`. **Either this or `STAG_SERVER_KEY` must be set** — not both required. Ignored if `STAG_SERVER_KEY` is also set. |
 | `STAG_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `STAG_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the staging server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
-| `STAG_DEPLOY_PATH` | *(configured absolute path; do not record here)* | Absolute path on the staging server where the repo is cloned. Must include the repo directory name — git clones **into** this path. |
-| `STAG_BACKUP_ROOT` | *(configured absolute path; do not record here)* | Directory on the staging server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. |
-| `STAG_BACKUP_EXCLUDE` | `webapp/confluence/logs,devops/forgejo/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from staging backups. `*` and `?` globs are allowed; leave unset to archive everything. |
-| `STAG_DB_BACKUP_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for database archives under `STAG_BACKUP_ROOT`. |
-| `STAG_BACKUP_LOCAL_FULL_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for full archives. |
-| `STAG_BACKUP_RESTIC_REPOSITORY` | *(approved `sftp:` repository URI; do not record here)* | Home Server Restic repository used as the primary recovery target. |
-| `STAG_BACKUP_RESTIC_KEEP_WITHIN` | *(approved duration; do not record here)* | Restic snapshot retention applied after integrity checking. |
-| `STAG_BACKUP_RCLONE_DESTINATION` | *(configured remote and path; do not record here)* | Google Drive destination used for the independent off-site copy. |
-| `STAG_BACKUP_RCLONE_DB_KEEP_AGE` | *(approved duration; do not record here)* | Rclone retention for database archives. |
-| `STAG_BACKUP_RCLONE_FULL_KEEP_AGE` | *(approved duration; do not record here)* | Rclone retention for full archives. |
 | `STAG_B64ENC_ENVS` | *(output of `setup.sh --encode STAG`)* | Gzip+base64-encoded `.env` file. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
 | `STAG_B64ENC_ACME` | *(leave the value empty for staging)* | Gzip+base64-encoded `acme.json` (Let's Encrypt certificates). For staging, create the secret with an **empty value** — Traefik uses the self-signed cert from `shared/traefik/advanced/selfsigncert/` instead. |
-| `STAG_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The staging server's public SSH host key. Prevents man-in-the-middle attacks by verifying the server identity before connecting. **Optional** — if unset the deploy script falls back to `ssh-keyscan` at runtime with a warning. |
 
 ##### Production (`PROD_*`)
 
 | Secret | Example value | Description |
 |---|---|---|
-| `PROD_SERVER_HOST` | *(configured host; do not record here)* | Hostname or address of the production server used for SSH connection. |
-| `PROD_SERVER_USER` | *(configured account; do not record here)* | SSH login account on the production server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
-| `PROD_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `PROD_SERVER_KEY` must be set** — not both required. Ignored if `PROD_SERVER_KEY` is also set. |
+| `PROD_CONFIG` | *(JSON; see the key table above)* | All non-credential production settings as one JSON object. |
+| `PROD_SERVER_PASS` | `••••••••` | SSH password for `server_user`. **Either this or `PROD_SERVER_KEY` must be set** — not both required. Ignored if `PROD_SERVER_KEY` is also set. |
 | `PROD_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `PROD_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the production server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
-| `PROD_DEPLOY_PATH` | *(configured absolute path; do not record here)* | Absolute path on the production server where the repo is cloned. |
-| `PROD_BACKUP_ROOT` | *(configured absolute path; do not record here)* | Directory on the production server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. |
-| `PROD_BACKUP_EXCLUDE` | `webapp/confluence/logs,devops/forgejo/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from production backups. `*` and `?` globs are allowed; leave unset to archive everything. |
-| `PROD_DB_BACKUP_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for database archives under `PROD_BACKUP_ROOT`. |
-| `PROD_BACKUP_LOCAL_FULL_RETENTION_DAYS` | *(approved day count; do not record here)* | Required same-host retention for full archives. |
-| `PROD_BACKUP_RESTIC_REPOSITORY` | *(approved `sftp:` repository URI; do not record here)* | Home Server Restic repository used as the primary recovery target. |
-| `PROD_BACKUP_RESTIC_KEEP_WITHIN` | *(approved duration; do not record here)* | Restic snapshot retention applied after integrity checking. |
-| `PROD_BACKUP_RCLONE_DESTINATION` | *(configured remote and path; do not record here)* | Google Drive destination used for the independent off-site copy. |
-| `PROD_BACKUP_RCLONE_DB_KEEP_AGE` | *(approved duration; do not record here)* | Rclone retention for database archives. |
-| `PROD_BACKUP_RCLONE_FULL_KEEP_AGE` | *(approved duration; do not record here)* | Rclone retention for full archives. |
 | `PROD_B64ENC_ENVS` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded production `.env`. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
 | `PROD_B64ENC_ACME` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded `acme.json` containing your Let's Encrypt certificates. Generated by `setup.sh --encode PROD` when `acme.json` is larger than 1 KB (i.e. after Traefik has issued real certificates). Restored only if the secret is newer than the existing file. |
-| `PROD_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The production server's public SSH host key. Strongly recommended for production. Run `ssh-keyscan <prod-host>` locally to get the value. |
 
 ### Triggering a Deployment
 
@@ -669,7 +677,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 ### Data Backups (Forgejo Actions)
 
-The `30-prod-backup-services.yml` workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, creates archives under `*_BACKUP_ROOT`, then configures Restic and Rclone copies to the two accepted targets. Repository configuration exists; successful transfers and restores are not yet evidenced.
+The `30-prod-backup-services.yml` workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, creates archives under the `backup_root` key of `${PREFIX}_CONFIG`, then configures Restic and Rclone copies to the two accepted targets. Repository configuration exists; successful transfers and restores are not yet evidenced.
 
 **Database dumps (daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `infrapgsql` container while the services keep running, then packed into a single daily archive so each day has exactly one database backup file:
 
@@ -680,7 +688,7 @@ The `30-prod-backup-services.yml` workflow runs on the existing `devopsrunner` w
 #    <domain>-dbBK-globals-<YYYYMMDD>.sql
 ```
 
-The workflow deletes database archives older than the approved `*_DB_BACKUP_RETENTION_DAYS` value — only files matching `*-dbBK-*` are pruned, and empty `<YYYY>/<YYYYMM>` directories are removed too. The approved value is not recorded here.
+The workflow deletes database archives older than the approved `db_backup_retention_days` value in `${PREFIX}_CONFIG` — only files matching `*-dbBK-*` are pruned, and empty `<YYYY>/<YYYYMM>` directories are removed too. The approved value is not recorded here.
 
 **Full archive (weekly, Sunday)** — the whole persistent data volume, the `APPS_DATA` path read from the server's `.env`:
 
@@ -692,7 +700,7 @@ The full archive includes `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/we
 
 `<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data and the archive contains `.env` secrets and ACME private keys. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](#prerequisites).
 
-Paths can be excluded from the **full archive** with the optional `STAG_BACKUP_EXCLUDE` / `PROD_BACKUP_EXCLUDE` secrets — a comma-separated list relative to `APPS_DATA`, with `*` and `?` globs allowed. For example, to skip Confluence logs/caches and the runner workspace:
+Paths can be excluded from the **full archive** with the optional `backup_exclude` key in `STAG_CONFIG` / `PROD_CONFIG` — a comma-separated list relative to `APPS_DATA`, with `*` and `?` globs allowed. For example, to skip Confluence logs/caches and the runner workspace:
 
 ```
 webapp/confluence/logs,webapp/confluence/temp,webapp/confluence/plugins-temp,devops/forgejo/workspace
