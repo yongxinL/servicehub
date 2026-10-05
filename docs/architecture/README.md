@@ -42,6 +42,8 @@ The architecture documents explain the current repository implementation. Claims
 - [ADR-005 Use LiteLLM for AI Workload Routing](../adr/ADR-005-use-litellm-for-ai-routing.md)
 - [ADR-006 Adopt oCIS with Local Filesystem Storage](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
 - [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
+- [ADR-008 Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables](../adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md)
+- [ADR-009 Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)
 
 ## Primary Evidence
 
