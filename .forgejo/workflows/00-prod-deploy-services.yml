@@ -11,7 +11,9 @@
 # Inputs (same as the previous Gitea Actions workflow):
 #   - service:     app service to deploy, or "all" (default). Foundational
 #                  services (infra*, devops*, route*) are never deployed
-#                  by CI.
+#                  by CI. AI platform (aiserv*) and observability (obsvce*)
+#                  services are outside the OCI deploy scope (ADR-009) and
+#                  are not offered here.
 #   - environment: deploy target, stag (default) or prod
 #   - branch:      branch to deploy (default main)
 #
@@ -38,15 +40,7 @@ on:
         options:
           - all
           - webappconf
-          - webappowui
           - webappocis
-          - aiservlitellm
-          - aiservllamacpp
-          - aiservhermes
-          - obsvcevm
-          - obsvcevlogs
-          - obsvcealloy
-          - obsvcegrafana
           - mailsvstalwart
           - mailsvbulwark
       environment:

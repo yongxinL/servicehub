@@ -34,6 +34,8 @@ related_documents:
 
 ## Context
 
+> **Superseded in part by [ADR-009](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md):** Open WebUI moves from `webapp` to `aiserv` (`aiservowui`, `${APPS_DATA}/aiserv/openwebui`, Tier 2 backup path `aiserv/openwebui`). The tables below record the state as decided in ADR-008.
+
 The stack now spans 18 products across Traefik, PostgreSQL, MariaDB, Authentik, Forgejo and its runner, Confluence, Open WebUI, oCIS, Hermes, LiteLLM, llama.cpp, VictoriaMetrics, VictoriaLogs, Grafana Alloy, Grafana, Stalwart, and Bulwark. Service names, storage paths, compose grouping, and bind mounts have grown organically and are inconsistent in:
 
 - Naming conventions: current services use unrelated prefixes (`route*`, `dbsvc*`, `authn*`, `depot*`, `wbapp*`, `aiagn*`, `obsvc*`, `poste*`) and product names of varying length and abbreviation.

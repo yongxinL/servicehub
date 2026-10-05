@@ -4,16 +4,16 @@
 
 ## Overview
 
-[Open WebUI](https://docs.openwebui.com/) is a web-based interface for interacting with Large Language Models. It is defined by the `webappowui` service in [`compose/webapp.yml`](../../compose/webapp.yml) and built from [`shared/openwebui/Dockerfile`](Dockerfile) (`FROM ghcr.io/open-webui/open-webui:main`). It can connect to the [LiteLLM proxy](../litellm/README.md) or directly to a [Hermes Agent](../hermesagent/README.md) gateway as an OpenAI-compatible endpoint.
+[Open WebUI](https://docs.openwebui.com/) is a web-based interface for interacting with Large Language Models. It is defined by the `aiservowui` service in [`compose/aiserv.yml`](../../compose/aiserv.yml) and built from [`shared/openwebui/Dockerfile`](Dockerfile) (`FROM ghcr.io/open-webui/open-webui:main`). It can connect to the [LiteLLM proxy](../litellm/README.md) or directly to a [Hermes Agent](../hermesagent/README.md) gateway as an OpenAI-compatible endpoint. Per [ADR-009](../../docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) Open WebUI runs on local infrastructure with the rest of the AI platform and is not deployed to OCI.
 
 ## Service details
 
 | Detail | Value |
 |---|---|
-| Service name | `webappowui` |
+| Service name | `aiservowui` |
 | URL | `https://${CHAT_DOMAIN}` |
 | Internal port | 8080 |
-| Data persistence | `${APPS_DATA}/webapp/openwebui` (mounted at `/app/backend/data`) |
+| Data persistence | `${APPS_DATA}/aiserv/openwebui` (mounted at `/app/backend/data`) |
 | Depends on | `routetraefik` (healthy) |
 
 ## Configuration
@@ -39,16 +39,16 @@ When pointed at LiteLLM, requests use the `hermes` virtual model and are routed 
 
 | Container path | Host path | Purpose |
 |---|---|---|
-| `/app/backend/data` | `${APPS_DATA}/webapp/openwebui` | SQLite database, users, chats and model settings |
+| `/app/backend/data` | `${APPS_DATA}/aiserv/openwebui` | SQLite database, users, chats and model settings |
 
 ## Operations
 
 ```bash
 # Start / restart
-docker compose up -d webappowui
+docker compose up -d aiservowui
 
 # Follow logs
-docker compose logs -f webappowui
+docker compose logs -f aiservowui
 ```
 
 ## Files
@@ -61,5 +61,4 @@ docker compose logs -f webappowui
 
 - [LiteLLM Proxy](../litellm/README.md) — unified LLM endpoint
 - [Hermes Agent](../hermesagent/README.md) — agent workspaces and gateway
-- [Confluence](../confluence/README.md) — the other service in `compose/webapp.yml`
-- [Root README — Web Applications](../../README.md#web-applications)
+- [Root README — AI Agent Platform](../../README.md#ai-agent-platform-aiserv)

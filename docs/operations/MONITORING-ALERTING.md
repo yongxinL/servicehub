@@ -22,9 +22,12 @@ related_documents:
   - TEST-001
   - BACKUP-RESTORE
   - ADR-007
+  - ADR-009
 ---
 
 # ServiceHub Monitoring and Alerting
+
+> **Status note (ADR-009).** [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) keeps this self-hosted observability stack in the repository but excludes it from the OCI deployment. OCI-hosted workloads are observed with Oracle Cloud APM, Monitoring, Logging, and Tracing; the monitoring strategy for locally hosted `aiserv` services is an open follow-up. The sections below describe the retained self-hosted stack.
 
 ## Monitoring Objectives
 

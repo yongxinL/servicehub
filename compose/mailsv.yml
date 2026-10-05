@@ -48,13 +48,30 @@ services:
             - "traefik.http.routers.mailsvstalwart-jmap.priority=20"
             - "traefik.http.routers.mailsvstalwart-jmap.tls=true"
             - "traefik.http.routers.mailsvstalwart-jmap.tls.certresolver=${CERTRESOLVER}"
-            # All other Stalwart paths, including the admin UI/API, remain restricted
+            # All other Stalwart paths, including the admin UI/API, remain
+            # restricted to trusted client addresses (ADR-009). The ClientIP
+            # list MUST mirror TRUSTED_IP in .env — Traefik rule syntax cannot
+            # read the comma-separated allow-list value, so keep both in step.
             - "traefik.http.routers.mailsvstalwart-admin.entrypoints=websecure"
-            - "traefik.http.routers.mailsvstalwart-admin.rule=Host(`${EMAIL_HOST}`) && !(PathPrefix(`/jmap`) || PathPrefix(`/.well-known/jmap`))"
+            - "traefik.http.routers.mailsvstalwart-admin.rule=Host(`${EMAIL_HOST}`) && (ClientIP(`127.0.0.0/8`) || ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`fe80::/10`) || ClientIP(`::1/128`)) && !(PathPrefix(`/jmap`) || PathPrefix(`/.well-known/jmap`))"
             - "traefik.http.routers.mailsvstalwart-admin.service=mailsvstalwart"
             - "traefik.http.routers.mailsvstalwart-admin.middlewares=secure-chain@file,mailsvstalwart-whitelist"
+            # Trusted router outranks the redirect fallback below.
+            - "traefik.http.routers.mailsvstalwart-admin.priority=300"
             - "traefik.http.routers.mailsvstalwart-admin.tls=true"
             - "traefik.http.routers.mailsvstalwart-admin.tls.certresolver=${CERTRESOLVER}"
+            # ADR-009: any other client on the mail admin paths is redirected to
+            # the identity login page instead of receiving an HTTP 403 response.
+            - "traefik.http.routers.mailsvstalwart-untrusted.entrypoints=websecure"
+            - "traefik.http.routers.mailsvstalwart-untrusted.rule=Host(`${EMAIL_HOST}`) && !(PathPrefix(`/jmap`) || PathPrefix(`/.well-known/jmap`))"
+            - "traefik.http.routers.mailsvstalwart-untrusted.service=mailsvstalwart"
+            - "traefik.http.routers.mailsvstalwart-untrusted.middlewares=secure-chain@file,mailsvstalwart-login-redirect"
+            - "traefik.http.routers.mailsvstalwart-untrusted.priority=100"
+            - "traefik.http.routers.mailsvstalwart-untrusted.tls=true"
+            - "traefik.http.routers.mailsvstalwart-untrusted.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.middlewares.mailsvstalwart-login-redirect.redirectregex.regex=^https?://.*"
+            - "traefik.http.middlewares.mailsvstalwart-login-redirect.redirectregex.replacement=https://${IDENTITY_DOMAIN}"
+            - "traefik.http.middlewares.mailsvstalwart-login-redirect.redirectregex.permanent=false"
             # Define the internal container port for routing
             - "traefik.http.services.mailsvstalwart.loadbalancer.server.port=8080"
             # Restrict non-JMAP traffic to trusted IP ranges

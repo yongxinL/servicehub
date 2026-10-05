@@ -4,9 +4,9 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-009
 title: Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries
-version: "1.0"
+version: "1.1"
 status: Proposed
-decision_basis: Owner discussion recorded on 2026-10-05 covering AI platform placement, Open WebUI domain ownership, observability strategy, OCI service scope, Confluence egress, and administrative endpoint access; implementation pending
+decision_basis: Owner discussion recorded on 2026-10-05 covering AI platform placement, Open WebUI domain ownership, observability strategy, OCI service scope, Confluence egress, and administrative endpoint access; compose and documentation changes implemented on `adr-009`, operational follow-ups pending
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
@@ -241,19 +241,30 @@ Option 2 satisfies every driver in a single, coherent rescope. Option 1 leaves A
 - A broad egress rule could silently re-open general internet access for Confluence; mitigate by allow-listing only approved dependency classes and reviewing rules after each exception window.
 - The Open WebUI move could break existing chat sessions, model links, or backup scope; mitigate by running a backup before the move and re-checking `CHAT_DOMAIN` routing afterwards.
 - Some Confluence apps or Atlassian components may make unexpected outbound calls during normal operation; mitigate by logging blocked destinations during the observation period before treating the policy as complete.
+- The hard-coded `ClientIP(...)` ranges and `${TRUSTED_IP}` must be edited independently, so they can drift apart and either block an authorised administrator or admit an unintended address; mitigate by documenting the pairing in [shared/traefik/README.md](../../shared/traefik/README.md) and re-checking both whenever `TRUSTED_IP` changes.
 
 ## Implementation Evidence
 
-No implementation evidence exists at draft time; this record captures the owner decision of 2026-10-05.
+Compose and documentation changes for decisions 1, 2, 4, and 6 were implemented on the `adr-009` branch on 2026-10-05. Runtime deployment evidence is still outstanding (see follow-up actions).
 
-Current-state evidence for the context above:
+Pre-change state:
 
-- [docker-compose.yml](../../docker-compose.yml) — includes `compose/aiserv.yml` and `compose/obsvce.yml`.
+- [docker-compose.yml](../../docker-compose.yml) — included `compose/aiserv.yml` and `compose/obsvce.yml`.
 - [compose/webapp.yml](../../compose/webapp.yml) — `webappowui` deployed in the `webapp` domain.
-- [compose/route.yml](../../compose/route.yml) — `dashboard-whitelist` IP allow list on the Traefik dashboard route.
-- [compose/mailsv.yml](../../compose/mailsv.yml) — `mailsvstalwart-whitelist` IP allow list on the mail routes.
-- [env.example](../../env.example) — `IDENTITY_DOMAIN="login.${DOMAIN_NAME}"`.
-- [docker-compose.yml](../../docker-compose.yml) and [compose/obsvce.yml](../../compose/obsvce.yml) — self-hosted observability stack to be removed from the OCI deployment.
+- [compose/route.yml](../../compose/route.yml) and [compose/mailsv.yml](../../compose/mailsv.yml) — IP allow lists only, returning HTTP 403 to untrusted clients.
+
+Implemented state:
+
+- [docker-compose.yml](../../docker-compose.yml) — `aiserv` and `obsvce` includes removed; OCI scope is `route`, `infra`, `devops`, `webapp`, `mailsv`.
+- [compose/webapp.yml](../../compose/webapp.yml) and [compose/aiserv.yml](../../compose/aiserv.yml) — Open WebUI moved to `aiservowui` with storage at `${APPS_DATA}/aiserv/openwebui` and route `${CHAT_DOMAIN}` unchanged.
+- [compose/route.yml](../../compose/route.yml) — two-router pattern on the Traefik dashboard: a priority-300 router guarded by `ClientIP(...)` plus the retained `ipallowlist`, and a priority-100 fallback that redirects to `https://${IDENTITY_DOMAIN}`.
+- [compose/mailsv.yml](../../compose/mailsv.yml) — the same pattern on the Stalwart admin paths (JMAP routers unchanged).
+- [.forgejo/workflows/00-prod-deploy-services.yml](../../.forgejo/workflows/00-prod-deploy-services.yml) — service options reduced to the OCI scope.
+- [env.example](../../env.example) — prefix map and `TRUSTED_IP` warning updated to record the hard-coded `ClientIP` pairing.
+- Validation performed: `docker compose config --quiet` passes with the reduced include set, and the rendered router rules, priorities, and redirect labels were inspected. No OCI or local deployment has been performed; `IDENTITY_DOMAIN` is blank in the author's local `.env` until `scripts/setup.sh` is re-run, so the rendered redirect replacement was verified against `env.example`.
+- Living documentation updated with the implementation: [README](../../README.md), [Architecture](../architecture/ARCHITECTURE.md), [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md), [Component catalogue](../architecture/COMPONENT-CATALOGUE.md), [Service inventory](../operations/SERVICE-INVENTORY.md), [Monitoring and alerting](../operations/MONITORING-ALERTING.md), [Backup and restore](../operations/BACKUP-RESTORE.md), and the affected `shared/` service READMEs.
+
+Decision 3 (retire the self-hosted observability deployment) removes the include but leaves the Oracle Cloud configuration and the local observability strategy unimplemented; decision 5 (Confluence egress policy) is documented here and in [shared/confluence/README.md](../../shared/confluence/README.md) but the network rules are not yet in place.
 
 ## Related Documents
 
@@ -270,13 +281,14 @@ Current-state evidence for the context above:
 
 | Action | Owner | Due date | Status |
 |---|---|---|---|
-| Move all AI services to local infrastructure and remove `compose/aiserv.yml` from the OCI deployment include set while retaining the compose definition in source control | ServiceHub Architecture | TBD | Proposed |
-| Move Open WebUI from `webapp` to `aiserv` (compose placement, `aiservowui` name, Traefik labels, storage path, variables, backup tier) | ServiceHub Architecture | TBD | Proposed |
-| Review and update backup, recovery, and retention coverage for `${APPS_DATA}/aiserv/openwebui` following the Open WebUI relocation | George Li | TBD | Proposed |
-| Remove `compose/obsvce.yml` and its `docker-compose.yml` `include` from the OCI deployment; retain the file in source control | ServiceHub Architecture | TBD | Proposed |
+| Move all AI services to local infrastructure and remove `compose/aiserv.yml` from the OCI deployment include set while retaining the compose definition in source control | ServiceHub Architecture | 2026-10-05 | Implemented in source control — `docker-compose.yml` include removed; local deployment entrypoint below |
+| Move Open WebUI from `webapp` to `aiserv` (compose placement, `aiservowui` name, Traefik labels, storage path, variables, backup tier) | ServiceHub Architecture | 2026-10-05 | Implemented in source control — backup tier update recorded, runtime verification pending |
+| Review and update backup, recovery, and retention coverage for `${APPS_DATA}/aiserv/openwebui` following the Open WebUI relocation | George Li | TBD | Open — path updated in source control, local backup/restore scope not re-scoped |
+| Remove `compose/obsvce.yml` and its `docker-compose.yml` `include` from the OCI deployment; retain the file in source control | ServiceHub Architecture | 2026-10-05 | Implemented in source control — include removed, file retained |
 | Configure Oracle APM, Monitoring, Logging, and Tracing for OCI-hosted workloads and record the configuration | ServiceHub Architecture | TBD | Proposed |
 | Define and document the observability strategy for locally hosted `aiserv` services after removal of the OCI `obsvce` deployment | ServiceHub Architecture | TBD | Proposed |
 | Define the Confluence outbound allow list (PostgreSQL, Authentik, SMTP, DNS, NTP) and a time-boxed exception procedure | George Li | TBD | Proposed |
-| Replace the HTTP 403 response on `traefik.<domain>` and `mail.<domain>` with a redirect to `https://login.<domain>` while retaining the IP allow list | ServiceHub Architecture | TBD | Proposed |
-| Update architecture, deployment, monitoring, and service inventory documentation in the same change as the implementation | George Li | TBD | Proposed |
-| Validate with `docker compose config` on the reduced include set and a deployment of the OCI scope, and record the evidence | ServiceHub Architecture | TBD | Proposed |
+| Replace the HTTP 403 response on `traefik.<domain>` and `mail.<domain>` with a redirect to `https://login.<domain>` while retaining the IP allow list | ServiceHub Architecture | 2026-10-05 | Implemented in source control — `docker compose config` verified; allowed/disallowed address test pending on a deployed target |
+| Update architecture, deployment, monitoring, and service inventory documentation in the same change as the implementation | George Li | 2026-10-05 | Implemented — living documentation and service READMEs updated in the same change |
+| Validate with `docker compose config` on the reduced include set and a deployment of the OCI scope, and record the evidence | ServiceHub Architecture | TBD | In progress — `docker compose config --quiet` passes locally; OCI deployment evidence outstanding |
+| Define and document the local deployment entrypoint for the AI platform (`aiserv`) now that it is outside the OCI include set, including how local infrastructure is provisioned, started, and backed up | ServiceHub Architecture | TBD | Proposed |

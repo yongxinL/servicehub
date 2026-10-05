@@ -67,10 +67,16 @@ services:
             - "traefik.enable=true"
             # Use the 'websecure' (HTTPS) entry point
             - "traefik.http.routers.dashboard.entrypoints=websecure"
-            # Match incoming requests on a specific hostname
-            - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_DOMAIN}`)"
+            # ADR-009: the dashboard host only matches trusted client addresses;
+            # the IP allow list and basic auth below remain as defence in depth.
+            # The ClientIP list MUST mirror TRUSTED_IP in .env — Traefik rule
+            # syntax cannot read the comma-separated allow-list value, so keep
+            # both in step whenever the trusted ranges change.
+            - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_DOMAIN}`) && (ClientIP(`127.0.0.0/8`) || ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`fe80::/10`) || ClientIP(`::1/128`))"
             # Define the internal service for routing
             - "traefik.http.routers.dashboard.service=api@internal"
+            # Trusted router outranks the redirect fallback below.
+            - "traefik.http.routers.dashboard.priority=300"
             # Enable TLS on this router
             - "traefik.http.routers.dashboard.tls=true"
             # uncomment for basicAuth
@@ -86,6 +92,19 @@ services:
             # - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.dashboard.tls.certresolver=${CERTRESOLVER}"
+            # ADR-009: any other client on the admin host is redirected to the
+            # identity login page instead of receiving an HTTP 403 response.
+            # The redirect short-circuits before the service is reached.
+            - "traefik.http.routers.dashboard-untrusted.entrypoints=websecure"
+            - "traefik.http.routers.dashboard-untrusted.rule=Host(`${TRAEFIK_DOMAIN}`)"
+            - "traefik.http.routers.dashboard-untrusted.service=api@internal"
+            - "traefik.http.routers.dashboard-untrusted.priority=100"
+            - "traefik.http.routers.dashboard-untrusted.tls=true"
+            - "traefik.http.routers.dashboard-untrusted.middlewares=secure-chain@file,dashboard-login-redirect"
+            - "traefik.http.routers.dashboard-untrusted.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.middlewares.dashboard-login-redirect.redirectregex.regex=^https?://.*"
+            - "traefik.http.middlewares.dashboard-login-redirect.redirectregex.replacement=https://${IDENTITY_DOMAIN}"
+            - "traefik.http.middlewares.dashboard-login-redirect.redirectregex.permanent=false"
         networks:
             - subnet
         ports:

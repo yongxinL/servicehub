@@ -37,9 +37,9 @@ flowchart LR
     Internet --> Traefik[routetraefik]
     Traefik --> Authentik[Authentik]
     Traefik --> Forgejo[Forgejo]
-    Traefik --> Web[Confluence and Open WebUI]
+    Traefik --> Web[Confluence]
     Traefik --> Cloud[webappocis (oCIS)]
-    Traefik --> AI[Clients and Hermes]
+    Traefik --> AI[Open WebUI and Hermes]
     Traefik --> Grafana[Grafana]
     Traefik --> Email[Stalwart and Bulwark]
     AI --> LiteLLM[LiteLLM]
@@ -84,9 +84,9 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 | Relational data | `compose/infra.yml` | `infrapgsql`, `inframariadb` |
 | Identity | `compose/infra.yml` | `infraauth`, `infraauthwrk`, `infraauthinit` |
 | Developer services | `compose/devops.yml` | `devopsforgejo`, `devopsrunner`, `devopsforgejoinit` |
-| Web applications | `compose/webapp.yml` | `webappconf`, `webappowui`, `webappocis`, `webappocisinit` |
-| AI platform | `compose/aiserv.yml` | `aiservhermes`, `aiservlitellm`, `aiservllamacpp`, `aiservhermesinit` |
-| Observability | `compose/obsvce.yml` | `obsvcealloy`, `obsvcevm`, `obsvcevlogs`, `obsvcegrafana`, `obsvcegrafanainit` |
+| Web applications | `compose/webapp.yml` | `webappconf`, `webappocis`, `webappocisinit` |
+| AI platform (local infrastructure, not deployed to OCI — ADR-009) | `compose/aiserv.yml` | `aiservowui`, `aiservhermes`, `aiservlitellm`, `aiservllamacpp`, `aiservhermesinit` |
+| Observability (retained in the repository, not deployed to OCI — ADR-009) | `compose/obsvce.yml` | `obsvcealloy`, `obsvcevm`, `obsvcevlogs`, `obsvcegrafana`, `obsvcegrafanainit` |
 | Email | `compose/mailsv.yml` | `mailsvstalwart`, `mailsvbulwark`, `mailsvbulwarkinit` |
 
 ## Security Boundaries
@@ -95,6 +95,7 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 - **Docker network:** Included services communicate through `servicehub_subnet`; databases publish no host ports.
 - **Identity boundary:** Grafana uses Authentik forward auth; oCIS uses an Authentik OIDC authorization-code flow. Authentik itself is application-authenticated. Other Authentik integrations vary and are not all configured in Compose.
 - **Privileged boundary:** Traefik, Authentik's worker, and Alloy have Docker socket access; Alloy is privileged and mounts host filesystem paths.
+- **Administrative endpoint boundary:** the Traefik dashboard and mail admin paths accept only trusted client addresses (IP allow list); other clients are redirected to `login.<domain>` instead of receiving HTTP 403 (ADR-009).
 - **Deployment and backup boundaries:** Forgejo runner jobs reach remote hosts over SSH using protected repository secrets; backup transfer credentials are supplied only to the backup workflow environment.
 - **Direct-host boundary:** Hermes, LiteLLM, llama.cpp, VictoriaMetrics, VictoriaLogs, and Stalwart publish selected host ports independent of Traefik.
 
@@ -130,7 +131,7 @@ Hermes calls LiteLLM using the virtual model `hermes`. LiteLLM routes to:
 - `hephaestus`: local llama.cpp Gemma service by default and for privacy-sensitive content.
 - `prometheus`: configured cloud provider for explicit cloud tags, large inputs, complexity signals, unhealthy local inference, and configured fallback conditions.
 
-Open WebUI is a separate client surface. FastCRW, SearXNG, LightPanda, and Chromium are optional and excluded from the default root include.
+Open WebUI (`aiservowui`) is the AI platform client surface and moved from `webapp` to `aiserv` under ADR-009. FastCRW, SearXNG, LightPanda, and Chromium are optional and excluded from the default root include.
 
 The routing configuration is Confirmed; provider availability, privacy enforcement at runtime, and fallback outcomes are `Requires runtime validation`.
 
@@ -141,6 +142,8 @@ Grafana Alloy collects host metrics, container metrics, Traefik metrics, LiteLLM
 Grafana alerting is enabled with `render_only_panels=true`. No notification channel, severity model, ownership list, or alert test evidence is present in the repository.
 
 ## Deployment Architecture
+
+The root Compose project deploys the OCI scope only (`route`, `infra`, `devops`, `webapp`, `mailsv`); the AI platform runs on local infrastructure and the self-hosted observability stack is retained but not deployed, per [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md).
 
 Forgejo Actions deployment workflows run on the host-mode `ssh-deploy` runner. Deployment SSHes to a staging or production target, updates a Git checkout, restores git-crypt and environment material when configured, and rebuilds application services with `--no-deps`. Foundational services are excluded from CI deployment.
 
@@ -155,9 +158,9 @@ The default stack uses host bind mounts rather than named Docker volumes:
 - Relational data: `${APPS_DATA}/infra/postgresql` and `${APPS_DATA}/infra/mariadb`
 - Identity: `${APPS_DATA}/infra/authentik/...`
 - Repositories and runner state: `${APPS_DATA}/devops/forgejo/data`, `.../runner`, and `.../workspace`
-- Web applications: `${APPS_DATA}/webapp/confluence` and `${APPS_DATA}/webapp/openwebui`
+- Web applications: `${APPS_DATA}/webapp/confluence`
 - Cloud drive: `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data`
-- AI: `${APPS_DATA}/aiserv/litellm`, `${APPS_DATA}/aiserv/llamacpp`, and `${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}`
+- AI: `${APPS_DATA}/aiserv/openwebui`, `${APPS_DATA}/aiserv/litellm`, `${APPS_DATA}/aiserv/llamacpp`, and `${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}`
 - Observability: `${APPS_DATA}/obsvce/victoriametrics`, `.../victorialogs`, and `.../grafana`
 - Email: `${APPS_DATA}/mailsv/stalwart` and `${APPS_DATA}/mailsv/bulwark/...`
 - Certificates: `${APPS_DATA}/shared/certs`

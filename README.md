@@ -52,9 +52,9 @@ Compose files are split by functional domain:
 | `compose/infra.yml` | `infra*` | Relational databases (MariaDB + PostgreSQL) |
 | `compose/infra.yml` | `infra*` | Authentication / SSO (Authentik) |
 | `compose/devops.yml` | `devops*` | Source control, CI, and backups (Forgejo plus its Actions runner) |
-| `compose/webapp.yml` | `webapp*` | Homepage / CMS (Confluence), Open WebUI, and oCIS cloud drive |
-| `compose/aiserv.yml` | `aiserv*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
-| `compose/obsvce.yml` | `obsvce*` | Observability (metrics + logs + Grafana) |
+| `compose/webapp.yml` | `webapp*` | Homepage / CMS (Confluence) and oCIS cloud drive |
+| `compose/aiserv.yml` | `aiserv*` | AI platform (Open WebUI + Hermes + LiteLLM + llama.cpp) — hosted on local infrastructure, not deployed to OCI ([ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) |
+| `compose/obsvce.yml` | `obsvce*` | Observability (metrics + logs + Grafana) — retained in the repository, not deployed to OCI ([ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) |
 | `compose/mailsv.yml` | `mailsv*` | Email services (Stalwart mail server + Bulwark webmail) |
 
 ```mermaid
@@ -68,7 +68,7 @@ graph TD
         Traefik -->|login.domain| Authentik[infraauth\nIdP / SSO]
         Traefik -->|git.domain| Forgejo[devopsforgejo\nForgejo + Actions]
         Traefik -->|www.domain + apex| Confluence[webappconf\nConfluence]
-        Traefik -->|chats.domain| OpenWebUI[webappowui\nOpen WebUI]
+        Traefik -->|chats.domain| OpenWebUI[aiservowui\nOpen WebUI]
         Traefik -->|drive.domain| Cloud[webappocis\nownCloud Infinite Scale]
         Traefik -->|space0.domain| Hermes[aiservhermes\nHermes Agent]
         Traefik -->|stats.domain| Grafana[obsvcegrafana\nGrafana]
@@ -118,10 +118,10 @@ servicehub/
 │   ├── route.yml               # Traefik (routetraefik)
 │   ├── infra.yml               # MariaDB + PostgreSQL
 │   ├── infra.yml               # Authentik server + worker + init
-│   ├── webapp.yml               # Confluence + Open WebUI + oCIS cloud drive
-│   ├── aiserv.yml               # Hermes agents + LiteLLM + llama.cpp
+│   ├── webapp.yml               # Confluence + oCIS cloud drive
+│   ├── aiserv.yml               # Open WebUI + Hermes agents + LiteLLM + llama.cpp
 │   ├── devops.yml               # Forgejo + Forgejo Actions runner
-│   ├── obsvce.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
+│   ├── obsvce.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana), not deployed to OCI
 │   └── mailsv.yml               # Email services (Stalwart mail server + Bulwark webmail)
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
@@ -251,10 +251,11 @@ Setup, configuration, Actions runner registration and operations are documented 
 
 ## AI Agent Platform (aiserv)
 
-Local and cloud LLM services power the Hermes AI agents. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers. All AI services live in [`compose/aiserv.yml`](compose/aiserv.yml).
+Local and cloud LLM services power the Hermes AI agents. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers. All AI services live in [`compose/aiserv.yml`](compose/aiserv.yml). Per [ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) the AI platform runs on local infrastructure and is excluded from the OCI deployment.
 
 | Service | Runs as | Full documentation |
 |---|---|---|
+| Open WebUI — AI platform chat interface | `aiservowui` | [shared/openwebui/README.md](shared/openwebui/README.md) |
 | Hermes Agent — single shared agent workspace + gateway | `aiservhermes` (+ one-shot `aiservhermesinit`) | [shared/hermesagent/README.md](shared/hermesagent/README.md) |
 | LiteLLM Proxy — unified API gateway + complexity router | `aiservlitellm` | [shared/litellm/README.md](shared/litellm/README.md) |
 | llama.cpp chat inference — local Gemma tier | `aiservllamacpp` | [shared/llamacpp/README.md](shared/llamacpp/README.md) |
@@ -304,10 +305,9 @@ All agents share the same `aiservlitellm` router and `aiservllamacpp` model, so 
 |---|---|---|
 | Authentik — IdP / SSO | `infraauth`, `infraauthwrk` (+ one-shot `infraauthinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
 | Confluence Data Center — homepage / CMS | `webappconf` | [shared/confluence/README.md](shared/confluence/README.md) |
-| Open WebUI — browser LLM chat interface | `webappowui` | [shared/openwebui/README.md](shared/openwebui/README.md) |
 | ownCloud Infinite Scale — family cloud drive | `webappocis` (+ one-shot `webappocisinit`) | [shared/owncloud/README.md](shared/owncloud/README.md) |
 
-Confluence serves `WORKSPACE_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WORKSPACE_DBNAME}`). Open WebUI is served at `https://${CHAT_DOMAIN}`. oCIS is served at `https://${CLOUD_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
+Confluence serves `WORKSPACE_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WORKSPACE_DBNAME}`). Open WebUI (AI platform, `compose/aiserv.yml`) is served at `https://${CHAT_DOMAIN}`. oCIS is served at `https://${CLOUD_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
 
 > **Database lists only initialize empty data directories.** Updating `POSTGRES_DATABASES` or `MARIADB_DATABASES` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
 >
@@ -317,7 +317,7 @@ Confluence serves `WORKSPACE_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex
 
 ## Observability Stack (obsvce)
 
-A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy. All components live in [`compose/obsvce.yml`](compose/obsvce.yml).
+A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy. All components live in [`compose/obsvce.yml`](compose/obsvce.yml). Per [ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) this stack is retained in the repository but is not deployed to OCI; OCI-hosted workloads use Oracle Cloud APM, Monitoring, Logging, and Tracing instead.
 
 | Component | Runs as | Full documentation |
 |---|---|---|
@@ -556,7 +556,7 @@ The Forgejo Actions workflow at [.forgejo/workflows/00-prod-deploy-services.yml]
 7. Restores `acme.json` from the `*_B64ENC_ACME` secret if the secret is newer than the existing file
 8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to every app service)
 
-> **Deploy scope:** databases (`infra*`), Authentik (`infra*`), DevOps / Forgejo + runner (`devops*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
+> **Deploy scope:** databases (`infra*`), Authentik (`infra*`), DevOps / Forgejo + runner (`devops*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deployment altogether per [ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md): the AI platform runs on local infrastructure and the observability stack is retained in source control only. Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
 >
 > **Timestamp-based restore:** Both `.env` and `acme.json` are gzip-compressed before base64-encoding, which preserves the file's original mtime in the gzip header. On deploy, the workflow compares that mtime against the existing file on the server — the newer file always wins. This prevents a stale secret from overwriting a `.env` edited directly on the server or an `acme.json` renewed by Traefik since the last encode.
 
@@ -660,7 +660,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 1. Open the repository in Forgejo (`https://${SOURCECODE_DOMAIN}`) → **Actions**
 2. Select the **deploy** workflow and click **Run workflow**
 3. Set the inputs:
-   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`webappconf`, `webappowui`, `webappocis`, `aiservlitellm`, `aiservllamacpp`, `aiservhermes`, `obsvcevm`, `obsvcevlogs`, `obsvcealloy`, `obsvcegrafana`, `mailsvstalwart`, `mailsvbulwark`). Foundational services are not listed — see [Deploy scope](#how-it-works).
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`webappconf`, `webappocis`, `mailsvstalwart`, `mailsvbulwark`). Foundational services are not listed, and AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deploy scope ([ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) — see [Deploy scope](#how-it-works).
    - **environment** — `stag` (default) or `prod`
    - **branch** — branch to deploy (default `main`)
 4. Click the green **Run workflow** button — progress and logs appear in the workflow run page

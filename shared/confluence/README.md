@@ -85,6 +85,23 @@ docker compose logs -f webappconf
 - **Admin console** — restrict the admin UI to trusted networks (Confluence Administration → General Configuration → **Security and Permissions** → admin session / network restrictions) and never leave anonymous access on a public space (Space Settings → Permissions → check *Anonymous* is off).
 - **Delegate accounts to Authentik** — set up a SAML/OIDC user directory pointing at `infraauth` (Administration → User Management → User Directories) so passwords and MFA live in Authentik; keep one local `confluence-admin` as break-glass.
 
+## Outbound egress policy
+
+[ADR-009 §5](../../docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) treats Confluence as independent of Atlassian-hosted services. Outbound traffic is allowed only to approved dependency classes:
+
+| Allowed | Purpose |
+|---|---|
+| PostgreSQL | Primary persistence |
+| Authentik | Authentication and SSO |
+| SMTP (Stalwart) | Outbound notifications |
+| DNS | Name resolution |
+| NTP | Time synchronisation |
+
+Blocked by default: Atlassian Marketplace, Atlassian Cloud Services, migration services, application tunnels, and general internet access. Temporary outbound access may be granted for marketplace app install/upgrade, data migration, or approved maintenance, and must be removed as soon as the activity completes.
+
+The allow list and exception procedure are still to be implemented and recorded in ADR-009 follow-up actions; blocked destinations should be logged during the initial observation period so unexpected app calls are surfaced.
+
+
 ## Files
 
 | Path | Purpose |

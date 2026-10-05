@@ -48,15 +48,19 @@ Generate the `TRAEFIK_BAAUTH` value with `htpasswd`. In the `.env` file every `$
 echo $(htpasswd -nb admin "your-password") | sed -e 's/\$/\\$/g'
 ```
 
-Paste the result into `TRAEFIK_BAAUTH`. The dashboard router chains three middlewares:
+Paste the result into `TRAEFIK_BAAUTH`. The dashboard is protected by two routers (ADR-009):
 
-```
-secure-chain  →  dashboard-whitelist  →  dashboard-auth
-```
+| Router | Rule | Priority | Middleware chain |
+|---|---|---|---|
+| `dashboard` | `Host` **and** trusted `ClientIP(...)` ranges | 300 | `secure-chain` -> `dashboard-whitelist` -> `dashboard-auth` |
+| `dashboard-untrusted` | `Host` only (any other client) | 100 | `secure-chain` -> `dashboard-login-redirect` |
 
 - `secure-chain` — security headers + rate limit (see [Security middlewares](#security-middlewares))
-- `dashboard-whitelist` — `ipallowlist` restricted to `${TRUSTED_IP}`
-- `dashboard-auth` — `basicauth` using `${TRAEFIK_BAAUTH}`
+- `dashboard-whitelist` — `ipallowlist` restricted to `${TRUSTED_IP}` (defence in depth behind the `ClientIP` rule)
+- `dashboard-auth` — `basicauth` using `${TRAEFIK_BAAAUTH}`
+- `dashboard-login-redirect` — `redirectregex` sending unauthorised clients to `https://${IDENTITY_DOMAIN}` instead of an HTTP 403; it short-circuits before the service is reached and grants no access
+
+> **Keep the lists in step.** The `ClientIP(...)` list in [`compose/route.yml`](../../compose/route.yml) is hard-coded because Traefik rule syntax cannot read the comma-separated `${TRUSTED_IP}` value. When you change `TRUSTED_IP` in `.env`, update the `dashboard.rule` and `mailsvstalwart-admin.rule` `ClientIP` entries to match. The same two-router pattern protects the Stalwart admin paths in [`compose/mailsv.yml`](../../compose/mailsv.yml).
 
 > **Note:** The IP allowlist and Authentik forward-auth are mutually exclusive. When you enable `authentik-forwardauth@file`, drop `dashboard-whitelist` from the chain.
 

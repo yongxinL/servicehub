@@ -127,3 +127,38 @@ services:
                 hard: -1         # unlimited memlock — needed alongside IPC_LOCK
         volumes:
             - ${APPS_DATA}/aiserv/llamacpp:/models
+
+    # aiservowui — Open WebUI AI platform chat interface (moved from webapp per
+    # ADR-009; it serves the AI platform, not the business applications).
+    # Docs: shared/openwebui/README.md
+    aiservowui:
+        build:
+            context: ../shared/openwebui/
+        depends_on:
+            routetraefik:
+                condition: service_healthy
+        environment:
+            - TZ=${TIME_ZONE}
+        image: aiservowui:latest
+        labels:
+            # Enable Traefik for this container
+            - "traefik.enable=true"
+            # Use the 'websecure' (HTTPS) entry point
+            - "traefik.http.routers.aiservowui.entrypoints=websecure"
+            # Match incoming requests on a specific hostname
+            - "traefik.http.routers.aiservowui.rule=Host(`${CHAT_DOMAIN}`)"
+            # Assign the router to a named Traefik service
+            - "traefik.http.routers.aiservowui.service=aiservowui"
+            # Define the internal container port for routing
+            - "traefik.http.services.aiservowui.loadbalancer.server.port=8080"
+            # Enable TLS on this router
+            - "traefik.http.routers.aiservowui.tls=true"
+            # Rate limit + security headers (defined in shared/traefik/advanced/middlewares-security.yml)
+            - "traefik.http.routers.aiservowui.middlewares=secure-chain@file"
+            # Use Let's Encrypt for certificate management or Self-signed certificate
+            - "traefik.http.routers.aiservowui.tls.certresolver=${CERTRESOLVER}"
+        networks:
+            - subnet
+        restart: unless-stopped
+        volumes:
+            - ${APPS_DATA}/aiserv/openwebui:/app/backend/data
