@@ -129,7 +129,7 @@ Do these in the Authentik admin UI (one-time):
 
 ## Notes
 
-- The Traefik dashboard uses **basic auth by default**; Authentik forward-auth is optional. When you switch the dashboard to forward-auth, remove `dashboard-whitelist` from its middleware chain.
+- The Traefik dashboard uses **basic auth by default**; Authentik forward-auth is optional. When you switch the dashboard to forward-auth, remove `dashboard-whitelist` from the chain in `scripts/gen-admin-rules.py` and re-run it to regenerate `admin-routers.yml`.
 - Database schema migrations run automatically when the server/worker starts.
 - If you change `IDENTITY_SECRET`, existing sessions and encrypted values are invalidated.
 

@@ -40,15 +40,17 @@ Set in `.env` (see [`env.example`](../../env.example)):
 | `APPS_DATA` | Host path mounted at `/letsencrypt` for the ACME store |
 | `TIME_ZONE` | Container timezone |
 
-### Dashboard basic auth
+### Dashboard basic auth and admin access rules
 
-Generate the `TRAEFIK_BAAUTH` value with `htpasswd`. In the `.env` file every `$` must be escaped (the compose file uses `$` for interpolation):
+Generate the `TRAEFIK_BAAUTH` value with `htpasswd` and paste it into `.env` (legacy `\$`-escaped values are understood by the generator):
 
 ```bash
-echo $(htpasswd -nb admin "your-password") | sed -e 's/\$/\\$/g'
+echo $(htpasswd -nb admin "your-password")
 ```
 
-Paste the result into `TRAEFIK_BAAUTH`. The dashboard is protected by two routers (ADR-009):
+The admin access rules are **not** compose labels. `scripts/setup.sh` runs [`scripts/gen-admin-rules.py`](../../scripts/gen-admin-rules.py), which writes `advanced/admin-routers.yml` from `.env` (`TRUSTED_IP`, `TRAEFIK_DOMAIN`, `EMAIL_HOST`, `IDENTITY_DOMAIN`, `CERTRESOLVER`, `TRAEFIK_BAAUTH`). Traefik's file provider watches the directory (`--providers.file.watch=true`) and hot-reloads within seconds — changing trusted IPs never restarts a container. The generated file is git-ignored because it embeds the basic-auth hash.
+
+The dashboard (and the Stalwart admin paths, which follow the same pattern) is protected by two routers (ADR-009):
 
 | Router | Rule | Priority | Middleware chain |
 |---|---|---|---|
@@ -56,13 +58,15 @@ Paste the result into `TRAEFIK_BAAUTH`. The dashboard is protected by two router
 | `dashboard-untrusted` | `Host` only (any other client) | 100 | `secure-chain` -> `dashboard-login-redirect` |
 
 - `secure-chain` — security headers + rate limit (see [Security middlewares](#security-middlewares))
-- `dashboard-whitelist` — `ipallowlist` restricted to `${TRUSTED_IP}` (defence in depth behind the `ClientIP` rule)
-- `dashboard-auth` — `basicauth` using `${TRAEFIK_BAAAUTH}`
+- `dashboard-whitelist` — `ipallowlist` restricted to `TRUSTED_IP` (defence in depth behind the `ClientIP` rule)
+- `dashboard-auth` — `basicauth` using `TRAEFIK_BAAUTH`
 - `dashboard-login-redirect` — `redirectregex` sending unauthorised clients to `https://${IDENTITY_DOMAIN}` instead of an HTTP 403; it short-circuits before the service is reached and grants no access
 
-> **Keep the lists in step.** The `ClientIP(...)` list in [`compose/route.yml`](../../compose/route.yml) is hard-coded because Traefik rule syntax cannot read the comma-separated `${TRUSTED_IP}` value. When you change `TRUSTED_IP` in `.env`, update the `dashboard.rule` and `mailsvstalwart-admin.rule` `ClientIP` entries to match. The same two-router pattern protects the Stalwart admin paths in [`compose/mailsv.yml`](../../compose/mailsv.yml).
+> **Changing trusted IPs:** edit `TRUSTED_IP` in `.env`, then run `bash scripts/setup.sh` (or `python3 scripts/gen-admin-rules.py` alone) — Traefik reloads without a restart. If `TRUSTED_IP` is empty the trusted admin routers are omitted entirely, so admin endpoints only redirect (fail closed). The entrypoint `forwardedHeaders.trustedIPs=${TRUSTED_IP}` flag is static Traefik configuration and only refreshes when `routetraefik` is next recreated.
 
-> **Note:** The IP allowlist and Authentik forward-auth are mutually exclusive. When you enable `authentik-forwardauth@file`, drop `dashboard-whitelist` from the chain.
+> **One-time for this change:** the first deploy recreates `routetraefik` once to enable file watching and drop the old label-based admin routers; every change after that is hot-reloaded.
+
+> **Note:** The IP allowlist and Authentik forward-auth are mutually exclusive. When you enable `authentik-forwardauth@file`, drop `dashboard-whitelist` from the chain in `scripts/gen-admin-rules.py` and regenerate.
 
 ## Routing
 

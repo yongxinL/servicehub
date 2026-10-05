@@ -36,6 +36,8 @@ services:
             - "--providers.docker.exposedbydefault=false"
             # file provider configuration
             - "--providers.file.directory=/traefik/config/advanced"
+            # Hot-reload dynamic config (admin routers in admin-routers.yml) without a restart
+            - "--providers.file.watch=true"
             # Use ACME (Let's Encrypt) to generate/renew certificates via TLS challenge
             - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
             # The email address used by Let's Encrypt for renewal notices
@@ -65,46 +67,10 @@ services:
         labels:
             # Enable Traefik for this container
             - "traefik.enable=true"
-            # Use the 'websecure' (HTTPS) entry point
-            - "traefik.http.routers.dashboard.entrypoints=websecure"
-            # ADR-009: the dashboard host only matches trusted client addresses;
-            # the IP allow list and basic auth below remain as defence in depth.
-            # The ClientIP list MUST mirror TRUSTED_IP in .env — Traefik rule
-            # syntax cannot read the comma-separated allow-list value, so keep
-            # both in step whenever the trusted ranges change.
-            - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_DOMAIN}`) && (ClientIP(`127.0.0.0/8`) || ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`fe80::/10`) || ClientIP(`::1/128`))"
-            # Define the internal service for routing
-            - "traefik.http.routers.dashboard.service=api@internal"
-            # Trusted router outranks the redirect fallback below.
-            - "traefik.http.routers.dashboard.priority=300"
-            # Enable TLS on this router
-            - "traefik.http.routers.dashboard.tls=true"
-            # uncomment for basicAuth
-            # all dollar signs in the hash need to be double for escaping.
-            # to create a user:password pair, the following command can be used
-            # echo $(htpasswd -nb user "password") | sed -e s/\\$/\\$\\$/g
-            - "traefik.http.routers.dashboard.middlewares=secure-chain@file,dashboard-whitelist,dashboard-auth"
-            - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_BAAUTH}"
-            # uncomment for middleware-limiting clients to specific IPs, disabled when Forward-Auth enabled.
-            # - "traefik.http.routers.dashboard.middlewares=dashboard-whitelist"
-            - "traefik.http.middlewares.dashboard-whitelist.ipallowlist.sourcerange=${TRUSTED_IP}"
-            # uncomment when Domain Level Forward Authentication enabled in Authentik
-            # - "traefik.http.routers.dashboard.middlewares=authentik-forwardauth@file"
-            # Use Let's Encrypt for certificate management or Self-signed certificate
-            - "traefik.http.routers.dashboard.tls.certresolver=${CERTRESOLVER}"
-            # ADR-009: any other client on the admin host is redirected to the
-            # identity login page instead of receiving an HTTP 403 response.
-            # The redirect short-circuits before the service is reached.
-            - "traefik.http.routers.dashboard-untrusted.entrypoints=websecure"
-            - "traefik.http.routers.dashboard-untrusted.rule=Host(`${TRAEFIK_DOMAIN}`)"
-            - "traefik.http.routers.dashboard-untrusted.service=api@internal"
-            - "traefik.http.routers.dashboard-untrusted.priority=100"
-            - "traefik.http.routers.dashboard-untrusted.tls=true"
-            - "traefik.http.routers.dashboard-untrusted.middlewares=secure-chain@file,dashboard-login-redirect"
-            - "traefik.http.routers.dashboard-untrusted.tls.certresolver=${CERTRESOLVER}"
-            - "traefik.http.middlewares.dashboard-login-redirect.redirectregex.regex=^https?://.*"
-            - "traefik.http.middlewares.dashboard-login-redirect.redirectregex.replacement=https://${IDENTITY_DOMAIN}"
-            - "traefik.http.middlewares.dashboard-login-redirect.redirectregex.permanent=false"
+            # ADR-009: admin routers (dashboard trust/redirect rules, allow lists,
+            # basic auth) live in shared/traefik/advanced/admin-routers.yml, which
+            # scripts/setup.sh generates from .env. The file provider watches it,
+            # so changing TRUSTED_IP or the domains hot-reloads without a restart.
         networks:
             - subnet
         ports:

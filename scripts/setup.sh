@@ -351,3 +351,10 @@ fi
 
 chmod 600 "$ENV_FILE"
 echo "Please review $ENV_FILE to ensure all variables are set correctly for your environment."
+
+# Regenerate the Traefik admin routers from .env (ADR-009). The file provider
+# watches shared/traefik/advanced, so TRUSTED_IP and domain changes hot-reload
+# without restarting any container.
+if python3 "$SCRIPT_DIR/gen-admin-rules.py"; then
+    echo "Regenerated shared/traefik/advanced/admin-routers.yml (Traefik hot-reloads it)."
+fi
