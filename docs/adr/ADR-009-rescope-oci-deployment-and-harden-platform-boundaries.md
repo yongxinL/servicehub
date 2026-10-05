@@ -4,9 +4,9 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-009
 title: Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries
-version: "1.1"
+version: "1.5"
 status: Proposed
-decision_basis: Owner discussion recorded on 2026-10-05 covering AI platform placement, Open WebUI domain ownership, observability strategy, OCI service scope, Confluence egress, and administrative endpoint access; compose and documentation changes implemented on `adr-009`, operational follow-ups pending
+decision_basis: Owner discussion recorded on 2026-10-05 covering AI platform placement, Open WebUI domain ownership, observability strategy, OCI service scope, Confluence egress, and administrative endpoint access; compose and documentation changes implemented on `adr-009`, operational follow-ups pending; log collection and APM integration split out to ADR-010; egress enforced by a host firewall rule in the Docker `DOCKER-USER` chain, driven by a per-service policy file plus a global Atlassian CIDR block
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
@@ -26,6 +26,7 @@ related_documents:
   - ADR-004
   - ADR-005
   - ADR-008
+  - ADR-010
   - ARCHITECTURE
   - DEPLOYMENT-ARCHITECTURE
   - MONITORING-ALERTING
@@ -93,12 +94,7 @@ The move follows the [ADR-008](ADR-008-standardise-service-naming-storage-and-bi
 
 Oracle Cloud native observability services SHALL replace the self-hosted observability stack for OCI-hosted workloads.
 
-Oracle Cloud observability services include:
-
-- Oracle APM
-- Oracle Monitoring
-- Oracle Logging
-- Oracle Tracing
+The services selected, their credentials, and the log collection and APM integration design are recorded in [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md); this ADR only retires the self-hosted deployment.
 
 This decision applies only to workloads hosted within the OCI ServiceHub environment.
 
@@ -162,6 +158,8 @@ Blocked by default:
 Exceptions: temporary outbound access MAY be granted for marketplace app installation, marketplace app upgrade, data migration activities, and approved maintenance tasks. Access SHALL be removed immediately after the activity is completed.
 
 Benefits: reduced attack surface, reduced third-party dependency and privacy exposure, predictable self-managed operation, and operational independence from Atlassian service availability.
+
+Implementation: two layers, both enforced on the host inside the Docker `DOCKER-USER` chain by [scripts/egress-guard.sh](../../scripts/egress-guard.sh). (1) A per-service policy in [scripts/egress-policies.conf](../../scripts/egress-policies.conf) — Confluence (`webappconf`) carries the `restricted` policy, which diverts the container's traffic to an `EGRESS_RESTRICTED` helper chain that returns for RFC1918 destinations (the approved dependency classes above) and logs then drops everything else; services are resolved by Compose service label, and an `allow-atlassian` policy opts a service out of layer 2. (2) A global block drops traffic from any container to the CIDRs published at `https://ip-ranges.atlassian.com/`, held in one `ipset` and refreshed at startup and by a daily timer. Confluence itself stays on the single `subnet` network. Installation, verification, the command reference, and the time-boxed exception procedure are recorded in [Container egress controls](../operations/EGRESS-CONTROLS.md); the Confluence-specific destination table is in [shared/confluence/README.md](../../shared/confluence/README.md#outbound-egress-policy).
 
 ### 6. Administrative endpoint access policy
 
@@ -236,7 +234,7 @@ Option 2 satisfies every driver in a single, coherent rescope. Option 1 leaves A
 ## Risks
 
 - The local AI platform inherits availability, backup, and recovery responsibilities that today sit inside the OCI deployment; mitigate by extending the [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) target model to local `aiserv` paths and recording the local recovery objectives, with residual uncertainty until a local restore is rehearsed.
-- Retiring the self-hosted stack removes container and host metrics that Oracle Monitoring does not automatically collect for local infrastructure; mitigate by defining what is observed on the local AI platform and by exporting OCI monitoring of OCI-hosted workloads to a retained dashboard, with residual uncertainty on coverage until configured.
+- Retiring the self-hosted stack removes container and host metrics that Oracle Monitoring does not automatically collect for local infrastructure; mitigate by defining what is observed on the local AI platform and by implementing the OCI collection recorded in [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md), with residual uncertainty on coverage until configured.
 - An incorrect administrative redirect could expose an endpoint or bypass the allow list; mitigate by verifying that unauthorised requests are denied first and then redirected, and by testing both an allowed and a disallowed address on every administrative route.
 - A broad egress rule could silently re-open general internet access for Confluence; mitigate by allow-listing only approved dependency classes and reviewing rules after each exception window.
 - The Open WebUI move could break existing chat sessions, model links, or backup scope; mitigate by running a backup before the move and re-checking `CHAT_DOMAIN` routing afterwards.
@@ -265,7 +263,7 @@ Implemented state:
 - Validation performed: `docker compose config --quiet` passes with the reduced include set, and the rendered router rules, priorities, and redirect labels were inspected. No OCI or local deployment has been performed; `IDENTITY_DOMAIN` is blank in the author's local `.env` until `scripts/setup.sh` is re-run, so the rendered redirect replacement was verified against `env.example`.
 - Living documentation updated with the implementation: [README](../../README.md), [Architecture](../architecture/ARCHITECTURE.md), [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md), [Component catalogue](../architecture/COMPONENT-CATALOGUE.md), [Service inventory](../operations/SERVICE-INVENTORY.md), [Monitoring and alerting](../operations/MONITORING-ALERTING.md), [Backup and restore](../operations/BACKUP-RESTORE.md), and the affected `shared/` service READMEs.
 
-Decision 3 (retire the self-hosted observability deployment) removes the include but leaves the Oracle Cloud configuration and the local observability strategy unimplemented; decision 5 (Confluence egress policy) is documented here and in [shared/confluence/README.md](../../shared/confluence/README.md) but the network rules are not yet in place.
+Decision 3 (retire the self-hosted observability deployment) removes the include only: the log collection, host metrics, and APM integration design it required is recorded in [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) and is not yet implemented. Decision 5 (Confluence egress policy, extended to a per-service policy list and a global Atlassian block) is enforced by [scripts/egress-guard.sh](../../scripts/egress-guard.sh) in the Docker `DOCKER-USER` chain, driven by [scripts/egress-policies.conf](../../scripts/egress-policies.conf); install, verification, commands, and the exception procedure are recorded in [Container egress controls](../operations/EGRESS-CONTROLS.md), with the Confluence destination table in [shared/confluence/README.md](../../shared/confluence/README.md). The rule logic passes the script's offline selftest and a 21-check integration test through a real iptables-forwarded path; the ipset-backed Atlassian layer is covered by the offline selftest only (the test environment has no `ipset`), and installation plus counter verification on the deployed target remain outstanding.
 
 ## Related Documents
 
@@ -273,9 +271,11 @@ Decision 3 (retire the self-hosted observability deployment) removes the include
 - [ADR-004 Use Authentik for Central Identity](ADR-004-use-authentik-for-central-identity.md) — identity endpoint targeted by the redirect and an approved Confluence dependency.
 - [ADR-005 Use LiteLLM for AI Workload Routing](ADR-005-use-litellm-for-ai-routing.md) — AI routing platform moved to local infrastructure.
 - [ADR-008 Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) — naming, storage, and backup tier conventions applied when Open WebUI moves.
+- [ADR-010 Collect OCI Logs and Integrate Service Telemetry with Oracle APM](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) — replacement for the retired self-hosted observability stack, split out of this decision.
 - [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md) — deployment targets and environment model rescope by this decision.
 - [Architecture](../architecture/ARCHITECTURE.md) — system and component boundaries.
 - [Monitoring and alerting](../operations/MONITORING-ALERTING.md) — self-hosted stack replaced by Oracle Cloud native services.
+- [Container egress controls](../operations/EGRESS-CONTROLS.md) — decision 5 installation, verification, commands, and exception procedure.
 - [Service inventory](../operations/SERVICE-INVENTORY.md) — service placement after the rescope.
 
 ## Follow-up Actions
@@ -286,9 +286,9 @@ Decision 3 (retire the self-hosted observability deployment) removes the include
 | Move Open WebUI from `webapp` to `aiserv` (compose placement, `aiservowui` name, Traefik labels, storage path, variables, backup tier) | ServiceHub Architecture | 2026-10-05 | Implemented in source control — backup tier update recorded, runtime verification pending |
 | Review and update backup, recovery, and retention coverage for `${APPS_DATA}/aiserv/openwebui` following the Open WebUI relocation | George Li | TBD | Open — path updated in source control, local backup/restore scope not re-scoped |
 | Remove `compose/obsvce.yml` and its `docker-compose.yml` `include` from the OCI deployment; retain the file in source control | ServiceHub Architecture | 2026-10-05 | Implemented in source control — include removed, file retained |
-| Configure Oracle APM, Monitoring, Logging, and Tracing for OCI-hosted workloads and record the configuration | ServiceHub Architecture | TBD | Proposed |
+| Configure Oracle APM, Monitoring, Logging, and Tracing for OCI-hosted workloads and record the configuration | ServiceHub Architecture | TBD | Moved to [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) |
 | Define and document the observability strategy for locally hosted `aiserv` services after removal of the OCI `obsvce` deployment | ServiceHub Architecture | TBD | Proposed |
-| Define the Confluence outbound allow list (PostgreSQL, Authentik, SMTP, DNS, NTP) and a time-boxed exception procedure | George Li | TBD | Proposed |
+| Define the Confluence outbound allow list (PostgreSQL, Authentik, SMTP, DNS, NTP) and a time-boxed exception procedure | George Li | 2026-10-05 | Implemented in source control — enforced by [scripts/egress-guard.sh](../../scripts/egress-guard.sh) from [scripts/egress-policies.conf](../../scripts/egress-policies.conf) (`webappconf` restricted: RFC1918 return, log then drop, in the Docker `DOCKER-USER` chain) plus a global Atlassian CIDR block via ipset; install, verification, and exception procedure recorded in [Container egress controls](../operations/EGRESS-CONTROLS.md); rule logic verified by offline selftest plus a 21-check integration test, deployment on the OCI host pending |
 | Replace the HTTP 403 response on `traefik.<domain>` and `mail.<domain>` with a redirect to `https://login.<domain>` while retaining the IP allow list | ServiceHub Architecture | 2026-10-05 | Implemented in source control — rules generated from `.env` and hot-reloaded via the file provider; `docker compose config` verified; allowed/disallowed address test pending on a deployed target |
 | Update architecture, deployment, monitoring, and service inventory documentation in the same change as the implementation | George Li | 2026-10-05 | Implemented — living documentation and service READMEs updated in the same change |
 | Validate with `docker compose config` on the reduced include set and a deployment of the OCI scope, and record the evidence | ServiceHub Architecture | TBD | In progress — `docker compose config --quiet` passes locally; OCI deployment evidence outstanding |

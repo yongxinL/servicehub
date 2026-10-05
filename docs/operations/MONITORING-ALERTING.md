@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: MONITORING-ALERTING
 title: ServiceHub Monitoring and Alerting
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-05
 tags:
   - servicehub
   - operations
@@ -23,11 +23,12 @@ related_documents:
   - BACKUP-RESTORE
   - ADR-007
   - ADR-009
+  - ADR-010
 ---
 
 # ServiceHub Monitoring and Alerting
 
-> **Status note (ADR-009).** [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) keeps this self-hosted observability stack in the repository but excludes it from the OCI deployment. OCI-hosted workloads are observed with Oracle Cloud APM, Monitoring, Logging, and Tracing; the monitoring strategy for locally hosted `aiserv` services is an open follow-up. The sections below describe the retained self-hosted stack.
+> **Status note (ADR-009 and ADR-010).** [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) keeps this self-hosted observability stack in the repository but excludes it from the OCI deployment. [ADR-010](../adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) records how OCI-hosted workloads are to be observed with Oracle Cloud APM, Monitoring, and Logging; that configuration is **not yet implemented** and no log collection or APM credential exists in the repository. The monitoring strategy for locally hosted `aiserv` services is an open ADR-009 follow-up. The sections below describe the retained self-hosted stack.
 
 ## Monitoring Objectives
 

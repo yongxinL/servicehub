@@ -317,7 +317,7 @@ Confluence serves `WORKSPACE_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex
 
 ## Observability Stack (obsvce)
 
-A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy. All components live in [`compose/obsvce.yml`](compose/obsvce.yml). Per [ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) this stack is retained in the repository but is not deployed to OCI; OCI-hosted workloads use Oracle Cloud APM, Monitoring, Logging, and Tracing instead.
+A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy. All components live in [`compose/obsvce.yml`](compose/obsvce.yml). Per [ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) this stack is retained in the repository but is not deployed to OCI; [ADR-010](docs/adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) records the Oracle Cloud APM, Monitoring, and Logging replacement for OCI-hosted workloads, which is not yet configured.
 
 | Component | Runs as | Full documentation |
 |---|---|---|
