@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-008
 title: Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables
-version: "1.3"
+version: "1.4"
 status: Accepted
 decision_basis: Owner discussion recorded on 2026-10-04, including the environment variable and database naming standard; owner-directed implementation on branch service-renaming on 2026-10-05; runtime validation pending
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-04
-updated: 2026-10-05
+updated: 2026-10-06
 tags:
   - servicehub
   - architecture
@@ -312,7 +312,7 @@ Databases follow `svchub_<business-domain>`. Both the values and their variables
 | Observability | `OBSVC_ADMUSR` | `OBSERVABILITY_ADMIN_USER` |
 | Observability | `OBSVC_ADMPWD` | `OBSERVABILITY_ADMIN_PASSWORD` |
 
-`SOURCECODE_PUBLIC_URL` and `SOURCECODE_DEPLOY_TOKEN` live in Forgejo repository Actions settings rather than `.env`; they must be renamed in the Forgejo UI at the same time as the workflow change or deploys lose the clone URL and token.
+`SOURCECODE_PUBLIC_URL` and `SOURCECODE_DEPLOY_TOKEN` live in Forgejo repository Actions settings rather than `.env`. They were required by the clone-based deploy workflow; the workflow now syncs the working tree from the runner checkout and reads neither entry, so renaming them in the Forgejo UI is no longer deployment-critical.
 
 #### Product-specific variables kept as-is
 
@@ -396,13 +396,13 @@ Repository changes applied on branch `service-renaming` as atomic commits:
 
 - `975c701` — compose files restructured into the seven domains; the 25 services, Traefik labels, `depends_on` references, workflows, and documentation renamed (decisions 1 and 2).
 - `79e810a` — `${APPS_DATA}` migrated to the domain layout with hardened mounts (`:ro`, removal of `/etc/localtime` and the Hermes Docker socket mount, Alloy rootfs mount reduction) and certificates moved to `${APPS_DATA}/shared/certs` (decisions 3–7).
-- `41f6b1d` — environment variables and database names renamed across `env.example`, `compose/*.yml`, `scripts/setup.sh`, Forgejo workflows, `shared/` configuration, and living documentation, including a `setup.sh` migration block that rewrites ADR-007-era `.env` files (decision 9); hardened by `e60088a` (stale `WBCLOUD_*` oCIS keys and quoted database values migrate correctly).
+- `41f6b1d` — environment variables and database names renamed across `env.example`, `compose/*.yml`, `scripts/setup.sh`, Forgejo workflows, `shared/` configuration, and living documentation, including a `setup.sh` migration block that rewrites ADR-007-era `.env` files (decision 9); hardened by `e60088a` (stale `WBCLOUD_*` oCIS keys and quoted database values migrate correctly). The migration block has since been removed: the owner applied the `.env` rename manually, and variable renames are no longer automatic.
 - `55e37ac` — optional-stack services (`aiservfastcrw`, `aiservsearxng`, `aiservchromum`, `aiservlighpda`, `webappwpress`) brought onto the same convention (decision 2).
 - `76ec13e` — the Forgejo Actions secret and variable renamed to `SOURCECODE_DEPLOY_TOKEN` / `SOURCECODE_PUBLIC_URL` (decision 9).
 - `9e636af` — prebuilt dashboard panels for metrics disabled by the mount removals stripped (decision 5 consequence).
 - `7f9bfe0` — the stale Hermes `README.html` guide retired (documentation hygiene; not part of the decision).
 
-Static validation on the branch: every compose file parses as YAML, all `depends_on` targets resolve, every compose-interpolated `${VAR}` exists in `env.example`, and no superseded service, path, or variable names remain outside historical records. Pending and owner-run: `docker compose config` and a `setup.sh` merge/migration check on a server, plus the database renames in their maintenance window.
+Static validation on the branch: every compose file parses as YAML, all `depends_on` targets resolve, every compose-interpolated `${VAR}` exists in `env.example`, and no superseded service, path, or variable names remain outside historical records. Pending and owner-run: `docker compose config` and a `setup.sh` merge check on a server, plus the database renames in their maintenance window.
 
 Superseded baseline: the pre-change compose set (`route.yml`, `dbsvc.yml`, `authn.yml`, `depot.yml`, `wbapp.yml`, `aiagn.yml`, `obsvc.yml`, `poste.yml`), the bind mounts and labels recorded in [SERVICE-INVENTORY](../operations/SERVICE-INVENTORY.md), and the pre-change variable prefixes in [env.example](../../env.example).
 
@@ -423,10 +423,10 @@ Superseded baseline: the pre-change compose set (`route.yml`, `dbsvc.yml`, `auth
 | Migrate `${APPS_DATA}` to the domain layout and update every bind mount | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`79e810a`); host migration pending |
 | Remove the listed bind mounts, restrict Docker socket access, and replace `/etc/localtime` with `TZ` | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`79e810a`); server validation pending |
 | Move certificates to `${APPS_DATA}/shared/certs` and update Traefik and Stalwart consumers | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`79e810a`); host ACME migration pending |
-| Apply the environment variable and database variable renames across `env.example`, `compose/*.yml`, `scripts/setup.sh`, workflows, `shared/` configuration, and documentation in one change | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`41f6b1d`) with a `setup.sh` migration block for existing `.env` files; server validation pending |
+| Apply the environment variable and database variable renames across `env.example`, `compose/*.yml`, `scripts/setup.sh`, workflows, `shared/` configuration, and documentation in one change | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`41f6b1d`); `.env` files migrated manually by the owner and the `setup.sh` migration block removed (2026-10-06); server validation pending |
 | Update backup scope and exclusions to the tier classification under ADR-007 | ServiceHub Architecture | 2026-10-05 | Tier classification documented in [BACKUP-RESTORE](../operations/BACKUP-RESTORE.md); exclusion values remain deployment secrets |
-| Rename the five databases to the `svchub_<purpose>` values and update every consumer in one maintenance window | ServiceHub Architecture | TBD | Proposed; `.env` values migrate via `setup.sh`, server-side database rename and grants pending |
+| Rename the five databases to the `svchub_<purpose>` values and update every consumer in one maintenance window | ServiceHub Architecture | TBD | Proposed; `.env` values migrated manually — server-side database rename and grants pending |
 | Update Forgejo Actions deploy and backup workflows, monitoring provisioning, and dashboards | ServiceHub Architecture | 2026-10-05 | Workflows and monitoring configuration renamed (`975c701`, `41f6b1d`, `76ec13e`); dead dashboard panels for the removed mounts stripped (`9e636af`); runtime provisioning pending |
-| Rename `SOURCECODE_PUBLIC_URL` and `SOURCECODE_DEPLOY_TOKEN` in Forgejo repository Actions settings on staging and production | George Li | TBD | Pending; repository side applied on `service-renaming` (`76ec13e`) |
+| Rename `SOURCECODE_PUBLIC_URL` and `SOURCECODE_DEPLOY_TOKEN` in Forgejo repository Actions settings on staging and production | George Li | TBD | Superseded — the deploy workflow syncs the working tree from the runner checkout and reads neither entry; removing them from the Forgejo UI is optional (repository side applied on `service-renaming` (`76ec13e`)) |
 | Update documentation, service inventory, and architecture records in the same change | George Li | 2026-10-05 | Living documentation updated across the three `service-renaming` commits |
 | Validate with `docker compose config` and a staging deployment, and record the evidence | ServiceHub Architecture | TBD | Proposed |

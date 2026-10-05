@@ -69,7 +69,7 @@ Establish a reviewable Compose platform with a shared network, ingress, relation
 - [x] Repository contains the Compose structure.
 - [x] Repository contains ingress and security middleware configuration.
 - [x] Repository contains database images and persistence definitions.
-- [x] Repository contains environment generation and migration logic.
+- [x] Repository contains environment generation and migration logic (migration logic later removed after the `.env` rename was applied manually).
 - [ ] Validate Compose configuration in the intended environment.
 - [ ] Validate HTTP redirect, TLS, routes, and security headers.
 - [ ] Validate database health and first-boot creation.

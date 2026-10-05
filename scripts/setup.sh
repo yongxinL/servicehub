@@ -60,128 +60,6 @@ inject_secrets() {
         "$ENV_FILE" && rm "${ENV_FILE}.bak"
 }
 
-# Function to rename legacy variables that were refactored between releases.
-# Must run before merge_env so that references in other values (e.g. the
-# POSTGRES_DATABASES composition) are rewritten too.
-migrate_env() {
-    # ADR-008 renamed service, domain, and database variables to business-domain
-    # names and moved the databases into the svchub_* namespace. Rewrite an
-    # ADR-007-era .env in one pass (variable renames first so the database-value
-    # rules below match the new names).
-    if grep -qE '^(AUTHN_|DEPOT_|WBHOME_|OWEBUI_|OBSVC_|POSTE_DBNAME|LITEM_|SQLDB_|PGRSQL_|MySQL_|MARIADB_DB_LIST|WBDRIVE_|WBCLOUD_|FCRW_API_URL)' "$ENV_FILE" 2>/dev/null; then
-        echo "Migrating ADR-008 environment variable names ..."
-        sed -i.bak \
-            -e 's/AUTHN_DBNAME/IDENTITY_DBNAME/g' \
-            -e 's/AUTHN_DOMAIN/IDENTITY_DOMAIN/g' \
-            -e 's/AUTHN_TAG/IDENTITY_TAG/g' \
-            -e 's/AUTHN_PASSWD/IDENTITY_PASSWORD/g' \
-            -e 's/AUTHN_SECRET/IDENTITY_SECRET/g' \
-            -e 's/DEPOT_DBNAME/SOURCECODE_DBNAME/g' \
-            -e 's/DEPOT_DOMAIN/SOURCECODE_DOMAIN/g' \
-            -e 's/DEPOT_VTAG/SOURCECODE_TAG/g' \
-            -e 's/DEPOT_RUNNER_SECRET/SOURCECODE_RUNNER_SECRET/g' \
-            -e 's/DEPOT_RUNNER_VTAG/SOURCECODE_RUNNER_TAG/g' \
-            -e 's/WBHOME_DBNAME/WORKSPACE_DBNAME/g' \
-            -e 's/WBHOME_DOMAIN/WORKSPACE_DOMAIN/g' \
-            -e 's/WBHOME_TAG/WORKSPACE_TAG/g' \
-            -e 's/OWEBUI_DOMAIN/CHAT_DOMAIN/g' \
-            -e 's/OBSVC_DOMAIN/OBSERVABILITY_DOMAIN/g' \
-            -e 's/OBSVC_ADMUSR/OBSERVABILITY_ADMIN_USER/g' \
-            -e 's/OBSVC_ADMPWD/OBSERVABILITY_ADMIN_PASSWORD/g' \
-            -e 's/WEBMAIL_DOMAIN/POSTOFFICE_DOMAIN/g' \
-            -e 's/POSTE_DBNAME/POSTOFFICE_DBNAME/g' \
-            -e 's/WBDRIVE_DOMAIN/CLOUD_DOMAIN/g' \
-            -e 's/WBDRIVE_TAG/CLOUD_TAG/g' \
-            -e 's/WBDRIVE_OIDC_ISSUER/CLOUD_OIDC_ISSUER/g' \
-            -e 's/WBDRIVE_OIDC_CLIENT_ID/CLOUD_OIDC_CLIENT_ID/g' \
-            -e 's/WBDRIVE_INSECURE/CLOUD_INSECURE/g' \
-            -e 's/\${WBCLOUD_/${CLOUD_/g' \
-            -e 's/^WBCLOUD_/CLOUD_/' \
-            -e 's/LITEM_API_KEY/AIGATE_API_KEY/g' \
-            -e 's/LITEM_API_URL/AIGATE_API_URL/g' \
-            -e 's/LITEM_ADMUSR/AIGATE_ADMIN_USER/g' \
-            -e 's/LITEM_ADMPWD/AIGATE_ADMIN_PASSWORD/g' \
-            -e 's/LITEM_DBNAME/AIGATE_DBNAME/g' \
-            -e 's/LITEM_HPH_APIURL/AIGATE_HERMES_API_URL/g' \
-            -e 's/LITEM_HPH_APIKEY/AIGATE_HERMES_API_KEY/g' \
-            -e 's/LITEM_HPH_HLTURL/AIGATE_HERMES_HEALTH_URL/g' \
-            -e 's/LITEM_PRM_APIBASE/AIGATE_PROVIDER_API_BASE/g' \
-            -e 's/LITEM_PRM_APIKEY/AIGATE_PROVIDER_API_KEY/g' \
-            -e 's/SQLDB_USER/DB_ADMIN_USER/g' \
-            -e 's/SQLDB_PASS/DB_ADMIN_PASSWORD/g' \
-            -e 's/MySQL_HOST/MARIADB_HOST/g' \
-            -e 's/MySQL_PORT/MARIADB_PORT/g' \
-            -e 's/MARIADB_DB_LIST/MARIADB_DATABASES/g' \
-            -e 's/PGRSQL_HOST/POSTGRES_HOST/g' \
-            -e 's/PGRSQL_PORT/POSTGRES_PORT/g' \
-            -e 's/PGRSQL_DBLIST/POSTGRES_DATABASES/g' \
-            -e 's/^IDENTITY_DBNAME="svchubauthtk"/IDENTITY_DBNAME="svchub_identity"/' \
-            -e 's/^IDENTITY_DBNAME=svchubauthtk$/IDENTITY_DBNAME=svchub_identity/' \
-            -e 's/^SOURCECODE_DBNAME="svchubsvnrep"/SOURCECODE_DBNAME="svchub_sourcecode"/' \
-            -e 's/^SOURCECODE_DBNAME=svchubsvnrep$/SOURCECODE_DBNAME=svchub_sourcecode/' \
-            -e 's/^WORKSPACE_DBNAME="svchubwbhome"/WORKSPACE_DBNAME="svchub_workspace"/' \
-            -e 's/^WORKSPACE_DBNAME=svchubwbhome$/WORKSPACE_DBNAME=svchub_workspace/' \
-            -e 's/^POSTOFFICE_DBNAME="svchubmboxdb"/POSTOFFICE_DBNAME="svchub_postoffice"/' \
-            -e 's/^POSTOFFICE_DBNAME=svchubmboxdb$/POSTOFFICE_DBNAME=svchub_postoffice/' \
-            -e 's/^AIGATE_DBNAME="litellm"/AIGATE_DBNAME="svchub_aigateway"/' \
-            -e 's/^AIGATE_DBNAME=litellm$/AIGATE_DBNAME=svchub_aigateway/' \
-            -e 's|http://aiagnfastcrw:|http://aiservfastcrw:|g' \
-            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-    fi
-
-    # The legacy Gitea/Woodpecker runner token no longer exists (Forgejo Actions
-    # uses a shared runner secret); drop it from old .env files.
-    if grep -q '^REPBUK_' "$ENV_FILE" 2>/dev/null; then
-        echo "Migrating legacy REPBUK_* variables to SOURCECODE_* ..."
-        sed -i.bak \
-            -e 's/REPBUK_DBNAME/SOURCECODE_DBNAME/g' \
-            -e 's/REPBUK_DOMAIN/SOURCECODE_DOMAIN/g' \
-            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-        sed -i.bak '/^REPBUK_RUNTOKEN=/d' "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-    fi
-
-    # Woodpecker CI was replaced by Forgejo Actions; its secrets are obsolete.
-    if grep -qE '^(GITBLD_OA_CLIENT|GITBLD_OA_SECRET|GITBLD_GRPC_SECRET|GITBLD_ADMUSR|GITBLD_DOMAIN|GITBLD_NETWORK)=' "$ENV_FILE" 2>/dev/null; then
-        echo "Removing obsolete Woodpecker variables (GITBLD_OA_*, GITBLD_GRPC_SECRET, GITBLD_ADMUSR, GITBLD_DOMAIN, GITBLD_NETWORK) ..."
-        sed -i.bak \
-            -e '/^GITBLD_OA_CLIENT=/d' \
-            -e '/^GITBLD_OA_SECRET=/d' \
-            -e '/^GITBLD_GRPC_SECRET=/d' \
-            -e '/^GITBLD_ADMUSR=/d' \
-            -e '/^GITBLD_DOMAIN=/d' \
-            -e '/^GITBLD_NETWORK=/d' \
-            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-    fi
-
-    # The homepage web service was renamed from wbsvc to wbapp and its variables
-    # from WEBHOM_* to WBHOME_*. WBHOME_DOMAN was a typo; the canonical name is
-    # WORKSPACE_DOMAIN. The Confluence image tag moved from WBCONF_TAG to WORKSPACE_TAG.
-    if grep -qE '^(WEBHOM_|WBHOME_DOMAN=|WBCONF_TAG=)' "$ENV_FILE" 2>/dev/null; then
-        echo "Migrating legacy WEBHOM_* / WBHOME_DOMAN / WBCONF_TAG variables ..."
-        sed -i.bak \
-            -e 's/^WEBHOM_DBNAME=/WORKSPACE_DBNAME=/' \
-            -e 's/^WEBHOM_DOMAIN=/WORKSPACE_DOMAIN=/' \
-            -e 's/^WBHOME_DOMAN=/WORKSPACE_DOMAIN=/' \
-            -e 's/^WBCONF_TAG=/WORKSPACE_TAG=/' \
-            -e 's/\${WEBHOM_DBNAME}/${WORKSPACE_DBNAME}/g' \
-            -e 's/\${WEBHOM_DOMAIN}/${WORKSPACE_DOMAIN}/g' \
-            -e 's/\${WBHOME_DOMAN}/${WORKSPACE_DOMAIN}/g' \
-            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-    fi
-
-    # The observability compose domain was renamed from secob to obsvc (ADR-007),
-    # then to obsvce with OBSERVABILITY_* variables (ADR-008).
-    if grep -q '^SECOB_' "$ENV_FILE" 2>/dev/null; then
-        echo "Migrating legacy SECOB_* variables to OBSERVABILITY_* ..."
-        sed -i.bak \
-            -e 's/^SECOB_DOMAIN=/OBSERVABILITY_DOMAIN=/' \
-            -e 's/^SECOB_ADMUSR=/OBSERVABILITY_ADMIN_USER=/' \
-            -e 's/^SECOB_ADMPWD=/OBSERVABILITY_ADMIN_PASSWORD=/' \
-            -e 's/\${SECOB_DOMAIN}/${OBSERVABILITY_DOMAIN}/g' \
-            "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-    fi
-}
-
 # Function to merge env.example with existing .env
 merge_env() {
     echo "Merging new variables from env.example into existing .env..."
@@ -343,7 +221,6 @@ if [ ! -f "$ENV_FILE" ]; then
     echo "✅ Setup complete! .env has been created with generated secrets."
 else
     echo "Existing .env found. Checking for new variables from env.example..."
-    migrate_env
     merge_env
     inject_secrets
     echo "✅ Merge complete! .env has been updated with new variables."
