@@ -111,8 +111,8 @@ jobs:
 
           get() { eval "printf '%s' \"\${$1:-}\""; }
 
-          # Connection and backup-independent settings live in one JSON secret
-          # per environment (see README, ${PREFIX}_CONFIG). Credentials and the
+          # Connection and backup-independent settings live in one JSON
+          # variable per environment (see README, ${PREFIX}_CONFIG). Credentials and the
           # large encoded blobs stay as individual secrets.
           CONFIG_JSON=$(get "${PREFIX}_CONFIG")
           SERVER_PASSWORD=$(get "${PREFIX}_SERVER_PASS")
@@ -329,12 +329,12 @@ jobs:
           DEPLOY_TARGET: ${{ inputs.environment }}
           DEPLOY_TASK: ${{ inputs.service }}
           GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
-          STAG_CONFIG: ${{ secrets.STAG_CONFIG }}
+          STAG_CONFIG: ${{ vars.STAG_CONFIG }}
           STAG_SERVER_PASS: ${{ secrets.STAG_SERVER_PASS }}
           STAG_SERVER_KEY: ${{ secrets.STAG_SERVER_KEY }}
           STAG_B64ENC_ENVS: ${{ secrets.STAG_B64ENC_ENVS }}
           STAG_B64ENC_ACME: ${{ secrets.STAG_B64ENC_ACME }}
-          PROD_CONFIG: ${{ secrets.PROD_CONFIG }}
+          PROD_CONFIG: ${{ vars.PROD_CONFIG }}
           PROD_SERVER_PASS: ${{ secrets.PROD_SERVER_PASS }}
           PROD_SERVER_KEY: ${{ secrets.PROD_SERVER_KEY }}
           PROD_B64ENC_ENVS: ${{ secrets.PROD_B64ENC_ENVS }}

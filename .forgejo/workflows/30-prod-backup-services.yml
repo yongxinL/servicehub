@@ -60,7 +60,7 @@ jobs:
 
           get() { eval "printf '%s' \"\${$1:-}\""; }
 
-          # Connection and backup settings live in one JSON secret per
+          # Connection and backup settings live in one JSON variable per
           # environment (see README, ${PREFIX}_CONFIG); credentials and the
           # Home Server transfer material stay as individual secrets.
           CONFIG_JSON=$(get "${PREFIX}_CONFIG")
@@ -436,9 +436,9 @@ jobs:
           BACKUP_HOME_SSH_KEY: ${{ secrets.BACKUP_HOME_SSH_KEY }}
           BACKUP_HOME_SSH_KNOWN_HOSTS: ${{ secrets.BACKUP_HOME_SSH_KNOWN_HOSTS }}
           BACKUP_RCLONE_CONFIG: ${{ secrets.BACKUP_RCLONE_CONFIG }}
-          STAG_CONFIG: ${{ secrets.STAG_CONFIG }}
+          STAG_CONFIG: ${{ vars.STAG_CONFIG }}
           STAG_SERVER_PASS: ${{ secrets.STAG_SERVER_PASS }}
           STAG_SERVER_KEY: ${{ secrets.STAG_SERVER_KEY }}
-          PROD_CONFIG: ${{ secrets.PROD_CONFIG }}
+          PROD_CONFIG: ${{ vars.PROD_CONFIG }}
           PROD_SERVER_PASS: ${{ secrets.PROD_SERVER_PASS }}
           PROD_SERVER_KEY: ${{ secrets.PROD_SERVER_KEY }}

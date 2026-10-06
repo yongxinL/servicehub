@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: DEPLOYMENT-ARCHITECTURE
 title: ServiceHub Deployment Architecture
-version: "1.4"
+version: "1.5"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
@@ -52,7 +52,7 @@ This flow is Confirmed from repository commands; local execution results are `No
 
 ## Staging Deployment
 
-The deploy workflow accepts `environment: stag` and maps it to `STAG_*` repository secrets. It SSHes to the configured target, syncs the working tree from the runner checkout, restores environment material when supplied, merges `env.example`, and deploys selected application services.
+The deploy workflow accepts `environment: stag` and maps it to the `STAG_CONFIG` variable and `STAG_*` repository secrets. It SSHes to the configured target, syncs the working tree from the runner checkout, restores environment material when supplied, merges `env.example`, and deploys selected application services.
 
 Staging TLS is described in repository documentation as self-signed when `CERTRESOLVER` is empty. The actual staging `.env`, certificate trust, DNS, and host state are secrets or runtime state and remain `Not yet verified`.
 
@@ -72,7 +72,7 @@ The repository does not contain evidence that a production deployment, certifica
 
 ## SSH Deployment Flow
 
-1. Resolve the `${PREFIX}_CONFIG` secret (all non-credential settings, including the optional `server_port`, default 22) plus credential secrets, and validate required inputs.
+1. Resolve the `${PREFIX}_CONFIG` repository variable (all non-credential settings, including the optional `server_port`, default 22) plus credential secrets, and validate required inputs.
 2. Materialise an SSH key to a temporary `0600` file or use password authentication; both connect on the configured port.
 3. Build an explicit known-host file from repository secrets, falling back to `ssh-keyscan` on the configured port with a warning.
 4. Check out the selected branch in the runner and unlock git-crypt files when `GIT_CRYPT_KEY` is supplied.
@@ -104,7 +104,7 @@ Stalwart shares the certificate store path and has ACME-related environment sett
 - `env.example` is the tracked variable template.
 - `.env` is ignored and must contain environment-specific secret values.
 - `scripts/setup.sh` creates missing `.env`, merges new keys, and can encode or decode deployment secrets; variable renames are applied manually.
-- Forgejo repository secrets carry one combined `${PREFIX}_CONFIG` JSON per environment plus credentials and encoded environment or certificate material.
+- Forgejo repository variables carry the combined `${PREFIX}_CONFIG` JSON per environment; repository secrets carry credentials and encoded environment or certificate material.
 - Repository documentation records variable names only.
 
 ## Rollback Model

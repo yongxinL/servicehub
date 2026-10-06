@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: BACKUP-RESTORE
 title: ServiceHub Backup and Restore
-version: "1.3"
+version: "1.4"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
@@ -123,7 +123,7 @@ If `HERMES_DATA_00` points outside `APPS_DATA`, it is not covered by the full ar
 - **Tier 2 — important** (`aiserv/openwebui`, `aiserv/hermes`, `aiserv/litellm`, `obsvce/grafana`): recommended backup; exclude only when storage constraints require it.
 - **Tier 3 — rebuildable** (`devops/forgejo/workspace`, `obsvce/victoriametrics`, `obsvce/victorialogs`, `mailsv/bulwark/telemetry`): shorter retention or exclusion, depending on storage constraints.
 
-The exclusion value itself is stored in the `backup_exclude` key of `STAG_CONFIG` / `PROD_CONFIG` (a repository secret); the repository documents an example value in the README Actions secrets table (noisy logs and Tier 3 `devops/forgejo/workspace`). Add further Tier 3 paths when storage constraints require it; never exclude Tier 1.
+The exclusion value itself is stored in the `backup_exclude` key of `STAG_CONFIG` / `PROD_CONFIG` (a repository variable); the repository documents an example value in the README Actions configuration tables (noisy logs and Tier 3 `devops/forgejo/workspace`). Add further Tier 3 paths when storage constraints require it; never exclude Tier 1.
 
 ## Named Volumes
 

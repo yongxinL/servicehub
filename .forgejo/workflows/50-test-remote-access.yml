@@ -57,7 +57,7 @@ jobs:
 
           get() { eval "printf '%s' \"\${$1:-}\""; }
 
-          # Connection settings live in one JSON secret per environment
+          # Connection settings live in one JSON variable per environment
           # (see README, ${PREFIX}_CONFIG); credentials stay individual.
           CONFIG_JSON=$(get "${PREFIX}_CONFIG")
           SERVER_PASSWORD=$(get "${PREFIX}_SERVER_PASS")
@@ -179,9 +179,9 @@ jobs:
           echo "test-deploy ($DEPLOY_TARGET) completed"
         env:
           DEPLOY_TARGET: ${{ inputs.environment }}
-          STAG_CONFIG: ${{ secrets.STAG_CONFIG }}
+          STAG_CONFIG: ${{ vars.STAG_CONFIG }}
           STAG_SERVER_PASS: ${{ secrets.STAG_SERVER_PASS }}
           STAG_SERVER_KEY: ${{ secrets.STAG_SERVER_KEY }}
-          PROD_CONFIG: ${{ secrets.PROD_CONFIG }}
+          PROD_CONFIG: ${{ vars.PROD_CONFIG }}
           PROD_SERVER_PASS: ${{ secrets.PROD_SERVER_PASS }}
           PROD_SERVER_KEY: ${{ secrets.PROD_SERVER_KEY }}
