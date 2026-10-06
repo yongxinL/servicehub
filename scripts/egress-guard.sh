@@ -10,6 +10,8 @@
 #                          all else dropped
 #        allow-atlassian   full internet INCLUDING Atlassian (overrides layer 2)
 #        internet          default: full internet minus the Atlassian block
+#        allow-domain <name>  standing exception: this service may reach every
+#                          resolved address of <name>; rebuilt each apply
 #   2. Global Atlassian block: traffic from ANY container to the CIDRs
 #      published at https://ip-ranges.atlassian.com/ is logged and dropped
 #      (one ipset holds the ranges, so it is a single rule).
@@ -22,8 +24,9 @@
 #                       refreshes the Atlassian set at startup
 #   status              policies, addresses, rules, set size, counters
 #   atlassian-refresh   reload the Atlassian CIDRs into the ipset
-#   allow <service> <cidr>   time-boxed exception — record it, then revoke it
-#   revoke <service> <cidr>
+#   allow <service> <cidr|ipv4|hostname>   time-boxed exception (a hostname
+#                       resolves now to every A record); record it, then revoke
+#   revoke <service> <cidr|ipv4|hostname>
 #   remove            strip every installed egress rule (policies file is kept;
 #                     apply reinstalls — stop the watch unit first if running)
 #   selftest            offline check of the rule logic (no root, no Docker)
@@ -39,7 +42,7 @@ URL=https://ip-ranges.atlassian.com/
 Policies() { # 'service policy' lines from the policy file
   conf=${EGRESS_POLICIES:-"$(dirname "$0")/egress-policies.conf"}
   [ -f "$conf" ] || return 0
-  awk 'NF >= 2 && $1 !~ /^#/ { print $1, $2 }' "$conf"
+  awk 'NF >= 2 && $1 !~ /^#/ { if (NF >= 3) print $1, $2, $3; else print $1, $2 }' "$conf"
 }
 LOG_RATE=20/min
 LIMIT="-m limit --limit $LOG_RATE"
@@ -67,6 +70,21 @@ self_ip() {
   esac
 }
 
+# Destinations for allow/revoke/allow-domain: an explicit CIDR, a bare IPv4
+# (normalised to /32), or a hostname resolved NOW to every A record — iptables
+# matches addresses, not names. Prints one CIDR per line; nothing if unresolvable.
+resolve_dest() {
+  case $1 in
+    */*) printf '%s\n' "$1" ;;
+    *[!0-9.]*)
+      for a in $(getent ahostsv4 "$1" 2>/dev/null | awk '{print $1}' | sort -u); do
+        printf '%s\n' "$a/32"
+      done
+      ;;
+    *) printf '%s\n' "$1/32" ;;
+  esac
+}
+
 ids_for() { # service name or exact container name -> running container ids
   ids=$(docker ps -q --filter "label=com.docker.compose.service=$1" 2>/dev/null || true)
   [ -n "$ids" ] || ids=$(docker ps -q --filter "name=^/$1$" 2>/dev/null || true)
@@ -80,10 +98,10 @@ ips_for() {
   done
 }
 
-# Remove our rebuildable rules (exception rules are kept), then the helper chain.
-# Match covers egress-restricted, egress-atlassian and egress-atlassian-ok.
+# Remove our rebuildable rules (time-boxed exceptions are kept), then the chain.
+# Match covers egress-restricted, egress-atlassian and egress-allow-domain.
 remove() {
-  nums=$(iptables -S "$CHAIN" 2>/dev/null | grep -En -- "--comment egress-(restricted|atlassian)" |
+  nums=$(iptables -S "$CHAIN" 2>/dev/null | grep -En -- "--comment egress-(restricted|atlassian|allow-domain)" |
     cut -d: -f1 || true)
   for n in $(printf '%s\n' "$nums" | sort -rn); do
     iptables -D "$CHAIN" $((n - 1))
@@ -106,9 +124,14 @@ apply() {
     warn "Atlassian block inactive (need 'ipset' and a populated set) — run: $0 atlassian-refresh"
   fi
 
-  restricted_ips=""; ok_ips=""
-  while read -r svc pol; do
+  restricted_ips=""; ok_ips=""; domain_lines=""
+  while read -r svc pol arg; do
     [ -n "$svc" ] || continue
+    if [ "$pol" = "allow-domain" ]; then
+      domain_lines="$domain_lines$svc $arg
+"
+      continue
+    fi
     ips=$(ips_for "$svc")
     [ -n "$ips" ] || warn "$svc: not running, no rules applied"
     case $pol in
@@ -150,6 +173,29 @@ EOF
         -m comment --comment egress-atlassian-ok -j ACCEPT
     done
   fi
+  # Standing allow-domain exceptions: rebuilt at the top of the chain on every
+  # apply, keyed to the service's current address, so named dependencies stay
+  # reachable even while a restricted jump is stale or misattributed.
+  while read -r svc dom; do
+    [ -n "$dom" ] || continue
+    ips=$(ips_for "$svc")
+    if [ -z "$ips" ]; then
+      warn "$svc: allow-domain '$dom' skipped (not running)"
+      continue
+    fi
+    dests=$(resolve_dest "$dom")
+    if [ -z "$dests" ]; then
+      warn "$svc: allow-domain '$dom' cannot resolve, skipped"
+      continue
+    fi
+    for ip in $ips; do
+      for d in $dests; do
+        iptables -I "$CHAIN" 1 -s "$ip" -d "$d" -m comment --comment egress-allow-domain -j ACCEPT
+      done
+    done
+  done <<EOF
+$domain_lines
+EOF
   echo "egress: applied — restricted:[${restricted_ips# }] atlassian-ok:[${ok_ips# }] set=$ready"
 }
 
@@ -204,22 +250,28 @@ EOF
 }
 
 allow() {
-  [ $# -eq 2 ] || die "usage: allow <service> <cidr>"
+  [ $# -eq 2 ] || die "usage: allow <service> <cidr|ipv4|hostname>"
   ip=$(ips_for "$1" | head -1)
   [ -n "$ip" ] || die "$1 is not running"
-  iptables -I "$CHAIN" 1 -s "$ip" -d "$2" -m comment --comment egress-exception -j ACCEPT
-  echo "egress: exception $1 ($ip) -> $2 granted; record it, revoke with: $0 revoke $1 $2"
+  dests=$(resolve_dest "$2")
+  [ -n "$dests" ] || die "cannot resolve '$2'"
+  for d in $dests; do
+    iptables -I "$CHAIN" 1 -s "$ip" -d "$d" -m comment --comment egress-exception -j ACCEPT
+  done
+  echo "egress: exception $1 ($ip) -> $(printf '%s ' $dests)granted; record it, revoke with: $0 revoke $1 $2"
 }
 
 revoke() {
-  [ $# -eq 2 ] || die "usage: revoke <service> <cidr>"
-  case $2 in */*) dest=$2 ;; *) dest=$2/32 ;; esac
+  [ $# -eq 2 ] || die "usage: revoke <service> <cidr|ipv4|hostname>"
+  dests=$(resolve_dest "$2")
+  [ -n "$dests" ] || die "cannot resolve '$2'"
   nums=$(for ip in $(ips_for "$1"); do
-    # iptables -S prints host addresses as a.b.c.d/32, hence both forms.
-    iptables -S "$CHAIN" | awk -v s="$ip" -v d="$dest" '
-      /--comment egress-exception/ &&
-      (index($0, " -s " s " ") || index($0, " -s " s "/")) &&
-      index($0, " -d " d " ") { print NR }'
+    for d in $dests; do
+      iptables -S "$CHAIN" | awk -v s="$ip" -v d="$d" '
+        /--comment egress-exception/ &&
+        (index($0, " -s " s " ") || index($0, " -s " s "/")) &&
+        index($0, " -d " d " ") { print NR }'
+    done
   done | sort -rn)
   [ -n "$nums" ] || die "no exception for $1 -> $2"
   for n in $nums; do
@@ -300,7 +352,11 @@ selftest() {
   printf '%s\n' '#!/bin/sh' 'echo "python3 $@" >>"$STUB_LOG"' \
     'printf "%s\n" 192.0.2.0/24 198.51.100.0/24 >"$2"' 'exit 0' >"$t/bin/python3"
   printf '%s\n' '#!/bin/sh' 'exit 1' >"$t/bin/curl" # instance metadata unreachable offline
-  chmod +x "$t/bin/docker" "$t/bin/iptables" "$t/bin/ipset" "$t/bin/python3" "$t/bin/curl"
+  printf '%s\n' '#!/bin/sh' \
+    'case "$*" in' \
+    '  *login.example.com*) printf "%s\n" "203.0.113.7 STREAM" "203.0.113.8 STREAM" ;;' \
+    'esac' 'exit 0' >"$t/bin/getent"
+  chmod +x "$t/bin/docker" "$t/bin/iptables" "$t/bin/ipset" "$t/bin/python3" "$t/bin/curl" "$t/bin/getent"
   printf '%s\n' 'webappconf restricted' 'otherapp allow-atlassian' >"$t/policies"
   PATH="$t/bin:$PATH" STUB_LOG="$t/log" STUB_RULES="$t/rules" EGRESS_POLICIES="$t/policies" EGRESS_NOSUDO=1 \
     EGRESS_SELF_IP=198.51.100.7
@@ -359,6 +415,29 @@ selftest() {
     grep -Fq -- "-X EGRESS_RESTRICTED" "$STUB_LOG" &&
     echo "ok: remove strips exceptions, restricted jumps and the helper chain" ||
     { echo "FAIL: remove"; cat "$STUB_LOG"; fail=1; }
+
+  : >"$STUB_LOG"
+  sh "$0" allow webappconf login.example.com >/dev/null 2>&1
+  grep -Fq -- "-I DOCKER-USER 1 -s 10.89.1.42 -d 203.0.113.7/32 -m comment --comment egress-exception -j ACCEPT" "$STUB_LOG" &&
+    grep -Fq -- "-I DOCKER-USER 1 -s 10.89.1.42 -d 203.0.113.8/32 -m comment --comment egress-exception -j ACCEPT" "$STUB_LOG" &&
+    echo "ok: allow accepts a hostname (one rule per A record)" || { echo "FAIL: allow hostname"; cat "$STUB_LOG"; fail=1; }
+
+  : >"$STUB_LOG"
+  printf -- '-N DOCKER-USER\n-A DOCKER-USER -s 10.89.1.42 -d 203.0.113.7/32 -m comment --comment egress-exception -j ACCEPT\n-A DOCKER-USER -s 10.89.1.42 -d 203.0.113.8/32 -m comment --comment egress-exception -j ACCEPT\n-A DOCKER-USER -j RETURN\n' >"$STUB_RULES"
+  sh "$0" revoke webappconf login.example.com >/dev/null 2>&1
+  [ "$(grep -c -- '^-D' "$STUB_LOG")" -eq 2 ] &&
+    grep -Fq -- "-D DOCKER-USER 1" "$STUB_LOG" &&
+    grep -Fq -- "-D DOCKER-USER 2" "$STUB_LOG" &&
+    echo "ok: revoke re-resolves the hostname and strips every rule" || { echo "FAIL: revoke hostname"; cat "$STUB_LOG"; fail=1; }
+
+  : >"$STUB_LOG"
+  printf '%s\n' 'webappconf restricted' 'webappconf allow-domain login.example.com' 'otherapp allow-atlassian' >"$t/policies2"
+  printf -- '-N DOCKER-USER\n-A DOCKER-USER -s 10.89.1.42 -d 198.51.100.99/32 -m comment --comment egress-allow-domain -j ACCEPT\n-A DOCKER-USER -j RETURN\n' >"$STUB_RULES"
+  EGRESS_POLICIES="$t/policies2" sh "$0" apply >/dev/null 2>&1
+  grep -Fq -- "-D DOCKER-USER 1" "$STUB_LOG" &&
+    grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.42 -d 203.0.113.7/32 -m comment --comment egress-allow-domain -j ACCEPT" "$STUB_LOG" &&
+    grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.42 -d 203.0.113.8/32 -m comment --comment egress-allow-domain -j ACCEPT" "$STUB_LOG" &&
+    echo "ok: allow-domain rebuilt as a top-of-chain standing exception" || { echo "FAIL: allow-domain"; cat "$STUB_LOG"; fail=1; }
 
   exit "$fail"
 }
