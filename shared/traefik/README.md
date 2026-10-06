@@ -137,6 +137,7 @@ Dynamic configuration lives in `advanced/` and is loaded by the file provider.
 - **`secure-chain`** — convenience chain composing the two below, so routers list one middleware.
 - **`secure-headers`** — HSTS (180 days, includeSubDomains, preload), `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `X-Frame-Options: SAMEORIGIN`, and `Server`/`X-Powered-By` header stripping. No CSP here — it breaks inline-script apps (Confluence, Open WebUI); add per-app if ever needed.
 - **`rate-limit`** — 20 req/s average, 50 burst, per client IP. Blunts credential-stuffing against every login page at once. Tune down (or split per-service) if a legitimate workflow trips it.
+  - **Exemption:** the identity domain `/static/` prefix is served by router `infraauth-static` (`compose/infra.yml`, priority 200, `secure-headers` only) so Authentik's admin SPA chunk loads cannot exhaust the burst bucket and fail with 429s. Documented in [TROUBLESHOOTING](../../docs/operations/TROUBLESHOOTING.md#identity-console-rate-limited-429).
 
 To protect a router with Authentik forward-auth, add the file middleware **after** `secure-chain`:
 

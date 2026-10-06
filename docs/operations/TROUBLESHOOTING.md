@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: TROUBLESHOOTING
 title: ServiceHub Troubleshooting
-version: "1.0"
+version: "1.0.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-06
 tags:
   - servicehub
   - operations
@@ -88,6 +88,22 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 **Escalation:** Escalate if administrator login is unavailable or the loop affects multiple protected services.
 
 **Related documents:** [Forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml), [troubleshooting test plan](../testing/TEST-001-platform-baseline-validation.md).
+
+## Identity Console Rate-Limited (429)
+
+**Symptoms:** The Authentik admin console (`admin/#/...`) never finishes loading; the browser console shows `429` responses for `/static/...` chunks and `Failed to fetch dynamically imported module`.
+
+**Likely causes:** The `rate-limit` middleware in `secure-chain` (20 req/s average, burst 50, per client IP) is exhausted by the admin SPA's parallel chunk and API requests on a cold cache, several open tabs, or multiple clients sharing one public address.
+
+**Evidence to collect:** Browser developer-tools network log (status 429 and request paths), Traefik access logs (`docker logs routetraefik | grep ' 429 '`), the `infraauth` router labels, and [`shared/traefik/advanced/middlewares-security.yml`](../../shared/traefik/advanced/middlewares-security.yml).
+
+**Diagnostic steps:** Confirm the 429 responses target the identity hostname, confirm the router uses `secure-chain@file`, and check whether the address is shared by several clients.
+
+**Resolution:** The `/static/` exemption ships as router `infraauth-static` ([`compose/infra.yml`](../../compose/infra.yml), priority 200, `secure-headers` only); redeploy the identity service so Traefik picks up the labels, then reload the console. If non-static requests still trip the limit for a legitimately shared address, raise `burst` in `middlewares-security.yml` through a reviewed change. The bucket refills 20 requests per second, so a quiet reload also clears it.
+
+**Escalation:** Escalate if 429s continue on a quiet, single-client load after the exemption is deployed.
+
+**Related documents:** [Traefik security middlewares](../../shared/traefik/README.md#security-middlewares), [ADR-002](../adr/ADR-002-use-traefik-as-ingress.md).
 
 ## Database Connection Failure
 

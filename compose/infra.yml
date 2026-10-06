@@ -108,6 +108,18 @@ services:
             - "traefik.http.routers.infraauth.middlewares=secure-chain@file"
             # Use Let's Encrypt for certificate management or Self-signed certificate
             - "traefik.http.routers.infraauth.tls.certresolver=${CERTRESOLVER}"
+            # Static assets bypass rate-limit: a cold Authentik admin page fetches
+            # dozens of chunks within a second and exhausts rate-limit's burst of
+            # 50 (429s, the SPA never finishes loading). secure-headers only;
+            # priority 200 beats the catch-all infraauth router (docs/operations/
+            # TROUBLESHOOTING.md, shared/traefik/README.md#security-middlewares).
+            - "traefik.http.routers.infraauth-static.rule=Host(`${IDENTITY_DOMAIN}`) && PathPrefix(`/static`)"
+            - "traefik.http.routers.infraauth-static.entrypoints=websecure"
+            - "traefik.http.routers.infraauth-static.service=infraauth"
+            - "traefik.http.routers.infraauth-static.priority=200"
+            - "traefik.http.routers.infraauth-static.tls=true"
+            - "traefik.http.routers.infraauth-static.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.infraauth-static.middlewares=secure-headers@file"
         networks:
             - subnet
         restart: unless-stopped
