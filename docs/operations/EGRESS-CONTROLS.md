@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: EGRESS-CONTROLS
 title: ServiceHub Container Egress Controls
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
@@ -106,7 +106,28 @@ sudo systemctl enable --now servicehub-egress-refresh.timer
 | `scripts/egress-guard.sh atlassian-refresh` | Reload `https://ip-ranges.atlassian.com/` into the `atlassian` ipset (atomic swap; on fetch failure the existing set is kept) |
 | `scripts/egress-guard.sh allow <service> <cidr>` | Time-boxed exception for one service and destination |
 | `scripts/egress-guard.sh revoke <service> <cidr>` | Remove that exception |
+| `scripts/egress-guard.sh remove` | Strip every installed egress rule — restricted jumps, the Atlassian block and exceptions; Docker's own `RETURN` in `DOCKER-USER` is untouched and the policies file is kept |
 | `scripts/egress-guard.sh selftest` | Offline rule-logic check (no root, Docker, or ipset needed) |
+
+## Disable
+
+To turn the controls off completely:
+
+1. Stop persistence, if the units are installed:
+
+   ```bash
+   sudo systemctl disable --now servicehub-egress-guard servicehub-egress-refresh.timer
+   ```
+
+2. Strip every installed rule:
+
+   ```bash
+   scripts/egress-guard.sh remove
+   ```
+
+3. Verify: `scripts/egress-guard.sh status` reports `no egress rules installed`.
+
+A running `watch` reinstalls the rules on the next container address change or restart — stop it first (step 1). Note that emptying `scripts/egress-policies.conf` removes only the per-service layer on the next `apply`; the global Atlassian block is independent of that file, so `remove` is the complete off switch.
 
 ## Verify
 
@@ -143,7 +164,7 @@ Rules for exceptions:
 
 ## Evidence and limitations
 
-- `scripts/egress-guard.sh selftest` — offline check of the produced rules (restricted jump and helper chain, global Atlassian DROP/LOG, `allow-atlassian` exception, standing-exception preservation, atomic set swap, no set rules when the set is absent).
+- `scripts/egress-guard.sh selftest` — offline check of the produced rules (restricted jump and helper chain, global Atlassian DROP/LOG, `allow-atlassian` exception, standing-exception preservation, host-public-IP allowance and its unknown-IP fallback, full `remove` including exceptions, atomic set swap, no set rules when the set is absent).
 - Integration test through a real iptables-forwarded path (two network namespaces on a bridge, Linux VM): 21 checks covering label-based resolution, restricted blocking with private destinations open, the default `internet` policy staying open, kernel log output, exception grant/re-apply/revoke with correct rule ordering, flush when containers are gone, and egress restoration.
 - Installation on the OCI host is owner-run (2026-10-06): enabling the guard broke Confluence login, and granting the host's own public IP (`allow webappconf <ip>/32`) restored it — which demonstrates live enforcement on that host. Kernel-log and counter verification are not yet recorded.
 - The VM has no `ipset`, so the Atlassian layer was exercised only by the offline check (including the "set absent" path the VM also exercises); counter and populated-`ipset` verification on the deployed Docker host remain outstanding.

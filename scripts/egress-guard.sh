@@ -24,6 +24,8 @@
 #   atlassian-refresh   reload the Atlassian CIDRs into the ipset
 #   allow <service> <cidr>   time-boxed exception — record it, then revoke it
 #   revoke <service> <cidr>
+#   remove            strip every installed egress rule (policies file is kept;
+#                     apply reinstalls — stop the watch unit first if running)
 #   selftest            offline check of the rule logic (no root, no Docker)
 #
 # Requires Docker Engine (podman/netavark does not traverse DOCKER-USER),
@@ -226,6 +228,18 @@ revoke() {
   echo "egress: exception for $1 -> $2 revoked"
 }
 
+# Remove every egress rule we own — restricted jumps, the Atlassian block and
+# time-boxed exceptions — leaving the chain as Docker created it.
+remove_all() {
+  nums=$(iptables -S "$CHAIN" 2>/dev/null | grep -En -- "--comment egress-" | cut -d: -f1 || true)
+  for n in $(printf '%s\n' "$nums" | sort -rn); do
+    iptables -D "$CHAIN" $((n - 1))
+  done
+  iptables -F "$AUX" 2>/dev/null || true
+  iptables -X "$AUX" 2>/dev/null || true
+  echo "egress: all rules removed (restricted, Atlassian, exceptions) — '$0 apply' reinstalls; stop the watch unit first if it is running"
+}
+
 atlassian_refresh() {
   command -v ipset >/dev/null 2>&1 || {
     warn "ipset not installed — install it (apt install ipset / dnf install ipset)"
@@ -335,6 +349,17 @@ selftest() {
     echo "FAIL: unknown-IP warning missing"; cat "$STUB_LOG" "$t/err"; fail=1
   fi
 
+  : >"$STUB_LOG"
+  printf -- '-N DOCKER-USER\n-A DOCKER-USER -s 10.89.1.99 -d 203.0.113.9/32 -m comment --comment egress-exception -j ACCEPT\n-A DOCKER-USER -s 10.89.1.42 -m comment --comment egress-restricted -j EGRESS_RESTRICTED\n-A DOCKER-USER -j RETURN\n' >"$STUB_RULES"
+  sh "$0" remove >/dev/null 2>&1
+  [ "$(grep -c -- '^-D' "$STUB_LOG")" -eq 2 ] &&
+    grep -Fq -- "-D DOCKER-USER 1" "$STUB_LOG" &&
+    grep -Fq -- "-D DOCKER-USER 2" "$STUB_LOG" &&
+    grep -Fq -- "-F EGRESS_RESTRICTED" "$STUB_LOG" &&
+    grep -Fq -- "-X EGRESS_RESTRICTED" "$STUB_LOG" &&
+    echo "ok: remove strips exceptions, restricted jumps and the helper chain" ||
+    { echo "FAIL: remove"; cat "$STUB_LOG"; fail=1; }
+
   exit "$fail"
 }
 
@@ -344,7 +369,8 @@ case ${1:-apply} in
   status) status ;;
   allow) shift; allow "$@" ;;
   revoke) shift; revoke "$@" ;;
+  remove) remove_all ;;
   atlassian-refresh) atlassian_refresh ;;
   selftest) selftest ;;
-  *) die "unknown command: $1 (apply|watch|status|allow|revoke|atlassian-refresh|selftest)" ;;
+  *) die "unknown command: $1 (apply|watch|status|allow|revoke|remove|atlassian-refresh|selftest)" ;;
 esac
