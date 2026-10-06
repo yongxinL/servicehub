@@ -92,6 +92,7 @@ docker compose logs -f webappconf
 | Destination | Treatment |
 |---|---|
 | `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (PostgreSQL, Authentik, Stalwart SMTP, Traefik, Docker DNS, the host) | Allowed |
+| The host's own public IP — hairpin back into Traefik when public names (`login.<domain>`, …) resolve to it; auto-detected by `egress-guard.sh apply` (`EGRESS_SELF_IP=<ipv4>` overrides) | Allowed |
 | Everything else: Atlassian Marketplace, Atlassian Cloud Services, migration services, application tunnels, general internet, link-local/metadata (`169.254.0.0/16`) | Logged (`egress-restricted: ` prefix) then dropped |
 
 DNS resolution is unaffected (the Docker resolver sits on a private address), so external names may still resolve; the connection is what gets dropped.

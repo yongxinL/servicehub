@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-009
 title: Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries
-version: "1.5"
+version: "1.6"
 status: Proposed
 decision_basis: Owner discussion recorded on 2026-10-05 covering AI platform placement, Open WebUI domain ownership, observability strategy, OCI service scope, Confluence egress, and administrative endpoint access; compose and documentation changes implemented on `adr-009`, operational follow-ups pending; log collection and APM integration split out to ADR-010; egress enforced by a host firewall rule in the Docker `DOCKER-USER` chain, driven by a per-service policy file plus a global Atlassian CIDR block
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-05
-updated: 2026-10-05
+updated: 2026-10-06
 tags:
   - servicehub
   - architecture
@@ -159,7 +159,7 @@ Exceptions: temporary outbound access MAY be granted for marketplace app install
 
 Benefits: reduced attack surface, reduced third-party dependency and privacy exposure, predictable self-managed operation, and operational independence from Atlassian service availability.
 
-Implementation: two layers, both enforced on the host inside the Docker `DOCKER-USER` chain by [scripts/egress-guard.sh](../../scripts/egress-guard.sh). (1) A per-service policy in [scripts/egress-policies.conf](../../scripts/egress-policies.conf) — Confluence (`webappconf`) carries the `restricted` policy, which diverts the container's traffic to an `EGRESS_RESTRICTED` helper chain that returns for RFC1918 destinations (the approved dependency classes above) and logs then drops everything else; services are resolved by Compose service label, and an `allow-atlassian` policy opts a service out of layer 2. (2) A global block drops traffic from any container to the CIDRs published at `https://ip-ranges.atlassian.com/`, held in one `ipset` and refreshed at startup and by a daily timer. Confluence itself stays on the single `subnet` network. Installation, verification, the command reference, and the time-boxed exception procedure are recorded in [Container egress controls](../operations/EGRESS-CONTROLS.md); the Confluence-specific destination table is in [shared/confluence/README.md](../../shared/confluence/README.md#outbound-egress-policy).
+Implementation: two layers, both enforced on the host inside the Docker `DOCKER-USER` chain by [scripts/egress-guard.sh](../../scripts/egress-guard.sh). (1) A per-service policy in [scripts/egress-policies.conf](../../scripts/egress-policies.conf) — Confluence (`webappconf`) carries the `restricted` policy, which diverts the container's traffic to an `EGRESS_RESTRICTED` helper chain that returns for RFC1918 destinations (the approved dependency classes above) and for the host's own public IP — hairpin back to Traefik when public names such as `login.<domain>` resolve to it, detected at apply time from instance metadata — and logs then drops everything else; services are resolved by Compose service label, and an `allow-atlassian` policy opts a service out of layer 2. (2) A global block drops traffic from any container to the CIDRs published at `https://ip-ranges.atlassian.com/`, held in one `ipset` and refreshed at startup and by a daily timer. Confluence itself stays on the single `subnet` network. Installation, verification, the command reference, and the time-boxed exception procedure are recorded in [Container egress controls](../operations/EGRESS-CONTROLS.md); the Confluence-specific destination table is in [shared/confluence/README.md](../../shared/confluence/README.md#outbound-egress-policy).
 
 ### 6. Administrative endpoint access policy
 
@@ -288,7 +288,7 @@ Decision 3 (retire the self-hosted observability deployment) removes the include
 | Remove `compose/obsvce.yml` and its `docker-compose.yml` `include` from the OCI deployment; retain the file in source control | ServiceHub Architecture | 2026-10-05 | Implemented in source control — include removed, file retained |
 | Configure Oracle APM, Monitoring, Logging, and Tracing for OCI-hosted workloads and record the configuration | ServiceHub Architecture | TBD | Moved to [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) |
 | Define and document the observability strategy for locally hosted `aiserv` services after removal of the OCI `obsvce` deployment | ServiceHub Architecture | TBD | Proposed |
-| Define the Confluence outbound allow list (PostgreSQL, Authentik, SMTP, DNS, NTP) and a time-boxed exception procedure | George Li | 2026-10-05 | Implemented in source control — enforced by [scripts/egress-guard.sh](../../scripts/egress-guard.sh) from [scripts/egress-policies.conf](../../scripts/egress-policies.conf) (`webappconf` restricted: RFC1918 return, log then drop, in the Docker `DOCKER-USER` chain) plus a global Atlassian CIDR block via ipset; install, verification, and exception procedure recorded in [Container egress controls](../operations/EGRESS-CONTROLS.md); rule logic verified by offline selftest plus a 21-check integration test, deployment on the OCI host pending |
+| Define the Confluence outbound allow list (PostgreSQL, Authentik, SMTP, DNS, NTP) and a time-boxed exception procedure | George Li | 2026-10-05 | Implemented in source control — enforced by [scripts/egress-guard.sh](../../scripts/egress-guard.sh) from [scripts/egress-policies.conf](../../scripts/egress-policies.conf) (`webappconf` restricted: RFC1918 and host-public-IP return, log then drop, in the Docker `DOCKER-USER` chain) plus a global Atlassian CIDR block via ipset; install, verification, and exception procedure recorded in [Container egress controls](../operations/EGRESS-CONTROLS.md); rule logic verified by offline selftest plus a 21-check integration test; applied on the OCI host by the owner (2026-10-06) |
 | Replace the HTTP 403 response on `traefik.<domain>` and `mail.<domain>` with a redirect to `https://login.<domain>` while retaining the IP allow list | ServiceHub Architecture | 2026-10-05 | Implemented in source control — rules generated from `.env` and hot-reloaded via the file provider; `docker compose config` verified; allowed/disallowed address test pending on a deployed target |
 | Update architecture, deployment, monitoring, and service inventory documentation in the same change as the implementation | George Li | 2026-10-05 | Implemented — living documentation and service READMEs updated in the same change |
 | Validate with `docker compose config` on the reduced include set and a deployment of the OCI scope, and record the evidence | ServiceHub Architecture | TBD | In progress — `docker compose config --quiet` passes locally; OCI deployment evidence outstanding |

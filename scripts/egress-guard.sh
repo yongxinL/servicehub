@@ -5,7 +5,9 @@
 # only — the host's own outbound traffic is unaffected):
 #
 #   1. Per-service policy, from scripts/egress-policies.conf:
-#        restricted        RFC1918 destinations only; logged, all else dropped
+#        restricted        RFC1918 destinations plus the host's own public IP
+#                          (hairpin to Traefik via login.<domain> etc.); logged,
+#                          all else dropped
 #        allow-atlassian   full internet INCLUDING Atlassian (overrides layer 2)
 #        internet          default: full internet minus the Atlassian block
 #   2. Global Atlassian block: traffic from ANY container to the CIDRs
@@ -46,6 +48,22 @@ warn() { echo "egress: WARNING: $*" >&2; }
 if [ "$(id -u)" -ne 0 ] && [ "${1:-}" != "selftest" ] && [ -z "${EGRESS_NOSUDO:-}" ]; then
   exec sudo "$0" "$@"
 fi
+
+# The host's own public address — restricted containers hairpin back into
+# Traefik when public names (login.<domain>, ...) resolve to it. Override with
+# EGRESS_SELF_IP=<ipv4>; otherwise detected via cloud instance metadata.
+self_ip() {
+  [ -z "${EGRESS_SELF_IP:-}" ] || { printf '%s\n' "$EGRESS_SELF_IP"; return 0; }
+  command -v curl >/dev/null 2>&1 || return 1
+  ip=$(curl -fsS -m 2 -H 'Authorization: Bearer Oracle' \
+      http://169.254.169.254/opc/v2/instance/publicip/ 2>/dev/null ||
+    curl -fsS -m 2 http://169.254.169.254/opc/v2/instance/publicip/ 2>/dev/null || true)
+  ip=$(printf '%s' "$ip" | tr -d ' \t\n')
+  case $ip in
+    [0-9]*.[0-9]*.[0-9]*.[0-9]*) printf '%s\n' "$ip" ;;
+    *) return 1 ;;
+  esac
+}
 
 ids_for() { # service name or exact container name -> running container ids
   ids=$(docker ps -q --filter "label=com.docker.compose.service=$1" 2>/dev/null || true)
@@ -109,6 +127,11 @@ EOF
   fi
   if [ -n "$restricted_ips" ]; then
     iptables -N "$AUX"
+    if sip=$(self_ip); then
+      iptables -A "$AUX" -d "$sip/32" -m comment --comment egress-restricted-self -j RETURN
+    else
+      warn "host public IP unknown — restricted services cannot hairpin to it (set EGRESS_SELF_IP=<ipv4>)"
+    fi
     iptables -A "$AUX" -d 10.0.0.0/8 -j RETURN
     iptables -A "$AUX" -d 172.16.0.0/12 -j RETURN
     iptables -A "$AUX" -d 192.168.0.0/16 -j RETURN
@@ -160,6 +183,8 @@ watch() {
 status() {
   echo "-- policies --"
   Policies || true
+  echo "-- host public IP --"
+  self_ip || echo "(unknown — set EGRESS_SELF_IP=<ipv4>)"
   echo "-- addresses --"
   while read -r svc pol; do
     [ -n "$svc" ] || continue
@@ -260,10 +285,12 @@ selftest() {
     '[ "$1" = "list" ] && [ -n "${STUB_SET_ABSENT:-}" ] && exit 1' 'exit 0' >"$t/bin/ipset"
   printf '%s\n' '#!/bin/sh' 'echo "python3 $@" >>"$STUB_LOG"' \
     'printf "%s\n" 192.0.2.0/24 198.51.100.0/24 >"$2"' 'exit 0' >"$t/bin/python3"
-  chmod +x "$t/bin/docker" "$t/bin/iptables" "$t/bin/ipset" "$t/bin/python3"
+  printf '%s\n' '#!/bin/sh' 'exit 1' >"$t/bin/curl" # instance metadata unreachable offline
+  chmod +x "$t/bin/docker" "$t/bin/iptables" "$t/bin/ipset" "$t/bin/python3" "$t/bin/curl"
   printf '%s\n' 'webappconf restricted' 'otherapp allow-atlassian' >"$t/policies"
-  PATH="$t/bin:$PATH" STUB_LOG="$t/log" STUB_RULES="$t/rules" EGRESS_POLICIES="$t/policies" EGRESS_NOSUDO=1
-  export PATH STUB_LOG STUB_RULES EGRESS_POLICIES EGRESS_NOSUDO
+  PATH="$t/bin:$PATH" STUB_LOG="$t/log" STUB_RULES="$t/rules" EGRESS_POLICIES="$t/policies" EGRESS_NOSUDO=1 \
+    EGRESS_SELF_IP=198.51.100.7
+  export PATH STUB_LOG STUB_RULES EGRESS_POLICIES EGRESS_NOSUDO EGRESS_SELF_IP
   fail=0
 
   : >"$STUB_LOG"
@@ -273,6 +300,9 @@ selftest() {
     grep -Fqx -- "-A EGRESS_RESTRICTED -d 10.0.0.0/8 -j RETURN" "$STUB_LOG" &&
     grep -Fq -- "-A EGRESS_RESTRICTED -m comment --comment egress-restricted -j DROP" "$STUB_LOG" &&
     echo "ok: restricted policy installs jump + helper chain" || { echo "FAIL: restricted"; cat "$STUB_LOG"; fail=1; }
+
+  grep -Fqx -- "-A EGRESS_RESTRICTED -d 198.51.100.7/32 -m comment --comment egress-restricted-self -j RETURN" "$STUB_LOG" &&
+    echo "ok: host public IP allowed for restricted hairpin" || { echo "FAIL: self ip"; cat "$STUB_LOG"; fail=1; }
 
   grep -Fq -- "-m set --match-set atlassian dst -m comment --comment egress-atlassian -j DROP" "$STUB_LOG" &&
     grep -Fq -- "-j LOG --log-prefix egress-atlassian: " "$STUB_LOG" &&
@@ -294,6 +324,16 @@ selftest() {
   STUB_SET_ABSENT=1 sh "$0" apply >/dev/null 2>&1
   grep -q -- "--match-set" "$STUB_LOG" && { echo "FAIL: set rules without a set"; fail=1; } ||
     echo "ok: no set rules when the set is absent (warning only)"
+
+  : >"$STUB_LOG"
+  EGRESS_SELF_IP= sh "$0" apply >/dev/null 2>"$t/err"
+  if grep -q 'egress-restricted-self' "$STUB_LOG"; then
+    echo "FAIL: self rule when the host IP is unknown"; fail=1
+  elif grep -q 'host public IP unknown' "$t/err"; then
+    echo "ok: no self rule and a warning when the host IP is unknown"
+  else
+    echo "FAIL: unknown-IP warning missing"; cat "$STUB_LOG" "$t/err"; fail=1
+  fi
 
   exit "$fail"
 }

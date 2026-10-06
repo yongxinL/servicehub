@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: EGRESS-CONTROLS
 title: ServiceHub Container Egress Controls
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-05
-updated: 2026-10-05
+updated: 2026-10-06
 tags:
   - servicehub
   - operations
@@ -29,7 +29,7 @@ related_documents:
 [ADR-009 §5](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) restricts container outbound traffic on the host. Two layers are enforced, both inside the Docker `DOCKER-USER` chain (container traffic only — the host's own outbound traffic is unaffected):
 
 1. **Per-service policy** — [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf) lists a Compose service and its policy:
-   - `restricted` — only RFC1918 destinations (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, i.e. PostgreSQL, Authentik, Stalwart SMTP, Traefik, Docker DNS, the host) are allowed; everything else is logged (`egress-restricted: ` prefix) and dropped.
+   - `restricted` — RFC1918 destinations (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, i.e. PostgreSQL, Authentik, Stalwart SMTP, Traefik, Docker DNS, the host) **plus the host's own public IP** are allowed; everything else is logged (`egress-restricted: ` prefix) and dropped. The public-IP rule covers hairpin access back into Traefik when public names (`login.<domain>`, …) resolve to the host's public address — without it, a restricted container's OIDC calls to Authentik are dropped. The address is detected at `apply` time from cloud instance metadata (Oracle IMDS), can be pinned with `EGRESS_SELF_IP=<ipv4>`, and is skipped with a warning when it cannot be determined.
    - `allow-atlassian` — full internet including Atlassian (overrides layer 2).
    - `internet` — the default for every container not listed: full internet minus layer 2.
 2. **Global Atlassian block** — every container's traffic to the CIDRs published at <https://ip-ranges.atlassian.com/> is logged (`egress-atlassian: ` prefix) and dropped. The ranges are held in one `ipset` (`atlassian`), so the whole block is a single rule.
@@ -114,7 +114,7 @@ sudo systemctl enable --now servicehub-egress-refresh.timer
 scripts/egress-guard.sh status
 ```
 
-Expected: the policy list, the resolved container addresses, one `-j EGRESS_RESTRICTED` jump per `restricted` container, the global `-m set --match-set atlassian dst … DROP` rule, and the helper chain's three RFC1918 `RETURN` rules ahead of its `LOG`/`DROP` pair.
+Expected: the policy list, the resolved container addresses, the host's public IP, one `-j EGRESS_RESTRICTED` jump per `restricted` container, the global `-m set --match-set atlassian dst … DROP` rule, and the helper chain's host-public-IP and three RFC1918 `RETURN` rules ahead of its `LOG`/`DROP` pair.
 
 Functional check — attempt an outbound call from a `restricted` container (e.g. `curl -m3 -sSI https://id.atlassian.com` if `curl` is present) and confirm:
 
@@ -145,5 +145,6 @@ Rules for exceptions:
 
 - `scripts/egress-guard.sh selftest` — offline check of the produced rules (restricted jump and helper chain, global Atlassian DROP/LOG, `allow-atlassian` exception, standing-exception preservation, atomic set swap, no set rules when the set is absent).
 - Integration test through a real iptables-forwarded path (two network namespaces on a bridge, Linux VM): 21 checks covering label-based resolution, restricted blocking with private destinations open, the default `internet` policy staying open, kernel log output, exception grant/re-apply/revoke with correct rule ordering, flush when containers are gone, and egress restoration.
-- The VM has no `ipset`, so the Atlassian layer was exercised only by the offline check (including the "set absent" path the VM also exercises); installation and counter verification on the deployed Docker host remain outstanding.
+- Installation on the OCI host is owner-run (2026-10-06): enabling the guard broke Confluence login, and granting the host's own public IP (`allow webappconf <ip>/32`) restored it — which demonstrates live enforcement on that host. Kernel-log and counter verification are not yet recorded.
+- The VM has no `ipset`, so the Atlassian layer was exercised only by the offline check (including the "set absent" path the VM also exercises); counter and populated-`ipset` verification on the deployed Docker host remain outstanding.
 - The Atlassian ranges feed itself is reachable and JSON-formatted as expected, but the populated `ipset` has not yet been verified on a production host.
