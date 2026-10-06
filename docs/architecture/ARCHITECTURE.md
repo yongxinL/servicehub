@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: ARCHITECTURE
 title: ServiceHub Architecture
-version: "1.2"
+version: "1.3"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-05
+updated: 2026-10-07
 tags:
   - servicehub
   - architecture
@@ -92,7 +92,7 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 ## Security Boundaries
 
 - **External ingress:** Traefik publishes 80 and 443 and is the designed web boundary.
-- **Docker network:** Included services communicate through `servicehub_subnet`; databases publish no host ports. Container egress is restricted by host firewall rules in the Docker `DOCKER-USER` chain — a per-service policy from [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf) applied by [scripts/egress-guard.sh](../../scripts/egress-guard.sh) (Confluence is `restricted` to private destinations), plus a global Atlassian CIDR block ([ADR-009 §5](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) — not by network separation.
+- **Docker network:** Included services communicate through `servicehub_subnet`; databases publish no host ports. Container egress is restricted by host firewall rules in the Docker `DOCKER-USER` chain — a per-service policy from [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf) applied by [scripts/egress-guard.sh](../../scripts/egress-guard.sh) (Confluence is `restricted` to private destinations), plus a global block of Atlassian CIDRs ([ADR-009 §5](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) — not by network separation.
 - **Identity boundary:** Grafana uses Authentik forward auth; oCIS uses an Authentik OIDC authorization-code flow. Authentik itself is application-authenticated. Other Authentik integrations vary and are not all configured in Compose.
 - **Privileged boundary:** Traefik, Authentik's worker, and Alloy have Docker socket access; Alloy is privileged and mounts host filesystem paths.
 - **Administrative endpoint boundary:** the Traefik dashboard and mail admin paths accept only trusted client addresses (IP allow list); other clients are redirected to `login.<domain>` instead of receiving HTTP 403 (ADR-009).

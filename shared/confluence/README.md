@@ -97,7 +97,7 @@ docker compose logs -f webappconf
 
 DNS resolution is unaffected (the Docker resolver sits on a private address), so external names may still resolve; the connection is what gets dropped.
 
-Install, persistent operation (`watch`), verification, the command reference, the time-boxed exception procedure, and the Atlassian block apply to every container: see [Container egress controls](../../docs/operations/EGRESS-CONTROLS.md).
+Install, persistent operation (`watch`), verification, the command reference, the time-boxed exception procedure, and the global block apply to every container: see [Container egress controls](../../docs/operations/EGRESS-CONTROLS.md).
 
 ### Observing blocked destinations
 
@@ -105,7 +105,7 @@ Install, persistent operation (`watch`), verification, the command reference, th
 docker compose logs -f webappconf 2>&1 | grep -Ei 'marketplace|atlassian\.com|unknown host|name resolution|connect timed out|no route to host'
 ```
 
-Kernel-level drop logs come from the `LOG` rules: `sudo dmesg -w | grep -E 'egress-restricted: |egress-atlassian: '`, rate-limited to 20 lines per minute.
+Kernel-level drop logs come from the `LOG` rules: `sudo dmesg -w | grep -E 'egress-restricted: |egress-blocked: '`, rate-limited to 20 lines per minute.
 
 ## Files
 

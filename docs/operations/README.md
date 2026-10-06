@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS-INDEX
 document_id: OPS-INDEX
 title: ServiceHub Operations Index
-version: "1.1"
+version: "1.2"
 status: Active
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-05
+updated: 2026-10-07
 tags:
   - servicehub
   - operations
@@ -30,7 +30,7 @@ Operations guidance is derived from repository commands, Compose definitions, se
 - [Runbook](RUNBOOK.md) — prerequisites, lifecycle commands, health, logs, upgrades, rollback, and escalation.
 - [Backup and restore](BACKUP-RESTORE.md) — implemented backup scope, configured dual-target strategy, recovery procedure, and evidence template.
 - [Monitoring and alerting](MONITORING-ALERTING.md) — metrics, logs, dashboards, signals, severity, and alert testing.
-- [Container egress controls](EGRESS-CONTROLS.md) — per-service egress policy, Atlassian block, exceptions, and verification.
+- [Container egress controls](EGRESS-CONTROLS.md) — per-service egress policy, global block, exceptions, and verification.
 - [Service inventory](SERVICE-INVENTORY.md) — evidence-based service register.
 - [Troubleshooting](TROUBLESHOOTING.md) — structured diagnostics for common failures.
 

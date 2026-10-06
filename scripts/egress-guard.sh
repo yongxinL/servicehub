@@ -8,22 +8,22 @@
 #        restricted        RFC1918 destinations plus the host's own public IP
 #                          (hairpin to Traefik via login.<domain> etc.); logged,
 #                          all else dropped
-#        allow-atlassian   full internet INCLUDING Atlassian (overrides layer 2)
-#        internet          default: full internet minus the Atlassian block
+#        allow-blocked     full internet INCLUDING the blocked ranges (overrides layer 2)
+#        internet          default: full internet minus the global block
 #        allow-domain <name>  standing exception: this service may reach every
 #                          resolved address of <name>; rebuilt each apply
-#   2. Global Atlassian block: traffic from ANY container to the CIDRs
-#      published at https://ip-ranges.atlassian.com/ is logged and dropped
-#      (one ipset holds the ranges, so it is a single rule).
+#   2. Global block: traffic from ANY container to the CIDRs listed in
+#      $EGRESS_BLOCK_URL is logged and dropped (one ipset holds the ranges,
+#      so it is a single rule).
 #
 # Services are resolved by the Compose service label, so project-prefixed
 # container names (servicehub-webappconf-1) do not matter.
 #
 #   apply               apply all policies and the global block now
 #   watch               apply; re-apply when a listed container's address changes;
-#                       refreshes the Atlassian set at startup
+#                       refreshes the blocked set at startup
 #   status              policies, addresses, rules, set size, counters
-#   atlassian-refresh   reload the Atlassian CIDRs into the ipset
+#   blocked-refresh     reload the blocklist CIDRs into the ipset
 #   allow <service> <cidr|ipv4|hostname>   time-boxed exception (a hostname
 #                       resolves now to every A record); record it, then revoke
 #   revoke <service> <cidr|ipv4|hostname>
@@ -32,13 +32,12 @@
 #   selftest            offline check of the rule logic (no root, no Docker)
 #
 # Requires Docker Engine (podman/netavark does not traverse DOCKER-USER),
-# ipset and python3 for the Atlassian block.
+# ipset and python3 for the global block.
 set -eu
 
 CHAIN=${EGRESS_CHAIN:-DOCKER-USER}
 AUX=${EGRESS_AUX_CHAIN:-EGRESS_RESTRICTED}
-SET=${EGRESS_ATLASSIAN_SET:-atlassian}
-URL=https://ip-ranges.atlassian.com/
+SET=${EGRESS_BLOCKED_SET:-blocked}
 Policies() { # 'service policy' lines from the policy file
   conf=${EGRESS_POLICIES:-"$(dirname "$0")/egress-policies.conf"}
   [ -f "$conf" ] || return 0
@@ -99,9 +98,9 @@ ips_for() {
 }
 
 # Remove our rebuildable rules (time-boxed exceptions are kept), then the chain.
-# Match covers egress-restricted, egress-atlassian and egress-allow-domain.
+# Match covers egress-restricted, egress-blocked and egress-allow-domain.
 remove() {
-  nums=$(iptables -S "$CHAIN" 2>/dev/null | grep -En -- "--comment egress-(restricted|atlassian|allow-domain)" |
+  nums=$(iptables -S "$CHAIN" 2>/dev/null | grep -En -- "--comment egress-(restricted|blocked|allow-domain)" |
     cut -d: -f1 || true)
   for n in $(printf '%s\n' "$nums" | sort -rn); do
     iptables -D "$CHAIN" $((n - 1))
@@ -121,7 +120,7 @@ apply() {
   if set_ready; then
     ready=1
   else
-    warn "Atlassian block inactive (need 'ipset' and a populated set) — run: $0 atlassian-refresh"
+    warn "global block inactive (need 'ipset' and a populated set) — run: $0 blocked-refresh"
   fi
 
   restricted_ips=""; ok_ips=""; domain_lines=""
@@ -136,7 +135,7 @@ apply() {
     [ -n "$ips" ] || warn "$svc: not running, no rules applied"
     case $pol in
       restricted) restricted_ips="$restricted_ips $ips" ;;
-      allow-atlassian) ok_ips="$ok_ips $ips" ;;
+      allow-blocked) ok_ips="$ok_ips $ips" ;;
       internet) : ;; # default, listed only for clarity
       *) warn "$svc: unknown policy '$pol'" ;;
     esac
@@ -146,9 +145,9 @@ EOF
 
   # Insert bottom-up at $pos: the last insert lands on top.
   if [ "$ready" -eq 1 ]; then
-    iptables -I "$CHAIN" "$pos" -m set --match-set "$SET" dst -m comment --comment egress-atlassian -j DROP
-    iptables -I "$CHAIN" "$pos" -m set --match-set "$SET" dst -m comment --comment egress-atlassian \
-      $LIMIT -j LOG --log-prefix "egress-atlassian: " --log-level 4
+    iptables -I "$CHAIN" "$pos" -m set --match-set "$SET" dst -m comment --comment egress-blocked -j DROP
+    iptables -I "$CHAIN" "$pos" -m set --match-set "$SET" dst -m comment --comment egress-blocked \
+      $LIMIT -j LOG --log-prefix "egress-blocked: " --log-level 4
   fi
   if [ -n "$restricted_ips" ]; then
     iptables -N "$AUX"
@@ -170,7 +169,7 @@ EOF
   if [ "$ready" -eq 1 ]; then
     for ip in $ok_ips; do
       iptables -I "$CHAIN" "$pos" -s "$ip" -m set --match-set "$SET" dst \
-        -m comment --comment egress-atlassian-ok -j ACCEPT
+        -m comment --comment egress-blocked-ok -j ACCEPT
     done
   fi
   # Standing allow-domain exceptions: rebuilt at the top of the chain on every
@@ -196,7 +195,7 @@ EOF
   done <<EOF
 $domain_lines
 EOF
-  echo "egress: applied — restricted:[${restricted_ips# }] atlassian-ok:[${ok_ips# }] set=$ready"
+  echo "egress: applied — restricted:[${restricted_ips# }] blocked-ok:[${ok_ips# }] set=$ready"
 }
 
 snapshot() { # "service=ip,ip" per policy line — cheap change detection for watch
@@ -209,7 +208,7 @@ EOF
 }
 
 watch() {
-  atlassian_refresh || true
+  blocked_refresh || true
   apply
   last=$(snapshot)
   echo "egress: watching (re-applies when a listed container's address changes)"
@@ -242,7 +241,7 @@ $(Policies)
 EOF
   echo "-- $CHAIN --"
   iptables -S "$CHAIN" | grep -E -- "--comment egress-" || echo "no egress rules installed"
-  echo "-- Atlassian set --"
+  echo "-- blocked set --"
   ipset list "$SET" -t 2>/dev/null | sed -n '1p;3p' || echo "set absent"
   echo "-- counters --"
   iptables -nvL "$CHAIN" --line-numbers
@@ -280,7 +279,7 @@ revoke() {
   echo "egress: exception for $1 -> $2 revoked"
 }
 
-# Remove every egress rule we own — restricted jumps, the Atlassian block and
+# Remove every egress rule we own — restricted jumps, the global block and
 # time-boxed exceptions — leaving the chain as Docker created it.
 remove_all() {
   nums=$(iptables -S "$CHAIN" 2>/dev/null | grep -En -- "--comment egress-" | cut -d: -f1 || true)
@@ -289,22 +288,27 @@ remove_all() {
   done
   iptables -F "$AUX" 2>/dev/null || true
   iptables -X "$AUX" 2>/dev/null || true
-  echo "egress: all rules removed (restricted, Atlassian, exceptions) — '$0 apply' reinstalls; stop the watch unit first if it is running"
+  echo "egress: all rules removed (restricted, blocked, exceptions) — '$0 apply' reinstalls; stop the watch unit first if it is running"
 }
 
-atlassian_refresh() {
+blocked_refresh() {
+  url=${EGRESS_BLOCK_URL:-}
+  [ -n "$url" ] || {
+    warn "EGRESS_BLOCK_URL not set — point it at the CIDR feed"
+    return 1
+  }
   command -v ipset >/dev/null 2>&1 || {
     warn "ipset not installed — install it (apt install ipset / dnf install ipset)"
     return 1
   }
   command -v python3 >/dev/null 2>&1 || {
-    warn "python3 not installed — required to read $URL"
+    warn "python3 not installed — required to read the feed"
     return 1
   }
   cidrs=$(mktemp)
   if ! python3 - "$cidrs" <<PY
 import json, sys, urllib.request
-with urllib.request.urlopen("$URL", timeout=20) as r:
+with urllib.request.urlopen("$url", timeout=20) as r:
     data = json.load(r)
 with open(sys.argv[1], "w") as out:
     for item in data.get("items", []):
@@ -357,10 +361,10 @@ selftest() {
     '  *login.example.com*) printf "%s\n" "203.0.113.7 STREAM" "203.0.113.8 STREAM" ;;' \
     'esac' 'exit 0' >"$t/bin/getent"
   chmod +x "$t/bin/docker" "$t/bin/iptables" "$t/bin/ipset" "$t/bin/python3" "$t/bin/curl" "$t/bin/getent"
-  printf '%s\n' 'webappconf restricted' 'otherapp allow-atlassian' >"$t/policies"
+  printf '%s\n' 'webappconf restricted' 'otherapp allow-blocked' >"$t/policies"
   PATH="$t/bin:$PATH" STUB_LOG="$t/log" STUB_RULES="$t/rules" EGRESS_POLICIES="$t/policies" EGRESS_NOSUDO=1 \
-    EGRESS_SELF_IP=198.51.100.7
-  export PATH STUB_LOG STUB_RULES EGRESS_POLICIES EGRESS_NOSUDO EGRESS_SELF_IP
+    EGRESS_SELF_IP=198.51.100.7 EGRESS_BLOCK_URL=https://feed.example/ranges.json
+  export PATH STUB_LOG STUB_RULES EGRESS_POLICIES EGRESS_NOSUDO EGRESS_SELF_IP EGRESS_BLOCK_URL
   fail=0
 
   : >"$STUB_LOG"
@@ -374,21 +378,27 @@ selftest() {
   grep -Fqx -- "-A EGRESS_RESTRICTED -d 198.51.100.7/32 -m comment --comment egress-restricted-self -j RETURN" "$STUB_LOG" &&
     echo "ok: host public IP allowed for restricted hairpin" || { echo "FAIL: self ip"; cat "$STUB_LOG"; fail=1; }
 
-  grep -Fq -- "-m set --match-set atlassian dst -m comment --comment egress-atlassian -j DROP" "$STUB_LOG" &&
-    grep -Fq -- "-j LOG --log-prefix egress-atlassian: " "$STUB_LOG" &&
-    echo "ok: global Atlassian DROP + LOG installed" || { echo "FAIL: atlassian block"; fail=1; }
+  grep -Fq -- "-m set --match-set blocked dst -m comment --comment egress-blocked -j DROP" "$STUB_LOG" &&
+    grep -Fq -- "-j LOG --log-prefix egress-blocked: " "$STUB_LOG" &&
+    echo "ok: global block DROP + LOG installed" || { echo "FAIL: blocked"; fail=1; }
 
-  grep -Fq -- "-s 10.89.1.43 -m set --match-set atlassian dst -m comment --comment egress-atlassian-ok -j ACCEPT" "$STUB_LOG" &&
-    echo "ok: allow-atlassian policy installed" || { echo "FAIL: allow-atlassian"; fail=1; }
+  grep -Fq -- "-s 10.89.1.43 -m set --match-set blocked dst -m comment --comment egress-blocked-ok -j ACCEPT" "$STUB_LOG" &&
+    echo "ok: allow-blocked policy installed" || { echo "FAIL: allow-blocked"; fail=1; }
 
   grep -q '^-D' "$STUB_LOG" && { echo "FAIL: exception rule was deleted"; fail=1; } ||
     echo "ok: standing exception preserved across apply"
 
   : >"$STUB_LOG"
-  sh "$0" atlassian-refresh >/dev/null 2>&1
-  grep -Fq -- "ipset add atlassian-tmp 192.0.2.0/24 -exist" "$STUB_LOG" &&
-    grep -Fq -- "ipset swap atlassian-tmp atlassian" "$STUB_LOG" &&
+  sh "$0" blocked-refresh >/dev/null 2>&1
+  grep -Fq -- "ipset add blocked-tmp 192.0.2.0/24 -exist" "$STUB_LOG" &&
+    grep -Fq -- "ipset swap blocked-tmp blocked" "$STUB_LOG" &&
     echo "ok: refresh loads CIDRs and swaps the set atomically" || { echo "FAIL: refresh"; cat "$STUB_LOG"; fail=1; }
+
+  : >"$STUB_LOG"
+  EGRESS_BLOCK_URL= sh "$0" blocked-refresh >/dev/null 2>"$t/err" || true
+  grep -q 'EGRESS_BLOCK_URL not set' "$t/err" && [ ! -s "$STUB_LOG" ] &&
+    echo "ok: refresh refuses to run without EGRESS_BLOCK_URL" ||
+    { echo "FAIL: missing feed URL"; cat "$t/err" "$STUB_LOG"; fail=1; }
 
   : >"$STUB_LOG"
   STUB_SET_ABSENT=1 sh "$0" apply >/dev/null 2>&1
@@ -431,7 +441,7 @@ selftest() {
     echo "ok: revoke re-resolves the hostname and strips every rule" || { echo "FAIL: revoke hostname"; cat "$STUB_LOG"; fail=1; }
 
   : >"$STUB_LOG"
-  printf '%s\n' 'webappconf restricted' 'webappconf allow-domain login.example.com' 'otherapp allow-atlassian' >"$t/policies2"
+  printf '%s\n' 'webappconf restricted' 'webappconf allow-domain login.example.com' 'otherapp allow-blocked' >"$t/policies2"
   printf -- '-N DOCKER-USER\n-A DOCKER-USER -s 10.89.1.42 -d 198.51.100.99/32 -m comment --comment egress-allow-domain -j ACCEPT\n-A DOCKER-USER -j RETURN\n' >"$STUB_RULES"
   EGRESS_POLICIES="$t/policies2" sh "$0" apply >/dev/null 2>&1
   grep -Fq -- "-D DOCKER-USER 1" "$STUB_LOG" &&
@@ -449,7 +459,7 @@ case ${1:-apply} in
   allow) shift; allow "$@" ;;
   revoke) shift; revoke "$@" ;;
   remove) remove_all ;;
-  atlassian-refresh) atlassian_refresh ;;
+  blocked-refresh) blocked_refresh ;;
   selftest) selftest ;;
-  *) die "unknown command: $1 (apply|watch|status|allow|revoke|remove|atlassian-refresh|selftest)" ;;
+  *) die "unknown command: $1 (apply|watch|status|allow|revoke|remove|blocked-refresh|selftest)" ;;
 esac

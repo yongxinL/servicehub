@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: EGRESS-CONTROLS
 title: ServiceHub Container Egress Controls
-version: "1.2"
+version: "1.3"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-05
-updated: 2026-10-06
+updated: 2026-10-07
 tags:
   - servicehub
   - operations
@@ -30,10 +30,10 @@ related_documents:
 
 1. **Per-service policy** — [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf) lists a Compose service and its policy:
    - `restricted` — RFC1918 destinations (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, i.e. PostgreSQL, Authentik, Stalwart SMTP, Traefik, Docker DNS, the host) **plus the host's own public IP** are allowed; everything else is logged (`egress-restricted: ` prefix) and dropped. The public-IP rule covers hairpin access back into Traefik when public names (`login.<domain>`, …) resolve to the host's public address — without it, a restricted container's OIDC calls to Authentik are dropped. The address is detected at `apply` time from cloud instance metadata (Oracle IMDS), can be pinned with `EGRESS_SELF_IP=<ipv4>`, and is skipped with a warning when it cannot be determined.
-   - `allow-atlassian` — full internet including Atlassian (overrides layer 2).
+   - `allow-blocked` — full internet including Atlassian (overrides layer 2).
    - `internet` — the default for every container not listed: full internet minus layer 2.
-   - `allow-domain <name>` — standing, service-scoped exception listed in the policies file (e.g. `devopsrunner allow-domain data.forgejo.org`, required by the Forgejo runner for action downloads). On every `apply` the name is re-resolved and one `ACCEPT` per address is rebuilt at the **top** of `DOCKER-USER`, keyed to the service's current address — so it survives container address changes (with `watch` running) and still takes effect if a stale `restricted` jump is misattributed to that service. It works with any policy, including services not otherwise listed; unresolvable names are skipped with a warning.
-2. **Global Atlassian block** — every container's traffic to the CIDRs published at <https://ip-ranges.atlassian.com/> is logged (`egress-atlassian: ` prefix) and dropped. The ranges are held in one `ipset` (`atlassian`), so the whole block is a single rule.
+   - `allow-domain <name>` — standing, service-scoped exception listed in the policies file (e.g. `devopsrunner allow-domain data.forgejo.org`, required by the Forgejo runner for action downloads). On every `apply` the name is re-resolved and one `ACCEPT` per address is rebuilt at the **top** of `DOCKER-USER`, keyed to the service's current address — so it survives container address changes (with `watch` running) and still takes effect if a stale `restricted` jump is misattributed to that service. It works with any policy, including services not otherwise listed; unresolvable names are skipped with a warning. **Do not list your own domain** — `restricted` containers already reach it through the host-public-IP `RETURN`, which matches by address rather than name, so every present and future subdomain is covered without an entry here.
+2. **Global block** — every container's traffic to the CIDRs published at <https://ip-ranges.atlassian.com/> is logged (`egress-blocked: ` prefix) and dropped. The ranges are held in one `ipset` (`blocked`), so the whole block is a single rule.
 
 Containers are resolved by their Compose service label (`com.docker.compose.service`), so project-prefixed names such as `servicehub-webappconf-1` do not matter. DNS resolution is unaffected (the Docker resolver sits on a private address), so blocked external names may still resolve; the connection is what gets dropped.
 
@@ -41,7 +41,8 @@ Containers are resolved by their Compose service label (`com.docker.compose.serv
 
 - **Docker Engine** — the enforcement point is Docker's `DOCKER-USER` chain. Podman/netavark does not traverse it, so a podman deployment would need nftables rules instead.
 - `iptables` with the same backend Docker uses (`iptables -V`); rules are IPv4-only — the stack runs without IPv6 networking, so mirror with `ip6tables` if that ever changes.
-- `ipset` and `python3` for the Atlassian block (missing either leaves layer 1 active and prints a warning).
+- `ipset` and `python3` for the global block (missing either leaves layer 1 active and prints a warning).
+- `EGRESS_BLOCK_URL` — the CIDR feed the global block reads. Not baked into the script; set it in both units below. Unset means `blocked-refresh` refuses to run and `watch` only warns, leaving layer 1 active.
 - `getent` (glibc or BusyBox) for hostname destinations — `allow`/`revoke` arguments and `allow-domain` lines; explicit CIDR/IPv4 forms never resolve anything.
 
 ## Install and run
@@ -52,7 +53,7 @@ One-off (immediate rules for running containers):
 scripts/egress-guard.sh apply
 ```
 
-Persistent — `watch` applies at start, re-applies when a listed container's address changes (every `docker compose up -d` or daemon restart), and refreshes the Atlassian set at startup:
+Persistent — `watch` applies at start, re-applies when a listed container's address changes (every `docker compose up -d` or daemon restart), and refreshes the blocked set at startup:
 
 **Do not rely on a one-shot `apply`.** Every rule is keyed to container IP addresses, which change whenever a container is recreated. Without `watch` running nothing re-keys them, and a stale `restricted` jump stays pointed at the old address — whichever container inherits it then gets treated as Confluence (incident, 2026-10-06: a recreated runner inherited the address, its CI downloads were logged and dropped, and the guard had to be removed; the `watch` unit had never been installed). Install the unit as below, or re-run `apply` after every container recreate.
 
@@ -64,6 +65,7 @@ After=docker.service
 Requires=docker.service
 
 [Service]
+Environment=EGRESS_BLOCK_URL=https://ip-ranges.atlassian.com/
 ExecStart=/bin/sh <repo>/scripts/egress-guard.sh watch
 Restart=always
 RestartSec=5
@@ -72,18 +74,19 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Daily refresh of the Atlassian ranges (the ranges change over time):
+Daily refresh of the blocklist ranges (they change over time):
 
 ```ini
 # /etc/systemd/system/servicehub-egress-refresh.service
 [Unit]
-Description=Refresh ServiceHub Atlassian egress blocklist
+Description=Refresh ServiceHub egress blocklist
 After=docker.service
 Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh <repo>/scripts/egress-guard.sh atlassian-refresh
+Environment=EGRESS_BLOCK_URL=https://ip-ranges.atlassian.com/
+ExecStart=/bin/sh <repo>/scripts/egress-guard.sh blocked-refresh
 
 # /etc/systemd/system/servicehub-egress-refresh.timer
 [Timer]
@@ -107,10 +110,10 @@ sudo systemctl enable --now servicehub-egress-refresh.timer
 | `scripts/egress-guard.sh apply` | Rebuild all policy rules and the global block now (exceptions are preserved) |
 | `scripts/egress-guard.sh watch` | Apply, then re-apply on container address changes; refresh the set at startup |
 | `scripts/egress-guard.sh status` | Policies, addresses, installed rules, set size, drop counters |
-| `scripts/egress-guard.sh atlassian-refresh` | Reload `https://ip-ranges.atlassian.com/` into the `atlassian` ipset (atomic swap; on fetch failure the existing set is kept) |
+| `scripts/egress-guard.sh blocked-refresh` | Fetch `EGRESS_BLOCK_URL` into the `blocked` ipset (atomic swap; on fetch failure or a missing URL the existing set is kept) |
 | `scripts/egress-guard.sh allow <service> <dest>` | Time-boxed exception for one service and destination; `<dest>` is a CIDR, IPv4 address, or hostname — a hostname is resolved at grant time to every A record (one rule per address) |
 | `scripts/egress-guard.sh revoke <service> <dest>` | Remove that exception; `<dest>` may be a hostname too, re-resolved the same way at revoke time |
-| `scripts/egress-guard.sh remove` | Strip every installed egress rule — restricted jumps, the Atlassian block and exceptions; Docker's own `RETURN` in `DOCKER-USER` is untouched and the policies file is kept |
+| `scripts/egress-guard.sh remove` | Strip every installed egress rule — restricted jumps, the global block and exceptions; Docker's own `RETURN` in `DOCKER-USER` is untouched and the policies file is kept |
 | `scripts/egress-guard.sh selftest` | Offline rule-logic check (no root, Docker, or ipset needed) |
 
 ## Disable
@@ -131,7 +134,7 @@ To turn the controls off completely:
 
 3. Verify: `scripts/egress-guard.sh status` reports `no egress rules installed`.
 
-A running `watch` reinstalls the rules on the next container address change or restart — stop it first (step 1). Note that emptying `scripts/egress-policies.conf` removes only the per-service layer on the next `apply`; the global Atlassian block is independent of that file, so `remove` is the complete off switch.
+A running `watch` reinstalls the rules on the next container address change or restart — stop it first (step 1). Note that emptying `scripts/egress-policies.conf` removes only the per-service layer on the next `apply`; the global block is independent of that file, so `remove` is the complete off switch.
 
 ## Verify
 
@@ -139,13 +142,13 @@ A running `watch` reinstalls the rules on the next container address change or r
 scripts/egress-guard.sh status
 ```
 
-Expected: the policy list (including any `allow-domain` lines), the resolved container addresses, the host's public IP, one `-j EGRESS_RESTRICTED` jump per `restricted` container, the global `-m set --match-set atlassian dst … DROP` rule, the helper chain's host-public-IP and three RFC1918 `RETURN` rules ahead of its `LOG`/`DROP` pair, and — where `allow-domain` lines are configured — matching `egress-allow-domain … ACCEPT` rules at the top of `DOCKER-USER`.
+Expected: the policy list (including any `allow-domain` lines), the resolved container addresses, the host's public IP, one `-j EGRESS_RESTRICTED` jump per `restricted` container, the global `-m set --match-set blocked dst … DROP` rule, the helper chain's host-public-IP and three RFC1918 `RETURN` rules ahead of its `LOG`/`DROP` pair, and — where `allow-domain` lines are configured — matching `egress-allow-domain … ACCEPT` rules at the top of `DOCKER-USER`.
 
 Functional check — attempt an outbound call from a `restricted` container (e.g. `curl -m3 -sSI https://id.atlassian.com` if `curl` is present) and confirm:
 
 ```bash
 scripts/egress-guard.sh status   # DROP counter increases
-sudo dmesg | grep -E 'egress-restricted: |egress-atlassian: ' | tail
+sudo dmesg | grep -E 'egress-restricted: |egress-blocked: ' | tail
 ```
 
 Both log prefixes are rate-limited to 20 lines per minute.
@@ -171,9 +174,9 @@ Rules for exceptions:
 
 ## Evidence and limitations
 
-- `scripts/egress-guard.sh selftest` — offline check of the produced rules (restricted jump and helper chain, global Atlassian DROP/LOG, `allow-atlassian` exception, standing-exception preservation, host-public-IP allowance and its unknown-IP fallback, full `remove` including exceptions, atomic set swap, no set rules when the set is absent, hostname `allow`/`revoke` resolving to one rule per A record, and `allow-domain` rebuilt as a top-of-chain standing exception with the stale rule removed first).
+- `scripts/egress-guard.sh selftest` — offline check of the produced rules (restricted jump and helper chain, global block DROP/LOG, `allow-blocked` exception, standing-exception preservation, host-public-IP allowance and its unknown-IP fallback, full `remove` including exceptions, atomic set swap, refusal to refresh without `EGRESS_BLOCK_URL`, no set rules when the set is absent, hostname `allow`/`revoke` resolving to one rule per A record, and `allow-domain` rebuilt as a top-of-chain standing exception with the stale rule removed first).
 - Stale-jump incident on the OCI host (2026-10-06): a one-shot `apply` with no `watch` unit installed left a `restricted` jump keyed to Confluence's address; after a stack recreate the Forgejo runner inherited that address, and kernel logs show `egress-restricted:` drops of the runner's HTTPS to `data.forgejo.org` (the `actions/checkout` download), breaking deploy workflows. An `allow` granted against the wrong service name had no effect; `remove` restored the runner. `servicehub-egress-guard` was never installed (`not-found`) and `ipset` is absent on the host, so only layer 1 was ever active. Remediation: install `watch` before using `apply`, and a standing `allow-domain` entry for the runner.
 - Integration test through a real iptables-forwarded path (two network namespaces on a bridge, Linux VM): 21 checks covering label-based resolution, restricted blocking with private destinations open, the default `internet` policy staying open, kernel log output, exception grant/re-apply/revoke with correct rule ordering, flush when containers are gone, and egress restoration.
 - Installation on the OCI host is owner-run (2026-10-06): enabling the guard broke Confluence login, and granting the host's own public IP (`allow webappconf <ip>/32`) restored it — which demonstrates live enforcement on that host. Kernel-log and counter verification are not yet recorded.
-- The VM has no `ipset`, so the Atlassian layer was exercised only by the offline check (including the "set absent" path the VM also exercises); counter and populated-`ipset` verification on the deployed Docker host remain outstanding.
+- The VM has no `ipset`, so the global block layer was exercised only by the offline check (including the "set absent" path the VM also exercises); counter and populated-`ipset` verification on the deployed Docker host remain outstanding.
 - The Atlassian ranges feed itself is reachable and JSON-formatted as expected, but the populated `ipset` has not yet been verified on a production host.
