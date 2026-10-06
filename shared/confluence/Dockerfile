@@ -11,7 +11,7 @@ ENV CONF_HOME=/opt/atlassian/confluence
 # Define build-time arguments for plugin URLs
 # This value is passed from the docker-compose file during the build process.
 ARG SAML_SSO_PLUGIN_URL="https://marketplace.atlassian.com/download/app/com.resolution.atlasplugins.samlsso.Confluence/202608271001/DATACENTER/artifact"
-ARG TABLE_FILTER_PLUGIN_URL="https://marketplace.atlassian.com/download/app/com.stiltsoft.confluence.plugin.tablefilter.tablefilter/53107650/DATACENTER/artifact"
+ARG TABLE_FILTER_PLUGIN_URL="https://marketplace.atlassian.com/download/app/com.stiltsoft.confluence.plugin.tablefilter.tablefilter/53107670/DATACENTER/artifact"
 ARG QUESTION_PLUGIN_URL="https://marketplace.atlassian.com/download/app/com.atlassian.confluence.plugins.confluence-questions/1088000102/DATACENTER/artifact"
 ARG FORMAT_PLUGIN_URL="https://marketplace.atlassian.com/download/app/com.adaptavist.confluence.contentFormattingMacros/900002501/DATACENTER/artifact"
 
