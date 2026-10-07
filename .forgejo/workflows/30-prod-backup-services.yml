@@ -321,13 +321,13 @@ jobs:
           fi
 
           # Runtime configuration: .env lives in the deploy path and is never
-          # in the full archive; the egress policy file lives under APPS_DATA
-          # and is only in the weekly one. Archive both on every run so a
-          # mid-week loss costs at most one day of edits.
+          # in the full archive; the egress policy file lives under
+          # APPS_DATA/shared/gateway and is only in the weekly one. Archive
+          # both on every run so a mid-week loss costs at most one day of edits.
           CFG_STAGE=\$(mktemp -d)
           install -d -m 700 \"\$CFG_STAGE\"
           sudo -n install -m 600 '$DEPLOY_PATH'/.env \"\$CFG_STAGE/.env\"
-          sudo -n install -m 600 \"\$APPS_DATA\"/egress-policies.conf \"\$CFG_STAGE/egress-policies.conf\" 2>/dev/null || echo \"Skipping egress-policies.conf (not present)\"
+          sudo -n install -m 600 \"\$APPS_DATA\"/shared/gateway/egress-policies.conf \"\$CFG_STAGE/egress-policies.conf\" 2>/dev/null || echo \"Skipping egress-policies.conf (not present)\"
           ARCHIVE=\"\$DST/\$DOMAIN_NAME-cfgBK-\$STAMP.tar.gz\"
           echo \"Archiving runtime configuration -> \$ARCHIVE\"
           set +e

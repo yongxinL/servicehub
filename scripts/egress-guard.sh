@@ -5,8 +5,9 @@
 # only — the host's own outbound traffic is unaffected):
 #
 #   1. Per-service policy, from egress-policies.conf — the live copy is
-#      ${APPS_DATA}/egress-policies.conf (runtime state, seeded from the
-#      repository default by scripts/setup.sh), overridden by EGRESS_POLICIES:
+#      ${APPS_DATA}/shared/gateway/egress-policies.conf (runtime state, seeded
+#      from the repository default by scripts/setup.sh), overridden by
+#      EGRESS_POLICIES:
 #        restricted        RFC1918 destinations plus the host's own public IP
 #                          (hairpin to Traefik via login.<domain> etc.); logged,
 #                          all else dropped
@@ -46,12 +47,16 @@ SET=${EGRESS_BLOCKED_SET:-blocked}
 Policies() { # 'service policy' lines from the policy file
   conf=${EGRESS_POLICIES:-}
   if [ -z "$conf" ]; then
-    # The live copy lives under APPS_DATA, where a deploy's rsync never touches
-    # it (operator edits survive) and the weekly full archive already covers it.
-    # Fall back to the repository default on a host that has not been seeded yet.
+    # The live copy lives under APPS_DATA/shared/gateway, where a deploy's rsync
+    # never touches it (operator edits survive) and the weekly full archive
+    # already covers it. The pre-shared/gateway ${APPS_DATA} root is still read
+    # so a host scripts/setup.sh has not migrated yet keeps its operator edits;
+    # fall back to the repository default on a host that has not been seeded.
     apps=$(env_get APPS_DATA)
     case $apps in "~"*) apps=$HOME${apps#"~"} ;; esac
-    if [ -n "$apps" ] && [ -f "$apps/egress-policies.conf" ]; then
+    if [ -n "$apps" ] && [ -f "$apps/shared/gateway/egress-policies.conf" ]; then
+      conf=$apps/shared/gateway/egress-policies.conf
+    elif [ -n "$apps" ] && [ -f "$apps/egress-policies.conf" ]; then
       conf=$apps/egress-policies.conf
     else
       conf="$(dirname "$0")/egress-policies.conf"
@@ -551,22 +556,28 @@ selftest() {
     echo "ok: remove strips block-domain rules" ||
     { echo "FAIL: remove block-domain"; cat "$STUB_LOG"; fail=1; }
 
-  # Policy file location: ${APPS_DATA}/egress-policies.conf when it exists,
-  # otherwise the repository default. EGRESS_POLICIES still wins when set.
-  mkdir -p "$t/appdata" "$t/empty"
-  printf '%s\n' 'otherapp restricted' >"$t/appdata/egress-policies.conf"
+  # Policy file location: ${APPS_DATA}/shared/gateway/egress-policies.conf when
+  # it exists, the pre-migration ${APPS_DATA}/egress-policies.conf next, else
+  # the repository default. EGRESS_POLICIES still wins when set.
+  mkdir -p "$t/appdata/shared/gateway" "$t/legacy" "$t/empty"
+  printf '%s\n' 'otherapp restricted' >"$t/appdata/shared/gateway/egress-policies.conf"
+  printf '%s\n' 'otherapp restricted' >"$t/legacy/egress-policies.conf"
   printf 'APPS_DATA=%s\n' "$t/appdata" >"$t/apps.env"
+  printf 'APPS_DATA=%s\n' "$t/legacy" >"$t/legacy.env"
   printf 'APPS_DATA=%s\n' "$t/empty" >"$t/empty.env"
   printf -- '-N DOCKER-USER\n-A DOCKER-USER -j RETURN\n' >"$STUB_RULES"
-  r1= r2=
+  r1= r2= r3=
   : >"$STUB_LOG"
   EGRESS_POLICIES= EGRESS_ENV_FILE="$t/apps.env" sh "$0" apply >/dev/null 2>&1
   grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.43 -m comment --comment egress-restricted -j EGRESS_RESTRICTED" "$STUB_LOG" || r1=1
   : >"$STUB_LOG"
+  EGRESS_POLICIES= EGRESS_ENV_FILE="$t/legacy.env" sh "$0" apply >/dev/null 2>&1
+  grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.43 -m comment --comment egress-restricted -j EGRESS_RESTRICTED" "$STUB_LOG" || r2=1
+  : >"$STUB_LOG"
   EGRESS_POLICIES= EGRESS_ENV_FILE="$t/empty.env" sh "$0" apply >/dev/null 2>&1
-  grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.42 -m comment --comment egress-restricted -j EGRESS_RESTRICTED" "$STUB_LOG" || r2=1
-  [ -z "$r1$r2" ] && echo "ok: policy file read from APPS_DATA, else the repository default" ||
-    { echo "FAIL: policy file resolution (r1=$r1 r2=$r2)"; cat "$STUB_LOG"; fail=1; }
+  grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.42 -m comment --comment egress-restricted -j EGRESS_RESTRICTED" "$STUB_LOG" || r3=1
+  [ -z "$r1$r2$r3" ] && echo "ok: policy file read from APPS_DATA/shared/gateway, then the pre-migration APPS_DATA root, else the repository default" ||
+    { echo "FAIL: policy file resolution (r1=$r1 r2=$r2 r3=$r3)"; cat "$STUB_LOG"; fail=1; }
 
   exit "$fail"
 }

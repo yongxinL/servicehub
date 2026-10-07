@@ -48,7 +48,9 @@ Generate the `TRAEFIK_BAAUTH` value with `htpasswd` and paste it into `.env` (le
 echo $(htpasswd -nb admin "your-password")
 ```
 
-The admin access rules are **not** compose labels. `scripts/setup.sh` runs [`scripts/gen-admin-rules.py`](../../scripts/gen-admin-rules.py), which writes `advanced/admin-routers.yml` from `.env` (`TRUSTED_IP`, `TRAEFIK_DOMAIN`, `EMAIL_HOST`, `IDENTITY_DOMAIN`, `CERTRESOLVER`, `TRAEFIK_BAAUTH`). Traefik's file provider watches the directory (`--providers.file.watch=true`) and hot-reloads within seconds — changing trusted IPs never restarts a container. The generated file is git-ignored because it embeds the basic-auth hash.
+The admin access rules are **not** compose labels. `scripts/setup.sh` runs [`scripts/gen-admin-rules.py`](../../scripts/gen-admin-rules.py), which writes `advanced/admin-routers.yml` from `.env` (`DOMAIN_NAME` via the `${DOMAIN_NAME}`-derived `TRAEFIK_DOMAIN`, `EMAIL_HOST` and `IDENTITY_DOMAIN`, plus `TRUSTED_IP`, `CERTRESOLVER`, `TRAEFIK_BAAUTH`). Traefik's file provider watches the directory (`--providers.file.watch=true`) and hot-reloads within seconds — changing trusted IPs or the domain never restarts a container. The generated file is git-ignored because it embeds the basic-auth hash.
+
+> **Changing `DOMAIN_NAME`:** edit `DOMAIN_NAME` in `.env` and run `bash scripts/setup.sh` — the generator re-resolves the Host rules and reports the hosts it wrote (e.g. `dashboard=traefik.example.com`). This only works while `TRAEFIK_DOMAIN` / `EMAIL_HOST` / `IDENTITY_DOMAIN` keep their `...${DOMAIN_NAME}` reference form; a literal value (e.g. `traefik.old.example`) does not move with the domain, and the generator prints a note when it detects one.
 
 The dashboard (and the Stalwart admin paths, which follow the same pattern) is protected by two routers (ADR-009):
 

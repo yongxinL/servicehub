@@ -415,9 +415,9 @@ Edit `.env` to match your environment:
 ```bash
 # Required — set these before first start
 DOMAIN_NAME=example.com          # Your primary domain
-TRAEFIK_DOMAIN=traefik.example.com
-IDENTITY_DOMAIN=login.example.com   # Authentik hostname
-SOURCECODE_DOMAIN=git.example.com   # Forgejo hostname
+TRAEFIK_DOMAIN=traefik.${DOMAIN_NAME}   # keep the ${DOMAIN_NAME} form: a later domain change follows it
+IDENTITY_DOMAIN=login.${DOMAIN_NAME}    # Authentik hostname
+SOURCECODE_DOMAIN=git.${DOMAIN_NAME}    # Forgejo hostname
 TRAEFIK_ACMEMAIL=you@example.com # Let's Encrypt registration email
 APPS_DATA=~/Documents/containerd # Default host path for persistent data
 TIME_ZONE=Australia/Sydney
@@ -745,7 +745,7 @@ The full archive includes `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/we
 #    egress-policies.conf    the egress allow/deny policy map
 ```
 
-`.env` lives in the deploy path and is **never** in the full archive. `egress-policies.conf` lives in `${APPS_DATA}/egress-policies.conf` (seeded there by `scripts/setup.sh`; see [egress controls](docs/operations/EGRESS-CONTROLS.md)), so the weekly full archive covers it as well — this daily archive just holds the recovery point to one day for both files. The archive is created on every run of the workflow and pruned with `*-cfgBK-*` on the same `db_backup_retention_days` value as the database archives; a file that is not present is skipped rather than failing the run. On restore, put `egress-policies.conf` back at `${APPS_DATA}/egress-policies.conf` and `.env` at the deploy path root.
+`.env` lives in the deploy path and is **never** in the full archive. `egress-policies.conf` lives in `${APPS_DATA}/shared/gateway/egress-policies.conf` (seeded there by `scripts/setup.sh`, which also moves a copy left at the older `${APPS_DATA}` root; see [egress controls](docs/operations/EGRESS-CONTROLS.md)), so the weekly full archive covers it as well — this daily archive just holds the recovery point to one day for both files. The archive is created on every run of the workflow and pruned with `*-cfgBK-*` on the same `db_backup_retention_days` value as the database archives; a file that is not present is skipped rather than failing the run. On restore, put `egress-policies.conf` back at `${APPS_DATA}/shared/gateway/egress-policies.conf` and `.env` at the deploy path root.
 
 `<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data, the full archive contains ACME private keys, and the configuration archive contains `.env` secrets. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](#prerequisites).
 
@@ -765,7 +765,7 @@ A leading `./` or `/` is ignored; leave the secret unset to archive everything.
 
 ### Security baseline
 
-Every inbound route is fronted by Traefik with the `secure-chain` middleware — security headers (HSTS, nosniff, referrer policy) and a per-client-IP rate limit (20 req/s, burst 50) — defined in [`shared/traefik/advanced/middlewares-security.yml`](shared/traefik/advanced/middlewares-security.yml) and documented in [Traefik — Security middlewares](shared/traefik/README.md#security-middlewares). Admin surfaces (Traefik dashboard, Stalwart admin) additionally carry IP allowlists built from `TRUSTED_IP`, generated into [`shared/traefik/advanced/admin-routers.yml`](shared/traefik/advanced/admin-routers.yml) and hot-reloaded by Traefik — edit `.env`, re-run `scripts/setup.sh`, no restart. Per-service hardening steps (Authentik MFA, Confluence anonymous access, Forgejo registration/OIDC, Stalwart auto-ban, Bulwark dashboard) live in each service's README under **Security hardening**.
+Every inbound route is fronted by Traefik with the `secure-chain` middleware — security headers (HSTS, nosniff, referrer policy) and a per-client-IP rate limit (20 req/s, burst 50) — defined in [`shared/traefik/advanced/middlewares-security.yml`](shared/traefik/advanced/middlewares-security.yml) and documented in [Traefik — Security middlewares](shared/traefik/README.md#security-middlewares). Admin surfaces (Traefik dashboard, Stalwart admin) additionally carry IP allowlists built from `TRUSTED_IP` and Host rules built from `TRAEFIK_DOMAIN` / `EMAIL_HOST` / `IDENTITY_DOMAIN` (themselves `${DOMAIN_NAME}` references), generated into [`shared/traefik/advanced/admin-routers.yml`](shared/traefik/advanced/admin-routers.yml) and hot-reloaded by Traefik — edit `.env` (including `DOMAIN_NAME`), re-run `scripts/setup.sh`, no restart. Per-service hardening steps (Authentik MFA, Confluence anonymous access, Forgejo registration/OIDC, Stalwart auto-ban, Bulwark dashboard) live in each service's README under **Security hardening**.
 
 ### Start / Stop Services
 
@@ -814,14 +814,14 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 
 | Variable | Description |
 |---|---|
-| `DOMAIN_NAME` | Primary domain (e.g. `example.com`) |
+| `DOMAIN_NAME` | Primary domain (e.g. `example.com`); the derived hosts (`TRAEFIK_DOMAIN`, `EMAIL_HOST`, `IDENTITY_DOMAIN`, …) reference it as `${DOMAIN_NAME}`, and re-running `scripts/setup.sh` after changing it regenerates `admin-routers.yml` with the new Host rules |
 | `TRUSTED_IP` | CIDR ranges for forwarded-header trust and the admin allow lists (re-run `scripts/setup.sh` after changing to regenerate `admin-routers.yml`) |
 
 ### TLS / Traefik (route)
 
 | Variable | Description |
 |---|---|
-| `TRAEFIK_DOMAIN` | Traefik dashboard hostname |
+| `TRAEFIK_DOMAIN` | Traefik dashboard hostname (default: `traefik.${DOMAIN_NAME}`); one of the hosts generated into `admin-routers.yml` |
 | `TRAEFIK_ACMEMAIL` | Let's Encrypt registration email |
 | `TRAEFIK_BAAUTH` | Dashboard basic-auth credentials (htpasswd format) |
 | `CERTRESOLVER` | Set to `letsencrypt` for ACME; leave empty for self-signed |

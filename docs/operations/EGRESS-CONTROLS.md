@@ -10,7 +10,7 @@ lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-05
-updated: 2026-10-07
+updated: 2026-10-08
 tags:
   - servicehub
   - operations
@@ -28,7 +28,7 @@ related_documents:
 
 [ADR-009 §5](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) restricts container outbound traffic on the host. Two layers are enforced, both inside the Docker `DOCKER-USER` chain (container traffic only — the host's own outbound traffic is unaffected):
 
-The per-service list lives in `egress-policies.conf`. The repository copy, [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf), is only the **seed**: `scripts/setup.sh` copies it once to **`${APPS_DATA}/egress-policies.conf`**, and that runtime copy is the one `apply` reads (override the path with `EGRESS_POLICIES=<path>`). It sits under `APPS_DATA` deliberately — a deploy's rsync never touches that directory, so operator edits survive, and the weekly full backup archive covers it. **Make policy changes on the server, in `${APPS_DATA}/egress-policies.conf`**; editing the repository copy has no effect on a host that has already been seeded.
+The per-service list lives in `egress-policies.conf`. The repository copy, [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf), is only the **seed**: `scripts/setup.sh` copies it once to **`${APPS_DATA}/shared/gateway/egress-policies.conf`**, and that runtime copy is the one `apply` reads (override the path with `EGRESS_POLICIES=<path>`). It sits under `APPS_DATA` deliberately — a deploy's rsync never touches that directory, so operator edits survive, and the weekly full backup archive covers it. A copy left at the pre-`shared/gateway` location (`${APPS_DATA}/egress-policies.conf`) is still read until `scripts/setup.sh` moves it there on the next run. **Make policy changes on the server, in `${APPS_DATA}/shared/gateway/egress-policies.conf`**; editing the repository copy has no effect on a host that has already been seeded.
 
 1. **Per-service policy** — the policy file lists a Compose service and its policy:
    - `restricted` — RFC1918 destinations (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, i.e. PostgreSQL, Authentik, Stalwart SMTP, Traefik, Docker DNS, the host) **plus the host's own public IP** are allowed; everything else is logged (`egress-restricted: ` prefix) and dropped. The public-IP rule covers hairpin access back into Traefik when public names (`login.<domain>`, …) resolve to the host's public address — without it, a restricted container's OIDC calls to Authentik are dropped. The address is detected at `apply` time from cloud instance metadata (Oracle IMDS), can be pinned with `EGRESS_SELF_IP=<ipv4>`, and is skipped with a warning when it cannot be determined.
@@ -135,7 +135,7 @@ To turn the controls off completely:
 
 3. Verify: `scripts/egress-guard.sh status` reports `no egress rules installed`.
 
-A running `watch` reinstalls the rules on the next container address change or restart — stop it first (step 1). Note that emptying `${APPS_DATA}/egress-policies.conf` removes only the per-service layer on the next `apply`; the global block is independent of that file, so `remove` is the complete off switch.
+A running `watch` reinstalls the rules on the next container address change or restart — stop it first (step 1). Note that emptying `${APPS_DATA}/shared/gateway/egress-policies.conf` removes only the per-service layer on the next `apply`; the global block is independent of that file, so `remove` is the complete off switch.
 
 ## Verify
 
@@ -168,10 +168,10 @@ Rules for exceptions:
 
 - Record the requestor, destination, start time, and revoke time in the change record; set a revoke deadline before granting.
 - Exceptions sit above every other rule in the chain and survive `apply`, but they are keyed to the container's current address, so they are void after a recreate — grant again rather than relying on a stale rule.
-- **`allow` is not saved anywhere.** It writes the rule straight into `iptables` and nothing else, so it survives `apply` but **not a host reboot** — on boot the chain is empty and `apply` rebuilds only what `${APPS_DATA}/egress-policies.conf` describes. `scripts/egress-guard.sh remove` deletes it too. Re-grant after a reboot, or use the standing form below.
+- **`allow` is not saved anywhere.** It writes the rule straight into `iptables` and nothing else, so it survives `apply` but **not a host reboot** — on boot the chain is empty and `apply` rebuilds only what `${APPS_DATA}/shared/gateway/egress-policies.conf` describes. `scripts/egress-guard.sh remove` deletes it too. Re-grant after a reboot, or use the standing form below.
 - `allow`/`revoke` resolve a hostname at call time only. If the name's addresses change between grant and revoke, revoke by explicit CIDR/IPv4 instead of the name, so no rule is left behind.
 - A single `allow` covers the service's first running replica; grant per address if the service is scaled.
-- For a permanent dependency, do not keep re-granting: add `<service> allow-domain <name>` to `${APPS_DATA}/egress-policies.conf` instead — it is rebuilt with current addresses on every `apply` (e.g. `devopsrunner allow-domain data.forgejo.org`). That file, not `allow`, is what survives a reboot: `watch` re-reads it at boot. Despite the name, the argument goes through the same resolver as `allow`, so a bare IPv4 address or a CIDR works as well (e.g. `webappconf allow-domain 192.0.2.10/32`) — record permanent IP allowances there, not as repeated `allow` calls. The file is runtime state rather than tracked in git, so keep a copy in the daily `cfgBK` backup ([backup and restore](BACKUP-RESTORE.md)) and note significant changes in the change record.
+- For a permanent dependency, do not keep re-granting: add `<service> allow-domain <name>` to `${APPS_DATA}/shared/gateway/egress-policies.conf` instead — it is rebuilt with current addresses on every `apply` (e.g. `devopsrunner allow-domain data.forgejo.org`). That file, not `allow`, is what survives a reboot: `watch` re-reads it at boot. Despite the name, the argument goes through the same resolver as `allow`, so a bare IPv4 address or a CIDR works as well (e.g. `webappconf allow-domain 192.0.2.10/32`) — record permanent IP allowances there, not as repeated `allow` calls. The file is runtime state rather than tracked in git, so keep a copy in the daily `cfgBK` backup ([backup and restore](BACKUP-RESTORE.md)) and note significant changes in the change record.
 - Never widen the RFC1918 returns to make an exception permanent without an ADR change.
 
 ## Evidence and limitations

@@ -239,20 +239,34 @@ echo "Please review $ENV_FILE to ensure all variables are set correctly for your
 # The live egress policy file is runtime state, so it lives under APPS_DATA
 # rather than in the repository: a deploy's rsync never touches that directory
 # (operator allow-domain/block-domain edits survive) and the weekly full
-# archive already covers it. Seed it once from the repository default and then
-# leave it alone — policy changes are made on the server, not in git.
+# archive already covers it. It sits in shared/gateway alongside the other
+# cross-cutting host state. Seed it once from the repository default, migrate
+# the pre-shared/gateway location if that is where it lives, then leave it
+# alone — policy changes are made on the server, not in git.
 # APPS_DATA is re-read here because this runs after the merge above.
 APPS_DATA=$(grep -E '^APPS_DATA=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '"')
 APPS_DATA="${APPS_DATA/#\~/$HOME}"
-EGRESS_POLICY_DST="${APPS_DATA:+$APPS_DATA/egress-policies.conf}"
-if [ -n "$EGRESS_POLICY_DST" ] && [ -d "$APPS_DATA" ] && [ ! -f "$EGRESS_POLICY_DST" ] && [ -f "$SCRIPT_DIR/egress-policies.conf" ]; then
-    cp "$SCRIPT_DIR/egress-policies.conf" "$EGRESS_POLICY_DST"
-    echo "Seeded $EGRESS_POLICY_DST from the repository default"
+EGRESS_GATEWAY_DIR="${APPS_DATA:+$APPS_DATA/shared/gateway}"
+EGRESS_POLICY_DST="${EGRESS_GATEWAY_DIR:+$EGRESS_GATEWAY_DIR/egress-policies.conf}"
+EGRESS_POLICY_LEGACY="${APPS_DATA:+$APPS_DATA/egress-policies.conf}"
+if [ -n "$EGRESS_POLICY_DST" ] && [ -d "$APPS_DATA" ]; then
+    if [ ! -f "$EGRESS_POLICY_DST" ] && [ -f "$EGRESS_POLICY_LEGACY" ]; then
+        mkdir -p "$EGRESS_GATEWAY_DIR"
+        mv "$EGRESS_POLICY_LEGACY" "$EGRESS_POLICY_DST"
+        echo "Moved $EGRESS_POLICY_LEGACY -> $EGRESS_POLICY_DST"
+    elif [ ! -f "$EGRESS_POLICY_DST" ] && [ -f "$SCRIPT_DIR/egress-policies.conf" ]; then
+        mkdir -p "$EGRESS_GATEWAY_DIR"
+        cp "$SCRIPT_DIR/egress-policies.conf" "$EGRESS_POLICY_DST"
+        echo "Seeded $EGRESS_POLICY_DST from the repository default"
+    fi
 fi
 
 # Regenerate the Traefik admin routers from .env (ADR-009). The file provider
-# watches shared/traefik/advanced, so TRUSTED_IP and domain changes hot-reload
-# without restarting any container.
-if python3 "$SCRIPT_DIR/gen-admin-rules.py"; then
-    echo "Regenerated shared/traefik/advanced/admin-routers.yml (Traefik hot-reloads it)."
+# watches shared/traefik/advanced, so TRUSTED_IP, DOMAIN_NAME and the derived
+# domain changes hot-reload without restarting any container. Fail loudly:
+# a stale generated file would silently keep serving the old hosts.
+if ! python3 "$SCRIPT_DIR/gen-admin-rules.py"; then
+    echo "Error: failed to regenerate shared/traefik/advanced/admin-routers.yml" >&2
+    exit 1
 fi
+echo "Regenerated shared/traefik/advanced/admin-routers.yml (Traefik hot-reloads it)."

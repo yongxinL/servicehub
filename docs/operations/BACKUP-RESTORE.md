@@ -10,7 +10,7 @@ lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-07
+updated: 2026-10-08
 tags:
   - servicehub
   - operations
@@ -40,7 +40,7 @@ The source server is the host running the ServiceHub services together with Forg
 |---|---|---|---|---|
 | PostgreSQL database | Daily at 02:30 in scheduled mode; manual `db` or `auto` | One `pg_dump` per non-template database plus `pg_dumpall --globals-only` packed into one daily archive | Transaction-consistent logical dump | Implemented; execution evidence not available |
 | Full `APPS_DATA` | Sundays in `auto`; manual `full` or `auto` | Entire configured persistent-data tree with optional exclusions | Crash-consistent for live database directories | Implemented; execution evidence not available |
-| Host configuration | Every run of the backup workflow | `.env` from the deploy path (never in the full archive) and `egress-policies.conf` from `${APPS_DATA}` (also in the weekly full archive) — both edited on the server at runtime | Not applicable (plain files) | Implemented; execution evidence not available |
+| Host configuration | Every run of the backup workflow | `.env` from the deploy path (never in the full archive) and `egress-policies.conf` from `${APPS_DATA}/shared/gateway` (also in the weekly full archive) — both edited on the server at runtime | Not applicable (plain files) | Implemented; execution evidence not available |
 | Off-host copy | Same backup workflow | Restic Home Server copy and Rclone Google Drive copy, each enabled independently by its own key | Target-side integrity checks configured | Repository configuration added; execution evidence unavailable |
 | Encrypted backup archive | None evident | Encryption method and key governance | Not applicable | TBD |
 | Host recovery image | None evident | Not applicable | Not applicable | Optional; not selected |
