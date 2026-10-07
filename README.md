@@ -802,7 +802,6 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 | `WORKSPACE_DOMAIN` | Shared homepage hostname (default: `www.${DOMAIN_NAME}`); the apex is served as well |
 | `WORKSPACE_DBNAME` | Workspace database name (default: `svchub_workspace`) |
 | `WORKSPACE_TAG` | Confluence image tag (default: `10.2`) |
-| `CHAT_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
 | `CLOUD_DOMAIN` | oCIS cloud-drive hostname (default: `drive.${DOMAIN_NAME}`) |
 | `CLOUD_TAG` | Pinned oCIS image tag (default: `8.2.0`) |
 | `CLOUD_OIDC_ISSUER` | Authentik OIDC issuer for the `ocis` application |
@@ -815,6 +814,7 @@ The agent platform variables are documented in the service READMEs — see [Herm
 
 | Variable | Description |
 |---|---|
+| `CHAT_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
 | `HERMES_WORKSPACE_PASSWD_00` | Workspace web UI password (port 12320) |
 | `HERMES_DATA_00` | Agent data directory (default `${APPS_DATA}/aiserv/hermes/00`) |
 | `HERMES_WORKSPACE_DOMAIN_00` | Optional Traefik domain (empty = IP:port only) |
