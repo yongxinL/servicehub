@@ -67,17 +67,25 @@ merge_env() {
     # Create a temp file to store merged result
     cp "$ENV_EXAMPLE_FILE" "$ENV_FILE.tmp"
 
-    # For each variable in the existing .env, preserve it in the new file
-    while IFS='=' read -r key value; do
-        [[ -z "$key" || "$key" =~ ^# ]] && continue
+    # For each line in the existing .env, carry it into the new file
+    while IFS= read -r line; do
+        [[ -z "$line" || "$line" =~ ^# || "$line" != *"="* ]] && continue
+        key=${line%%=*}
+
+        # The merge starts from env.example, so a key that exists only in .env
+        # (locally added: extra Hermes instances, site-specific overrides)
+        # would otherwise be dropped on every run — including every deploy.
+        if ! grep -q "^${key}=" "$ENV_EXAMPLE_FILE"; then
+            printf '%s\n' "$line" >> "$ENV_FILE.tmp"
+            continue
+        fi
 
         # If key exists in env.example and has a value in .env, preserve it
-        if grep -q "^${key}=" "$ENV_EXAMPLE_FILE"; then
-            old_value=$(grep "^${key}=" "$ENV_FILE" | head -1 | cut -d '=' -f2-)
-            if [ -n "$old_value" ]; then
-                # Use python3 so arbitrary characters in old_value (quotes, pipes,
-                # backslashes) are never interpreted by the shell or sed.
-                python3 - "$key" "$old_value" "$ENV_FILE.tmp" <<'PYEOF'
+        old_value=${line#*=}
+        if [ -n "$old_value" ]; then
+            # Use python3 so arbitrary characters in old_value (quotes, pipes,
+            # backslashes) are never interpreted by the shell or sed.
+            python3 - "$key" "$old_value" "$ENV_FILE.tmp" <<'PYEOF'
 import sys, re
 key, val, fname = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(fname) as f:
@@ -86,7 +94,6 @@ content = re.sub(r'^' + re.escape(key) + r'=.*', key + '=' + val, content, flags
 with open(fname, 'w') as f:
     f.write(content)
 PYEOF
-            fi
         fi
     done < "$ENV_FILE"
 
@@ -228,6 +235,20 @@ fi
 
 chmod 600 "$ENV_FILE"
 echo "Please review $ENV_FILE to ensure all variables are set correctly for your environment."
+
+# The live egress policy file is runtime state, so it lives under APPS_DATA
+# rather than in the repository: a deploy's rsync never touches that directory
+# (operator allow-domain/block-domain edits survive) and the weekly full
+# archive already covers it. Seed it once from the repository default and then
+# leave it alone — policy changes are made on the server, not in git.
+# APPS_DATA is re-read here because this runs after the merge above.
+APPS_DATA=$(grep -E '^APPS_DATA=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '"')
+APPS_DATA="${APPS_DATA/#\~/$HOME}"
+EGRESS_POLICY_DST="${APPS_DATA:+$APPS_DATA/egress-policies.conf}"
+if [ -n "$EGRESS_POLICY_DST" ] && [ -d "$APPS_DATA" ] && [ ! -f "$EGRESS_POLICY_DST" ] && [ -f "$SCRIPT_DIR/egress-policies.conf" ]; then
+    cp "$SCRIPT_DIR/egress-policies.conf" "$EGRESS_POLICY_DST"
+    echo "Seeded $EGRESS_POLICY_DST from the repository default"
+fi
 
 # Regenerate the Traefik admin routers from .env (ADR-009). The file provider
 # watches shared/traefik/advanced, so TRUSTED_IP and domain changes hot-reload
