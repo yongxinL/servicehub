@@ -580,7 +580,7 @@ Stored workflow configuration lives in two separate stores, both under **Forgejo
 
 | Where | Used for | Items |
 |---|---|---|
-| **Secrets** (Settings → Actions → **Secrets**) | Credentials, private keys and encoded `.env` / `acme.json` — encrypted and masked in logs | `GIT_CRYPT_KEY`, and every `STAG_*` / `PROD_*` entry below |
+| **Secrets** (Settings → Actions → **Secrets**) | Credentials, private keys and encoded `.env` / `acme.json` — encrypted and masked in logs | `GIT_CRYPT_KEY`, every `STAG_*` / `PROD_*` entry below, and the `BACKUP_*` secrets |
 | **Variables** (Settings → Actions → **Variables**) | Non-sensitive configuration — plaintext, readable by anyone with repository access | `STAG_CONFIG`, `PROD_CONFIG` |
 | **Neither** — selected per run in the **Run Workflow** dialog | Per-deployment choices | `service`, `environment`, `branch` |
 
@@ -706,7 +706,18 @@ The workflow deletes database archives older than the approved `db_backup_retent
 
 The full archive includes `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data`. oCIS does not add a PostgreSQL dump; restore both filesystem paths together and follow [shared/owncloud/README.md](shared/owncloud/README.md#backup-and-recovery).
 
-`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data and the archive contains `.env` secrets and ACME private keys. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](#prerequisites).
+**Configuration archive (daily)** — the two files operators edit at runtime:
+
+```
+<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-cfgBK-<YYYYMMDD>.tar.gz
+#  contents (mode 600):
+#    .env                    the merged environment: every variable and secret
+#    egress-policies.conf    the egress allow/deny policy map
+```
+
+`.env` lives in the deploy path and is **never** in the full archive. `egress-policies.conf` lives in `${APPS_DATA}/egress-policies.conf` (seeded there by `scripts/setup.sh`; see [egress controls](docs/operations/EGRESS-CONTROLS.md)), so the weekly full archive covers it as well — this daily archive just holds the recovery point to one day for both files. The archive is created on every run of the workflow and pruned with `*-cfgBK-*` on the same `db_backup_retention_days` value as the database archives; a file that is not present is skipped rather than failing the run. On restore, put `egress-policies.conf` back at `${APPS_DATA}/egress-policies.conf` and `.env` at the deploy path root.
+
+`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data, the full archive contains ACME private keys, and the configuration archive contains `.env` secrets. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](#prerequisites).
 
 Paths can be excluded from the **full archive** with the optional `backup_exclude` key in `STAG_CONFIG` / `PROD_CONFIG` — a comma-separated list relative to `APPS_DATA`, with `*` and `?` globs allowed. For example, to skip Confluence logs/caches and the runner workspace:
 
