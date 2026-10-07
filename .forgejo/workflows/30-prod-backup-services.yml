@@ -109,15 +109,31 @@ jobs:
           [ -n "$BACKUP_ROOT" ] || fail "${PREFIX}_CONFIG.backup_root is not set"
           [ -n "$DB_RETENTION_DAYS" ] || fail "${PREFIX}_CONFIG.db_backup_retention_days is not set"
           [ -n "$FULL_RETENTION_DAYS" ] || fail "${PREFIX}_CONFIG.backup_local_full_retention_days is not set"
-          [ -n "$RESTIC_REPOSITORY" ] || fail "${PREFIX}_CONFIG.backup_restic_repository is not set"
-          [ -n "$RESTIC_KEEP_WITHIN" ] || fail "${PREFIX}_CONFIG.backup_restic_keep_within is not set"
-          [ -n "$RESTIC_PASSWORD_VALUE" ] || fail "BACKUP_RESTIC_PASSWORD is not set"
-          [ -n "$HOME_SSH_KEY" ] || fail "BACKUP_HOME_SSH_KEY is not set"
-          [ -n "$HOME_SSH_KNOWN_HOSTS" ] || fail "BACKUP_HOME_SSH_KNOWN_HOSTS is not set"
-          [ -n "$RCLONE_CONFIG_VALUE" ] || fail "BACKUP_RCLONE_CONFIG is not set"
-          [ -n "$RCLONE_DESTINATION" ] || fail "${PREFIX}_CONFIG.backup_rclone_destination is not set"
-          [ -n "$RCLONE_DB_KEEP_AGE" ] || fail "${PREFIX}_CONFIG.backup_rclone_db_keep_age is not set"
-          [ -n "$RCLONE_FULL_KEEP_AGE" ] || fail "${PREFIX}_CONFIG.backup_rclone_full_keep_age is not set"
+
+          # Each off-host target is enabled by its own destination key. Leaving
+          # a key empty disables that target and every setting and secret that
+          # only it uses. Same-host archives under backup_root are always made.
+          if [ -n "$RESTIC_REPOSITORY" ]; then
+            ENABLE_RESTIC=1
+            [ -n "$RESTIC_KEEP_WITHIN" ] || fail "${PREFIX}_CONFIG.backup_restic_keep_within is not set"
+            [ -n "$RESTIC_PASSWORD_VALUE" ] || fail "BACKUP_RESTIC_PASSWORD is not set"
+            [ -n "$HOME_SSH_KEY" ] || fail "BACKUP_HOME_SSH_KEY is not set"
+            [ -n "$HOME_SSH_KNOWN_HOSTS" ] || fail "BACKUP_HOME_SSH_KNOWN_HOSTS is not set"
+          else
+            ENABLE_RESTIC=0
+          fi
+          if [ -n "$RCLONE_DESTINATION" ]; then
+            ENABLE_RCLONE=1
+            [ -n "$RCLONE_CONFIG_VALUE" ] || fail "BACKUP_RCLONE_CONFIG is not set"
+            [ -n "$RCLONE_DB_KEEP_AGE" ] || fail "${PREFIX}_CONFIG.backup_rclone_db_keep_age is not set"
+            [ -n "$RCLONE_FULL_KEEP_AGE" ] || fail "${PREFIX}_CONFIG.backup_rclone_full_keep_age is not set"
+          else
+            ENABLE_RCLONE=0
+          fi
+          if [ "$ENABLE_RESTIC" = 0 ] && [ "$ENABLE_RCLONE" = 0 ]; then
+            fail "no off-host target is enabled: set ${PREFIX}_CONFIG.backup_restic_repository, ${PREFIX}_CONFIG.backup_rclone_destination, or both"
+          fi
+          echo "Enabled off-host targets: restic=$ENABLE_RESTIC rclone=$ENABLE_RCLONE"
 
           case "$DB_RETENTION_DAYS" in
             ''|*[!0-9]*) fail "${PREFIX}_DB_BACKUP_RETENTION_DAYS must be a number of days" ;;
@@ -139,23 +155,27 @@ jobs:
           case "$BACKUP_ROOT" in
             *[!A-Za-z0-9._/-]*) fail "${PREFIX}_BACKUP_ROOT contains unsupported characters" ;;
           esac
-          case "$RESTIC_REPOSITORY" in
-            sftp:*) ;;
-            *) fail "${PREFIX}_BACKUP_RESTIC_REPOSITORY must use the Restic sftp backend" ;;
-          esac
-          case "$RESTIC_REPOSITORY" in
-            *[[:space:]]*) fail "${PREFIX}_BACKUP_RESTIC_REPOSITORY must not contain whitespace" ;;
-          esac
-          case "$RESTIC_KEEP_WITHIN" in
-            -*) fail "${PREFIX}_BACKUP_RESTIC_KEEP_WITHIN must not start with a dash" ;;
-          esac
-          case "$RCLONE_DESTINATION" in
-            *:*) ;;
-            *) fail "${PREFIX}_BACKUP_RCLONE_DESTINATION must include a configured remote" ;;
-          esac
-          case "$RCLONE_DB_KEEP_AGE$RCLONE_FULL_KEEP_AGE" in
-            *-*) fail "Rclone retention ages must not start with a dash" ;;
-          esac
+          if [ "$ENABLE_RESTIC" = 1 ]; then
+            case "$RESTIC_REPOSITORY" in
+              sftp:*) ;;
+              *) fail "${PREFIX}_BACKUP_RESTIC_REPOSITORY must use the Restic sftp backend" ;;
+            esac
+            case "$RESTIC_REPOSITORY" in
+              *[[:space:]]*) fail "${PREFIX}_BACKUP_RESTIC_REPOSITORY must not contain whitespace" ;;
+            esac
+            case "$RESTIC_KEEP_WITHIN" in
+              -*) fail "${PREFIX}_BACKUP_RESTIC_KEEP_WITHIN must not start with a dash" ;;
+            esac
+          fi
+          if [ "$ENABLE_RCLONE" = 1 ]; then
+            case "$RCLONE_DESTINATION" in
+              *:*) ;;
+              *) fail "${PREFIX}_BACKUP_RCLONE_DESTINATION must include a configured remote" ;;
+            esac
+            case "$RCLONE_DB_KEEP_AGE$RCLONE_FULL_KEEP_AGE" in
+              *-*) fail "Rclone retention ages must not start with a dash" ;;
+            esac
+          fi
 
           EXCLUDE_ARGS=
           if [ -n "$BACKUP_EXCLUDE" ]; then
@@ -170,9 +190,15 @@ jobs:
             echo "Excluding from the archive: $BACKUP_EXCLUDE"
           fi
 
-          for command in ssh rclone restic jq psql; do
+          for command in ssh jq psql; do
             command -v "$command" >/dev/null 2>&1 || fail "required command '$command' not found"
           done
+          if [ "$ENABLE_RESTIC" = 1 ]; then
+            command -v restic >/dev/null 2>&1 || fail "required command 'restic' not found"
+          fi
+          if [ "$ENABLE_RCLONE" = 1 ]; then
+            command -v rclone >/dev/null 2>&1 || fail "required command 'rclone' not found"
+          fi
           if [ -z "$SERVER_KEY" ]; then
             command -v sshpass >/dev/null 2>&1 || fail "required command 'sshpass' not found for password authentication"
           fi
@@ -375,96 +401,100 @@ jobs:
             esac
           done
 
-          RESTIC_HOME_DIR=$(mktemp -d)
-          chmod 700 "$RESTIC_HOME_DIR"
-          mkdir -p "$RESTIC_HOME_DIR/.ssh" "$RESTIC_HOME_DIR/.cache/restic"
-          chmod 700 "$RESTIC_HOME_DIR/.ssh"
-          printf '%s\n' "$HOME_SSH_KEY" | tr -d '\r' > "$RESTIC_HOME_DIR/.ssh/id_backup"
-          printf '%s\n' "$HOME_SSH_KNOWN_HOSTS" > "$RESTIC_HOME_DIR/.ssh/known_hosts"
-          chmod 600 "$RESTIC_HOME_DIR/.ssh/id_backup" "$RESTIC_HOME_DIR/.ssh/known_hosts"
-          {
-            printf 'Host *\n'
-            printf '  BatchMode yes\n'
-            printf '  IdentitiesOnly yes\n'
-            printf '  IdentityFile %s\n' "$RESTIC_HOME_DIR/.ssh/id_backup"
-            printf '  StrictHostKeyChecking yes\n'
-            printf '  UserKnownHostsFile %s\n' "$RESTIC_HOME_DIR/.ssh/known_hosts"
-          } > "$RESTIC_HOME_DIR/.ssh/config"
-          chmod 600 "$RESTIC_HOME_DIR/.ssh/config"
-          export RESTIC_PASSWORD="$RESTIC_PASSWORD_VALUE"
+          if [ "$ENABLE_RESTIC" = 1 ]; then
+            RESTIC_HOME_DIR=$(mktemp -d)
+            chmod 700 "$RESTIC_HOME_DIR"
+            mkdir -p "$RESTIC_HOME_DIR/.ssh" "$RESTIC_HOME_DIR/.cache/restic"
+            chmod 700 "$RESTIC_HOME_DIR/.ssh"
+            printf '%s\n' "$HOME_SSH_KEY" | tr -d '\r' > "$RESTIC_HOME_DIR/.ssh/id_backup"
+            printf '%s\n' "$HOME_SSH_KNOWN_HOSTS" > "$RESTIC_HOME_DIR/.ssh/known_hosts"
+            chmod 600 "$RESTIC_HOME_DIR/.ssh/id_backup" "$RESTIC_HOME_DIR/.ssh/known_hosts"
+            {
+              printf 'Host *\n'
+              printf '  BatchMode yes\n'
+              printf '  IdentitiesOnly yes\n'
+              printf '  IdentityFile %s\n' "$RESTIC_HOME_DIR/.ssh/id_backup"
+              printf '  StrictHostKeyChecking yes\n'
+              printf '  UserKnownHostsFile %s\n' "$RESTIC_HOME_DIR/.ssh/known_hosts"
+            } > "$RESTIC_HOME_DIR/.ssh/config"
+            chmod 600 "$RESTIC_HOME_DIR/.ssh/config"
+            export RESTIC_PASSWORD="$RESTIC_PASSWORD_VALUE"
 
-          restic_cmd() {
-            HOME="$RESTIC_HOME_DIR" RESTIC_CACHE_DIR="$RESTIC_HOME_DIR/.cache/restic" restic -r "$RESTIC_REPOSITORY" "$@"
-          }
+            restic_cmd() {
+              HOME="$RESTIC_HOME_DIR" RESTIC_CACHE_DIR="$RESTIC_HOME_DIR/.cache/restic" restic -r "$RESTIC_REPOSITORY" "$@"
+            }
 
-          echo "Transferring protected backups with Restic"
-          if ! restic_cmd snapshots --json >/dev/null 2>&1; then
-            restic_cmd init
-          fi
-
-          for artifact in "${ARTIFACTS[@]}"; do
-            relative_artifact="${artifact#"$BACKUP_ROOT"/}"
-            case "$relative_artifact" in
-              *-dbBK-*.tar.gz) backup_type=db ;;
-              *-fullBK-*.tar.gz) backup_type=full ;;
-              *-cfgBK-*.tar.gz) backup_type=config ;;
-              *) fail "cannot determine backup type for '$artifact'" ;;
-            esac
-            ssh_exec cat "$artifact" |
-              restic_cmd backup --stdin --stdin-filename "$relative_artifact" --tag servicehub --tag "$DEPLOY_TARGET" --tag "$backup_type"
-          done
-          restic_cmd check --read-data-subset=1%
-          restic_cmd forget --keep-within "$RESTIC_KEEP_WITHIN" --tag "$DEPLOY_TARGET" --prune
-
-          RCLONE_CONFIG_FILE=$(mktemp)
-          chmod 600 "$RCLONE_CONFIG_FILE"
-          printf '%s\n' "$RCLONE_CONFIG_VALUE" > "$RCLONE_CONFIG_FILE"
-          RCLONE_SOURCE_AUTH=()
-          if [ -n "$SERVER_KEY" ]; then
-            RCLONE_SOURCE_AUTH=(key_file "$SSH_KEY_FILE")
-          else
-            RCLONE_SOURCE_AUTH=(pass "$SERVER_PASSWORD")
-          fi
-          rclone --config "$RCLONE_CONFIG_FILE" config create servicehub-source sftp \
-            host "$SERVER_HOST" \
-            port "$SERVER_PORT" \
-            user "$SERVER_USER" \
-            known_hosts_file "$KNOWN_HOSTS_FILE" \
-            "${RCLONE_SOURCE_AUTH[@]}" \
-            --obscure
-
-          RCLONE_DEST_REMOTE=${RCLONE_DESTINATION%%:*}
-          RCLONE_REMOTE_FOUND=0
-          while IFS= read -r remote; do
-            if [ "$remote" = "${RCLONE_DEST_REMOTE}:" ]; then
-              RCLONE_REMOTE_FOUND=1
-              break
+            echo "Transferring protected backups with Restic"
+            if ! restic_cmd snapshots --json >/dev/null 2>&1; then
+              restic_cmd init
             fi
-          done < <(rclone --config "$RCLONE_CONFIG_FILE" listremotes)
-          [ "$RCLONE_REMOTE_FOUND" = 1 ] || fail "the configured Rclone destination remote is not present"
 
-          echo "Transferring protected backups with Rclone"
-          for artifact in "${ARTIFACTS[@]}"; do
-            relative_artifact="${artifact#"$BACKUP_ROOT"/}"
-            destination="${RCLONE_DESTINATION%/}/$relative_artifact"
-            rclone --config "$RCLONE_CONFIG_FILE" copyto "servicehub-source:$artifact" "$destination" --retries 3 --low-level-retries 3
-            rclone --config "$RCLONE_CONFIG_FILE" check "servicehub-source:$artifact" "$destination" --download
-          done
+            for artifact in "${ARTIFACTS[@]}"; do
+              relative_artifact="${artifact#"$BACKUP_ROOT"/}"
+              case "$relative_artifact" in
+                *-dbBK-*.tar.gz) backup_type=db ;;
+                *-fullBK-*.tar.gz) backup_type=full ;;
+                *-cfgBK-*.tar.gz) backup_type=config ;;
+                *) fail "cannot determine backup type for '$artifact'" ;;
+              esac
+              ssh_exec cat "$artifact" |
+                restic_cmd backup --stdin --stdin-filename "$relative_artifact" --tag servicehub --tag "$DEPLOY_TARGET" --tag "$backup_type"
+            done
+            restic_cmd check --read-data-subset=1%
+            restic_cmd forget --keep-within "$RESTIC_KEEP_WITHIN" --tag "$DEPLOY_TARGET" --prune
+          fi
 
-          rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
-            --min-age "$RCLONE_DB_KEEP_AGE" \
-            --include '*-dbBK-*' \
-            --rmdirs
-          rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
-            --min-age "$RCLONE_FULL_KEEP_AGE" \
-            --include '*-fullBK-*' \
-            --rmdirs
-          # Configuration archives are created daily like the database dumps,
-          # so they share that retention age rather than needing a new key.
-          rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
-            --min-age "$RCLONE_DB_KEEP_AGE" \
-            --include '*-cfgBK-*' \
-            --rmdirs
+          if [ "$ENABLE_RCLONE" = 1 ]; then
+            RCLONE_CONFIG_FILE=$(mktemp)
+            chmod 600 "$RCLONE_CONFIG_FILE"
+            printf '%s\n' "$RCLONE_CONFIG_VALUE" > "$RCLONE_CONFIG_FILE"
+            RCLONE_SOURCE_AUTH=()
+            if [ -n "$SERVER_KEY" ]; then
+              RCLONE_SOURCE_AUTH=(key_file "$SSH_KEY_FILE")
+            else
+              RCLONE_SOURCE_AUTH=(pass "$SERVER_PASSWORD")
+            fi
+            rclone --config "$RCLONE_CONFIG_FILE" config create servicehub-source sftp \
+              host "$SERVER_HOST" \
+              port "$SERVER_PORT" \
+              user "$SERVER_USER" \
+              known_hosts_file "$KNOWN_HOSTS_FILE" \
+              "${RCLONE_SOURCE_AUTH[@]}" \
+              --obscure
+
+            RCLONE_DEST_REMOTE=${RCLONE_DESTINATION%%:*}
+            RCLONE_REMOTE_FOUND=0
+            while IFS= read -r remote; do
+              if [ "$remote" = "${RCLONE_DEST_REMOTE}:" ]; then
+                RCLONE_REMOTE_FOUND=1
+                break
+              fi
+            done < <(rclone --config "$RCLONE_CONFIG_FILE" listremotes)
+            [ "$RCLONE_REMOTE_FOUND" = 1 ] || fail "the configured Rclone destination remote is not present"
+
+            echo "Transferring protected backups with Rclone"
+            for artifact in "${ARTIFACTS[@]}"; do
+              relative_artifact="${artifact#"$BACKUP_ROOT"/}"
+              destination="${RCLONE_DESTINATION%/}/$relative_artifact"
+              rclone --config "$RCLONE_CONFIG_FILE" copyto "servicehub-source:$artifact" "$destination" --retries 3 --low-level-retries 3
+              rclone --config "$RCLONE_CONFIG_FILE" check "servicehub-source:$artifact" "$destination" --download
+            done
+
+            rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
+              --min-age "$RCLONE_DB_KEEP_AGE" \
+              --include '*-dbBK-*' \
+              --rmdirs
+            rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
+              --min-age "$RCLONE_FULL_KEEP_AGE" \
+              --include '*-fullBK-*' \
+              --rmdirs
+            # Configuration archives are created daily like the database dumps,
+            # so they share that retention age rather than needing a new key.
+            rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
+              --min-age "$RCLONE_DB_KEEP_AGE" \
+              --include '*-cfgBK-*' \
+              --rmdirs
+          fi
 
           echo "backup-data ($DEPLOY_TARGET) completed for ${#ARTIFACTS[@]} artifact(s)"
         env:

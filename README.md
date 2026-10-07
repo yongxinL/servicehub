@@ -597,10 +597,10 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 | Secret | How to obtain | Description |
 |---|---|---|
 | `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates in the runner checkout before the working tree is synced to the remote server. Generate with `git-crypt init && git-crypt export-key ./servicehub.key`. |
-| `BACKUP_RESTIC_PASSWORD` | *(protected value; do not record)* | Restic repository password used by the backup workflow. |
-| `BACKUP_HOME_SSH_KEY` | *(protected private key; do not record)* | Private key used for the Restic Home Server repository over SSH/SFTP. |
-| `BACKUP_HOME_SSH_KNOWN_HOSTS` | *(verified SSH host keys; do not record)* | Home Server host keys used for strict SSH host verification. |
-| `BACKUP_RCLONE_CONFIG` | *(protected Rclone configuration; do not record)* | Rclone configuration containing the Google Drive remote and credentials. |
+| `BACKUP_RESTIC_PASSWORD` | *(protected value; do not record)* | Restic repository password. Encrypts the repository content; required whenever Target 1 is enabled, and independent of the SSH private key. |
+| `BACKUP_HOME_SSH_KEY` | *(protected private key; do not record)* | SSH private key that authenticates the connection to the Target 1 SFTP server. Does not encrypt the repository. Required whenever Target 1 is enabled. |
+| `BACKUP_HOME_SSH_KNOWN_HOSTS` | *(verified SSH host keys; do not record)* | Target 1 host keys used for strict SSH host verification. Required whenever Target 1 is enabled. |
+| `BACKUP_RCLONE_CONFIG` | *(protected Rclone configuration; do not record)* | Rclone configuration containing the Google Drive remote and credentials. Required whenever Target 2 is enabled. |
 
 ##### Staging (`STAG_*`)
 
@@ -647,22 +647,43 @@ All non-credential target settings live in **one JSON variable per environment**
 }
 ```
 
+The example enables both off-host targets. Remove a key (or leave it empty) to disable that target — see the key table below.
+
 | Key | Required by | Description |
 |---|---|---|
-| `server_host` | all | Hostname or address of the target server used for SSH. |
-| `server_port` | no | SSH port; defaults to `22`. Applies to every SSH use: deploy, connectivity test and backup transfers. |
+| `server_host` | all | Hostname or address of the **source server** — the host that receives deployments and that the backup workflow SSHes into to create and read archives. Not the address of an off-host backup target. |
+| `server_port` | no | SSH port for the source server; defaults to `22`. Applies to every SSH use: deploy, connectivity test and backup transfers. This is unrelated to the port of the Restic/SFTP backup target, which is part of `backup_restic_repository`. |
 | `server_user` | all | SSH login account. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
 | `deploy_path` | all | Absolute path that receives the deployed working tree. Created on first deploy; no git metadata is kept there. |
 | `sshkwn_keys` | no | The server's public SSH host key(s), verbatim `ssh-keyscan` output (use `ssh-keyscan -p <port> <host>` for a non-default port so entries use the `[host]:port` form). If unset, the workflows fall back to `ssh-keyscan` at runtime with a warning. |
-| `backup_root` | backup | Directory where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. |
+| `backup_root` | backup | Directory **on the source server** where the archives are written before any transfer; `<YYYY>/<YYYYMM>` subdirectories are created automatically. The source server is the host running the services, Forgejo, and the Forgejo Actions runner — a homelab server or an Oracle Cloud VM instance. This is a source-side path, not a backup target. |
 | `backup_exclude` | no | Comma-separated paths, relative to `APPS_DATA`, to exclude from the full archive. `*` and `?` globs are allowed; leave unset to archive everything. |
 | `db_backup_retention_days` | backup | Required same-host retention for database archives under `backup_root`. |
 | `backup_local_full_retention_days` | backup | Required same-host retention for full archives. |
-| `backup_restic_repository` | backup | Home Server Restic repository used as the primary recovery target (`sftp:` URI). |
-| `backup_restic_keep_within` | backup | Restic snapshot retention applied after integrity checking. |
-| `backup_rclone_destination` | backup | Google Drive destination used for the independent off-site copy. |
-| `backup_rclone_db_keep_age` | backup | Rclone retention for database archives. |
-| `backup_rclone_full_keep_age` | backup | Rclone retention for full archives. |
+| `backup_restic_repository` | no | Restic repository for **Target 1 (Home Server)**. Must start with `sftp:` and contain no whitespace. **Leave unset or empty to disable Target 1.** |
+| `backup_restic_keep_within` | backup* | Restic snapshot retention applied after integrity checking. Required only when Target 1 is enabled. |
+| `backup_rclone_destination` | no | Rclone destination for **Target 2 (Google Drive)**. Must include a configured remote (`remote:path`). **Leave unset or empty to disable Target 2.** |
+| `backup_rclone_db_keep_age` | backup* | Rclone retention for database archives. Required only when Target 2 is enabled. |
+| `backup_rclone_full_keep_age` | backup* | Rclone retention for full archives. Required only when Target 2 is enabled. |
+
+\* Required only when the target it belongs to is enabled. An absent or empty target key disables that target, and every other setting and secret that only it uses is then ignored rather than validated. At least one of `backup_restic_repository` and `backup_rclone_destination` must be set — the workflow fails with `no off-host target is enabled` if both are missing. Same-host archives under `backup_root` are created on every run regardless of target selection.
+
+To enable one target only, delete the other target's key from the JSON (do not leave a placeholder value — an empty string disables, a non-empty value must be well-formed).
+
+**Non-standard SFTP port for Target 1.** Restic does not take a port in the `sftp:user@host:/path` form. Use its URL form instead, where the first slash separates the connection settings from the path and the second begins the path:
+
+```json
+"backup_restic_repository": "sftp://backup@backuphost:2222//srv/restic/servicehub"
+```
+
+A relative path (relative to the remote user's home) uses a single slash: `sftp://backup@backuphost:2222/srv/restic/servicehub`. The target can be any SFTP server reachable from the runner, including one on your local network. The alternative is an SSH configuration alias carrying `Port`, but the workflow generates the `~/.ssh/config` it uses, so the URL form is the one that needs no code change. The `sftp:` prefix is required in both forms.
+
+**Authentication for Target 1.** Two independent credentials are required, and neither replaces the other:
+
+| Credential | Secret | Protects |
+|---|---|---|
+| SSH private key | `BACKUP_HOME_SSH_KEY` | The SSH/SFTP connection to the target |
+| Repository password | `BACKUP_RESTIC_PASSWORD` | The encrypted repository content — without it the stored snapshots cannot be read back |
 
 > **Migration:** earlier releases used one secret per key (`STAG_SERVER_HOST`, `STAG_BACKUP_ROOT`, …). Add `STAG_CONFIG` / `PROD_CONFIG` as repository **variables** built from those values, run one workflow to confirm, then delete the obsolete secret rows. A missing required key fails fast with `${PREFIX}_CONFIG.<key> is not set`.
 
@@ -685,7 +706,16 @@ All non-credential target settings live in **one JSON variable per environment**
 
 ### Data Backups (Forgejo Actions)
 
-The `30-prod-backup-services.yml` workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, creates archives under the `backup_root` key of `${PREFIX}_CONFIG`, then configures Restic and Rclone copies to the two accepted targets. Repository configuration exists; successful transfers and restores are not yet evidenced.
+The `30-prod-backup-services.yml` workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, creates archives under the `backup_root` key of `${PREFIX}_CONFIG` **on the source server** (the host running the services, Forgejo, and the Actions runner — a homelab server or an Oracle Cloud VM instance), then copies each archive to the off-host targets that are enabled in the same JSON. Repository configuration exists; successful transfers and restores are not yet evidenced.
+
+**Off-host targets.** Two independent copies are configured, both read from the source server — neither depends on the other:
+
+| | Target | Enabled by | Disabled when |
+|---|---|---|---|
+| Target 1 | Home Server, Restic over SSH/SFTP | `backup_restic_repository` | key absent or empty |
+| Target 2 | Google Drive, Rclone | `backup_rclone_destination` | key absent or empty |
+
+Leave a key out to run only the other target; the workflow logs `Enabled off-host targets: restic=<0|1> rclone=<0|1>` before it creates any archive, and fails if both targets are disabled. The per-environment configuration key table above gives the SFTP port form and the authentication credentials.
 
 **Database dumps (daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `infrapgsql` container while the services keep running, then packed into a single daily archive so each day has exactly one database backup file:
 
