@@ -294,6 +294,37 @@ jobs:
             sudo -n find '$BACKUP_ROOT' -mindepth 2 -type d -empty -path '*/[0-9][0-9][0-9][0-9]/[0-9][0-9][0-9][0-9][0-9][0-9]' -delete
           fi
 
+          # Runtime configuration: .env lives in the deploy path and is never
+          # in the full archive; the egress policy file lives under APPS_DATA
+          # and is only in the weekly one. Archive both on every run so a
+          # mid-week loss costs at most one day of edits.
+          CFG_STAGE=\$(mktemp -d)
+          install -d -m 700 \"\$CFG_STAGE\"
+          sudo -n install -m 600 '$DEPLOY_PATH'/.env \"\$CFG_STAGE/.env\"
+          sudo -n install -m 600 \"\$APPS_DATA\"/egress-policies.conf \"\$CFG_STAGE/egress-policies.conf\" 2>/dev/null || echo \"Skipping egress-policies.conf (not present)\"
+          ARCHIVE=\"\$DST/\$DOMAIN_NAME-cfgBK-\$STAMP.tar.gz\"
+          echo \"Archiving runtime configuration -> \$ARCHIVE\"
+          set +e
+          sudo -n tar -czf \"\$ARCHIVE.part\" -C \"\$CFG_STAGE\" .
+          rc=\$?
+          set -e
+          if [ \"\$rc\" -gt 1 ]; then
+            echo \"Error: tar exited \$rc\" >&2
+            sudo -n rm -f \"\$ARCHIVE.part\"
+            exit \"\$rc\"
+          fi
+          [ -s \"\$ARCHIVE.part\" ] || { echo 'Error: config archive is empty' >&2; exit 1; }
+          sudo -n mv -f \"\$ARCHIVE.part\" \"\$ARCHIVE\"
+          sudo -n chmod 600 \"\$ARCHIVE\"
+          # The transfer steps below read the archive as the SSH user, not root.
+          sudo -n chown \"\$(id -u):\$(id -g)\" \"\$ARCHIVE\"
+          rm -rf \"\$CFG_STAGE\"
+          CREATED_ARCHIVES=\"\$CREATED_ARCHIVES \$ARCHIVE\"
+          echo \"Configuration backup complete: \$(basename \"\$ARCHIVE\")\"
+          echo \"Pruning configuration backups older than $DB_RETENTION_DAYS days\"
+          sudo -n find '$BACKUP_ROOT' -type f -name '*-cfgBK-*' -mtime +$DB_RETENTION_DAYS -print -delete
+          sudo -n find '$BACKUP_ROOT' -mindepth 2 -type d -empty -path '*/[0-9][0-9][0-9][0-9]/[0-9][0-9][0-9][0-9][0-9][0-9]' -delete
+
           RUN_FULL_NOW=0
           case '$RUN_FULL' in
             1) RUN_FULL_NOW=1 ;;
@@ -339,7 +370,7 @@ jobs:
 
           for artifact in "${ARTIFACTS[@]}"; do
             case "$artifact" in
-              "$BACKUP_ROOT"/*-dbBK-*.tar.gz|"$BACKUP_ROOT"/*-fullBK-*.tar.gz) ;;
+              "$BACKUP_ROOT"/*-dbBK-*.tar.gz|"$BACKUP_ROOT"/*-fullBK-*.tar.gz|"$BACKUP_ROOT"/*-cfgBK-*.tar.gz) ;;
               *) fail "workflow returned an unexpected backup artifact path" ;;
             esac
           done
@@ -376,6 +407,7 @@ jobs:
             case "$relative_artifact" in
               *-dbBK-*.tar.gz) backup_type=db ;;
               *-fullBK-*.tar.gz) backup_type=full ;;
+              *-cfgBK-*.tar.gz) backup_type=config ;;
               *) fail "cannot determine backup type for '$artifact'" ;;
             esac
             ssh_exec cat "$artifact" |
@@ -426,6 +458,12 @@ jobs:
           rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
             --min-age "$RCLONE_FULL_KEEP_AGE" \
             --include '*-fullBK-*' \
+            --rmdirs
+          # Configuration archives are created daily like the database dumps,
+          # so they share that retention age rather than needing a new key.
+          rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_DESTINATION" \
+            --min-age "$RCLONE_DB_KEEP_AGE" \
+            --include '*-cfgBK-*' \
             --rmdirs
 
           echo "backup-data ($DEPLOY_TARGET) completed for ${#ARTIFACTS[@]} artifact(s)"

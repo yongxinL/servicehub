@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: DEPLOYMENT-ARCHITECTURE
 title: ServiceHub Deployment Architecture
-version: "1.5"
+version: "1.6"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-06
+updated: 2026-10-07
 tags:
   - servicehub
   - architecture
@@ -58,7 +58,7 @@ Staging TLS is described in repository documentation as self-signed when `CERTRE
 
 ## Production Deployment
 
-The deploy workflow accepts `environment: prod` and maps it to `PROD_*` secrets. It uses the same deployment logic as staging. Production-style TLS uses Let's Encrypt when `CERTRESOLVER=letsencrypt`.
+The deploy workflow accepts `environment: prod` and maps it to the `PROD_CONFIG` variable and the `PROD_*` repository secrets. It uses the same deployment logic as staging. Production-style TLS uses Let's Encrypt when `CERTRESOLVER=letsencrypt`.
 
 The repository does not contain evidence that a production deployment, certificate issuance, or post-deploy validation succeeded.
 

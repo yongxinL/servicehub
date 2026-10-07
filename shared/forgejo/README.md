@@ -90,7 +90,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 The [`backup-data`](../../.forgejo/workflows/30-prod-backup-services.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `restic`, `rclone`, `rsync`, `postgresql-client`, `bash`, `jq`, `git-crypt`, OpenSSH, and `sshpass`, so database dumps, archive transfers, integrity checks, and retention share the same host-mode runner as deployment workflows.
 
-Because the runner has capacity one, long backup and deployment jobs queue behind each other. Protected target, credential, and retention values remain in Forgejo Actions secrets and are documented by name in [backup and restore](../../docs/operations/BACKUP-RESTORE.md) and the [root README](../../README.md#required-actions-secrets-and-variables).
+Because the runner has capacity one, long backup and deployment jobs queue behind each other. Retention and target paths are non-sensitive and live in the `STAG_CONFIG` / `PROD_CONFIG` repository **variables**; credentials and encoded key material live in the `GIT_CRYPT_KEY`, `STAG_*`, `PROD_*`, and `BACKUP_*` repository **secrets**. Both are documented by name in [backup and restore](../../docs/operations/BACKUP-RESTORE.md) and the [root README](../../README.md#required-actions-secrets-and-variables).
 
 ## Setup (first boot)
 

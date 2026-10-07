@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: BACKUP-RESTORE
 title: ServiceHub Backup and Restore
-version: "1.4"
+version: "1.5"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-06
+updated: 2026-10-07
 tags:
   - servicehub
   - operations
@@ -32,18 +32,19 @@ The repository configures same-host backup creation, backup tooling on the exist
 
 ## Implemented Backup Scope
 
-The [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml) runs through the existing `ssh-deploy` label, creates archives at the `backup_root` key of the `<PREFIX>_CONFIG` secret, and configures transfers to both accepted targets.
+The [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml) runs through the existing `ssh-deploy` label, creates archives at the `backup_root` key of the `<PREFIX>_CONFIG` repository variable, and configures transfers to both accepted targets.
 
 | Backup type | Schedule or trigger | Content | Consistency | Status |
 |---|---|---|---|---|
 | PostgreSQL database | Daily at 02:30 in scheduled mode; manual `db` or `auto` | One `pg_dump` per non-template database plus `pg_dumpall --globals-only` packed into one daily archive | Transaction-consistent logical dump | Implemented; execution evidence not available |
 | Full `APPS_DATA` | Sundays in `auto`; manual `full` or `auto` | Entire configured persistent-data tree with optional exclusions | Crash-consistent for live database directories | Implemented; execution evidence not available |
+| Host configuration | Every run of the backup workflow | `.env` from the deploy path (never in the full archive) and `egress-policies.conf` from `${APPS_DATA}` (also in the weekly full archive) — both edited on the server at runtime | Not applicable (plain files) | Implemented; execution evidence not available |
 | Off-host copy | Same backup workflow | Restic Home Server copy and Rclone Google Drive copy | Target-side integrity checks configured | Repository configuration added; execution evidence unavailable |
 | Encrypted backup archive | None evident | Encryption method and key governance | Not applicable | TBD |
 | Host recovery image | None evident | Not applicable | Not applicable | Optional; not selected |
 | Restore workflow | No automated workflow | Recovery from either accepted target | Not applicable | Procedure documented; execution not implemented or tested |
 
-Database and full-archive same-host retention values (`db_backup_retention_days`, `backup_local_full_retention_days`) are required keys of the `<PREFIX>_CONFIG` repository secret. Their values are not recorded in this document.
+Database, full-archive, and configuration-archive same-host retention values (`db_backup_retention_days`, `backup_local_full_retention_days`) are required keys of the `<PREFIX>_CONFIG` repository variable. Their values are not recorded in this document.
 
 ## Target Backup Strategy
 
