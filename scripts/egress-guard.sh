@@ -4,7 +4,9 @@
 # Two layers, both enforced in the Docker DOCKER-USER chain (container traffic
 # only — the host's own outbound traffic is unaffected):
 #
-#   1. Per-service policy, from scripts/egress-policies.conf:
+#   1. Per-service policy, from egress-policies.conf — the live copy is
+#      ${APPS_DATA}/egress-policies.conf (runtime state, seeded from the
+#      repository default by scripts/setup.sh), overridden by EGRESS_POLICIES:
 #        restricted        RFC1918 destinations plus the host's own public IP
 #                          (hairpin to Traefik via login.<domain> etc.); logged,
 #                          all else dropped
@@ -12,9 +14,11 @@
 #        internet          default: full internet minus the global block
 #        allow-domain <name>  standing exception: this service may reach every
 #                          resolved address of <name>; rebuilt each apply
+#        block-domain <name>  this service may NOT reach <name>; resolved each
+#                          apply, installed above every allow so it wins
 #   2. Global block: traffic from ANY container to the CIDRs listed in
-#      $EGRESS_BLOCK_URL is logged and dropped (one ipset holds the ranges,
-#      so it is a single rule).
+#      EGRESS_BLOCK_URL (from .env) is logged and dropped — one ipset holds
+#      the ranges, so it is a single rule.
 #
 # Services are resolved by the Compose service label, so project-prefixed
 # container names (servicehub-webappconf-1) do not matter.
@@ -23,7 +27,8 @@
 #   watch               apply; re-apply when a listed container's address changes;
 #                       refreshes the blocked set at startup
 #   status              policies, addresses, rules, set size, counters
-#   blocked-refresh     reload the blocklist CIDRs into the ipset
+#   blocked-refresh     reload the blocklist CIDRs into the ipset; every URL
+#                       in EGRESS_BLOCK_URL is fetched, one set
 #   allow <service> <cidr|ipv4|hostname>   time-boxed exception (a hostname
 #                       resolves now to every A record); record it, then revoke
 #   revoke <service> <cidr|ipv4|hostname>
@@ -39,9 +44,39 @@ CHAIN=${EGRESS_CHAIN:-DOCKER-USER}
 AUX=${EGRESS_AUX_CHAIN:-EGRESS_RESTRICTED}
 SET=${EGRESS_BLOCKED_SET:-blocked}
 Policies() { # 'service policy' lines from the policy file
-  conf=${EGRESS_POLICIES:-"$(dirname "$0")/egress-policies.conf"}
+  conf=${EGRESS_POLICIES:-}
+  if [ -z "$conf" ]; then
+    # The live copy lives under APPS_DATA, where a deploy's rsync never touches
+    # it (operator edits survive) and the weekly full archive already covers it.
+    # Fall back to the repository default on a host that has not been seeded yet.
+    apps=$(env_get APPS_DATA)
+    case $apps in "~"*) apps=$HOME${apps#"~"} ;; esac
+    if [ -n "$apps" ] && [ -f "$apps/egress-policies.conf" ]; then
+      conf=$apps/egress-policies.conf
+    else
+      conf="$(dirname "$0")/egress-policies.conf"
+    fi
+  fi
   [ -f "$conf" ] || return 0
   awk 'NF >= 2 && $1 !~ /^#/ { if (NF >= 3) print $1, $2, $3; else print $1, $2 }' "$conf"
+}
+# Value of $1 from EGRESS_ENV_FILE, else from the repo .env (the same file
+# Compose and scripts/setup.sh read). Empty when the file or key is absent.
+env_get() {
+  f=${EGRESS_ENV_FILE:-"$(dirname "$0")/../.env"}
+  [ -f "$f" ] || return 0
+  sed -n "s/^$1=//p" "$f" | head -1 | tr -d '"'
+}
+# CIDR feeds, one per line: EGRESS_BLOCK_URL if set, else EGRESS_BLOCK_URL
+# from the repo .env (the same file Compose and scripts/setup.sh read).
+# EGRESS_ENV_FILE overrides the path, as EGRESS_POLICIES does for the policy
+# file. Several feeds may be listed, separated by whitespace; every CIDR they
+# publish merges into the one blocked ipset.
+feed_urls() {
+  v=${EGRESS_BLOCK_URL:-}
+  [ -n "$v" ] || v=$(env_get EGRESS_BLOCK_URL)
+  [ -n "$v" ] || return 0
+  printf '%s\n' $v
 }
 LOG_RATE=20/min
 LIMIT="-m limit --limit $LOG_RATE"
@@ -98,9 +133,10 @@ ips_for() {
 }
 
 # Remove our rebuildable rules (time-boxed exceptions are kept), then the chain.
-# Match covers egress-restricted, egress-blocked and egress-allow-domain.
+# Match covers egress-restricted, egress-blocked, egress-allow-domain and
+# egress-block-domain; egress-exception (time-boxed) is deliberately excluded.
 remove() {
-  nums=$(iptables -S "$CHAIN" 2>/dev/null | grep -En -- "--comment egress-(restricted|blocked|allow-domain)" |
+  nums=$(iptables -S "$CHAIN" 2>/dev/null | grep -En -- "--comment egress-(restricted|blocked|allow-domain|block-domain)" |
     cut -d: -f1 || true)
   for n in $(printf '%s\n' "$nums" | sort -rn); do
     iptables -D "$CHAIN" $((n - 1))
@@ -123,11 +159,16 @@ apply() {
     warn "global block inactive (need 'ipset' and a populated set) — run: $0 blocked-refresh"
   fi
 
-  restricted_ips=""; ok_ips=""; domain_lines=""
+  restricted_ips=""; ok_ips=""; domain_lines=""; block_lines=""
   while read -r svc pol arg; do
     [ -n "$svc" ] || continue
     if [ "$pol" = "allow-domain" ]; then
       domain_lines="$domain_lines$svc $arg
+"
+      continue
+    fi
+    if [ "$pol" = "block-domain" ]; then
+      block_lines="$block_lines$svc $arg
 "
       continue
     fi
@@ -194,6 +235,29 @@ EOF
     done
   done <<EOF
 $domain_lines
+EOF
+  # Domain blocks: resolved at apply and installed at the very top, so a block
+  # always wins over a standing allow for the same address. iptables matches
+  # addresses, not names — see the limits in EGRESS-CONTROLS.
+  while read -r svc dom; do
+    [ -n "$dom" ] || continue
+    ips=$(ips_for "$svc")
+    if [ -z "$ips" ]; then
+      warn "$svc: block-domain '$dom' skipped (not running)"
+      continue
+    fi
+    dests=$(resolve_dest "$dom")
+    if [ -z "$dests" ]; then
+      warn "$svc: block-domain '$dom' cannot resolve, skipped"
+      continue
+    fi
+    for ip in $ips; do
+      for d in $dests; do
+        iptables -I "$CHAIN" 1 -s "$ip" -d "$d" -m comment --comment egress-block-domain -j DROP
+      done
+    done
+  done <<EOF
+$block_lines
 EOF
   echo "egress: applied — restricted:[${restricted_ips# }] blocked-ok:[${ok_ips# }] set=$ready"
 }
@@ -292,9 +356,9 @@ remove_all() {
 }
 
 blocked_refresh() {
-  url=${EGRESS_BLOCK_URL:-}
-  [ -n "$url" ] || {
-    warn "EGRESS_BLOCK_URL not set — point it at the CIDR feed"
+  urls=$(feed_urls)
+  [ -n "$urls" ] || {
+    warn "EGRESS_BLOCK_URL not set — add it to .env (or export it) with the CIDR feed"
     return 1
   }
   command -v ipset >/dev/null 2>&1 || {
@@ -305,21 +369,26 @@ blocked_refresh() {
     warn "python3 not installed — required to read the feed"
     return 1
   }
+  # All feeds must land: a partial merge would silently drop a feed's ranges
+  # and weaken the block, so any failure keeps the existing set intact.
   cidrs=$(mktemp)
-  if ! python3 - "$cidrs" <<PY
+  : >"$cidrs"
+  for u in $urls; do
+    if ! python3 - "$cidrs" "$u" <<'PY'
 import json, sys, urllib.request
-with urllib.request.urlopen("$url", timeout=20) as r:
+with urllib.request.urlopen(sys.argv[2], timeout=20) as r:
     data = json.load(r)
-with open(sys.argv[1], "w") as out:
+with open(sys.argv[1], "a") as out:
     for item in data.get("items", []):
         if "cidr" in item:
-            out.write(item["cidr"] + "\\n")
+            out.write(item["cidr"] + "\n")
 PY
-  then
-    rm -f "$cidrs"
-    warn "fetch failed — existing set kept"
-    return 1
-  fi
+    then
+      rm -f "$cidrs"
+      warn "fetch failed ($u) — existing set kept"
+      return 1
+    fi
+  done
   if [ ! -s "$cidrs" ]; then
     rm -f "$cidrs"
     warn "empty range list — existing set kept"
@@ -354,7 +423,7 @@ selftest() {
   printf '%s\n' '#!/bin/sh' 'echo "ipset $@" >>"$STUB_LOG"' \
     '[ "$1" = "list" ] && [ -n "${STUB_SET_ABSENT:-}" ] && exit 1' 'exit 0' >"$t/bin/ipset"
   printf '%s\n' '#!/bin/sh' 'echo "python3 $@" >>"$STUB_LOG"' \
-    'printf "%s\n" 192.0.2.0/24 198.51.100.0/24 >"$2"' 'exit 0' >"$t/bin/python3"
+    'printf "%s\n" 192.0.2.0/24 198.51.100.0/24 >>"$2"' 'exit 0' >"$t/bin/python3"
   printf '%s\n' '#!/bin/sh' 'exit 1' >"$t/bin/curl" # instance metadata unreachable offline
   printf '%s\n' '#!/bin/sh' \
     'case "$*" in' \
@@ -363,8 +432,10 @@ selftest() {
   chmod +x "$t/bin/docker" "$t/bin/iptables" "$t/bin/ipset" "$t/bin/python3" "$t/bin/curl" "$t/bin/getent"
   printf '%s\n' 'webappconf restricted' 'otherapp allow-blocked' >"$t/policies"
   PATH="$t/bin:$PATH" STUB_LOG="$t/log" STUB_RULES="$t/rules" EGRESS_POLICIES="$t/policies" EGRESS_NOSUDO=1 \
-    EGRESS_SELF_IP=198.51.100.7 EGRESS_BLOCK_URL=https://feed.example/ranges.json
+    EGRESS_SELF_IP=198.51.100.7 EGRESS_BLOCK_URL=https://feed.example/ranges.json \
+    EGRESS_ENV_FILE=$t/no-such-env
   export PATH STUB_LOG STUB_RULES EGRESS_POLICIES EGRESS_NOSUDO EGRESS_SELF_IP EGRESS_BLOCK_URL
+  export EGRESS_ENV_FILE
   fail=0
 
   : >"$STUB_LOG"
@@ -395,10 +466,25 @@ selftest() {
     echo "ok: refresh loads CIDRs and swaps the set atomically" || { echo "FAIL: refresh"; cat "$STUB_LOG"; fail=1; }
 
   : >"$STUB_LOG"
+  EGRESS_BLOCK_URL="https://feed.example/a https://feed.example/b" \
+    sh "$0" blocked-refresh >/dev/null 2>&1
+  [ "$(grep -c '^python3' "$STUB_LOG")" -eq 2 ] &&
+    grep -Fq -- "ipset swap blocked-tmp blocked" "$STUB_LOG" &&
+    echo "ok: every listed feed is fetched into one set" ||
+    { echo "FAIL: multiple feeds"; cat "$STUB_LOG"; fail=1; }
+
+  : >"$STUB_LOG"
   EGRESS_BLOCK_URL= sh "$0" blocked-refresh >/dev/null 2>"$t/err" || true
   grep -q 'EGRESS_BLOCK_URL not set' "$t/err" && [ ! -s "$STUB_LOG" ] &&
     echo "ok: refresh refuses to run without EGRESS_BLOCK_URL" ||
     { echo "FAIL: missing feed URL"; cat "$t/err" "$STUB_LOG"; fail=1; }
+
+  printf '%s\n' 'EGRESS_BLOCK_URL="https://feed.example/ranges.json"' >"$t/feed.env"
+  : >"$STUB_LOG"
+  EGRESS_BLOCK_URL= EGRESS_ENV_FILE="$t/feed.env" sh "$0" blocked-refresh >/dev/null 2>&1
+  grep -Fq -- "ipset swap blocked-tmp blocked" "$STUB_LOG" &&
+    echo "ok: refresh reads EGRESS_BLOCK_URL from .env when unset" ||
+    { echo "FAIL: .env fallback"; cat "$STUB_LOG"; fail=1; }
 
   : >"$STUB_LOG"
   STUB_SET_ABSENT=1 sh "$0" apply >/dev/null 2>&1
@@ -448,6 +534,39 @@ selftest() {
     grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.42 -d 203.0.113.7/32 -m comment --comment egress-allow-domain -j ACCEPT" "$STUB_LOG" &&
     grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.42 -d 203.0.113.8/32 -m comment --comment egress-allow-domain -j ACCEPT" "$STUB_LOG" &&
     echo "ok: allow-domain rebuilt as a top-of-chain standing exception" || { echo "FAIL: allow-domain"; cat "$STUB_LOG"; fail=1; }
+
+  printf '%s\n' 'otherapp internet' 'otherapp block-domain login.example.com' >"$t/policies3"
+  printf -- '-N DOCKER-USER\n-A DOCKER-USER -j RETURN\n' >"$STUB_RULES"
+  EGRESS_POLICIES="$t/policies3" sh "$0" apply >/dev/null 2>&1
+  grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.43 -d 203.0.113.7/32 -m comment --comment egress-block-domain -j DROP" "$STUB_LOG" &&
+    grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.43 -d 203.0.113.8/32 -m comment --comment egress-block-domain -j DROP" "$STUB_LOG" &&
+    echo "ok: block-domain drops every address of the name" ||
+    { echo "FAIL: block-domain"; cat "$STUB_LOG"; fail=1; }
+
+  printf -- '-N DOCKER-USER\n-A DOCKER-USER -s 10.89.1.43 -d 203.0.113.7/32 -m comment --comment egress-block-domain -j DROP\n-A DOCKER-USER -j RETURN\n' >"$STUB_RULES"
+  : >"$STUB_LOG"
+  sh "$0" remove >/dev/null 2>&1
+  [ "$(grep -c -- '^-D' "$STUB_LOG")" -eq 1 ] &&
+    grep -Fq -- "-D DOCKER-USER 1" "$STUB_LOG" &&
+    echo "ok: remove strips block-domain rules" ||
+    { echo "FAIL: remove block-domain"; cat "$STUB_LOG"; fail=1; }
+
+  # Policy file location: ${APPS_DATA}/egress-policies.conf when it exists,
+  # otherwise the repository default. EGRESS_POLICIES still wins when set.
+  mkdir -p "$t/appdata" "$t/empty"
+  printf '%s\n' 'otherapp restricted' >"$t/appdata/egress-policies.conf"
+  printf 'APPS_DATA=%s\n' "$t/appdata" >"$t/apps.env"
+  printf 'APPS_DATA=%s\n' "$t/empty" >"$t/empty.env"
+  printf -- '-N DOCKER-USER\n-A DOCKER-USER -j RETURN\n' >"$STUB_RULES"
+  r1= r2=
+  : >"$STUB_LOG"
+  EGRESS_POLICIES= EGRESS_ENV_FILE="$t/apps.env" sh "$0" apply >/dev/null 2>&1
+  grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.43 -m comment --comment egress-restricted -j EGRESS_RESTRICTED" "$STUB_LOG" || r1=1
+  : >"$STUB_LOG"
+  EGRESS_POLICIES= EGRESS_ENV_FILE="$t/empty.env" sh "$0" apply >/dev/null 2>&1
+  grep -Fqx -- "-I DOCKER-USER 1 -s 10.89.1.42 -m comment --comment egress-restricted -j EGRESS_RESTRICTED" "$STUB_LOG" || r2=1
+  [ -z "$r1$r2" ] && echo "ok: policy file read from APPS_DATA, else the repository default" ||
+    { echo "FAIL: policy file resolution (r1=$r1 r2=$r2)"; cat "$STUB_LOG"; fail=1; }
 
   exit "$fail"
 }
