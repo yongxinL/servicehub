@@ -86,7 +86,7 @@ The workflow validates SSH and rsync availability and target inputs, but it does
 
 ## Backup Transfer Flow
 
-The `backup-data` workflow runs on the existing `devopsrunner`. It validates protected target and retention inputs, creates database and full-data archives on the target, applies same-host retention, copies archives to the Home Server over an Rclone SFTP remote, copies archives to Google Drive through an Rclone Crypt remote, compares each destination file with the source, and applies target retention.
+The `Backup` workflow runs on the existing `devopsrunner`. It validates protected target and retention inputs, creates database and full-data archives on the target, applies same-host retention, copies archives to the Home Server over an Rclone SFTP remote, copies archives to Google Drive through an Rclone Crypt remote, compares each destination file with the source, and applies target retention.
 
 The repository contains this configuration. Image build, target connectivity, successful transfers, integrity results, retention execution, and restores are `Not yet verified`.
 

@@ -1,4 +1,4 @@
-name: backup-data
+name: Backup
 
 on:
   schedule:
@@ -14,7 +14,7 @@ on:
           - stag
           - prod
       backup:
-        description: 'What to back up (auto: daily db dumps, Sunday full archive)'
+        description: 'auto: daily DB/config + Sunday full; db: DB/config; full: full/config'
         required: true
         default: 'auto'
         type: choice
@@ -23,12 +23,15 @@ on:
           - db
           - full
 
+# Static group: the ssh-deploy runner has capacity 1, so environment runs
+# serialise at the runner anyway and the expression support for inputs in
+# concurrency groups is not verified for our Forgejo version.
 concurrency:
-  group: backup-data
+  group: backup
   cancel-in-progress: false
 
 jobs:
-  backup-data:
+  backup:
     runs-on: ssh-deploy
     steps:
       - name: Create and replicate protected backups
@@ -99,10 +102,14 @@ jobs:
 
           [ -n "$SERVER_HOST" ] || fail "${PREFIX}_CONFIG.server_host is not set"
           [ -n "$SERVER_USER" ] || fail "${PREFIX}_CONFIG.server_user is not set"
+          [ -n "$SSH_KNOWN_HOST" ] || fail "${PREFIX}_CONFIG.server_ssh_known_hosts is not set"
           [ -n "$SERVER_PORT" ] || SERVER_PORT=22
           case "$SERVER_PORT" in
             *[!0-9]*) fail "${PREFIX}_CONFIG.server_port must be a port number" ;;
           esac
+          if [ "${#SERVER_PORT}" -gt 5 ] || [ "$SERVER_PORT" -lt 1 ] || [ "$SERVER_PORT" -gt 65535 ]; then
+            fail "${PREFIX}_CONFIG.server_port must be between 1 and 65535"
+          fi
           if [ -z "$SERVER_PASSWORD" ] && [ -z "$SERVER_KEY" ]; then
             fail "${PREFIX}_SERVER_PASS or ${PREFIX}_SERVER_KEY must be set"
           fi
@@ -137,30 +144,39 @@ jobs:
           fi
           echo "Enabled off-host targets: home=$ENABLE_HOME gdrive=$ENABLE_GDRIVE"
 
+          validate_rclone_age() {
+            local age_name=$1
+            local age_value=$2
+            case "$age_value" in
+              -*) fail "$age_name must not start with a dash" ;;
+              ''|*[!0-9smhdwMy.]*) fail "$age_name must be an Rclone duration such as 30d" ;;
+            esac
+          }
+
           case "$DB_RETENTION_DAYS" in
-            ''|*[!0-9]*) fail "${PREFIX}_DB_BACKUP_RETENTION_DAYS must be a number of days" ;;
+            ''|*[!0-9]*) fail "${PREFIX}_CONFIG.db_backup_retention_days must be a number of days" ;;
           esac
           case "$FULL_RETENTION_DAYS" in
-            ''|*[!0-9]*) fail "${PREFIX}_BACKUP_LOCAL_FULL_RETENTION_DAYS must be a number of days" ;;
+            ''|*[!0-9]*) fail "${PREFIX}_CONFIG.backup_local_full_retention_days must be a number of days" ;;
           esac
           case "$DEPLOY_PATH" in
             /*) ;;
-            *) fail "${PREFIX}_DEPLOY_PATH must be an absolute path" ;;
+            *) fail "${PREFIX}_CONFIG.deploy_path must be an absolute path" ;;
           esac
           case "$BACKUP_ROOT" in
             /*) ;;
-            *) fail "${PREFIX}_BACKUP_ROOT must be an absolute path" ;;
+            *) fail "${PREFIX}_CONFIG.backup_root must be an absolute path" ;;
           esac
           case "$DEPLOY_PATH" in
-            *[!A-Za-z0-9._/-]*) fail "${PREFIX}_DEPLOY_PATH contains unsupported characters" ;;
+            *[!A-Za-z0-9._/-]*) fail "${PREFIX}_CONFIG.deploy_path contains unsupported characters" ;;
           esac
           case "$BACKUP_ROOT" in
-            *[!A-Za-z0-9._/-]*) fail "${PREFIX}_BACKUP_ROOT contains unsupported characters" ;;
+            *[!A-Za-z0-9._/-]*) fail "${PREFIX}_CONFIG.backup_root contains unsupported characters" ;;
           esac
           if [ "$ENABLE_HOME" = 1 ]; then
             case "$HOME_SFTP" in
               *@?*) ;;
-              *) fail "${PREFIX}_BACKUP_HOME_SFTP must have the form user@host or user@host:port" ;;
+              *) fail "${PREFIX}_CONFIG.backup_home_sftp must have the form user@host or user@host:port" ;;
             esac
             HOME_SFTP_USER=${HOME_SFTP%%@*}
             HOME_SFTP_ADDR=${HOME_SFTP#*@}
@@ -169,37 +185,38 @@ jobs:
               *) HOME_SFTP_HOST=$HOME_SFTP_ADDR; HOME_SFTP_PORT=22 ;;
             esac
             if [ -z "$HOME_SFTP_USER" ] || [ -z "$HOME_SFTP_HOST" ]; then
-              fail "${PREFIX}_BACKUP_HOME_SFTP must have the form user@host or user@host:port"
+              fail "${PREFIX}_CONFIG.backup_home_sftp must have the form user@host or user@host:port"
             fi
             case "$HOME_SFTP_PORT" in
-              ''|*[!0-9]*) fail "${PREFIX}_BACKUP_HOME_SFTP port must be a number" ;;
+              ''|*[!0-9]*) fail "${PREFIX}_CONFIG.backup_home_sftp port must be a number" ;;
             esac
+            if [ "${#HOME_SFTP_PORT}" -gt 5 ] || [ "$HOME_SFTP_PORT" -lt 1 ] || [ "$HOME_SFTP_PORT" -gt 65535 ]; then
+              fail "${PREFIX}_CONFIG.backup_home_sftp port must be between 1 and 65535"
+            fi
             case "$HOME_DESTINATION" in
               /*) ;;
-              *) fail "${PREFIX}_BACKUP_HOME_DESTINATION must be an absolute path on the Home Server" ;;
+              *) fail "${PREFIX}_CONFIG.backup_home_destination must be an absolute path on the Home Server" ;;
             esac
             case "$HOME_DESTINATION$HOME_SFTP" in
-              *[!A-Za-z0-9._/@:-]*) fail "${PREFIX}_BACKUP_HOME settings contain unsupported characters" ;;
+              *[!A-Za-z0-9._/@:-]*) fail "${PREFIX}_CONFIG.backup_home settings contain unsupported characters" ;;
             esac
-            case "$HOME_DB_KEEP_AGE$HOME_FULL_KEEP_AGE" in
-              *-*) fail "Home Server retention ages must not start with a dash" ;;
-            esac
+            validate_rclone_age "${PREFIX}_CONFIG.backup_home_db_keep_age" "$HOME_DB_KEEP_AGE"
+            validate_rclone_age "${PREFIX}_CONFIG.backup_home_full_keep_age" "$HOME_FULL_KEEP_AGE"
           fi
           if [ "$ENABLE_GDRIVE" = 1 ]; then
             case "$RCLONE_DESTINATION" in
               *:*) ;;
-              *) fail "${PREFIX}_BACKUP_RCLONE_DESTINATION must include a configured remote" ;;
+              *) fail "${PREFIX}_CONFIG.backup_rclone_destination must include a configured remote" ;;
             esac
-            case "$RCLONE_DB_KEEP_AGE$RCLONE_FULL_KEEP_AGE" in
-              *-*) fail "Rclone retention ages must not start with a dash" ;;
-            esac
+            validate_rclone_age "${PREFIX}_CONFIG.backup_rclone_db_keep_age" "$RCLONE_DB_KEEP_AGE"
+            validate_rclone_age "${PREFIX}_CONFIG.backup_rclone_full_keep_age" "$RCLONE_FULL_KEEP_AGE"
           fi
 
           EXCLUDE_ARGS=
           if [ -n "$BACKUP_EXCLUDE" ]; then
             for entry in $(printf '%s' "$BACKUP_EXCLUDE" | tr ',' ' '); do
               case "$entry" in
-                *[!A-Za-z0-9._/*?-]*) fail "invalid character in ${PREFIX}_BACKUP_EXCLUDE entry '$entry'" ;;
+                *[!A-Za-z0-9._/*?-]*) fail "invalid character in ${PREFIX}_CONFIG.backup_exclude entry '$entry'" ;;
               esac
               entry=${entry#./}
               entry=${entry#/}
@@ -208,7 +225,9 @@ jobs:
             echo "Excluding from the archive: $BACKUP_EXCLUDE"
           fi
 
-          for command in ssh jq psql; do
+          # PostgreSQL runs inside the remote infrapgsql container, so the
+          # runner only needs the SSH client and jq.
+          for command in ssh jq; do
             command -v "$command" >/dev/null 2>&1 || fail "required command '$command' not found"
           done
           if [ "$ENABLE_HOME" = 1 ] || [ "$ENABLE_GDRIVE" = 1 ]; then
@@ -241,12 +260,7 @@ jobs:
           fi
           KNOWN_HOSTS_FILE=$(mktemp)
           chmod 600 "$KNOWN_HOSTS_FILE"
-          if [ -n "$SSH_KNOWN_HOST" ]; then
-            printf '%s\n' "$SSH_KNOWN_HOST" >> "$KNOWN_HOSTS_FILE"
-          else
-            echo "WARNING: ${PREFIX}_CONFIG.server_ssh_known_hosts not set; falling back to ssh-keyscan" >&2
-            ssh-keyscan -H -p "$SERVER_PORT" "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
-          fi
+          printf '%s\n' "$SSH_KNOWN_HOST" | tr -d '\r' > "$KNOWN_HOSTS_FILE"
           [ -s "$KNOWN_HOSTS_FILE" ] || fail "no SSH host keys for $SERVER_HOST (set ${PREFIX}_CONFIG.server_ssh_known_hosts)"
 
           ssh_exec() {
@@ -261,6 +275,14 @@ jobs:
 
           BACKUP_LOG=$(mktemp)
           ssh_exec "set -e
+          DB_STAGE=
+          CFG_STAGE=
+          remote_cleanup() {
+            [ -z \"\$DB_STAGE\" ] || rm -rf \"\$DB_STAGE\"
+            [ -z \"\$CFG_STAGE\" ] || rm -rf \"\$CFG_STAGE\"
+          }
+          trap remote_cleanup EXIT
+
           APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
           APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
           [ -n \"\$APPS_DATA\" ] || { echo 'Error: APPS_DATA is not set in the deployment environment' >&2; exit 1; }
@@ -288,7 +310,6 @@ jobs:
             [ -n \"\$DB_LIST\" ] || { echo 'Error: no non-template databases found' >&2; exit 1; }
 
             DB_STAGE=\$(mktemp -d)
-            trap 'rm -rf \"\$DB_STAGE\"' EXIT
 
             for db in \$DB_LIST; do
               case \"\$db\" in
@@ -328,7 +349,7 @@ jobs:
             # The transfer steps below read the archive as the SSH user, not root.
             sudo -n chown \"\$(id -u):\$(id -g)\" \"\$ARCHIVE\"
             rm -rf \"\$DB_STAGE\"
-            trap - EXIT
+            DB_STAGE=
             CREATED_ARCHIVES=\"\$CREATED_ARCHIVES \$ARCHIVE\"
             echo \"Database backup complete: \$(basename \"\$ARCHIVE\")\"
 
@@ -362,6 +383,7 @@ jobs:
           # The transfer steps below read the archive as the SSH user, not root.
           sudo -n chown \"\$(id -u):\$(id -g)\" \"\$ARCHIVE\"
           rm -rf \"\$CFG_STAGE\"
+          CFG_STAGE=
           CREATED_ARCHIVES=\"\$CREATED_ARCHIVES \$ARCHIVE\"
           echo \"Configuration backup complete: \$(basename \"\$ARCHIVE\")\"
           echo \"Pruning configuration backups older than $DB_RETENTION_DAYS days\"
@@ -401,7 +423,7 @@ jobs:
           for CREATED_ARCHIVE in \$CREATED_ARCHIVES; do
             printf 'BACKUP_ARTIFACT=%s\n' \"\$CREATED_ARCHIVE\"
           done
-          echo 'backup-data ($DEPLOY_TARGET) creation completed'" | tee "$BACKUP_LOG" | sed '/^BACKUP_ARTIFACT=/d'
+          echo 'backup ($DEPLOY_TARGET) creation completed'" | tee "$BACKUP_LOG" | sed '/^BACKUP_ARTIFACT=/d'
 
           ARTIFACTS=()
           while IFS= read -r line; do
@@ -418,11 +440,16 @@ jobs:
             esac
           done
 
+          # Reserved remote names: the supplied configuration may itself
+          # contain remotes named servicehub-*, so never reuse those.
+          RCLONE_SOURCE_REMOTE=_workflow_source
+          RCLONE_HOME_REMOTE=_workflow_home
+
           if [ "$ENABLE_HOME" = 1 ] || [ "$ENABLE_GDRIVE" = 1 ]; then
             RCLONE_CONFIG_FILE=$(mktemp)
             chmod 600 "$RCLONE_CONFIG_FILE"
             if [ -n "$RCLONE_CONFIG_VALUE" ]; then
-              printf '%s\n' "$RCLONE_CONFIG_VALUE" > "$RCLONE_CONFIG_FILE"
+              printf '%s\n' "$RCLONE_CONFIG_VALUE" | tr -d '\r' > "$RCLONE_CONFIG_FILE"
             fi
             RCLONE_SOURCE_AUTH=()
             if [ -n "$SERVER_KEY" ]; then
@@ -430,7 +457,7 @@ jobs:
             else
               RCLONE_SOURCE_AUTH=(pass "$SERVER_PASSWORD")
             fi
-            rclone --config "$RCLONE_CONFIG_FILE" config create servicehub-source sftp \
+            rclone --config "$RCLONE_CONFIG_FILE" config create "$RCLONE_SOURCE_REMOTE" sftp \
               host "$SERVER_HOST" \
               port "$SERVER_PORT" \
               user "$SERVER_USER" \
@@ -444,40 +471,42 @@ jobs:
             HOME_KNOWN_HOSTS_FILE=$(mktemp)
             chmod 600 "$HOME_KEY_FILE" "$HOME_KNOWN_HOSTS_FILE"
             printf '%s\n' "$HOME_SSH_KEY" | tr -d '\r' > "$HOME_KEY_FILE"
-            printf '%s\n' "$HOME_SSH_KNOWN_HOSTS" > "$HOME_KNOWN_HOSTS_FILE"
-            rclone --config "$RCLONE_CONFIG_FILE" config create servicehub-home sftp \
+            printf '%s\n' "$HOME_SSH_KNOWN_HOSTS" | tr -d '\r' > "$HOME_KNOWN_HOSTS_FILE"
+            rclone --config "$RCLONE_CONFIG_FILE" config create "$RCLONE_HOME_REMOTE" sftp \
               host "$HOME_SFTP_HOST" \
               port "$HOME_SFTP_PORT" \
               user "$HOME_SFTP_USER" \
               key_file "$HOME_KEY_FILE" \
               known_hosts_file "$HOME_KNOWN_HOSTS_FILE" \
               --obscure
+            echo "Testing Home Server Rclone access"
+            rclone --config "$RCLONE_CONFIG_FILE" mkdir "${RCLONE_HOME_REMOTE}:$HOME_DESTINATION"
+            rclone --config "$RCLONE_CONFIG_FILE" lsd "${RCLONE_HOME_REMOTE}:$HOME_DESTINATION" >/dev/null
           fi
 
           if [ "$ENABLE_GDRIVE" = 1 ]; then
             RCLONE_DEST_REMOTE=${RCLONE_DESTINATION%%:*}
-            RCLONE_REMOTE_FOUND=0
-            while IFS= read -r remote; do
-              if [ "$remote" = "${RCLONE_DEST_REMOTE}:" ]; then
-                RCLONE_REMOTE_FOUND=1
-                break
-              fi
-            done < <(rclone --config "$RCLONE_CONFIG_FILE" listremotes)
-            [ "$RCLONE_REMOTE_FOUND" = 1 ] || fail "the configured Rclone destination remote is not present"
+            RCLONE_REMOTE_TYPE=$(
+              rclone --config "$RCLONE_CONFIG_FILE" config dump |
+                jq -r --arg remote "$RCLONE_DEST_REMOTE" '(.remotes // .)[$remote].type // empty'
+            )
+            [ -n "$RCLONE_REMOTE_TYPE" ] || fail "the configured Rclone destination remote '$RCLONE_DEST_REMOTE' is not present"
+            [ "$RCLONE_REMOTE_TYPE" = "crypt" ] || fail "${PREFIX}_CONFIG.backup_rclone_destination must use an Rclone Crypt remote (remote '$RCLONE_DEST_REMOTE' has type '$RCLONE_REMOTE_TYPE')"
           fi
 
           # Copy semantics only: new archives are added and verified, source
           # deletions never propagate, and retention is applied explicitly on
           # each destination after every transfer.
           replicate_to() {
-            replicate_base=$1
-            replicate_db_keep_age=$2
-            replicate_full_keep_age=$3
+            local replicate_base=$1
+            local replicate_db_keep_age=$2
+            local replicate_full_keep_age=$3
+            local artifact relative_artifact destination
             for artifact in "${ARTIFACTS[@]}"; do
               relative_artifact="${artifact#"$BACKUP_ROOT"/}"
               destination="${replicate_base%/}/$relative_artifact"
-              rclone --config "$RCLONE_CONFIG_FILE" copyto "servicehub-source:$artifact" "$destination" --retries 3 --low-level-retries 3
-              rclone --config "$RCLONE_CONFIG_FILE" check "servicehub-source:$artifact" "$destination" --download
+              rclone --config "$RCLONE_CONFIG_FILE" copyto "${RCLONE_SOURCE_REMOTE}:$artifact" "$destination" --retries 3 --low-level-retries 3
+              rclone --config "$RCLONE_CONFIG_FILE" check "${RCLONE_SOURCE_REMOTE}:$artifact" "$destination" --download --one-way
             done
 
             rclone --config "$RCLONE_CONFIG_FILE" delete "$replicate_base" \
@@ -498,7 +527,7 @@ jobs:
 
           if [ "$ENABLE_HOME" = 1 ]; then
             echo "Transferring protected backups to the Home Server"
-            replicate_to "servicehub-home:$HOME_DESTINATION" "$HOME_DB_KEEP_AGE" "$HOME_FULL_KEEP_AGE"
+            replicate_to "${RCLONE_HOME_REMOTE}:$HOME_DESTINATION" "$HOME_DB_KEEP_AGE" "$HOME_FULL_KEEP_AGE"
           fi
 
           if [ "$ENABLE_GDRIVE" = 1 ]; then
@@ -506,7 +535,7 @@ jobs:
             replicate_to "$RCLONE_DESTINATION" "$RCLONE_DB_KEEP_AGE" "$RCLONE_FULL_KEEP_AGE"
           fi
 
-          echo "backup-data ($DEPLOY_TARGET) completed for ${#ARTIFACTS[@]} artifact(s)"
+          echo "backup ($DEPLOY_TARGET) completed for ${#ARTIFACTS[@]} artifact(s)"
         env:
           DEPLOY_TARGET: ${{ inputs.environment }}
           BACKUP_MODE: ${{ inputs.backup }}
