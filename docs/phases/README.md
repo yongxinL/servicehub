@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: PHASE-INDEX
 document_id: PHASE-INDEX
 title: ServiceHub Phase Register
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Planning
 owner: George Li

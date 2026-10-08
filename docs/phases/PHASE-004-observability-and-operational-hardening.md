@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: PHASE
 document_id: PHASE-004
 title: Observability and Operational Hardening
-version: "1.2"
+version: "1.1"
 status: Draft
 lifecycle_stage: Planning
 owner: George Li

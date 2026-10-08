@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: RUNBOOK
 title: ServiceHub Runbook
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li

@@ -52,7 +52,7 @@ Container settings applied by the compose file:
 
 ## Forgejo Actions runner
 
-All Forgejo Actions workflows are executed by `devopsrunner`, built from [`shared/forgejo/actions/Dockerfile`](actions/Dockerfile). The existing image also contains the PostgreSQL client, Restic, and Rclone required by the backup workflow.
+All Forgejo Actions workflows are executed by `devopsrunner`, built from [`shared/forgejo/actions/Dockerfile`](actions/Dockerfile). The existing image also contains the PostgreSQL client and Rclone required by the backup workflow.
 
 | Detail | Value |
 |---|---|
@@ -61,7 +61,7 @@ All Forgejo Actions workflows are executed by `devopsrunner`, built from [`share
 | Runner config | [`actions/config.yml`](actions/config.yml) (read-only at `/etc/forgejo-runner/config.yml`) |
 | Registration data | `${APPS_DATA}/devops/forgejo/runner` |
 | Registration | Runner writes `.runner` on first boot from `SOURCECODE_RUNNER_SECRET`; the same secret must be registered on the Forgejo side (see [Setup](#setup-first-boot)) |
-| Labels | `ssh-deploy:host` — deployment, backup, and test workflows declare `runs-on: ssh-deploy` |
+| Labels | `ssh-deploy:host` — deployment and backup workflows declare `runs-on: ssh-deploy` |
 | Image tag | `SOURCECODE_RUNNER_TAG` (default `13`) |
 | Health check | `pidof forgejo-runner` + `.runner` non-empty every 30 s (30 s startup delay) |
 | Depends on | `devopsforgejoinit` (completed), `devopsforgejo` (healthy) |
@@ -88,7 +88,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 ## Backup Workflow Runtime
 
-The [`backup-data`](../../.forgejo/workflows/71-backup.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `restic`, `rclone`, `rsync`, `postgresql-client`, `bash`, `jq`, `git-crypt`, OpenSSH, and `sshpass`, so database dumps, archive transfers, integrity checks, and retention share the same host-mode runner as deployment workflows.
+The [`backup-data`](../../.forgejo/workflows/71-backup.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `rclone`, `rsync`, `postgresql-client`, `bash`, `jq`, `git-crypt`, OpenSSH, and `sshpass`, so database dumps, archive transfers, integrity checks, and retention share the same host-mode runner as deployment workflows.
 
 Because the runner has capacity one, long backup and deployment jobs queue behind each other. Retention and target paths are non-sensitive and live in the `STAG_CONFIG` / `PROD_CONFIG` repository **variables**; credentials and encoded key material live in the `GIT_CRYPT_KEY`, `STAG_*`, `PROD_*`, and `BACKUP_*` repository **secrets**. Both are documented by name in [backup and restore](../../docs/operations/BACKUP-RESTORE.md) and the [root README](../../README.md#required-actions-secrets-and-variables).
 

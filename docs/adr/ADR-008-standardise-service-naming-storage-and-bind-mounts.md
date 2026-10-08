@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-008
 title: Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables
-version: "1.4"
+version: "1.1"
 status: Accepted
 decision_basis: Owner discussion recorded on 2026-10-04, including the environment variable and database naming standard; owner-directed implementation on branch service-renaming on 2026-10-05; runtime validation pending
 lifecycle_stage: Design

@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: HOME
 document_id: HOME-001
 title: ServiceHub Project Documentation
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Continuous Improvement
 owner: George Li

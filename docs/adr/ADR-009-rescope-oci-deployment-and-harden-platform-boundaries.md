@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-009
 title: Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries
-version: "1.8"
+version: "1.1"
 status: Proposed
 decision_basis: Owner discussion recorded on 2026-10-05 covering AI platform placement, Open WebUI domain ownership, observability strategy, OCI service scope, Confluence egress, and administrative endpoint access; compose and documentation changes implemented on `adr-009`, operational follow-ups pending; log collection and APM integration split out to ADR-010; egress enforced by a host firewall rule in the Docker `DOCKER-USER` chain, driven by a per-service policy file plus a global block of Atlassian CIDRs
 lifecycle_stage: Design

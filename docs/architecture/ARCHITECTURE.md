@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: ARCHITECTURE
 title: ServiceHub Architecture
-version: "1.5"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li

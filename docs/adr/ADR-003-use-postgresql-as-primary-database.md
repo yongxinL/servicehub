@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-003
 title: Use PostgreSQL as the Primary Relational Platform
-version: "1.2"
+version: "1.1"
 status: Accepted
 decision_basis: Inferred from current implementation
 lifecycle_stage: Design

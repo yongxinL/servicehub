@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: DEPLOYMENT-ARCHITECTURE
 title: ServiceHub Deployment Architecture
-version: "1.7"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li

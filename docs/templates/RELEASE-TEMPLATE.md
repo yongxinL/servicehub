@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: TEMPLATE
 document_id: TEMPLATE-RELEASE-001
 title: Release Notes Template
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Release
 owner: George Li

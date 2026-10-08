@@ -22,7 +22,6 @@ RUN apk add --no-cache \
     npm \
     openssh-client \
     postgresql-client \
-    restic \
     rclone \
     rsync \
     sshpass

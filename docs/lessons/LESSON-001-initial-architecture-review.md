@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: LESSON
 document_id: LESSON-001
 title: Initial Architecture Review
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Continuous Improvement
 owner: George Li

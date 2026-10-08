@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: TEMPLATE
 document_id: TEMPLATE-PHASE-001
 title: Development Phase Template
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Planning
 owner: George Li

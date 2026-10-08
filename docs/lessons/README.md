@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: LESSON-INDEX
 document_id: LESSON-INDEX
 title: ServiceHub Lessons Register
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Continuous Improvement
 owner: George Li

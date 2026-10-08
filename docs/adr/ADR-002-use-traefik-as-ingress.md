@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-002
 title: Use Traefik as the Single HTTP Ingress
-version: "1.0"
+version: "1.1"
 status: Accepted
 decision_basis: Inferred from current implementation
 lifecycle_stage: Design

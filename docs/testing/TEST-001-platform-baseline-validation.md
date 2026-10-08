@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: TEST
 document_id: TEST-001
 title: Platform Baseline Validation
-version: "1.2"
+version: "1.1"
 status: Not Executed
 lifecycle_stage: Testing
 owner: George Li

@@ -134,7 +134,7 @@ jobs:
           SERVER_USER=$(cfg server_user)
           SERVER_PORT=$(cfg server_port)
           DEPLOY_PATH=$(cfg deploy_path)
-          SSH_KNOWN_HOST=$(cfg sshkwn_keys)
+          SSH_KNOWN_HOST=$(cfg server_ssh_known_hosts)
 
           [ -n "$SERVER_HOST" ] || { echo "Error: ${PREFIX}_CONFIG.server_host is not set" >&2; exit 1; }
           [ -n "$SERVER_USER" ] || { echo "Error: ${PREFIX}_CONFIG.server_user is not set" >&2; exit 1; }
@@ -175,10 +175,10 @@ jobs:
           if [ -n "$SSH_KNOWN_HOST" ]; then
             printf '%s\n' "$SSH_KNOWN_HOST" >> "$KNOWN_HOSTS_FILE"
           else
-            echo "WARNING: ${PREFIX}_CONFIG.sshkwn_keys not set; falling back to ssh-keyscan" >&2
+            echo "WARNING: ${PREFIX}_CONFIG.server_ssh_known_hosts not set; falling back to ssh-keyscan" >&2
             ssh-keyscan -H -p "$SERVER_PORT" "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
           fi
-          [ -s "$KNOWN_HOSTS_FILE" ] || { echo "Error: no SSH host keys for $SERVER_HOST (set ${PREFIX}_CONFIG.sshkwn_keys)" >&2; exit 1; }
+          [ -s "$KNOWN_HOSTS_FILE" ] || { echo "Error: no SSH host keys for $SERVER_HOST (set ${PREFIX}_CONFIG.server_ssh_known_hosts)" >&2; exit 1; }
           chmod 600 "$KNOWN_HOSTS_FILE"
 
           ssh_exec() {

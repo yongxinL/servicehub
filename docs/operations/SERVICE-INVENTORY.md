@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: SERVICE-INVENTORY
 title: ServiceHub Service Inventory
-version: "1.2"
+version: "1.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li

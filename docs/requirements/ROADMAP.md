@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ROADMAP
 document_id: ROADMAP-001
 title: ServiceHub Roadmap
-version: "1.2"
+version: "1.1"
 status: Draft
 lifecycle_stage: Planning
 owner: George Li

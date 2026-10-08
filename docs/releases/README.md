@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: RELEASE-INDEX
 document_id: RELEASE-INDEX
 title: ServiceHub Release Register
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Release
 owner: George Li

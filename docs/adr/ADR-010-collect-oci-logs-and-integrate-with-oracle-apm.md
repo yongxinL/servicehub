@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-010
 title: Collect OCI Logs and Integrate Service Telemetry with Oracle APM
-version: "1.0"
+version: "1.1"
 status: Proposed
 decision_basis: Split from ADR-009 on 2026-10-05 after a review found that ADR-009 required Oracle APM, Monitoring, Logging, and Tracing but no collector, credential, or configuration for them exists in the repository; the collection and integration design is recorded here for owner approval before implementation
 lifecycle_stage: Design

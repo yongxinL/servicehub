@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-006
 title: Adopt oCIS with Local Filesystem Storage
-version: "1.2"
+version: "1.1"
 status: Accepted
 decision_basis: Owner decision recorded on 2026-10-03; repository configuration added on 2026-10-03; runtime validation pending
 lifecycle_stage: Design

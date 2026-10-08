@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: BACKUP-RESTORE
 title: ServiceHub Backup and Restore
-version: "1.7"
+version: "1.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
@@ -41,7 +41,7 @@ The source server is the host running the ServiceHub services together with Forg
 | PostgreSQL database | Daily at 02:30 in scheduled mode; manual `db` or `auto` | One `pg_dump` per non-template database plus `pg_dumpall --globals-only` packed into one daily archive | Transaction-consistent logical dump | Implemented; execution evidence not available |
 | Full `APPS_DATA` | Sundays in `auto`; manual `full` or `auto` | Entire configured persistent-data tree with optional exclusions | Crash-consistent for live database directories | Implemented; execution evidence not available |
 | Host configuration | Every run of the backup workflow | `.env` from the deploy path (never in the full archive) and `egress-policies.conf` from `${APPS_DATA}/shared/gateway` (also in the weekly full archive) — both edited on the server at runtime | Not applicable (plain files) | Implemented; execution evidence not available |
-| Off-host copy | Same backup workflow | Rclone Home Server copy and Rclone Google Drive copy behind a Crypt remote, each enabled independently by its own key | Target-side integrity checks configured | Repository configuration added; execution evidence unavailable |
+| Off-host copy | Same backup workflow | Rclone Home Server copy and Rclone Google Drive copy behind a Crypt remote, each enabled independently by its own key | `rclone check --download` after every transfer | Workflow refactored 2026-10-08; execution evidence unavailable |
 | Encrypted backup archive | Every run of the Google Drive copy | Client-side encryption through an Rclone Crypt remote; credentials governed separately | Not applicable (plain files before encryption) | Accepted in ADR-007; credential governance TBD |
 | Host recovery image | None evident | Not applicable | Not applicable | Optional; not selected |
 | Restore workflow | No automated workflow | Recovery from either accepted target | Not applicable | Procedure documented; execution not implemented or tested |
@@ -50,11 +50,11 @@ Database, full-archive, and configuration-archive same-host retention values (`d
 
 ## Target Backup Strategy
 
-**Accepted on 2026-10-03; repository configuration added, not runtime-validated. Target selection made optional on 2026-10-07. Replication revised to Rclone for both targets on 2026-10-08; refactor pending.**
+**Accepted on 2026-10-03; repository configuration added, not runtime-validated. Target selection made optional on 2026-10-07. Replication revised to Rclone for both targets and the workflow refactored on 2026-10-08; transfers not runtime-validated.**
 
 | Target | Purpose | Technology | Enabled by | Status |
 |---|---|---|---|---|
-| Home Server | Primary recovery target | Rclone SFTP remote; plain `.tar.gz` archives under `YYYY/YYYYMM` | Home Server destination key in `<PREFIX>_CONFIG` (name finalised in refactor) | Pending refactor; transfer not runtime-validated |
+| Home Server | Primary recovery target | Rclone SFTP remote; plain `.tar.gz` archives under `YYYY/YYYYMM` | `backup_home_destination` in `<PREFIX>_CONFIG` | Workflow refactored 2026-10-08; transfer not runtime-validated |
 | Google Drive | Independent off-site copy | Rclone behind a Crypt remote (client-side encryption) | `backup_rclone_destination` in `<PREFIX>_CONFIG` | Configuration added; Crypt remote and transfer not runtime-validated |
 
 Both targets read from the source server: the workflow copies each archive out of `backup_root` to each destination with Rclone. Neither target depends on the other, so either can be disabled without changing the data path of the remaining one.
@@ -63,16 +63,16 @@ A target is enabled when its key is non-empty. An absent or empty key disables t
 
 | Disabled target | Keys ignored | Secrets ignored |
 |---|---|---|
-| Home Server (Target 1) | Home Server destination key (name finalised in refactor) | `BACKUP_HOME_SSH_KEY`, `BACKUP_HOME_SSH_KNOWN_HOSTS` |
+| Home Server (Target 1) | `backup_home_sftp`, `backup_home_destination`, `backup_home_db_keep_age`, `backup_home_full_keep_age` | `BACKUP_HOME_SSH_KEY`, `BACKUP_HOME_SSH_KNOWN_HOSTS` |
 | Google Drive (Target 2) | `backup_rclone_destination`, `backup_rclone_db_keep_age`, `backup_rclone_full_keep_age` | `BACKUP_RCLONE_CONFIG` |
 
 Disabling one target reduces the environment to a single off-host copy, which is the condition ADR-007 rejected as a design. Treat a single-target environment as an accepted reduction in protection and record which targets each environment is expected to enable.
 
 ### Home Server connection
 
-The Target 1 Rclone SFTP remote carries the host, port, and path in its remote definition. A non-standard SSH port is supported without a code change by setting the port on the remote; an SSH configuration alias carrying `Port` remains an alternative. The target can be any SFTP server reachable from the runner, including one on a local network, and archives are stored as created under the `YYYY/YYYYMM` hierarchy.
+The Target 1 endpoint comes from `backup_home_sftp` (`user@host` or `user@host:port`; the port defaults to 22), and the destination path from the absolute `backup_home_destination`. The workflow creates the `servicehub-home` Rclone SFTP remote from these keys and the `BACKUP_HOME_SSH_KEY` / `BACKUP_HOME_SSH_KNOWN_HOSTS` secrets at runtime, so a non-standard port needs no code change. The target can be any SFTP server reachable from the runner, including one on a local network, and archives are stored as created under the `YYYY/YYYYMM` hierarchy.
 
-Authentication uses the SSH private key in `BACKUP_HOME_SSH_KEY`, with strict host verification enforced by `BACKUP_HOME_SSH_KNOWN_HOSTS`. Both secrets are required whenever Target 1 is enabled. There is no repository password: the Home Server is treated as trusted storage and holds readable archives.
+Authentication uses the SSH private key in `BACKUP_HOME_SSH_KEY`, with strict host verification enforced by `BACKUP_HOME_SSH_KNOWN_HOSTS`. Both secrets are required whenever Target 1 is enabled. There is no repository password: the Home Server is treated as trusted storage and holds readable archives. The exact `ssh-keyscan -p <port> -H <host>` procedure for producing the host-key value, and how to paste it into each secret or variable, is documented under [SSH host keys](../../README.md#ssh-host-keys-server_ssh_known_hosts-and-backup_home_ssh_known_hosts) in the repository README.
 
 Forgejo Actions uses the existing `devopsrunner` image, extended with `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq`, to orchestrate database dumps, persistent-data archives, retention, transfers, and integrity checks. The runner configuration is documented in [`shared/forgejo/README.md`](../../shared/forgejo/README.md). Because deployment and backup jobs share one capacity-one runner, they queue behind one another.
 
@@ -82,7 +82,7 @@ The target scope includes Compose and service configuration, PostgreSQL role and
 
 For each archive created in the run, and for each target that is enabled in `<PREFIX>_CONFIG`, the workflow:
 
-1. Copies the file to the Home Server through the configured Rclone SFTP remote. *(Target 1 only)*
+1. Copies the file to the Home Server through the `servicehub-home` Rclone SFTP remote. *(Target 1 only)*
 2. Compares the destination copy with the source using Rclone download mode. *(Target 1 only)*
 3. Applies the approved Home Server retention policy. *(Target 1 only)*
 4. Copies the file through the configured Rclone destination to Google Drive. *(Target 2 only)*
@@ -91,7 +91,9 @@ For each archive created in the run, and for each target that is enabled in `<PR
 
 Replication uses copy semantics, never sync: source deletions must not propagate to backup destinations, and retention is applied explicitly on each destination. Both copies are read from the source server; the Rclone source remote is an SFTP connection back to `server_host`, so no step fetches data from the Home Server.
 
-The workflow logs the enabled off-host targets before any transfer, and skips every step, tool check, and secret check belonging to a disabled target.
+Per-destination retention ages are `backup_home_db_keep_age` and `backup_home_full_keep_age` for the Home Server and `backup_rclone_db_keep_age` and `backup_rclone_full_keep_age` for Google Drive; `*-cfgBK-*` archives share the database keep age on each destination, and the Home Server and Google Drive may use different periods.
+
+The workflow logs `Enabled off-host targets: home=<0|1> gdrive=<0|1>` before any transfer, and skips every step, tool check, and secret check belonging to a disabled target.
 
 The workflow fails on a missing required secret or command for an enabled target, a missing key for an enabled target, both targets disabled, a failed dump or archive, a failed transfer, a failed integrity check, or a failed retention operation. Configuration presence does not record a successful transfer.
 

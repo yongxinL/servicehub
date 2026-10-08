@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: INVESTIGATION-INDEX
 document_id: INVESTIGATION-INDEX
 title: ServiceHub Investigation Register
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Discovery
 owner: George Li

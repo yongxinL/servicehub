@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: LESSON
 document_id: LESSON-002
 title: Stalwart Host Allowlist Can Block Bulwark Login
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Continuous Improvement
 owner: George Li

@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: ARCHITECTURE-INDEX
 title: ServiceHub Architecture Index
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Design
 owner: George Li

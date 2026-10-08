@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: TEMPLATE
 document_id: TEMPLATE-TEST-001
 title: Test Report Template
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Testing
 owner: George Li

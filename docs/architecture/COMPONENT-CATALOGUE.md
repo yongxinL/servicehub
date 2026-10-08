@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: COMPONENT-CATALOGUE
 title: ServiceHub Component Catalogue
-version: "1.3"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li

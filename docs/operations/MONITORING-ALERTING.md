@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: MONITORING-ALERTING
 title: ServiceHub Monitoring and Alerting
-version: "1.2"
+version: "1.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li

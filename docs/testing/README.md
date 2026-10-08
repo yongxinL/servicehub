@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: TEST-INDEX
 document_id: TEST-INDEX
 title: ServiceHub Test Register
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Testing
 owner: George Li

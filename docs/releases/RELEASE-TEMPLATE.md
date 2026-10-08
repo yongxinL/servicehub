@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: RELEASE
 document_id: RELEASE-TEMPLATE
 title: Release Template
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Release
 owner: George Li

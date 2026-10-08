@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: TEMPLATE
 document_id: TEMPLATE-RFC-001
 title: Request for Comments Template
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li

@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: RFC
 document_id: RFC-001
 title: ServiceHub Reliability and Recovery Baseline
-version: "1.2"
+version: "1.1"
 status: Accepted
 lifecycle_stage: Design
 owner: George Li

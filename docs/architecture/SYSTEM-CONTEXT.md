@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: SYSTEM-CONTEXT
 title: ServiceHub System Context
-version: "1.2"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
