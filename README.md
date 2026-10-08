@@ -92,8 +92,8 @@ graph TD
         VL -.->|receives| Alloy
     end
 
-    Runner -->|executes| WPDeploy[deploy workflow\n.forgejo/workflows/00-prod-deploy-services.yml]
-    Runner -->|executes| BackupFlow[backup workflow\n.forgejo/workflows/30-prod-backup-services.yml]
+    Runner -->|executes| WPDeploy[deploy workflow\n.forgejo/workflows/61-deploy.yml]
+    Runner -->|executes| BackupFlow[backup workflow\n.forgejo/workflows/71-backup.yml]
     WPDeploy -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
     BackupFlow -->|SSH create + transfer| Home[Home Server\nRestic]
     BackupFlow -->|Rclone| Drive[Google Drive]
@@ -111,9 +111,8 @@ graph TD
 servicehub/
 ├── .forgejo/
 │   └── workflows/
-│       ├── 00-prod-deploy-services.yml   # Forgejo Actions deployment workflow (self-contained)
-│       ├── 30-prod-backup-services.yml   # Dual-target backup creation, transfer, integrity, and retention workflow
-│       └── 50-test-remote-access.yml     # Forgejo Actions SSH/Docker prerequisite test workflow
+│       ├── 61-deploy.yml                 # Forgejo Actions deployment workflow (self-contained)
+│       └── 71-backup.yml                 # Dual-target backup creation, transfer, integrity, and retention workflow
 ├── compose/                    # Per-domain Docker Compose files
 │   ├── route.yml               # Traefik (routetraefik)
 │   ├── infra.yml               # MariaDB + PostgreSQL
@@ -539,7 +538,7 @@ git-crypt unlock ./servicehub.key
 
 ## Deployment (Forgejo Actions)
 
-The Forgejo Actions workflow at [.forgejo/workflows/00-prod-deploy-services.yml](.forgejo/workflows/00-prod-deploy-services.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs, secrets and variables are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`devopsrunner`). A companion workflow (`.forgejo/workflows/50-test-remote-access.yml`) verifies SSH, Docker and sudo access to the target without deploying anything.
+The Forgejo Actions workflow at [.forgejo/workflows/61-deploy.yml](.forgejo/workflows/61-deploy.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs, secrets and variables are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`devopsrunner`).
 
 | Trigger | Behaviour |
 |---|---|
@@ -706,7 +705,7 @@ A relative path (relative to the remote user's home) uses a single slash: `sftp:
 
 ### Data Backups (Forgejo Actions)
 
-The `30-prod-backup-services.yml` workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, creates archives under the `backup_root` key of `${PREFIX}_CONFIG` **on the source server** (the host running the services, Forgejo, and the Actions runner — a homelab server or an Oracle Cloud VM instance), then copies each archive to the off-host targets that are enabled in the same JSON. Repository configuration exists; successful transfers and restores are not yet evidenced.
+The `71-backup.yml` workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, creates archives under the `backup_root` key of `${PREFIX}_CONFIG` **on the source server** (the host running the services, Forgejo, and the Actions runner — a homelab server or an Oracle Cloud VM instance), then copies each archive to the off-host targets that are enabled in the same JSON. Repository configuration exists; successful transfers and restores are not yet evidenced.
 
 **Off-host targets.** Two independent copies are configured, both read from the source server — neither depends on the other:
 

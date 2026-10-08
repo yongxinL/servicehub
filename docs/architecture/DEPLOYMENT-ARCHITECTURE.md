@@ -34,7 +34,7 @@ related_documents:
 | Local infrastructure | `aiserv` (Hermes, LiteLLM, llama.cpp, Open WebUI) | Local infrastructure; entrypoint for local deployment is an open follow-up |
 | Retained, not deployed | `obsvce` (VictoriaMetrics, VictoriaLogs, Grafana Alloy, Grafana) | Not deployed to any environment; OCI workloads use Oracle Cloud native monitoring per [ADR-010](../adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md), which is not yet configured |
 
-The root [docker-compose.yml](../../docker-compose.yml) include set and the `00-prod-deploy-services.yml` workflow options both reflect this scope. The AI platform compose definition stays in source control so it can be started locally with `docker compose up -d`.
+The root [docker-compose.yml](../../docker-compose.yml) include set and the `61-deploy.yml` workflow options both reflect this scope. The AI platform compose definition stays in source control so it can be started locally with `docker compose up -d`.
 
 
 ## Local Development or Administration Flow

@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: TROUBLESHOOTING
 title: ServiceHub Troubleshooting
-version: "1.0.1"
+version: "1.0.2"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-06
+updated: 2026-10-08
 tags:
   - servicehub
   - operations
@@ -143,9 +143,9 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Likely causes:** Runner unhealthy or unregistered, label mismatch, missing repository or target secrets, unknown-host mismatch, network access failure, insufficient remote permissions, or Compose error.
 
-**Evidence to collect:** Runner health and logs, Forgejo runner registration state, workflow log stage, secret names that are missing with values omitted, remote prerequisite test result, and Compose validation output.
+**Evidence to collect:** Runner health and logs, Forgejo runner registration state, workflow log stage, secret names that are missing with values omitted, and Compose validation output.
 
-**Diagnostic steps:** Confirm `devopsrunner` health and `.runner`, confirm `ssh-deploy` label, run the repository remote-access workflow, then isolate checkout, SSH, environment restore, and Compose stages.
+**Diagnostic steps:** Confirm `devopsrunner` health and `.runner`, confirm `ssh-deploy` label, then isolate checkout, SSH, environment restore, and Compose stages.
 
 **Resolution:** Correct the failing configuration or secret, re-register the runner only under the documented procedure, and rerun a low-impact staging deployment.
 

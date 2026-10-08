@@ -285,7 +285,7 @@ The dual-target design addresses host-loss and cloud-outage scenarios while pres
 
 The current repository contains:
 
-- [Daily and weekly backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml)
+- [Daily and weekly backup workflow](../../.forgejo/workflows/71-backup.yml)
 - [Shared Forgejo runner image and configuration](../../shared/forgejo/README.md)
 - [Backup and restore operations record](../operations/BACKUP-RESTORE.md)
 - [RFC-001 Reliability and Recovery Baseline](../rfc/RFC-001-reliability-and-recovery-baseline.md)

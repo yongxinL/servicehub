@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: SERVICE-INVENTORY
 title: ServiceHub Service Inventory
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-08
 tags:
   - servicehub
   - operations
@@ -33,7 +33,7 @@ Per [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundari
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `routetraefik` | Ingress | `compose/route.yml` | `build shared/traefik/` | None | 80, 443 | `${TRAEFIK_DOMAIN}` | Basic auth and IP allowlist on dashboard | None | ACME store, advanced config, Docker socket | Traefik ping | Metrics and JSON access logs | Certificates required | Requires owner review | [Compose](../../compose/route.yml), [README](../../shared/traefik/README.md) |
 | `inframariadb` | Database | `compose/infra.yml` | `build shared/mariadb/` | None | 3306 internal | None | Database credentials | MariaDB | `infra/mariadb` | MariaDB health | Logs only confirmed | Required if optional WordPress is used | Requires owner review | [Compose](../../compose/infra.yml) |
-| `infrapgsql` | Database | `compose/infra.yml` | `build shared/postgresql/` | None | 5432 internal | None | Database credentials | PostgreSQL | `infra/postgresql` | `pg_isready` | Logs and dependent-service signals | Required; daily dumps implemented | Requires owner review | [Compose](../../compose/infra.yml), [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml) |
+| `infrapgsql` | Database | `compose/infra.yml` | `build shared/postgresql/` | None | 5432 internal | None | Database credentials | PostgreSQL | `infra/postgresql` | `pg_isready` | Logs and dependent-service signals | Required; daily dumps implemented | Requires owner review | [Compose](../../compose/infra.yml), [backup workflow](../../.forgejo/workflows/71-backup.yml) |
 | `infraauthinit` | Identity init | `compose/infra.yml` | `busybox:latest` | None | None | None | Not applicable | None | Authentik media/templates | One-shot | Container logs | Included with Authentik data | Requires owner review | [Compose](../../compose/infra.yml) |
 | `infraauthwrk` | Identity | `compose/infra.yml` | `build shared/authentik/` | Initialiser complete; PostgreSQL healthy | None | None | Authentik application login | PostgreSQL | Authentik media/templates, Docker socket | None declared | Logs; outpost metrics TBD | Database plus files required | Requires owner review | [Compose](../../compose/infra.yml) |
 | `infraauth` | Identity | `compose/infra.yml` | `build shared/authentik/` | Traefik healthy; worker started | 9000 internal | `${IDENTITY_DOMAIN}` | Authentik application login | PostgreSQL | Authentik media/templates | None declared | Route and logs | Database plus files required | Requires owner review | [Compose](../../compose/infra.yml) |

@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-001
 title: Use Docker Compose for Orchestration
-version: "1.0"
+version: "1.1"
 status: Accepted
 decision_basis: Inferred from current implementation
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-08
 tags:
   - servicehub
   - architecture
@@ -76,7 +76,7 @@ Compose matches the repository's current single-host deployment model, keeps top
 
 - [docker-compose.yml](../../docker-compose.yml)
 - [compose/](../../compose/)
-- [deployment workflow](../../.forgejo/workflows/00-prod-deploy-services.yml)
+- [deployment workflow](../../.forgejo/workflows/61-deploy.yml)
 - Root README prerequisites requiring Compose 2.20+
 
 ## Related Documents

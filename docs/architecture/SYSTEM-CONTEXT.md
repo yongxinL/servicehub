@@ -30,7 +30,7 @@ related_documents:
 - Administrators configure environment variables, services, TLS, identity, storage, workflows, backups, and monitoring.
 - Developers and reviewers change Compose and shared configuration.
 - End users access web, identity, source control, cloud-drive, AI, email, and dashboard services.
-- Forgejo Actions operators trigger deployment, backup, and remote-access workflows.
+- Forgejo Actions operators trigger deployment and backup workflows.
 - Coding agents retrieve documentation and inspect implementation evidence.
 
 Named user organisations, teams, and support contacts are `TBD`.

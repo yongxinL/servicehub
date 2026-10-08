@@ -88,7 +88,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 ## Backup Workflow Runtime
 
-The [`backup-data`](../../.forgejo/workflows/30-prod-backup-services.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `restic`, `rclone`, `rsync`, `postgresql-client`, `bash`, `jq`, `git-crypt`, OpenSSH, and `sshpass`, so database dumps, archive transfers, integrity checks, and retention share the same host-mode runner as deployment workflows.
+The [`backup-data`](../../.forgejo/workflows/71-backup.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `restic`, `rclone`, `rsync`, `postgresql-client`, `bash`, `jq`, `git-crypt`, OpenSSH, and `sshpass`, so database dumps, archive transfers, integrity checks, and retention share the same host-mode runner as deployment workflows.
 
 Because the runner has capacity one, long backup and deployment jobs queue behind each other. Retention and target paths are non-sensitive and live in the `STAG_CONFIG` / `PROD_CONFIG` repository **variables**; credentials and encoded key material live in the `GIT_CRYPT_KEY`, `STAG_*`, `PROD_*`, and `BACKUP_*` repository **secrets**. Both are documented by name in [backup and restore](../../docs/operations/BACKUP-RESTORE.md) and the [root README](../../README.md#required-actions-secrets-and-variables).
 
@@ -141,7 +141,7 @@ Because the runner has capacity one, long backup and deployment jobs queue behin
     ```
 
 5. Verify the runner appears in **Site Administration → Actions → Runners** (or repo **Settings → Actions → Runners**) and that the repo's **Settings → Units → Actions** checkbox is ticked.
-6. Add workflow files under `.forgejo/workflows/` — see [`00-prod-deploy-services.yml`](../../.forgejo/workflows/00-prod-deploy-services.yml) (deploy), [`30-prod-backup-services.yml`](../../.forgejo/workflows/30-prod-backup-services.yml) (backup) and [`50-test-remote-access.yml`](../../.forgejo/workflows/50-test-remote-access.yml) (connectivity test).
+6. Add workflow files under `.forgejo/workflows/` — see [`61-deploy.yml`](../../.forgejo/workflows/61-deploy.yml) (deploy) and [`71-backup.yml`](../../.forgejo/workflows/71-backup.yml) (backup).
 
 ## Operations
 

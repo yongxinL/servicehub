@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: CHARTER
 document_id: CHARTER-001
 title: ServiceHub Project Charter
-version: "1.0"
+version: "1.1"
 status: Proposed
 lifecycle_stage: Initiation
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-08
 tags:
   - servicehub
   - governance
@@ -79,7 +79,7 @@ External stakeholder names, teams, approval bodies, and escalation contacts are 
 
 - Administrators configuring domains, credentials, TLS, storage, deployment, backup, and monitoring.
 - Developers reviewing Compose changes and service documentation.
-- Forgejo Actions operators running deployment, backup, and remote-access workflows.
+- Forgejo Actions operators running deployment and backup workflows.
 - AI users and agent operators interacting with Open WebUI or Hermes.
 - End users accessing identity, repository, web, email, AI, or observability services.
 

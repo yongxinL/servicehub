@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: INVESTIGATION
 document_id: INV-001
 title: Architecture and Documentation Gap Analysis
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Discovery
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-08
 tags:
   - servicehub
   - investigation
@@ -35,7 +35,7 @@ Reviewed:
 - Root README, environment template, `.gitattributes`, `.gitignore`, and Git state.
 - Root and domain Compose files.
 - All Dockerfiles and optional Compose definitions.
-- Forgejo deployment, backup, and remote-access workflows.
+- Forgejo deployment and backup workflows.
 - Setup script and shared configuration examples.
 - Service READMEs, health checks, routes, dependencies, persistence, telemetry, and AI routing.
 - Git tags and recent history.

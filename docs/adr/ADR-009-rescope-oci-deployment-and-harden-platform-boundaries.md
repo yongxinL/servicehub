@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-009
 title: Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries
-version: "1.7"
+version: "1.8"
 status: Proposed
 decision_basis: Owner discussion recorded on 2026-10-05 covering AI platform placement, Open WebUI domain ownership, observability strategy, OCI service scope, Confluence egress, and administrative endpoint access; compose and documentation changes implemented on `adr-009`, operational follow-ups pending; log collection and APM integration split out to ADR-010; egress enforced by a host firewall rule in the Docker `DOCKER-USER` chain, driven by a per-service policy file plus a global block of Atlassian CIDRs
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-05
-updated: 2026-10-07
+updated: 2026-10-08
 tags:
   - servicehub
   - architecture
@@ -258,7 +258,7 @@ Implemented state:
 - [compose/route.yml](../../compose/route.yml) and [compose/mailsv.yml](../../compose/mailsv.yml) — label-based admin routers removed; the two-router pattern (priority-300 router guarded by `ClientIP(...)` plus the retained `ipallowlist`, priority-100 fallback redirecting to `https://${IDENTITY_DOMAIN}`) now covers the Traefik dashboard and the Stalwart admin paths, while the public JMAP router stays in labels.
 - [scripts/gen-admin-rules.py](../../scripts/gen-admin-rules.py) — generates `shared/traefik/advanced/admin-routers.yml` from `.env` (single source: `TRUSTED_IP`, domains, `CERTRESOLVER`, `TRAEFIK_BAAUTH`), is invoked by `scripts/setup.sh`, fails closed when `TRUSTED_IP` is empty, and is git-ignored because the output embeds the basic-auth hash.
 - `routetraefik` runs with `--providers.file.watch=true`, so regeneration hot-reloads the admin rules within seconds without restarting `routetraefik` or `mailsvstalwart`; only the first deploy of this change recreates `routetraefik`.
-- [.forgejo/workflows/00-prod-deploy-services.yml](../../.forgejo/workflows/00-prod-deploy-services.yml) — service options reduced to the OCI scope.
+- [.forgejo/workflows/61-deploy.yml](../../.forgejo/workflows/61-deploy.yml) — service options reduced to the OCI scope.
 - [env.example](../../env.example) — prefix map updated (`CHAT_*` -> `compose/aiserv.yml`) and `TRUSTED_IP` documented as the single source for the generated admin rules.
 - Validation performed: `docker compose config --quiet` passes with the reduced include set, and the rendered router rules, priorities, and redirect labels were inspected. No OCI or local deployment has been performed; `IDENTITY_DOMAIN` is blank in the author's local `.env` until `scripts/setup.sh` is re-run, so the rendered redirect replacement was verified against `env.example`.
 - Living documentation updated with the implementation: [README](../../README.md), [Architecture](../architecture/ARCHITECTURE.md), [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md), [Component catalogue](../architecture/COMPONENT-CATALOGUE.md), [Service inventory](../operations/SERVICE-INVENTORY.md), [Monitoring and alerting](../operations/MONITORING-ALERTING.md), [Backup and restore](../operations/BACKUP-RESTORE.md), and the affected `shared/` service READMEs.

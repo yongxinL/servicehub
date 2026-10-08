@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: PHASE
 document_id: PHASE-001
 title: Platform Foundation
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Planning
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-08
 tags:
   - servicehub
   - phase
@@ -46,7 +46,7 @@ Establish a reviewable Compose platform with a shared network, ingress, relation
 - [PostgreSQL](../../shared/postgresql/) and [MariaDB](../../shared/mariadb/) images
 - [Environment template](../../env.example)
 - [Setup script](../../scripts/setup.sh)
-- Deployment and remote-access workflows
+- Deployment and backup workflows
 
 ## Requirements Addressed
 

@@ -8,7 +8,7 @@
 #
 # Triggers:
 #   - workflow_dispatch (Run workflow button in the Forgejo UI, or the
-#     POST /repos/{owner}/{repo}/actions/workflows/00-prod-deploy-services.yml/dispatches API)
+#     POST /repos/{owner}/{repo}/actions/workflows/61-deploy.yml/dispatches API)
 #
 # Inputs (same as the previous Gitea Actions workflow):
 #   - service:     app service to deploy, or "all" (default). Foundational

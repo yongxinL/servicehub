@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-003
 title: Use PostgreSQL as the Primary Relational Platform
-version: "1.1"
+version: "1.2"
 status: Accepted
 decision_basis: Inferred from current implementation
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-08
 tags:
   - servicehub
   - architecture
@@ -77,7 +77,7 @@ All default database consumers in `compose/*.yml` connect to `dbsvcpgsqldb`. `en
 - [compose/dbsvc.yml](../../compose/dbsvc.yml)
 - [PostgreSQL image](../../shared/postgresql/Dockerfile)
 - [PostgreSQL README](../../shared/postgresql/README.md)
-- [backup workflow](../../.forgejo/workflows/30-prod-backup-services.yml)
+- [backup workflow](../../.forgejo/workflows/71-backup.yml)
 - Database environment settings in `compose/authn.yml`, `compose/depot.yml`, `compose/aiagn.yml`, `compose/wbapp.yml`, and `compose/poste.yml`
 
 ## Related Documents

@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: PHASE
 document_id: PHASE-002
 title: Identity and Developer Services
-version: "1.0"
+version: "1.1"
 status: Draft
 lifecycle_stage: Planning
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-08
 tags:
   - servicehub
   - phase
@@ -97,7 +97,7 @@ Provide governed identity infrastructure and repository-hosted development and d
 - oCIS authenticates through Authentik and provides file access only after a successful OIDC flow.
 - Forgejo registration is disabled and access review is recorded.
 - Runner registration and labels are validated.
-- Deployment and remote-access workflows execute as designed.
+- Deployment workflows execute as designed.
 - LDAP mail authentication and recovery path are tested.
 - Break-glass procedures are documented and tested.
 

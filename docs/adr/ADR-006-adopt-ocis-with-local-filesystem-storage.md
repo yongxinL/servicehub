@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-006
 title: Adopt oCIS with Local Filesystem Storage
-version: "1.1"
+version: "1.2"
 status: Accepted
 decision_basis: Owner decision recorded on 2026-10-03; repository configuration added on 2026-10-03; runtime validation pending
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-03
-updated: 2026-10-04
+updated: 2026-10-08
 tags:
   - servicehub
   - architecture
@@ -156,7 +156,7 @@ Repository configuration added on 2026-10-03:
 - [`shared/owncloud/Dockerfile`](../../shared/owncloud/Dockerfile) builds the pinned official oCIS base image, installs [`entrypoint.sh`](../../shared/owncloud/entrypoint.sh), and Compose tags the result `wbappmydrive:latest`.
 - [`env.example`](../../env.example) defines the oCIS image, public hostname, Authentik issuer, public OIDC client ID, and certificate-verification setting.
 - [Traefik route configuration](../../compose/route.yml) permits long transfers and encoded WebDAV path characters.
-- [Deployment workflow](../../.forgejo/workflows/00-prod-deploy-services.yml) can deploy `wbappmydrive` after its directory initialiser.
+- [Deployment workflow](../../.forgejo/workflows/61-deploy.yml) can deploy `wbappmydrive` after its directory initialiser.
 - [oCIS operational guide](../../shared/owncloud/README.md) records Authentik provider setup, redirect URIs, validation, backup scope, and operations.
 - [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) and [backup and restore](../operations/BACKUP-RESTORE.md) record the target recovery strategy.
 
