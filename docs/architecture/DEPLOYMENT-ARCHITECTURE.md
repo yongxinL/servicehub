@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: DEPLOYMENT-ARCHITECTURE
 title: ServiceHub Deployment Architecture
-version: "1.6"
+version: "1.7"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-07
+updated: 2026-10-08
 tags:
   - servicehub
   - architecture
@@ -66,7 +66,7 @@ The repository does not contain evidence that a production deployment, certifica
 
 - `devopsrunner` runs Forgejo Actions jobs in host mode on the `ssh-deploy` label.
 - Jobs execute inside the runner container, not in per-job containers.
-- The shared runner has Git, git-crypt, OpenSSH, `sshpass`, `rsync`, Bash, jq, Restic, Rclone, and the PostgreSQL client.
+- The shared runner has Git, git-crypt, OpenSSH, `sshpass`, `rsync`, Bash, jq, Rclone, and the PostgreSQL client.
 - It reaches Forgejo internally for checkout when the internal server URL is used.
 - All deployment, test, and backup jobs use capacity one, so long jobs queue behind one another.
 
@@ -86,7 +86,7 @@ The workflow validates SSH and rsync availability and target inputs, but it does
 
 ## Backup Transfer Flow
 
-The `backup-data` workflow runs on the existing `devopsrunner`. It validates protected target and retention inputs, creates database and full-data archives on the target, applies same-host retention, streams archives to the Restic Home Server repository, runs a Restic integrity check, copies archives through the configured Rclone destination, compares each destination file, and applies target retention.
+The `backup-data` workflow runs on the existing `devopsrunner`. It validates protected target and retention inputs, creates database and full-data archives on the target, applies same-host retention, copies archives to the Home Server over an Rclone SFTP remote, copies archives to Google Drive through an Rclone Crypt remote, compares each destination file with the source, and applies target retention.
 
 The repository contains this configuration. Image build, target connectivity, successful transfers, integrity results, retention execution, and restores are `Not yet verified`.
 

@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: DATA-FLOW
 title: ServiceHub Data Flow
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-08
 tags:
   - servicehub
   - architecture
@@ -141,7 +141,7 @@ The database archive is transaction-consistent because it uses `pg_dump`; the li
 
 Both `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data` are in the current full-archive scope, but no oCIS-specific consistency or restore validation exists.
 
-[ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts a target flow in which Forgejo Actions uses the existing `devopsrunner` toolchain to copy database dumps and persistent-data archives to a Home Server with Restic over SSH/SFTP and independently to Google Drive with Rclone. Repository configuration for this flow is present, but transfers and restores are not runtime-validated.
+[ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts a target flow in which Forgejo Actions uses the existing `devopsrunner` toolchain to copy database dumps and persistent-data archives to a Home Server over an Rclone SFTP remote and independently to Google Drive through an Rclone Crypt remote. Repository configuration for this flow is present, but transfers and restores are not runtime-validated.
 
 ```mermaid
 flowchart LR
@@ -159,6 +159,6 @@ flowchart LR
 flowchart LR
     W[Accepted Forgejo Actions target] --> B[devopsrunner backup toolchain]
     B --> D[Database dumps and data archives]
-    D -->|Configured; runtime pending| H[Home Server via Restic and SSH/SFTP]
-    D -->|Configured; runtime pending| G[Google Drive via Rclone]
+    D -->|Configured; runtime pending| H[Home Server via Rclone SFTP]
+    D -->|Configured; runtime pending| G[Google Drive via Rclone Crypt]
 ```

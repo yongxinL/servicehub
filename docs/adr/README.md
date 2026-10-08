@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ADR-INDEX
 document_id: ADR-INDEX
 title: ServiceHub Architecture Decision Register
-version: "1.5"
+version: "1.6"
 status: Active
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-07
+updated: 2026-10-08
 tags:
   - servicehub
   - architecture
@@ -33,7 +33,7 @@ These ADRs record both retrospective decisions inferred from the current impleme
 | ADR-004 | Use Authentik for Central Identity | Accepted | 2026-10-01 | `compose/infra.yml`, forward-auth and LDAP configuration | None | [ADR-004](ADR-004-use-authentik-for-central-identity.md) |
 | ADR-005 | Use LiteLLM for AI Workload Routing | Accepted | 2026-10-01 | `compose/aiserv.yml`, `shared/litellm/` | None | [ADR-005](ADR-005-use-litellm-for-ai-routing.md) |
 | ADR-006 | Adopt oCIS with Local Filesystem Storage | Accepted | 2026-10-03 | `compose/webapp.yml`, `env.example`, `compose/route.yml`, `shared/owncloud/`; runtime validation pending | None | [ADR-006](ADR-006-adopt-ocis-with-local-filesystem-storage.md) |
-| ADR-007 | Adopt Dual-Target Backup and Disaster Recovery | Accepted | 2026-10-03 | `.forgejo/workflows/30-prod-backup-services.yml` and `shared/forgejo/actions/`; shared runner revision recorded; runtime validation pending | None | [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) |
+| ADR-007 | Adopt Dual-Target Backup and Disaster Recovery | Accepted | 2026-10-03 | `.forgejo/workflows/30-prod-backup-services.yml` and `shared/forgejo/actions/`; shared runner revision recorded; Rclone-for-both-targets revision recorded 2026-10-08 (refactor pending); runtime validation pending | None | [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) |
 | ADR-008 | Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables | Accepted | 2026-10-05 | `compose/*.yml`, `env.example`, `scripts/setup.sh`, workflows, and storage layout applied on `service-renaming`; runtime validation pending | None | [ADR-008](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) |
 | ADR-009 | Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries | Proposed | 2026-10-05 | `docker-compose.yml`, `compose/{aiserv,obsvce,webapp,route,mailsv}.yml`, `00-prod-deploy-services.yml`, `env.example`, `scripts/egress-guard.sh` and `scripts/egress-policies.conf`, and living documentation updated on `adr-009`; container egress enforced by a host firewall rule with a global block, the local `aiserv` deployment entrypoint pending — see ADR-009 follow-up actions; Oracle telemetry configuration moved to ADR-010 | None | [ADR-009](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) |
 | ADR-010 | Collect OCI Logs and Integrate Service Telemetry with Oracle APM | Proposed | 2026-10-05 | None — design recorded for approval; no collector, credential, or agent configuration exists yet — see ADR-010 follow-up actions | None | [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) |

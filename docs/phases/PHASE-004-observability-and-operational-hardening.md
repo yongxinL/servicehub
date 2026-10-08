@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: PHASE
 document_id: PHASE-004
 title: Observability and Operational Hardening
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Planning
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-08
 tags:
   - servicehub
   - phase
@@ -73,8 +73,8 @@ Establish observable services, governed operational procedures, tested backup an
 - [x] Metrics and log collection configuration exists.
 - [x] Grafana data sources and dashboards are provisioned.
 - [x] Backup workflow implements database dumps and full archives.
-- [x] Restic, Rclone, and PostgreSQL client configuration exists on the shared Forgejo runner image.
-- [x] Restic Home Server and Rclone Google Drive transfer, integrity-check, and retention configuration exists.
+- [x] Rclone and PostgreSQL client configuration exists on the shared Forgejo runner image.
+- [x] Rclone Home Server and Google Drive transfer, integrity-check, and retention configuration exists.
 - [x] Operations and test documentation exists in this documentation set.
 - [ ] Validate metrics, logs, dashboards, and retention.
 - [ ] Define alert severities, notifications, owners, and alert tests.

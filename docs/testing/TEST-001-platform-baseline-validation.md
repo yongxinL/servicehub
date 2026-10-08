@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: TEST
 document_id: TEST-001
 title: Platform Baseline Validation
-version: "1.1"
+version: "1.2"
 status: Not Executed
 lifecycle_stage: Testing
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-08
 tags:
   - servicehub
   - testing
@@ -71,7 +71,7 @@ This document is a test plan, not a test result.
 | TC-024 | Backup full archive | Dispatch a full backup when approved. Expect an `APPS_DATA` archive and recorded exclusions. | Archive manifest and workflow log |
 | TC-025 | Restore | Restore database dumps and filesystem data from each accepted target into isolated environments, then validate services. | Restore steps, duration, integrity checks, and service results |
 | TC-026 | oCIS cloud drive | Confirm both oCIS paths persist across a controlled restart; complete Authentik OIDC sign-in and sign-out; verify account provisioning, upload, download, encoded WebDAV paths, and sharing controls. | Redacted OIDC result, service logs, file checks, and persistence evidence |
-| TC-027 | Dual-target backup | Dispatch a controlled backup and expect Restic repository check, Rclone destination comparison, and all configured retention operations to succeed without exposing target locations or retention values. | Redacted workflow log, artifact manifest, and integrity results |
+| TC-027 | Dual-target backup | Dispatch a controlled backup and expect an Rclone destination comparison for each enabled target and all configured retention operations to succeed without exposing target locations or retention values. | Redacted workflow log, artifact manifest, and integrity results |
 
 ## Pass Criteria
 

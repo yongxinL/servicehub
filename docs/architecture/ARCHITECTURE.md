@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: ARCHITECTURE
 title: ServiceHub Architecture
-version: "1.4"
+version: "1.5"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
@@ -54,8 +54,8 @@ flowchart LR
     Email --> PostgreSQL
     Runner[Forgejo Actions runner] --> SSH[Staging or production SSH]
     Runner --> SourceSSH[Backup source SSH]
-    Runner --> Home[Home Server via Restic]
-    Runner --> Drive[Google Drive via Rclone]
+    Runner --> Home[Home Server via Rclone SFTP]
+    Runner --> Drive[Google Drive via Rclone Crypt]
     Collector[Alloy] --> Metrics[(VictoriaMetrics)]
     Collector --> Logs[(VictoriaLogs)]
     Metrics --> Grafana
@@ -147,7 +147,7 @@ The root Compose project deploys the OCI scope only (`route`, `infra`, `devops`,
 
 Forgejo Actions deployment workflows run on the host-mode `ssh-deploy` runner. Deployment SSHes to a staging or production target, updates a Git checkout, restores git-crypt and environment material when configured, and rebuilds application services with `--no-deps`. Foundational services are excluded from CI deployment.
 
-The backup workflow runs on the existing `devopsrunner` with the `ssh-deploy` label. It SSHes to the target to create PostgreSQL dumps and a periodic `APPS_DATA` archive, then configures Restic transfer to the Home Server and Rclone transfer to Google Drive under [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is present; image build, transfers, integrity checks, retention, and restores are not runtime-validated.
+The backup workflow runs on the existing `devopsrunner` with the `ssh-deploy` label. It SSHes to the target to create PostgreSQL dumps and a periodic `APPS_DATA` archive, then copies archives to the Home Server over an Rclone SFTP remote and to Google Drive through an Rclone Crypt remote under [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is present; image build, transfers, integrity checks, retention, and restores are not runtime-validated.
 
 See [deployment architecture](DEPLOYMENT-ARCHITECTURE.md) for details and validation gaps.
 

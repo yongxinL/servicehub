@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: SYSTEM-CONTEXT
 title: ServiceHub System Context
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-08
 tags:
   - servicehub
   - architecture
@@ -60,8 +60,8 @@ flowchart LR
     Forgejo --> Runner[Forgejo Actions runner]
     Runner -->|SSH| Stag[Staging target]
     Runner -->|SSH| Prod[Production target]
-    Runner -->|Restic over SSH/SFTP| Home[Home Server target]
-    Runner -->|Rclone| Drive[Google Drive target]
+    Runner -->|Rclone SFTP| Home[Home Server target]
+    Runner -->|Rclone Crypt| Drive[Google Drive target]
     Stag --> DockerStag[Docker Compose stack]
     Prod --> DockerProd[Docker Compose stack]
 ```
@@ -78,8 +78,8 @@ flowchart LR
 | MiniMax-compatible API | Configured cloud AI provider | Configuration present; availability and privacy behaviour `Not yet verified` |
 | Atlassian Marketplace | Confluence Docker build may download plug-ins | Dockerfile confirmed; build result not recorded |
 | Authentik-managed outpost | Forward-auth and LDAP integration | Configuration documented; runtime state `Not yet verified` |
-| Home Server backup target | Restic repository accessed over SSH/SFTP | Repository configuration documented; location protected; transfer `Not yet verified` |
-| Google Drive backup target | Off-site copy accessed through Rclone | Repository configuration documented; account protected; transfer `Not yet verified` |
+| Home Server backup target | Plain archives copied over an Rclone SFTP remote | Configuration documented; location protected; transfer `Not yet verified` |
+| Google Drive backup target | Off-site encrypted copy accessed through an Rclone Crypt remote | Configuration documented; account protected; transfer `Not yet verified` |
 
 ## External AI Providers
 

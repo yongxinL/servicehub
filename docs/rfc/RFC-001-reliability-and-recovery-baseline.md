@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: RFC
 document_id: RFC-001
 title: ServiceHub Reliability and Recovery Baseline
-version: "1.1"
+version: "1.2"
 status: Accepted
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-08
 tags:
   - servicehub
   - reliability
@@ -41,8 +41,8 @@ The repository implements a Forgejo Actions backup workflow that:
 - Requires approved protected retention inputs for database and full archives.
 - Creates a full `APPS_DATA` archive on Sundays or on demand.
 - Writes archives under a repository-secret backup root on the same target host.
-- Runs on the existing Forgejo runner, whose image is extended with Restic, Rclone, SSH, the PostgreSQL client, Bash, and jq.
-- Configures Restic transfer to the Home Server and Rclone transfer to Google Drive, with repository or file integrity checks and target retention.
+- Runs on the existing Forgejo runner, whose image is extended with Rclone, SSH, the PostgreSQL client, Bash, and jq.
+- Copies archives to the Home Server over an Rclone SFTP remote and to Google Drive through an Rclone Crypt remote, with destination integrity checks and target retention.
 
 The workflow explicitly states that the live full archive is crash-consistent for database directories, while the database dumps are the transaction-consistent layer.
 
@@ -72,19 +72,19 @@ A host image can recover the operating system and Docker installation quickly bu
 
 **Assessment:** required for disaster or host-loss recovery; repository configuration is present but not runtime-validated.
 
-The workflow configures Restic and Rclone transfers in addition to the same-host archive. Until both target copies execute successfully and are independently retrieved, repository configuration does not protect against loss of the target host.
+The workflow configures Rclone transfers to both targets in addition to the same-host archive. Until both target copies execute successfully and are independently retrieved, repository configuration does not protect against loss of the target host.
 
 ### Encryption
 
 **Assessment:** `TBD`.
 
-The repository documents git-crypt protection for self-signed certificates and secret material in repository secrets, but it does not document encryption for backup archives or off-host copies.
+The repository documents git-crypt protection for self-signed certificates and secret material in repository secrets. Under ADR-007 the Google Drive off-site copy is encrypted client-side through an Rclone Crypt remote, with its credentials governed separately; encryption for same-host archives and the Home Server copy remains `TBD`.
 
 ### Retention
 
 **Assessment:** configured for same-host and target archives; execution not evidenced.
 
-The workflow requires protected same-host, Restic, and Rclone retention inputs and fails when retention operations fail. Approved values and successful retention evidence remain `TBD` and are not recorded in tracked documentation.
+The workflow requires protected same-host and Rclone retention inputs and fails when retention operations fail. Approved values and successful retention evidence remain `TBD` and are not recorded in tracked documentation.
 
 ### RPO and RTO
 
@@ -100,12 +100,12 @@ The repository documents a restore sequence, validation requirements, and an evi
 
 ## Recommended Direction
 
-**Accepted through ADR-007:** use database-native PostgreSQL backups plus protected filesystem backups, a Restic Home Server primary target, a Google Drive off-site copy, and periodic restoration tests.
+**Accepted through ADR-007:** use database-native PostgreSQL backups plus protected filesystem backups, an Rclone Home Server primary target, a Google Drive off-site copy behind an Rclone Crypt remote, and periodic restoration tests.
 
 The repository now configures backup creation, dual-target transfer, integrity checks, and separate retention. The remaining assurance work is:
 
 1. Execute and validate daily transaction-consistent PostgreSQL dumps and persistent-data archives.
-2. Verify Home Server Restic and Google Drive Rclone copies independently.
+2. Verify Home Server and Google Drive copies independently.
 3. Verify separate retention rules for database and filesystem layers.
 4. Restore into an isolated environment.
 5. Approve RPO and RTO values from measured restores.
