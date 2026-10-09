@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: BACKUP-RESTORE
 title: ServiceHub Backup and Restore
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-09
+updated: 2026-10-10
 tags:
   - servicehub
   - operations
@@ -41,7 +41,7 @@ The source server is the host running the ServiceHub services together with Forg
 | PostgreSQL database | Daily at 02:30 in scheduled mode; manual `db` or `auto` | One `pg_dump` per non-template database plus `pg_dumpall --globals-only` packed into one daily archive | Transaction-consistent logical dump | Implemented; execution evidence not available |
 | Full `APPS_DATA` | Sundays in `auto`; manual `full` or `auto` | Entire configured persistent-data tree with optional exclusions | Crash-consistent for live database directories | Implemented; execution evidence not available |
 | Host configuration | Every run of the backup workflow | `.env` from the deploy path (never in the full archive) and `egress-policies.conf` from `${APPS_DATA}/shared/gateway` (also in the weekly full archive) — both edited on the server at runtime | Not applicable (plain files) | Implemented; execution evidence not available |
-| Off-host copy | Same backup workflow | Rclone Home Server copy and Rclone Google Drive copy behind a Crypt remote, each enabled independently by its own key | `rclone check --download --one-way` after every transfer; destination preflight before the first transfer | Workflow refactored 2026-10-08, review fixes 2026-10-09; execution evidence unavailable |
+| Off-host copy | Same backup workflow | Rclone Home Server copy and Rclone Google Drive copy behind a Crypt remote, each enabled independently by its own key | `rclone hashsum sha256 --download` computed on both ends and compared per artifact; destination preflight before the first transfer | Workflow refactored 2026-10-08, review fixes 2026-10-09; per-artifact SHA-256 verification fix applied 2026-10-10; execution evidence unavailable |
 | Encrypted backup archive | Every run of the Google Drive copy | Client-side encryption through an Rclone Crypt remote; credentials governed separately | Not applicable (plain files before encryption) | Accepted in ADR-007; credential governance TBD |
 | Host recovery image | None evident | Not applicable | Not applicable | Optional; not selected |
 | Restore workflow | No automated workflow | Recovery from either accepted target | Not applicable | Procedure documented; execution not implemented or tested |
@@ -83,10 +83,10 @@ The target scope includes Compose and service configuration, PostgreSQL role and
 For each archive created in the run, and for each target that is enabled in `<PREFIX>_CONFIG`, the workflow:
 
 1. Copies the file to the Home Server through the `_workflow_home` Rclone SFTP remote. *(Target 1 only)*
-2. Compares the destination copy with the source using Rclone download mode, one way (source must match the destination). *(Target 1 only)*
+2. Computes SHA-256 over downloaded bytes on both ends with `rclone hashsum sha256 --download` and fails the run on mismatch. *(Target 1 only)*
 3. Applies the approved Home Server retention policy. *(Target 1 only)*
 4. Copies the file through the configured Rclone destination to Google Drive. *(Target 2 only)*
-5. Compares the destination file with the source using Rclone download mode, one way. *(Target 2 only)*
+5. Computes SHA-256 over downloaded bytes on both ends with `rclone hashsum sha256 --download` and fails the run on mismatch. *(Target 2 only)*
 6. Applies separate approved database and full-archive retention policies. *(Target 2 only)*
 
 Before the first transfer, the workflow creates the Home Server destination directory and lists it to confirm the endpoint, key, host key, port, user, and path are all correct; for Google Drive it verifies that the configured remote exists and has type `crypt`. Both fail the run before any archive is read.
