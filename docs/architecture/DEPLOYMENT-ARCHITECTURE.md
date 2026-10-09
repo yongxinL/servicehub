@@ -10,7 +10,7 @@ lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-08
+updated: 2026-10-09
 tags:
   - servicehub
   - architecture
@@ -39,16 +39,7 @@ The root [docker-compose.yml](../../docker-compose.yml) include set and the `61-
 
 ## Local Development or Administration Flow
 
-The repository documents a local Compose flow:
-
-1. Install prerequisites listed in the root README.
-2. Run `bash scripts/setup.sh` to create or merge `.env`.
-3. Review environment values without copying secret values into documentation.
-4. Validate configuration with `docker compose config`.
-5. Start selected services or the full stack using `docker compose up -d`.
-6. Inspect health and logs before routing or deployment changes are considered valid.
-
-This flow is Confirmed from repository commands; local execution results are `Not yet verified`.
+The local Compose flow — prerequisites, `scripts/setup.sh`, configuration validation, and first stack start — is documented under [Local Development and Administration Flow](../operations/development/DEVELOPMENT.md#local-development-and-administration-flow).
 
 ## Staging Deployment
 
@@ -74,13 +65,13 @@ The repository does not contain evidence that a production deployment, certifica
 
 1. Resolve the `${PREFIX}_CONFIG` repository variable (all non-credential settings, including the optional `server_port`, default 22) plus credential secrets, and validate required inputs.
 2. Materialise an SSH key to a temporary `0600` file or use password authentication; both connect on the configured port.
-3. Build an explicit known-host file from repository secrets, falling back to `ssh-keyscan` on the configured port with a warning.
-4. Check out the selected branch in the runner and unlock git-crypt files when `GIT_CRYPT_KEY` is supplied.
+3. Build the known-host file from the required `server_ssh_known_hosts` key of `${PREFIX}_CONFIG`. There is no runtime `ssh-keyscan` fallback, so a missing value fails the job before any connection.
+4. Check out the selected branch in the runner with a fully qualified `actions/checkout` URL (credentials not persisted), then unlock git-crypt files. A missing or wrong `GIT_CRYPT_KEY` aborts the job before anything is synced.
 5. Sync the working tree to the `deploy_path` of `${PREFIX}_CONFIG` with `rsync --delete`. Repository-only files (`.git`, `.gitignore`, `.gitattributes`, `.forgejo/`, `AGENTS.md`, `docs/`) are neither transferred nor kept; `.env`, generated admin rules, and `APPS_DATA` when it resolves inside the deploy path are protected from deletion. The target needs neither git nor git-crypt.
-6. Restore `.env` only when the encoded secret is newer than the remote file.
+6. Restore `.env` only when it is missing on the target (bootstrap-only; an existing file is never overwritten).
 7. Run `scripts/setup.sh` to merge new variables and regenerate the admin rules.
-8. Restore `acme.json` only when the encoded secret is newer, to `${APPS_DATA}/shared/certs/acme.json` with root ownership and mode `600`.
-9. Run `docker compose up -d --build --no-deps` for the selected application service or, for `all`, every non-foundational service in the ADR-009 OCI scope (`aiserv*` and `obsvce*` are excluded).
+8. On production only, restore `acme.json` only when it is missing on the target (bootstrap-only), to `${APPS_DATA}/shared/certs/acme.json` with root ownership and mode `600`.
+9. Validate the service input against a fixed allowlist (`webappconf`, `webappocis`, `mailsvstalwart`, `mailsvbulwark`, plus `all`), then run `docker compose up -d --build --no-deps` for it — `all` expands to that fixed list with `webappocisinit` first, not to a service-name prefix filter (`aiserv*` and `obsvce*` are excluded). Production deploys are additionally restricted to the `main` branch.
 
 The workflow validates SSH and rsync availability and target inputs, but it does not perform post-deployment application checks.
 
@@ -114,12 +105,12 @@ No explicit rollback workflow or previous-version restoration procedure exists. 
 ## Deployment Risks
 
 - Password fallback and private-key fallback both depend on repository secrets.
-- Falling back to `ssh-keyscan` weakens host verification when known-host secrets are absent.
+- Host verification depends entirely on the pinned `server_ssh_known_hosts` value; a stale or wrong value fails the connection instead of being re-scanned at run time (capture and out-of-band verification are documented in README).
 - `rsync --delete` removes target files that are not in the working tree; `.env`, generated admin rules, and (when inside the deploy path) `APPS_DATA` are explicitly excluded.
-- If the git-crypt unlock is skipped, encrypted certificates are synced as-is and Traefik's staging certificates fail.
+- A missing or wrong `GIT_CRYPT_KEY` fails the deploy before sync, so encrypted certificates can no longer reach the target — but deploys cannot run at all without that secret.
 - `--no-deps` prevents foundational dependency updates during application deploys but can leave incompatible foundations in place.
 - Foundational services must be updated manually.
-- Environment and ACME restoration uses newest-file-wins semantics.
+- `.env` and `acme.json` restoration is bootstrap-only: an existing file is never overwritten by its secret (no timestamp comparison).
 - Passwordless sudo is required for certificate and backup operations.
 - No health, route, login, database, metrics, or log verification runs after deployment.
 

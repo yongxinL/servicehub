@@ -101,7 +101,13 @@ jobs:
           RCLONE_FULL_KEEP_AGE=$(cfg backup_rclone_full_keep_age)
 
           [ -n "$SERVER_HOST" ] || fail "${PREFIX}_CONFIG.server_host is not set"
+          case "$SERVER_HOST" in
+            *[!A-Za-z0-9._-]*) fail "${PREFIX}_CONFIG.server_host contains unsupported characters" ;;
+          esac
           [ -n "$SERVER_USER" ] || fail "${PREFIX}_CONFIG.server_user is not set"
+          case "$SERVER_USER" in
+            *[!A-Za-z0-9._-]*) fail "${PREFIX}_CONFIG.server_user contains unsupported characters" ;;
+          esac
           [ -n "$SSH_KNOWN_HOST" ] || fail "${PREFIX}_CONFIG.server_ssh_known_hosts is not set"
           [ -n "$SERVER_PORT" ] || SERVER_PORT=22
           case "$SERVER_PORT" in
@@ -149,8 +155,14 @@ jobs:
             local age_value=$2
             case "$age_value" in
               -*) fail "$age_name must not start with a dash" ;;
-              ''|*[!0-9smhdwMy.]*) fail "$age_name must be an Rclone duration such as 30d" ;;
             esac
+            # Deliberately stricter than Rclone's grammar: a single simple
+            # duration with an optional fractional part (30d, 12w, 6M, 1.5d).
+            # Rejects partial or malformed values such as '.', '30dd', 'd'
+            # and '1d2h' instead of deferring to Rclone at deletion time.
+            if [[ ! "$age_value" =~ ^[0-9]+([.][0-9]+)?(s|m|h|d|w|M|y)$ ]]; then
+              fail "$age_name must be an Rclone duration such as 30d, 12w, 6M, or 1y"
+            fi
           }
 
           case "$DB_RETENTION_DAYS" in
@@ -277,7 +289,9 @@ jobs:
           ssh_exec "set -e
           DB_STAGE=
           CFG_STAGE=
+          TMP=
           remote_cleanup() {
+            [ -z \"\$TMP\" ] || rm -f \"\$TMP\"
             [ -z \"\$DB_STAGE\" ] || rm -rf \"\$DB_STAGE\"
             [ -z \"\$CFG_STAGE\" ] || rm -rf \"\$CFG_STAGE\"
           }
@@ -322,6 +336,7 @@ jobs:
               [ -s \"\$TMP\" ] || { rm -f \"\$TMP\"; echo \"Error: dump of \$db is empty\" >&2; exit 1; }
               install -m 600 \"\$TMP\" \"\$DB_STAGE/\$NAME\"
               rm -f \"\$TMP\"
+              TMP=
             done
 
             NAME=\"\$DOMAIN_NAME-dbBK-globals-\$STAMP.sql\"
@@ -331,6 +346,7 @@ jobs:
             [ -s \"\$TMP\" ] || { rm -f \"\$TMP\"; echo 'Error: globals dump is empty' >&2; exit 1; }
             install -m 600 \"\$TMP\" \"\$DB_STAGE/\$NAME\"
             rm -f \"\$TMP\"
+            TMP=
 
             ARCHIVE=\"\$DST/\$DOMAIN_NAME-webapps-dbBK-\$STAMP.tar.gz\"
             echo \"Archiving database dumps -> \$ARCHIVE\"
@@ -338,7 +354,8 @@ jobs:
             sudo -n tar -czf \"\$ARCHIVE.part\" -C \"\$DB_STAGE\" .
             rc=\$?
             set -e
-            if [ \"\$rc\" -gt 1 ]; then
+            # Static stage: any nonzero tar status (including 1) is fatal.
+            if [ \"\$rc\" -ne 0 ]; then
               echo \"Error: tar exited \$rc\" >&2
               sudo -n rm -f \"\$ARCHIVE.part\"
               exit \"\$rc\"
@@ -358,10 +375,11 @@ jobs:
             sudo -n find '$BACKUP_ROOT' -mindepth 2 -type d -empty -path '*/[0-9][0-9][0-9][0-9]/[0-9][0-9][0-9][0-9][0-9][0-9]' -delete
           fi
 
-          # Runtime configuration: .env lives in the deploy path and is never
-          # in the full archive; the egress policy file lives under
-          # APPS_DATA/shared/gateway and is only in the weekly one. Archive
-          # both on every run so a mid-week loss costs at most one day of edits.
+          # Runtime configuration: .env lives in the deploy path and is not
+          # included in the full application-data source. The egress policy
+          # file lives under APPS_DATA/shared/gateway and may also be present
+          # in the weekly full archive. Archive both in cfgBK on every run so
+          # a mid-week loss costs at most one day of configuration changes.
           CFG_STAGE=\$(mktemp -d)
           install -d -m 700 \"\$CFG_STAGE\"
           sudo -n install -m 600 '$DEPLOY_PATH'/.env \"\$CFG_STAGE/.env\"
@@ -372,7 +390,8 @@ jobs:
           sudo -n tar -czf \"\$ARCHIVE.part\" -C \"\$CFG_STAGE\" .
           rc=\$?
           set -e
-          if [ \"\$rc\" -gt 1 ]; then
+          # Static stage: any nonzero tar status (including 1) is fatal.
+          if [ \"\$rc\" -ne 0 ]; then
             echo \"Error: tar exited \$rc\" >&2
             sudo -n rm -f \"\$ARCHIVE.part\"
             exit \"\$rc\"
@@ -402,7 +421,11 @@ jobs:
             sudo -n tar -czf \"\$ARCHIVE.part\"$EXCLUDE_ARGS -C \"\$SRC\" .
             rc=\$?
             set -e
-            if [ \"\$rc\" -gt 1 ]; then
+            if [ \"\$rc\" -eq 1 ]; then
+              # Live application data: tar exits 1 when files change while
+              # being read. The archive is still useful; warn explicitly.
+              echo \"WARNING: tar reported files changed while being archived; the full archive may be inconsistent\" >&2
+            elif [ \"\$rc\" -gt 1 ]; then
               echo \"Error: tar exited \$rc\" >&2
               sudo -n rm -f \"\$ARCHIVE.part\"
               exit \"\$rc\"
@@ -472,6 +495,7 @@ jobs:
             chmod 600 "$HOME_KEY_FILE" "$HOME_KNOWN_HOSTS_FILE"
             printf '%s\n' "$HOME_SSH_KEY" | tr -d '\r' > "$HOME_KEY_FILE"
             printf '%s\n' "$HOME_SSH_KNOWN_HOSTS" | tr -d '\r' > "$HOME_KNOWN_HOSTS_FILE"
+            [ -s "$HOME_KNOWN_HOSTS_FILE" ] || fail "BACKUP_HOME_SSH_KNOWN_HOSTS did not produce a usable known_hosts file"
             rclone --config "$RCLONE_CONFIG_FILE" config create "$RCLONE_HOME_REMOTE" sftp \
               host "$HOME_SFTP_HOST" \
               port "$HOME_SFTP_PORT" \

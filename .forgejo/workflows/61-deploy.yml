@@ -3,8 +3,8 @@
 # Deploys this repository to a remote Docker server over SSH. The runner checks
 # out the selected branch, decrypts git-crypt files in the checkout, and syncs
 # the working tree to the target with rsync — the target never receives git
-# metadata (.git, .gitignore, .gitattributes) or repository-only files
-# (.forgejo/, AGENTS.md, docs/), and needs neither git nor git-crypt.
+# metadata (.git, .git-crypt, .gitignore, .gitattributes) or repository-only
+# files (.forgejo/, AGENTS.md, docs/), and needs neither git nor git-crypt.
 #
 # Triggers:
 #   - workflow_dispatch (Run workflow button in the Forgejo UI, or the
@@ -22,7 +22,7 @@
 # Secrets are read from the Forgejo repository secret store: see README.md
 # (Repository -> Settings -> Actions -> Secrets).
 
-name: deploy
+name: Deploy
 
 on:
   workflow_dispatch:
@@ -59,7 +59,10 @@ on:
         default: 'main'
         type: string
 
-# Never run two deployments at once.
+# Never run two deployments at once. Static group (not per-environment): the
+# ssh-deploy runner has capacity 1, so stag/prod runs serialise at the runner
+# anyway, and inputs-based expression evaluation in concurrency.group is not
+# verified for our Forgejo version (same rationale as 71-backup.yml).
 concurrency:
   group: deploy
   cancel-in-progress: false
@@ -71,42 +74,69 @@ jobs:
     runs-on: ssh-deploy
     steps:
       - name: Checkout
-        # Uses the automatic GITHUB_TOKEN, so private repositories clone fine.
-        uses: actions/checkout@v6
+        # Fully qualified URL so the action cannot be re-pointed by an
+        # instance-wide DEFAULT_ACTIONS_URL change (Forgejo docs recommend
+        # this). persist-credentials: false keeps the automatic GITHUB_TOKEN
+        # out of .git/config, so it cannot leak into the rsync'd tree.
+        uses: https://data.forgejo.org/actions/checkout@v6
         with:
           ref: ${{ inputs.branch }}
+          persist-credentials: false
 
       - name: Deploy
+        # Bash explicitly: the script uses arrays and pipefail, so sh/dash
+        # must never be selected as the step shell.
+        shell: bash
         # Deploy logic lives here so the workflow is self-contained; inputs and
         # secrets are mapped to environment variables below.
         #
         #   DEPLOY_TARGET        stag|prod (default: stag)
-        #   DEPLOY_TASK          app service name, or "all"/empty for all app
-        #                        services. Foundational services (infra*,
-        #                        devops*, route*) are never deployed here.
-        #   BRANCH               branch to deploy (default: main)
+        #   DEPLOY_TASK          app service name, or "all"/empty for the full
+        #                        app allowlist (webappconf, webappocis,
+        #                        mailsvstalwart, mailsvbulwark). Foundational
+        #                        services (infra*, devops*, route*) are never
+        #                        deployed here. Values outside the allowlist
+        #                        fail before any SSH connection.
+        #   BRANCH               branch to deploy (default: main; production
+        #                        is restricted to main)
         #   GIT_CRYPT_KEY        base64-encoded git-crypt symmetric key,
-        #                        unlocked in the runner checkout before sync
+        #                        required: unlock failure aborts the deploy
         #
         # SSH auth: set ${PREFIX}_SERVER_PASS (password) OR ${PREFIX}_SERVER_KEY
         # (private key, passwordless). If both are set the key takes precedence.
         # When using a key, the corresponding public key must already be in
         # ~/.ssh/authorized_keys on the target server. The target needs rsync.
-        # Optional ${PREFIX}_SERVER_PORT sets a non-default SSH port (22).
+        # ${PREFIX}_CONFIG must carry server_ssh_known_hosts (pinned host keys,
+        # no ssh-keyscan fallback) and a non-default port via server_port.
         run: |
-          set -e
+          set -euo pipefail
+
+          fail() { echo "Error: $*" >&2; exit 1; }
 
           # --- resolve target and inputs ------------------------------------
-          [ -n "$DEPLOY_TARGET" ] || DEPLOY_TARGET=stag
+          [ -n "${DEPLOY_TARGET:-}" ] || DEPLOY_TARGET=stag
           DEPLOY_TARGET=$(printf '%s' "$DEPLOY_TARGET" | tr '[:upper:]' '[:lower:]')
-          [ -n "$DEPLOY_TASK" ] || DEPLOY_TASK=all
-          [ -n "$BRANCH" ] || BRANCH=main
-          [ -n "$GIT_CRYPT_KEY" ] || GIT_CRYPT_KEY=
+          [ -n "${DEPLOY_TASK:-}" ] || DEPLOY_TASK=all
+          [ -n "${BRANCH:-}" ] || BRANCH=main
+          [ -n "${GIT_CRYPT_KEY:-}" ] || GIT_CRYPT_KEY=
 
           case "$DEPLOY_TARGET" in
             stag) PREFIX=STAG ;;
             prod) PREFIX=PROD ;;
-            *) echo "Error: unknown DEPLOY_TARGET '$DEPLOY_TARGET' (expected stag or prod)" >&2; exit 1 ;;
+            *) fail "unknown DEPLOY_TARGET '$DEPLOY_TARGET' (expected stag or prod)" ;;
+          esac
+
+          # Production deploys only from main; stag can deploy any branch.
+          if [ "$DEPLOY_TARGET" = prod ] && [ "$BRANCH" != main ]; then
+            fail "production deploys only run from main (got branch '$BRANCH')"
+          fi
+
+          # Deployment task allowlist: must match the service input options
+          # above. Keeps deployable services explicit instead of relying on
+          # service-name prefixes (e.g. a new webapp* one-shot container).
+          case "$DEPLOY_TASK" in
+            all|webappconf|webappocis|mailsvstalwart|mailsvbulwark) ;;
+            *) fail "unsupported deployment task '$DEPLOY_TASK'" ;;
           esac
 
           get() { eval "printf '%s' \"\${$1:-}\""; }
@@ -120,14 +150,13 @@ jobs:
           ENV_B64=$(get "${PREFIX}_B64ENC_ENVS")
           ACME_B64=$(get "${PREFIX}_B64ENC_ACME")
 
-          [ -n "$CONFIG_JSON" ] || { echo "Error: ${PREFIX}_CONFIG is not set" >&2; exit 1; }
-          command -v jq >/dev/null 2>&1 || { echo "Error: required command 'jq' not found (runner image)" >&2; exit 1; }
+          [ -n "$CONFIG_JSON" ] || fail "${PREFIX}_CONFIG is not set"
           cfg() {
             printf '%s' "$CONFIG_JSON" | jq -r --arg k "$1" \
               'if (.[$k] | type) == "string" then .[$k]
                elif (.[$k] | type) == "number" then (.[$k] | tostring)
                else empty end' ||
-              { echo "Error: ${PREFIX}_CONFIG is not valid JSON" >&2; exit 1; }
+              fail "${PREFIX}_CONFIG is not valid JSON"
           }
 
           SERVER_HOST=$(cfg server_host)
@@ -136,27 +165,61 @@ jobs:
           DEPLOY_PATH=$(cfg deploy_path)
           SSH_KNOWN_HOST=$(cfg server_ssh_known_hosts)
 
-          [ -n "$SERVER_HOST" ] || { echo "Error: ${PREFIX}_CONFIG.server_host is not set" >&2; exit 1; }
-          [ -n "$SERVER_USER" ] || { echo "Error: ${PREFIX}_CONFIG.server_user is not set" >&2; exit 1; }
+          # Host, user and path are interpolated into shell commands (local and
+          # remote) and an rsync target, so reject anything outside a safe
+          # character set before they reach a shell. deploy_path must be an
+          # absolute path so remote `cd`/`rm -rf` cannot land relative to $HOME.
+          [ -n "$SERVER_HOST" ] || fail "${PREFIX}_CONFIG.server_host is not set"
+          # DNS/IPv4 only: an IPv6 literal cannot be used as user@host here,
+          # and backup_home_sftp parses hosts the same way (71-backup.yml).
+          printf '%s' "$SERVER_HOST" | grep -qE '^[A-Za-z0-9._-]+$' ||
+            fail "${PREFIX}_CONFIG.server_host contains unsupported characters"
+          [ -n "$SERVER_USER" ] || fail "${PREFIX}_CONFIG.server_user is not set"
+          printf '%s' "$SERVER_USER" | grep -qE '^[A-Za-z0-9._-]+$' ||
+            fail "${PREFIX}_CONFIG.server_user contains unsupported characters"
+          [ -n "$DEPLOY_PATH" ] || fail "${PREFIX}_CONFIG.deploy_path is not set"
+          case "$DEPLOY_PATH" in
+            /*) ;;
+            *) fail "${PREFIX}_CONFIG.deploy_path must be an absolute path" ;;
+          esac
+          printf '%s' "$DEPLOY_PATH" | grep -qE '^/[A-Za-z0-9._/-]+$' ||
+            fail "${PREFIX}_CONFIG.deploy_path contains unsupported characters"
           [ -n "$SERVER_PORT" ] || SERVER_PORT=22
           case "$SERVER_PORT" in
-            *[!0-9]*) echo "Error: ${PREFIX}_CONFIG.server_port must be a port number" >&2; exit 1 ;;
+            *[!0-9]*) fail "${PREFIX}_CONFIG.server_port must be a port number" ;;
           esac
-          if [ -z "$SERVER_PASSWORD" ] && [ -z "$SERVER_KEY" ]; then
-            echo "Error: ${PREFIX}_SERVER_PASS or ${PREFIX}_SERVER_KEY must be set" >&2; exit 1
+          if [ "${#SERVER_PORT}" -gt 5 ] || [ "$SERVER_PORT" -lt 1 ] || [ "$SERVER_PORT" -gt 65535 ]; then
+            fail "${PREFIX}_CONFIG.server_port must be between 1 and 65535"
           fi
-          [ -n "$DEPLOY_PATH" ] || { echo "Error: ${PREFIX}_CONFIG.deploy_path is not set" >&2; exit 1; }
+          [ -n "$SSH_KNOWN_HOST" ] || fail "${PREFIX}_CONFIG.server_ssh_known_hosts is not set"
+          [ -n "$SERVER_PASSWORD" ] || [ -n "$SERVER_KEY" ] ||
+            fail "${PREFIX}_SERVER_PASS or ${PREFIX}_SERVER_KEY must be set"
+          [ -n "$GIT_CRYPT_KEY" ] || fail "GIT_CRYPT_KEY is not set (git-crypt certificates cannot be decrypted)"
 
-          command -v ssh >/dev/null 2>&1 || { echo "Error: required command 'ssh' not found" >&2; exit 1; }
-          command -v rsync >/dev/null 2>&1 || { echo "Error: required command 'rsync' not found (runner image)" >&2; exit 1; }
+          for cmd in git git-crypt jq ssh rsync base64 gunzip mktemp; do
+            command -v "$cmd" >/dev/null 2>&1 || fail "required command '$cmd' not found (runner image)"
+          done
           if [ -z "$SERVER_KEY" ]; then
-            command -v sshpass >/dev/null 2>&1 || { echo "Error: required command 'sshpass' not found (needed for password auth)" >&2; exit 1; }
+            command -v sshpass >/dev/null 2>&1 || fail "required command 'sshpass' not found (needed for password auth)"
           fi
 
           # When using key auth, materialize the private key into a temp file
           # with 0600 perms (ssh refuses more permissive key files). The trap
-          # cleans up both temp files on exit regardless of success or failure.
+          # cleans up all temp files (SSH key, known hosts, git-crypt key) on
+          # exit regardless of success or failure.
           SSH_KEY_FILE=
+          GIT_CRYPT_KEY_FILE=
+          GIT_CRYPT_UNLOCKED=0
+          cleanup() {
+            # Re-encrypt the checkout if it was unlocked: the runner is a
+            # persistent host-mode container, so decrypted certificates must
+            # not outlive the job. git crypt lock needs no key file (it uses
+            # the cached key); failure is non-fatal.
+            if [ "$GIT_CRYPT_UNLOCKED" = 1 ]; then
+              git crypt lock >/dev/null 2>&1 || true
+            fi
+            rm -f ${SSH_KEY_FILE:+"$SSH_KEY_FILE"} "$KNOWN_HOSTS_FILE" ${GIT_CRYPT_KEY_FILE:+"$GIT_CRYPT_KEY_FILE"}
+          }
           if [ -n "$SERVER_KEY" ]; then
             SSH_KEY_FILE=$(mktemp)
             chmod 600 "$SSH_KEY_FILE"
@@ -164,7 +227,7 @@ jobs:
             printf '%s\n' "$SERVER_KEY" | tr -d '\r' > "$SSH_KEY_FILE"
           fi
           KNOWN_HOSTS_FILE=$(mktemp)
-          trap 'rm -f "$SSH_KEY_FILE" "$KNOWN_HOSTS_FILE"' EXIT
+          trap cleanup EXIT
 
           echo "Deploying '$DEPLOY_TASK' from branch '$BRANCH' to $DEPLOY_TARGET ($SERVER_USER@$SERVER_HOST:$DEPLOY_PATH)"
 
@@ -172,13 +235,11 @@ jobs:
           # ssh reads ~/.ssh/known_hosts via the passwd home, not $HOME: the
           # runner image runs as root but sets HOME=/data, so ~ resolves to
           # /data while ssh looks in /root. An explicit file keeps them in sync.
-          if [ -n "$SSH_KNOWN_HOST" ]; then
-            printf '%s\n' "$SSH_KNOWN_HOST" >> "$KNOWN_HOSTS_FILE"
-          else
-            echo "WARNING: ${PREFIX}_CONFIG.server_ssh_known_hosts not set; falling back to ssh-keyscan" >&2
-            ssh-keyscan -H -p "$SERVER_PORT" "$SERVER_HOST" >> "$KNOWN_HOSTS_FILE"
-          fi
-          [ -s "$KNOWN_HOSTS_FILE" ] || { echo "Error: no SSH host keys for $SERVER_HOST (set ${PREFIX}_CONFIG.server_ssh_known_hosts)" >&2; exit 1; }
+          # Pinned keys only — no ssh-keyscan fallback, so host trust never
+          # depends on whatever answers the scan at run time.
+          # Strip CR in case the value was pasted via the Forgejo HTTP API (CRLF).
+          printf '%s\n' "$SSH_KNOWN_HOST" | tr -d '\r' >> "$KNOWN_HOSTS_FILE"
+          [ -s "$KNOWN_HOSTS_FILE" ] || fail "no SSH host keys for $SERVER_HOST (set ${PREFIX}_CONFIG.server_ssh_known_hosts)"
           chmod 600 "$KNOWN_HOSTS_FILE"
 
           ssh_exec() {
@@ -194,46 +255,62 @@ jobs:
           # --- decrypt git-crypt files in the runner checkout ----------------
           # Certificates under shared/traefik/advanced/selfsigncert/ are
           # encrypted at rest in the repository. The decrypted working tree is
-          # what gets synced; the target never needs git or git-crypt.
-          if [ -n "$GIT_CRYPT_KEY" ]; then
-            printf '%s' "$GIT_CRYPT_KEY" | base64 -d > /tmp/gcrypt.key
-            git crypt unlock /tmp/gcrypt.key 2>/dev/null ||
-              echo "WARNING: git-crypt unlock skipped (repository may not be initialised)" >&2
-            rm -f /tmp/gcrypt.key
-          fi
+          # what gets synced; the target never needs git or git-crypt. A wrong
+          # or missing key aborts the deploy before anything is synced, so
+          # encrypted (garbage) certificates can never reach the target.
+          GIT_CRYPT_KEY_FILE=$(mktemp)
+          chmod 600 "$GIT_CRYPT_KEY_FILE"
+          printf '%s' "$GIT_CRYPT_KEY" | base64 -d > "$GIT_CRYPT_KEY_FILE" ||
+            fail "GIT_CRYPT_KEY is not valid base64"
+          git crypt unlock "$GIT_CRYPT_KEY_FILE" || fail "git-crypt unlock failed (check GIT_CRYPT_KEY)"
+          GIT_CRYPT_UNLOCKED=1
+          rm -f "$GIT_CRYPT_KEY_FILE"
+          GIT_CRYPT_KEY_FILE=
 
           # --- sync the working tree (no git metadata on the target) ----------
           # Never transferred and removed from the target, so deployments made
           # by the old clone-based workflow migrate cleanly:
-          #   .git .gitignore .gitattributes .forgejo AGENTS.md docs
+          #   .git .git-crypt .gitignore .gitattributes .forgejo AGENTS.md docs
           # Protected from --delete instead (restored or regenerated below):
-          #   .env (newest-file-wins restore), admin-routers.yml and *.b64
+          #   .env (bootstrap-only restore), admin-routers.yml and *.b64
           #   (regenerated by scripts/setup.sh).
           # Root-anchored patterns (/name) only match top-level entries; .env
           # and *.b64 stay unanchored so nested copies are protected too.
-          KEEP_EXCLUDES="--exclude=/.git --exclude=.env --exclude=/.gitignore --exclude=/.gitattributes"
-          KEEP_EXCLUDES="$KEEP_EXCLUDES --exclude=/.forgejo --exclude=/AGENTS.md --exclude=/docs"
-          KEEP_EXCLUDES="$KEEP_EXCLUDES --exclude=shared/traefik/advanced/admin-routers.yml --exclude=*.b64"
-          CLEAN_PATHS='.git .gitignore .gitattributes .forgejo AGENTS.md docs'
+          # Array form so patterns stay literal (no word-splitting surprises).
+          RSYNC_EXCLUDES=(
+            --exclude=/.git --exclude=/.git-crypt --exclude=.env
+            --exclude=/.gitignore --exclude=/.gitattributes --exclude=/.forgejo
+            --exclude=/AGENTS.md --exclude=/docs
+            --exclude=/shared/traefik/advanced/admin-routers.yml
+            --exclude='*.b64'
+          )
 
           ssh_exec "command -v rsync >/dev/null 2>&1 || { echo 'Error: rsync not installed on the target server' >&2; exit 1; }"
-          ssh_exec "mkdir -p '$DEPLOY_PATH' && cd '$DEPLOY_PATH' && rm -rf $CLEAN_PATHS"
+          ssh_exec "mkdir -p '$DEPLOY_PATH' && cd '$DEPLOY_PATH' &&
+            rm -rf -- .git .git-crypt .gitignore .gitattributes .forgejo AGENTS.md docs"
 
           # If APPS_DATA resolves inside the deploy path, protect it from
-          # --delete rather than trusting that it never will be. The last line
-          # is taken so a pre-command ssh banner cannot pollute the answer,
-          # while the ssh exit status still fails the deploy on a bad layout.
+          # --delete rather than trusting that it never will be. The remote
+          # script prints a marked line so an ssh banner or MOTD on stdout
+          # cannot pollute the answer, while the ssh exit status still fails
+          # the deploy on a bad layout.
           APPS_OUT=$(ssh_exec "set -e
           APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
           APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
           case \"\$APPS_DATA\" in
             '$DEPLOY_PATH') echo 'Error: APPS_DATA must not equal DEPLOY_PATH' >&2; exit 1 ;;
-            '$DEPLOY_PATH'/*) rel=\${APPS_DATA#\"$DEPLOY_PATH\"/}; printf '%s' \"\$rel\" ;;
+            '$DEPLOY_PATH'/*) rel=\${APPS_DATA#\"$DEPLOY_PATH\"/}; printf '__APPS_REL__=%s\n' \"\$rel\" ;;
           esac")
-          APPS_REL=$(printf '%s\n' "$APPS_OUT" | tail -1)
+          APPS_REL=$(printf '%s\n' "$APPS_OUT" | sed -n 's/^__APPS_REL__=//p' | tail -1)
           if [ -n "$APPS_REL" ]; then
+            case "$APPS_REL" in
+              /*|../*|*/../*|*/..|..)
+                fail "invalid APPS_DATA path relative to DEPLOY_PATH" ;;
+              *[!A-Za-z0-9._/-]*)
+                fail "relative APPS_DATA path contains unsupported characters" ;;
+            esac
             echo "Protecting APPS_DATA inside the deploy path from --delete: $APPS_REL"
-            KEEP_EXCLUDES="$KEEP_EXCLUDES --exclude=$APPS_REL"
+            RSYNC_EXCLUDES+=("--exclude=/$APPS_REL")
           fi
 
           if [ -n "$SERVER_KEY" ]; then
@@ -245,82 +322,96 @@ jobs:
           fi
 
           echo "Syncing working tree from branch '$BRANCH' to $DEPLOY_TARGET ($SERVER_USER@$SERVER_HOST:$DEPLOY_PATH)"
-          rsync -a --delete $KEEP_EXCLUDES -e "$RSYNC_RSH" ./ "$SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/"
+          rsync -a --delete "${RSYNC_EXCLUDES[@]}" -e "$RSYNC_RSH" ./ "$SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/"
 
-          # --- restore .env (newer file wins) --------------------------------
+          # --- restore .env (bootstrap only) --------------------------------
+          # Restored only when .env is missing on the target; an existing file
+          # is never overwritten. scripts/setup.sh (below) owns .env after the
+          # first deploy: it merges new env.example keys in place.
           if [ -n "$ENV_B64" ]; then
             printf '%s' "$ENV_B64" | ssh_exec "
           set -e
           ENV_PATH='$DEPLOY_PATH/.env'
-          base64 -d > /tmp/env_restore.gz
-          gunzip -f /tmp/env_restore.gz
           if [ -f \"\$ENV_PATH\" ]; then
-            existing_time=\$(stat -c %Y \"\$ENV_PATH\")
-            restore_time=\$(stat -c %Y /tmp/env_restore)
-            if [ \"\$restore_time\" -gt \"\$existing_time\" ]; then
-              echo '.env: secret is newer - restoring from secret'
-              cp /tmp/env_restore \"\$ENV_PATH\" && chmod 600 \"\$ENV_PATH\"
-            else
-              echo '.env: existing file is newer - keeping'
-            fi
+            echo '.env: already present - keeping (restore is bootstrap-only)'
           else
-            echo '.env: not found - restoring from secret'
-            cp /tmp/env_restore \"\$ENV_PATH\" && chmod 600 \"\$ENV_PATH\"
-          fi
-          rm -f /tmp/env_restore /tmp/env_restore.gz"
+            RESTORE_DIR=\$(mktemp -d)
+            trap 'rm -rf \"\$RESTORE_DIR\"' EXIT
+            base64 -d > \"\$RESTORE_DIR/env_restore.gz\"
+            gunzip -f \"\$RESTORE_DIR/env_restore.gz\"
+            cp \"\$RESTORE_DIR/env_restore\" \"\$ENV_PATH\" && chmod 600 \"\$ENV_PATH\"
+            echo '.env: restored from secret'
+          fi"
           fi
 
           # --- merge any new env.example variables ---------------------------
-          ssh_exec "cd '$DEPLOY_PATH' && bash scripts/setup.sh"
+          ssh_exec "cd '$DEPLOY_PATH' || exit 1
+          [ -f .env ] || { echo 'Error: .env is missing after bootstrap restoration' >&2; exit 1; }
+          [ -f scripts/setup.sh ] || { echo 'Error: scripts/setup.sh not found on the target' >&2; exit 1; }
+          bash scripts/setup.sh"
 
-          # --- restore acme.json (production, newer file wins) ---------------
+          # --- restore acme.json (production, bootstrap only) ----------------
+          # Only when acme.json is missing: Traefik owns the file once issued,
+          # and a newer encoded secret must never clobber renewed certificates.
           # install sets root:root 600 deterministically; sudo -n fails fast if
           # the deploy user lacks passwordless sudo (server prerequisite).
-          if [ -n "$ACME_B64" ]; then
+          if [ "$DEPLOY_TARGET" = prod ] && [ -n "$ACME_B64" ]; then
             printf '%s' "$ACME_B64" | ssh_exec "
           set -e
           APPS_DATA=\$(grep -E '^APPS_DATA=' '$DEPLOY_PATH/.env' | tail -1 | cut -d '=' -f2- | tr -d '\"')
           APPS_DATA=\$(printf '%s' \"\$APPS_DATA\" | sed \"s|^~|\$HOME|\")
           [ -n \"\$APPS_DATA\" ] || APPS_DATA=/opt/containerd
           ACME_PATH=\"\$APPS_DATA/shared/certs/acme.json\"
-          sudo -n mkdir -p \"\$(dirname \"\$ACME_PATH\")\"
-          base64 -d > /tmp/acme_restore.gz
-          gunzip -f /tmp/acme_restore.gz
           if [ -f \"\$ACME_PATH\" ]; then
-            existing_time=\$(stat -c %Y \"\$ACME_PATH\")
-            restore_time=\$(stat -c %Y /tmp/acme_restore)
-            if [ \"\$restore_time\" -gt \"\$existing_time\" ]; then
-              echo 'acme.json: secret is newer - restoring from secret'
-              sudo -n install -m 600 -o root -g root /tmp/acme_restore \"\$ACME_PATH\"
-            else
-              echo 'acme.json: existing file is newer - keeping'
-            fi
+            echo 'acme.json: already present - keeping (restore is bootstrap-only)'
           else
-            echo 'acme.json: not found - restoring from secret'
-            sudo -n install -m 600 -o root -g root /tmp/acme_restore \"\$ACME_PATH\"
-          fi
-          rm -f /tmp/acme_restore /tmp/acme_restore.gz"
+            RESTORE_DIR=\$(mktemp -d)
+            trap 'rm -rf \"\$RESTORE_DIR\"' EXIT
+            base64 -d > \"\$RESTORE_DIR/acme_restore.gz\"
+            gunzip -f \"\$RESTORE_DIR/acme_restore.gz\"
+            sudo -n mkdir -p \"\$(dirname \"\$ACME_PATH\")\"
+            sudo -n install -m 600 -o root -g root \"\$RESTORE_DIR/acme_restore\" \"\$ACME_PATH\"
+            echo 'acme.json: restored from secret'
+          fi"
           fi
 
           # --- deploy on the remote server ------------------------------------
-          # Foundational services (databases, Authentik, Forgejo + runner, Traefik)
-          # are deployed manually: deploying Forgejo would kill the runner
+          # Explicit allowlist (validated against the input options above)
+          # instead of service-name prefix filtering, so a future one-shot or
+          # foundational webapp* container cannot slip into a deploy. The
+          # oCIS ownership initialiser always runs before webappocis. Foundational
+          # services (databases, Authentik, Forgejo + runner, Traefik) are
+          # deployed manually: deploying Forgejo would kill the runner
           # mid-deploy, and Traefik picks up new containers automatically via its
           # Docker provider. --no-deps guarantees a deploy never starts or
           # recreates them either. aiserv* and obsvce* are excluded per
           # ADR-009 even if the local include set ever lists them again.
           REMOTE_CMD="
-          set -e
-          if command -v docker-compose >/dev/null 2>&1; then COMPOSE='docker-compose'; else COMPOSE='docker compose'; fi
-          if [ '$DEPLOY_TASK' = all ]; then
-            SERVICES=\$(\$COMPOSE config --services | grep -vE '^(infra|devops|route|aiserv|obsvce)')
-            \$COMPOSE up -d --build --no-deps \$SERVICES
-          elif [ '$DEPLOY_TASK' = webappocis ]; then
-            \$COMPOSE up -d --build webappocisinit
-            \$COMPOSE up -d --build --no-deps webappocis
+          set -eu
+          if command -v docker-compose >/dev/null 2>&1; then
+            COMPOSE='docker-compose'
+          elif docker compose version >/dev/null 2>&1; then
+            COMPOSE='docker compose'
           else
-            \$COMPOSE up -d --build --no-deps '$DEPLOY_TASK'
-          fi"
+            echo 'Error: neither docker-compose nor docker compose is available' >&2
+            exit 1
+          fi
+          case '$DEPLOY_TASK' in
+            all)
+              \$COMPOSE build webappocisinit
+              \$COMPOSE run --rm --no-deps webappocisinit
+              \$COMPOSE up -d --build --no-deps webappconf webappocis mailsvstalwart mailsvbulwark
+              ;;
+            webappocis)
+              \$COMPOSE build webappocisinit
+              \$COMPOSE run --rm --no-deps webappocisinit
+              \$COMPOSE up -d --build --no-deps webappocis
+              ;;
+            *)
+              \$COMPOSE up -d --build --no-deps '$DEPLOY_TASK'
+              ;;
+          esac
+          \$COMPOSE ps"
           ssh_exec "cd '$DEPLOY_PATH' && $REMOTE_CMD"
 
           echo "Deployment of '$DEPLOY_TASK' from branch '$BRANCH' to $DEPLOY_TARGET completed"

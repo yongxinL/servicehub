@@ -10,7 +10,7 @@ lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-08
+updated: 2026-10-09
 tags:
   - servicehub
   - architecture
@@ -86,8 +86,8 @@ sequenceDiagram
     R->>F: Checkout selected branch
     R->>H: Verify SSH host and connect
     R->>H: Clone or pull deployment path
-    R->>H: Unlock git-crypt when configured
-    R->>H: Restore .env and acme.json when newer
+    R->>H: Unlock git-crypt (required)
+    R->>H: Restore .env and acme.json when missing
     R->>H: Merge new environment variables
     R->>H: docker compose up --build --no-deps
 ```
