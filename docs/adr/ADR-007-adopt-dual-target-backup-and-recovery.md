@@ -4,9 +4,9 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-007
 title: Adopt Dual-Target Backup and Disaster Recovery
-version: "1.2"
+version: "1.3"
 status: Accepted
-decision_basis: Owner decision recorded on 2026-10-03 and runner consolidation revised on 2026-10-04; repository configuration added; target selection, source-host scope, non-standard SFTP port, and key-based authentication recorded on 2026-10-07; replication revised on 2026-10-08 to use Rclone for both targets and to place Google Drive behind an Rclone Crypt remote; runtime validation pending
+decision_basis: Owner decision recorded on 2026-10-03 and runner consolidation revised on 2026-10-04; repository configuration added; target selection, source-host scope, non-standard SFTP port, and key-based authentication recorded on 2026-10-07; replication revised on 2026-10-08 to use Rclone for both targets and to place Google Drive behind an Rclone Crypt remote; backup cadence revised on 2026-10-10 (daily schedule at 02:30 Australia/Sydney, database archives every third day, full archives every tenth day); runtime validation pending
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
@@ -31,7 +31,7 @@ related_documents:
 
 ## Context
 
-The repository implements daily PostgreSQL dumps and a weekly or on-demand `APPS_DATA` archive through Forgejo Actions. Those artifacts are written under a configured backup root on the target host, with configured Rclone transfers to both off-host targets. No successful off-site transfer or tested restore is recorded.
+The repository implements PostgreSQL dumps every third day and a full `APPS_DATA` archive every tenth day or on demand through Forgejo Actions (daily schedule at 02:30 `Australia/Sydney`, configuration archives on every run). Those artifacts are written under a configured backup root on the target host, with configured Rclone transfers to both off-host targets. No successful off-site transfer or tested restore is recorded.
 
 ServiceHub must be able to recover from VM loss, an Oracle Cloud outage, accidental deletion, data corruption, and configuration error. Protection must include service configuration, PostgreSQL databases, and persistent filesystem paths for oCIS, Forgejo, email, Authentik, and the other stateful services already in scope.
 
@@ -41,9 +41,9 @@ Recovery objectives are not yet approved or measured. The one-to-two-hour recove
 
 The workflow produces three archive types before any replication occurs, so each archive is already a self-contained recovery artifact:
 
-- **Database backup (`dbBK`):** PostgreSQL database dumps and PostgreSQL global roles; created daily when database backup is enabled.
+- **Database backup (`dbBK`):** PostgreSQL database dumps and PostgreSQL global roles; created every third scheduled day when database backup is enabled.
 - **Configuration backup (`cfgBK`):** deployment `.env` and `egress-policies.conf` when present; created on every backup run.
-- **Full backup (`fullBK`):** persistent application data under `APPS_DATA`; created weekly during automatic operation or manually on request.
+- **Full backup (`fullBK`):** persistent application data under `APPS_DATA`; created every tenth scheduled day during automatic operation or manually on request.
 
 Archives follow the existing date hierarchy under `backup_root`:
 
@@ -285,7 +285,7 @@ The dual-target design addresses host-loss and cloud-outage scenarios while pres
 
 The current repository contains:
 
-- [Daily and weekly backup workflow](../../.forgejo/workflows/71-backup.yml)
+- [Backup workflow (scheduled database, configuration, and full archives)](../../.forgejo/workflows/71-backup.yml)
 - [Shared Forgejo runner image and configuration](../products/forgejo.md)
 - [Backup and restore operations record](../operations/BACKUP-RESTORE.md)
 - [RFC-001 Reliability and Recovery Baseline](../rfc/RFC-001-reliability-and-recovery-baseline.md)

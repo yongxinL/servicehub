@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: RFC
 document_id: RFC-001
 title: ServiceHub Reliability and Recovery Baseline
-version: "1.1"
+version: "1.2"
 status: Accepted
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-08
+updated: 2026-10-10
 tags:
   - servicehub
   - reliability
@@ -34,12 +34,12 @@ Define a recovery baseline for ServiceHub that protects databases, persistent ap
 
 The repository implements a Forgejo Actions backup workflow that:
 
-- Runs daily at 02:30 in its default scheduled mode.
+- Runs daily at 02:30 (`Australia/Sydney`) in its default scheduled mode.
 - Creates one `pg_dump` per non-template PostgreSQL database.
 - Creates a role-globals `pg_dumpall` output.
-- Packs database dumps into one daily archive.
+- Packs database dumps into one archive per backup day (every third scheduled day).
 - Requires approved protected retention inputs for database and full archives.
-- Creates a full `APPS_DATA` archive on Sundays or on demand.
+- Creates a full `APPS_DATA` archive every tenth scheduled day or on demand.
 - Writes archives under a repository-secret backup root on the same target host.
 - Runs on the existing Forgejo runner, whose image is extended with Rclone, SSH, the PostgreSQL client, Bash, and jq.
 - Copies archives to the Home Server over an Rclone SFTP remote and to Google Drive through an Rclone Crypt remote, with destination integrity checks and target retention.
@@ -104,7 +104,7 @@ The repository documents a restore sequence, validation requirements, and an evi
 
 The repository now configures backup creation, dual-target transfer, integrity checks, and separate retention. The remaining assurance work is:
 
-1. Execute and validate daily transaction-consistent PostgreSQL dumps and persistent-data archives.
+1. Execute and validate scheduled transaction-consistent PostgreSQL dumps and persistent-data archives.
 2. Verify Home Server and Google Drive copies independently.
 3. Verify separate retention rules for database and filesystem layers.
 4. Restore into an isolated environment.

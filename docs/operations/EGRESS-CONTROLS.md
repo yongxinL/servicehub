@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: EGRESS-CONTROLS
 title: ServiceHub Container Egress Controls
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-05
-updated: 2026-10-08
+updated: 2026-10-10
 tags:
   - servicehub
   - operations
@@ -28,7 +28,7 @@ related_documents:
 
 [ADR-009 §5](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) restricts container outbound traffic on the host. Two layers are enforced, both inside the Docker `DOCKER-USER` chain (container traffic only — the host's own outbound traffic is unaffected):
 
-The per-service list lives in `egress-policies.conf`. The repository copy, [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf), is only the **seed**: `scripts/setup.sh` copies it once to **`${APPS_DATA}/shared/gateway/egress-policies.conf`**, and that runtime copy is the one `apply` reads (override the path with `EGRESS_POLICIES=<path>`). It sits under `APPS_DATA` deliberately — a deploy's rsync never touches that directory, so operator edits survive, and the weekly full backup archive covers it. A copy left at the pre-`shared/gateway` location (`${APPS_DATA}/egress-policies.conf`) is still read until `scripts/setup.sh` moves it there on the next run. **Make policy changes on the server, in `${APPS_DATA}/shared/gateway/egress-policies.conf`**; editing the repository copy has no effect on a host that has already been seeded.
+The per-service list lives in `egress-policies.conf`. The repository copy, [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf), is only the **seed**: `scripts/setup.sh` copies it once to **`${APPS_DATA}/shared/gateway/egress-policies.conf`**, and that runtime copy is the one `apply` reads (override the path with `EGRESS_POLICIES=<path>`). It sits under `APPS_DATA` deliberately — a deploy's rsync never touches that directory, so operator edits survive, and the full backup archive covers it. A copy left at the pre-`shared/gateway` location (`${APPS_DATA}/egress-policies.conf`) is still read until `scripts/setup.sh` moves it there on the next run. **Make policy changes on the server, in `${APPS_DATA}/shared/gateway/egress-policies.conf`**; editing the repository copy has no effect on a host that has already been seeded.
 
 1. **Per-service policy** — the policy file lists a Compose service and its policy:
    - `restricted` — RFC1918 destinations (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, i.e. PostgreSQL, Authentik, Stalwart SMTP, Traefik, Docker DNS, the host) **plus the host's own public IP** are allowed; everything else is logged (`egress-restricted: ` prefix) and dropped. The public-IP rule covers hairpin access back into Traefik when public names (`login.<domain>`, …) resolve to the host's public address — without it, a restricted container's OIDC calls to Authentik are dropped. The address is detected at `apply` time from cloud instance metadata (Oracle IMDS), can be pinned with `EGRESS_SELF_IP=<ipv4>`, and is skipped with a warning when it cannot be determined.

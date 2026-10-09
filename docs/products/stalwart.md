@@ -92,7 +92,7 @@ docker compose exec -T infrapgsql pg_dump -U "${DB_ADMIN_USER}" -Fc "${POSTOFFIC
   > "mailsv-$(date +%F).dump"
 ```
 
-`-Fc` is the compressed custom format used by `pg_restore` (selective/parallel restore); for a plain-SQL dump use `-Fp | gzip > mailsv-$(date +%F).sql.gz` instead. Copy the dump off the server — the scheduled [Forgejo backup workflow](../../README.md#data-backups-forgejo-actions) also dumps every database daily (kept 6 months) and archives `APPS_DATA` weekly, so this section is the manual path.
+`-Fc` is the compressed custom format used by `pg_restore` (selective/parallel restore); for a plain-SQL dump use `-Fp | gzip > mailsv-$(date +%F).sql.gz` instead. Copy the dump off the server — the scheduled [Forgejo backup workflow](../operations/BACKUP-RESTORE.md) also dumps every database every third day (kept 6 months) and archives `APPS_DATA` every tenth day, so this section is the manual path.
 
 **Restore** — stop Stalwart (no writers), recreate the database, import the dump and start again:
 
