@@ -82,7 +82,7 @@ For **production** (Let's Encrypt), Traefik creates `${APPS_DATA}/shared/certs/a
 chmod 600 ${APPS_DATA}/shared/certs/acme.json
 ```
 
-For **staging** (self-signed), place your `.pem` and `.key` files in `shared/traefik/advanced/selfsigncert/` matching `shared/traefik/advanced/certificates.yml`. These are encrypted with git-crypt before committing — see [Managing Encrypted Files (git-crypt)](development/DEVELOPMENT.md#managing-encrypted-files-git-crypt). No `acme.json` is needed.
+For **staging** (self-signed), place your `.pem` and `.key` files in `shared/traefik/advanced/selfsigncert/` matching `shared/traefik/advanced/certificates.yml`. These are encrypted with git-crypt before committing — see [Managing Encrypted Files (git-crypt)](DEVELOPMENT.md#managing-encrypted-files-git-crypt). No `acme.json` is needed.
 
 For remote deployments via the Forgejo Actions workflow (production only), `acme.json` is restored automatically from the `*_B64ENC_ACME` secret (gzip+base64 encoded via `setup.sh --encode`) with `install -m 600 -o root -g root`, so ownership and permissions are deterministic. The restore is bootstrap-only: it runs only when `acme.json` is missing on the server and never overwrites an existing file, so certificates issued or renewed by Traefik are always preserved.
 
@@ -120,4 +120,4 @@ docker compose up -d devopsforgejo
 
 - Day-to-day operations: [Runbook](RUNBOOK.md)
 - Remote deployment: [Deployment (Forgejo Actions)](DEPLOYMENT.md)
-- Encrypted certificate material: [Managing Encrypted Files (git-crypt)](development/DEVELOPMENT.md#managing-encrypted-files-git-crypt)
+- Encrypted certificate material: [Managing Encrypted Files (git-crypt)](DEVELOPMENT.md#managing-encrypted-files-git-crypt)

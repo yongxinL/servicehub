@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: DEV
 document_id: DEVELOPMENT
 title: ServiceHub Development Workflows
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Development
 owner: George Li
 maintainer: George Li
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 tags:
   - servicehub
   - development
@@ -93,7 +93,7 @@ git-crypt unlock ./servicehub.key
 
 The repository documents a local Compose flow:
 
-1. Install prerequisites listed in the [Installation guide](../INSTALLATION.md#prerequisites).
+1. Install prerequisites listed in the [Installation guide](INSTALLATION.md#prerequisites).
 2. Run `bash scripts/setup.sh` to create or merge `.env`.
 3. Review environment values without copying secret values into documentation.
 4. Validate configuration with `docker compose config`.
@@ -115,6 +115,6 @@ This flow is Confirmed from repository commands; local execution results are `No
 
 ## Related
 
-- When the git-crypt key is needed during installation: [Installation](../INSTALLATION.md)
-- How the deploy workflow uses the key: [Deployment (Forgejo Actions)](../DEPLOYMENT.md)
+- When the git-crypt key is needed during installation: [Installation](INSTALLATION.md)
+- How the deploy workflow uses the key: [Deployment (Forgejo Actions)](DEPLOYMENT.md)
 - Deployment scope and architecture model: [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md)
