@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: DEPLOYMENT
 title: ServiceHub Deployment (Forgejo Actions)
-version: "1.3"
+version: "1.1"
 status: Active
 lifecycle_stage: Operations
 owner: George Li
@@ -124,6 +124,8 @@ All non-credential target settings live in **one JSON variable per environment**
   "backup_exclude": "webapp/confluence/logs,devops/forgejo/workspace",
   "db_backup_retention_days": "14",
   "backup_local_full_retention_days": "90",
+  "db_backup_interval_days": "1",
+  "full_backup_interval_days": "7",
   "backup_home_sftp": "backup@home.example:2222",
   "backup_home_destination": "/srv/backups/servicehub",
   "backup_home_db_keep_age": "30d",
@@ -134,7 +136,7 @@ All non-credential target settings live in **one JSON variable per environment**
 }
 ```
 
-The example also carries the `backup_*` keys of the [backup workflow](BACKUP-RESTORE.md#configuration-keys) — `backup_root`, `backup_exclude`, the retention values and both off-host targets. Remove a `backup_*` key (or leave it empty) to disable that backup target, or omit the `backup_*` keys entirely: a deploy-only environment needs the five keys below and nothing else.
+The example also carries the `backup_*` keys of the [backup workflow](BACKUP-RESTORE.md#configuration-keys) — `backup_root`, `backup_exclude`, the retention values, the cadence intervals, and both off-host targets. Remove a `backup_*` key (or leave it empty) to disable that backup target, or omit the `backup_*` keys entirely: a deploy-only environment needs the five keys below and nothing else, and an environment that omits both off-host targets takes local-only backups under `backup_root`.
 
 | Key | Required by | Description |
 |---|---|---|
@@ -209,7 +211,7 @@ ssh-keyscan -p 2222 -H home.example
 
 ## Backup Schedule
 
-The companion backup workflow ([`71-backup.yml`](../../.forgejo/workflows/71-backup.yml)) runs **daily at 02:30 (`Australia/Sydney`)**: a configuration archive on every run, a database archive every third day, and a full archive every tenth day. To pause it without changing any file, open **Actions → Backup**, select the workflow in the run list, and use the **⋮** menu → **Disable Workflow** (repository administrator); **Enable Workflow** in the same menu resumes it. To retime it, edit `cron` / `timezone` under `on.schedule` in `.forgejo/workflows/71-backup.yml` **on the default branch** and push — Forgejo has no UI or API override for a cron expression. Full options: [Managing the schedule](BACKUP-RESTORE.md#managing-the-schedule-enable-disable-retime).
+The companion backup workflow ([`71-backup.yml`](../../.forgejo/workflows/71-backup.yml)) runs **daily at 02:30 (`Australia/Sydney`)**: a configuration archive on every run, a database archive every `db_backup_interval_days` days (default 1, daily), and a full archive every `full_backup_interval_days` days (default 7, weekly) — set those keys in `${PREFIX}_CONFIG` to change the cadence without a commit. To pause it without changing any file, open **Actions → Backup**, select the workflow in the run list, and use the **⋮** menu → **Disable Workflow** (repository administrator); **Enable Workflow** in the same menu resumes it. To retime the daily trigger itself, edit `cron` / `timezone` under `on.schedule` in `.forgejo/workflows/71-backup.yml` **on the default branch** and push — Forgejo has no UI or API override for a cron expression. Full options: [Managing the schedule](BACKUP-RESTORE.md#managing-the-schedule-enable-disable-retime).
 
 ## Related
 

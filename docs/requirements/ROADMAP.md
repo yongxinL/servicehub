@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ROADMAP
 document_id: ROADMAP-001
 title: ServiceHub Roadmap
-version: "1.2"
+version: "1.1"
 status: Draft
 lifecycle_stage: Planning
 owner: George Li
@@ -47,7 +47,7 @@ Current state is therefore **implemented in part, not yet verified as a governed
 - Hermes, LiteLLM, and llama.cpp AI services with configured local/cloud routing.
 - VictoriaMetrics, VictoriaLogs, Grafana Alloy, and Grafana provisioning.
 - Stalwart and Bulwark email services.
-- Scheduled PostgreSQL dump workflow (every third day), full persistent-data archive workflow (every tenth day), and configured dual-target Rclone transfers.
+- Scheduled PostgreSQL dump workflow (daily by default), full persistent-data archive workflow (weekly by default) with both intervals configurable in `${PREFIX}_CONFIG`, and configured dual-target Rclone transfers.
 
 “Implemented” describes repository content only. Runtime results remain `Not yet verified`.
 

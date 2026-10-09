@@ -4,9 +4,9 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-007
 title: Adopt Dual-Target Backup and Disaster Recovery
-version: "1.3"
+version: "1.1"
 status: Accepted
-decision_basis: Owner decision recorded on 2026-10-03 and runner consolidation revised on 2026-10-04; repository configuration added; target selection, source-host scope, non-standard SFTP port, and key-based authentication recorded on 2026-10-07; replication revised on 2026-10-08 to use Rclone for both targets and to place Google Drive behind an Rclone Crypt remote; backup cadence revised on 2026-10-10 (daily schedule at 02:30 Australia/Sydney, database archives every third day, full archives every tenth day); runtime validation pending
+decision_basis: Owner decision recorded on 2026-10-03 and runner consolidation revised on 2026-10-04; repository configuration added; target selection, source-host scope, non-standard SFTP port, and key-based authentication recorded on 2026-10-07; replication revised on 2026-10-08 to use Rclone for both targets and to place Google Drive behind an Rclone Crypt remote; backup cadence revised on 2026-10-10 (daily schedule at 02:30 Australia/Sydney; day intervals made configurable, superseding the earlier every-third-day / every-tenth-day cadence); failure handling and cadence configuration revised on 2026-10-10 (degraded-target warnings, local-only runs permitted, day intervals moved into `${PREFIX}_CONFIG` with defaults of daily database archives and weekly full archives); runtime validation pending
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
@@ -31,7 +31,7 @@ related_documents:
 
 ## Context
 
-The repository implements PostgreSQL dumps every third day and a full `APPS_DATA` archive every tenth day or on demand through Forgejo Actions (daily schedule at 02:30 `Australia/Sydney`, configuration archives on every run). Those artifacts are written under a configured backup root on the target host, with configured Rclone transfers to both off-host targets. No successful off-site transfer or tested restore is recorded.
+The repository implements PostgreSQL dumps and a full `APPS_DATA` archive on configured day intervals (defaults: daily for database archives, weekly for full archives) or on demand through Forgejo Actions (daily schedule at 02:30 `Australia/Sydney`, configuration archives on every run). Those artifacts are written under a configured backup root on the target host, with configured Rclone transfers to both off-host targets. No successful off-site transfer or tested restore is recorded.
 
 ServiceHub must be able to recover from VM loss, an Oracle Cloud outage, accidental deletion, data corruption, and configuration error. Protection must include service configuration, PostgreSQL databases, and persistent filesystem paths for oCIS, Forgejo, email, Authentik, and the other stateful services already in scope.
 
@@ -41,9 +41,9 @@ Recovery objectives are not yet approved or measured. The one-to-two-hour recove
 
 The workflow produces three archive types before any replication occurs, so each archive is already a self-contained recovery artifact:
 
-- **Database backup (`dbBK`):** PostgreSQL database dumps and PostgreSQL global roles; created every third scheduled day when database backup is enabled.
+- **Database backup (`dbBK`):** PostgreSQL database dumps and PostgreSQL global roles; created on days where the source host's epoch-day index is a multiple of `db_backup_interval_days` (default 1, daily) when database backup is enabled.
 - **Configuration backup (`cfgBK`):** deployment `.env` and `egress-policies.conf` when present; created on every backup run.
-- **Full backup (`fullBK`):** persistent application data under `APPS_DATA`; created every tenth scheduled day during automatic operation or manually on request.
+- **Full backup (`fullBK`):** persistent application data under `APPS_DATA`; created on days where the epoch-day index is a multiple of `full_backup_interval_days` (default 7, weekly) during automatic operation, or manually on request.
 
 Archives follow the existing date hierarchy under `backup_root`:
 
@@ -69,11 +69,12 @@ The owner revised the runner portion of the decision on 2026-10-04 to avoid a se
 
 The owner added the following operational detail on 2026-10-07, and revised the replication technology on 2026-10-08.
 
-3. **Target selection:** each off-host target is enabled by its own key in `${PREFIX}_CONFIG`. Setting `backup_home_destination` enables Target 1; setting `backup_rclone_destination` enables Target 2; setting both enables both. An absent or empty key disables that target, and every other setting and secret used only by that target is then ignored rather than validated. Target 1 additionally requires `backup_home_sftp` (the `user@host[:port]` endpoint), `backup_home_db_keep_age`, and `backup_home_full_keep_age`; the workflow creates the `_workflow_home` SFTP remote at runtime. At least one off-host target must be enabled, and same-host archives under `backup_root` are created on every run regardless of target selection.
+3. **Target selection:** each off-host target is enabled by its own key in `${PREFIX}_CONFIG`. Setting `backup_home_destination` enables Target 1; setting `backup_rclone_destination` enables Target 2; setting both enables both. An absent or empty key disables that target, and every other setting and secret used only by that target is then ignored rather than validated. Target 1 additionally requires `backup_home_sftp` (the `user@host[:port]` endpoint), `backup_home_db_keep_age`, and `backup_home_full_keep_age`; the workflow creates the `_workflow_home` SFTP remote at runtime. Off-host targets are optional: with both keys absent the run creates the same-host archives under `backup_root` and reports a local-only backup, and same-host archives are created on every run regardless of target selection. When one or both targets are enabled, a target that fails its preflight, its transfer, or its integrity check is reported as a warning and the run continues with the remaining target; the run fails when every enabled target failed, so losing the only enabled target is always an error.
 4. **Non-standard SFTP port:** Target 1 MAY use an SSH port other than 22, including an SFTP server on the local network, without a repository code change. The port is part of the `backup_home_sftp` endpoint (`user@host:port`); omitting it uses port 22.
 5. **Transport authentication:** Target 1 authenticates the SSH connection with the private key in `BACKUP_HOME_SSH_KEY` and enforces host verification with `BACKUP_HOME_SSH_KNOWN_HOSTS`. There is no repository password: the Home Server holds readable archives, consistent with treating it as trusted storage.
 6. **Replication semantics:** replication uses `rclone copy` or `rclone copyto`, never `rclone sync`. Source deletions must not propagate to backup destinations; retention stays under the explicit backup retention policy applied per destination.
 7. **Off-site encryption:** the Google Drive remote is wrapped by an Rclone Crypt remote providing client-side encryption of file contents and, as configured, filenames. The Crypt password and configuration are recovery material and must be preserved in a protected location separate from Google Drive itself.
+8. **Cadence configuration (revised 2026-10-10):** the day interval between database archives (`db_backup_interval_days`, default 1 — daily) and between full archives (`full_backup_interval_days`, default 7 — weekly) is an optional key of `${PREFIX}_CONFIG`, evaluated against the source host's epoch-day index. The workflow still runs daily, so retiming the cadence is a variable edit with no workflow commit; manual `db` and `full` runs ignore the intervals.
 
 ## Decision Drivers
 
@@ -163,9 +164,9 @@ backup_root: YYYY/YYYYMM/*.tar.gz
       +--> Rclone copy --> Crypt remote ----> Google Drive (encrypted archives)
 ```
 
-The configured workflow fails when required inputs, dumps, archives, transfers, retention operations, or integrity checks fail. Transfer and restore credentials are supplied only as protected Forgejo Actions secrets. Target locations, credentials, and approved retention values remain outside tracked documentation.
+The configured workflow fails when required inputs, dumps, archives, retention operations, or configuration validation fail, and on a transfer or integrity-check failure whenever every enabled target failed; a failure of one enabled target while another succeeds is reported as a warning instead. Transfer and restore credentials are supplied only as protected Forgejo Actions secrets. Target locations, credentials, and approved retention values remain outside tracked documentation.
 
-A branch whose enabling key is absent or empty is skipped entirely: its tooling, secrets, validation, transfer, integrity check, and retention steps do not run and are not validated. The workflow fails when neither branch is enabled, so a configuration that disables both targets cannot produce a run that looks successful while keeping archives on the source host only.
+A branch whose enabling key is absent or empty is skipped entirely: its tooling, secrets, validation, transfer, integrity check, and retention steps do not run and are not validated. Revised on 2026-10-10, the workflow no longer fails when neither branch is enabled: it creates the same-host archives, logs `No off-host target enabled`, and succeeds as a local-only run. That run is therefore the weakest accepted state, not disaster recovery, and must be recorded per environment rather than inferred from a green run.
 
 ### Copy semantics
 
@@ -173,7 +174,7 @@ Replication uses `rclone copy` (or `rclone copyto` for a single named artifact),
 
 ### Integrity verification
 
-Replication verification must not assume that a successful upload means a recoverable backup. For each artifact copied by `rclone copyto`, the workflow computes SHA-256 over downloaded bytes on both ends with `rclone hashsum sha256 --download` and fails the run on mismatch, so comparison is against downloaded bytes rather than size and hash metadata alone. A separate periodic restore test is required in addition to per-transfer checks.
+Replication verification must not assume that a successful upload means a recoverable backup. For each artifact copied by `rclone copyto`, the workflow computes SHA-256 over downloaded bytes on both ends with `rclone hashsum sha256 --download` and fails that target on mismatch (and the run when every enabled target failed), so comparison is against downloaded bytes rather than size and hash metadata alone. A separate periodic restore test is required in addition to per-transfer checks.
 
 ### Retention
 
@@ -279,7 +280,7 @@ The dual-target design addresses host-loss and cloud-outage scenarios while pres
 - **Integrity regression:** per-artifact `rclone hashsum sha256 --download` after each transfer plus scheduled restore tests must be enforced, not assumed.
 - **Inconsistent live archives:** use transaction-consistent PostgreSQL dumps and validate filesystem or oCIS-aware consistency rules.
 - **External Google Drive limitations:** test retrieval, quotas, authentication recovery, and off-site retention before relying on the copy.
-- **Single-target drift:** a disabled target raises no error and runs no credential check, so an environment can silently drop to one off-host copy after a single edit to `${PREFIX}_CONFIG`; mitigate by recording which targets each environment is expected to enable and by alerting when a run reports a changed enabled-target count.
+- **Single-target drift:** a disabled target raises no error and runs no credential check, so an environment can silently drop to one off-host copy after a single edit to `${PREFIX}_CONFIG`, and since 2026-10-10 a second edit can drop it to local-only archives while the run still succeeds; mitigate by recording which targets each environment is expected to enable and by alerting when a run reports a changed enabled-target count or `No off-host target enabled`.
 
 ## Implementation Evidence
 
@@ -298,6 +299,8 @@ On 2026-10-07 the workflow was changed so that each off-host target is gated on 
 On 2026-10-08 the replication technology was revised as recorded in this document, and the workflow was refactored the same day; review corrections followed on 2026-10-09. Both off-host targets now replicate through Rclone: the workflow creates the `_workflow_home` SFTP remote for the Home Server from `backup_home_sftp`, `backup_home_destination`, `BACKUP_HOME_SSH_KEY`, and `BACKUP_HOME_SSH_KNOWN_HOSTS`, and uses the Crypt-wrapped remote named by `backup_rclone_destination` for Google Drive, failing the run unless that remote's type is `crypt`. Every transfer is verified with `rclone check --download --one-way`, the Home Server destination is created and listed before the first transfer, retention is applied per destination with the four keep-age keys after validating each as an Rclone duration, source host keys are required with no `ssh-keyscan` fallback so host trust is deterministic, ports are range-checked to 1–65535, and the workflow logs `Enabled off-host targets: home=<0|1> gdrive=<0|1>`. The earlier Home Server path, its repository keys, and its password secret were removed from the workflow, the runner image, and the documentation. The refactor was verified by extracting the workflow's validation prefix and executing it against 18 combinations — both targets, each target alone, both disabled, missing secrets, missing pinned host keys, malformed endpoint and path values, non-numeric and out-of-range ports, invalid retention durations, missing keep-age keys, legacy configuration keys, and an absent `${PREFIX}_CONFIG` — each returning the expected enabled-target line or the expected error. Transfer stages against real targets remain unexecuted and unevidenced. The existing Home Server backup repository must not be deleted until both new recovery paths have been tested successfully.
 
 On 2026-10-10 the per-artifact integrity check was corrected: `rclone check` requires directory trees and rejects single-file paths with `Failed to create file system for "remote:file": is a file not a directory`, which caused the first Home Server transfer to fail in production. The check was replaced with `rclone hashsum sha256 --download` computed on both ends and compared as strings, keeping the same integrity guarantee (SHA-256 over downloaded bytes) while honouring the per-artifact scope of `copyto`. Integrity verification, the post-copy failure mode, and the requirement for periodic restore tests are unchanged.
+
+Also on 2026-10-10, failure handling and cadence configuration were revised: a failed off-host target now warns and lets the remaining enabled target complete instead of aborting the run, a run with no enabled target succeeds as a local-only backup, and the database and full-archive day intervals moved from the workflow file into `db_backup_interval_days` and `full_backup_interval_days` in `${PREFIX}_CONFIG`. The change was verified by extracting the workflow's shell script, syntax-checking the generated remote script, and running it against stubbed `ssh` and `rclone` binaries for seven target combinations (none, Home only, Google Drive only, and both, with each stub forced to fail) plus interval values of the defaults, `7`/`14`, `0`, and non-numeric: each produced the expected warning, error, exit status, or injected remote value. Transfers against real Home Server and Google Drive targets, and the cadence keys in a live environment, remain unexecuted and unevidenced.
 
 ## Related Documents
 

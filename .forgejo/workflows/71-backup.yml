@@ -15,7 +15,7 @@ on:
           - stag
           - prod
       backup:
-        description: 'auto: scheduled cadence (DB every 3rd day, full every 10th day, config every run); db: DB/config now; full: full/config now'
+        description: 'auto: scheduled cadence (DB daily, full weekly by default, per db_backup_interval_days/full_backup_interval_days; config every run); db: DB/config now; full: full/config now'
         required: true
         default: 'auto'
         type: choice
@@ -92,6 +92,11 @@ jobs:
           BACKUP_EXCLUDE=$(cfg backup_exclude)
           DB_RETENTION_DAYS=$(cfg db_backup_retention_days)
           FULL_RETENTION_DAYS=$(cfg backup_local_full_retention_days)
+          # Cadence of the scheduled (auto) mode. Optional keys: an environment
+          # can retime the database and full archives without a workflow change.
+          # Defaults: database every day, full archive every week.
+          DB_INTERVAL=$(cfg db_backup_interval_days)
+          FULL_INTERVAL=$(cfg full_backup_interval_days)
           SSH_KNOWN_HOST=$(cfg server_ssh_known_hosts)
           HOME_SFTP=$(cfg backup_home_sftp)
           HOME_DESTINATION=$(cfg backup_home_destination)
@@ -146,10 +151,16 @@ jobs:
           else
             ENABLE_GDRIVE=0
           fi
-          if [ "$ENABLE_HOME" = 0 ] && [ "$ENABLE_GDRIVE" = 0 ]; then
-            fail "no off-host target is enabled: set ${PREFIX}_CONFIG.backup_home_destination, ${PREFIX}_CONFIG.backup_rclone_destination, or both"
+          # Archives under backup_root are always created. With no target
+          # enabled the run is local-only; with targets enabled a failed
+          # target degrades to a warning unless every enabled target fails.
+          TARGET_COUNT=$((ENABLE_HOME + ENABLE_GDRIVE))
+          FAILED_TARGETS=0
+          if [ "$TARGET_COUNT" -eq 0 ]; then
+            echo "No off-host target enabled: local archives under $BACKUP_ROOT only"
+          else
+            echo "Enabled off-host targets: home=$ENABLE_HOME gdrive=$ENABLE_GDRIVE"
           fi
-          echo "Enabled off-host targets: home=$ENABLE_HOME gdrive=$ENABLE_GDRIVE"
 
           validate_rclone_age() {
             local age_name=$1
@@ -172,6 +183,16 @@ jobs:
           case "$FULL_RETENTION_DAYS" in
             ''|*[!0-9]*) fail "${PREFIX}_CONFIG.backup_local_full_retention_days must be a number of days" ;;
           esac
+          [ -n "$DB_INTERVAL" ] || DB_INTERVAL=1
+          [ -n "$FULL_INTERVAL" ] || FULL_INTERVAL=7
+          case "$DB_INTERVAL" in
+            ''|*[!0-9]*) fail "${PREFIX}_CONFIG.db_backup_interval_days must be a number of days" ;;
+          esac
+          case "$FULL_INTERVAL" in
+            ''|*[!0-9]*) fail "${PREFIX}_CONFIG.full_backup_interval_days must be a number of days" ;;
+          esac
+          [ "$DB_INTERVAL" -ge 1 ] || fail "${PREFIX}_CONFIG.db_backup_interval_days must be at least 1"
+          [ "$FULL_INTERVAL" -ge 1 ] || fail "${PREFIX}_CONFIG.full_backup_interval_days must be at least 1"
           case "$DEPLOY_PATH" in
             /*) ;;
             *) fail "${PREFIX}_CONFIG.deploy_path must be an absolute path" ;;
@@ -318,14 +339,18 @@ jobs:
           if command -v docker-compose >/dev/null 2>&1; then COMPOSE='docker-compose'; else COMPOSE='docker compose'; fi
 
           # Cadence for the scheduled (auto) mode: an epoch-day index gives
-          # exact intervals across months — database every 3 days, full every
-          # 10 days (both fall due on the same run every 30 days). Evaluated
-          # on the source server clock; the configuration archive below is
-          # created on every run regardless.
+          # exact intervals across months. The intervals come from
+          # db_backup_interval_days and full_backup_interval_days in
+          # PREFIX_CONFIG (defaults 1 and 7 — daily database archives and
+          # weekly full archives), so a cadence change needs no workflow
+          # edit. Evaluated on the source server clock; the configuration
+          # archive below is created on every run regardless.
           DAY_INDEX=\$(( \$(date +%s) / 86400 ))
+          DB_INTERVAL='$DB_INTERVAL'
+          FULL_INTERVAL='$FULL_INTERVAL'
           RUN_DB_NOW='$RUN_DB'
           if [ \"\$RUN_DB_NOW\" = auto ]; then
-            if [ \$(( \$DAY_INDEX % 3 )) -eq 0 ]; then RUN_DB_NOW=1; else RUN_DB_NOW=0; fi
+            if [ \$(( \$DAY_INDEX % \$DB_INTERVAL )) -eq 0 ]; then RUN_DB_NOW=1; else RUN_DB_NOW=0; fi
           fi
 
           if [ \"\$RUN_DB_NOW\" = 1 ]; then
@@ -423,7 +448,7 @@ jobs:
 
           RUN_FULL_NOW='$RUN_FULL'
           if [ \"\$RUN_FULL_NOW\" = auto ]; then
-            if [ \$(( \$DAY_INDEX % 10 )) -eq 0 ]; then RUN_FULL_NOW=1; else RUN_FULL_NOW=0; fi
+            if [ \$(( \$DAY_INDEX % \$FULL_INTERVAL )) -eq 0 ]; then RUN_FULL_NOW=1; else RUN_FULL_NOW=0; fi
           fi
           if [ \"\$RUN_FULL_NOW\" = 1 ]; then
             ARCHIVE=\"\$DST/\$DOMAIN_NAME-webapps-fullBK-\$STAMP.tar.gz\"
@@ -479,8 +504,13 @@ jobs:
           RCLONE_SOURCE_REMOTE=_workflow_source
           RCLONE_HOME_REMOTE=_workflow_home
 
-          if [ "$ENABLE_HOME" = 1 ] || [ "$ENABLE_GDRIVE" = 1 ]; then
-            RCLONE_CONFIG_FILE=$(mktemp)
+          note_target_failure() {
+            echo "WARNING: $1 backup failed: $2" >&2
+            FAILED_TARGETS=$((FAILED_TARGETS + 1))
+          }
+
+          if [ "$TARGET_COUNT" -gt 0 ]; then
+            RCLONE_CONFIG_FILE=$(mktemp) || fail "cannot create a temporary Rclone config"
             chmod 600 "$RCLONE_CONFIG_FILE"
             if [ -n "$RCLONE_CONFIG_VALUE" ]; then
               printf '%s\n' "$RCLONE_CONFIG_VALUE" | tr -d '\r' > "$RCLONE_CONFIG_FILE"
@@ -497,37 +527,41 @@ jobs:
               user "$SERVER_USER" \
               known_hosts_file "$KNOWN_HOSTS_FILE" \
               "${RCLONE_SOURCE_AUTH[@]}" \
-              --obscure
+              --obscure || fail "could not create the source-server Rclone remote"
           fi
 
-          if [ "$ENABLE_HOME" = 1 ]; then
-            HOME_KEY_FILE=$(mktemp)
-            HOME_KNOWN_HOSTS_FILE=$(mktemp)
-            chmod 600 "$HOME_KEY_FILE" "$HOME_KNOWN_HOSTS_FILE"
-            printf '%s\n' "$HOME_SSH_KEY" | tr -d '\r' > "$HOME_KEY_FILE"
-            printf '%s\n' "$HOME_SSH_KNOWN_HOSTS" | tr -d '\r' > "$HOME_KNOWN_HOSTS_FILE"
-            [ -s "$HOME_KNOWN_HOSTS_FILE" ] || fail "BACKUP_HOME_SSH_KNOWN_HOSTS did not produce a usable known_hosts file"
+          # Every step returns rather than exits, so the calling block can
+          # decide whether a failed target degrades to a warning or fails
+          # the run (see the target summary below).
+          setup_home_target() {
+            HOME_KEY_FILE=$(mktemp) || return 1
+            HOME_KNOWN_HOSTS_FILE=$(mktemp) || return 1
+            chmod 600 "$HOME_KEY_FILE" "$HOME_KNOWN_HOSTS_FILE" || return 1
+            printf '%s\n' "$HOME_SSH_KEY" | tr -d '\r' > "$HOME_KEY_FILE" || return 1
+            printf '%s\n' "$HOME_SSH_KNOWN_HOSTS" | tr -d '\r' > "$HOME_KNOWN_HOSTS_FILE" || return 1
+            [ -s "$HOME_KNOWN_HOSTS_FILE" ] || { echo "BACKUP_HOME_SSH_KNOWN_HOSTS did not produce a usable known_hosts file" >&2; return 1; }
             rclone --config "$RCLONE_CONFIG_FILE" config create "$RCLONE_HOME_REMOTE" sftp \
               host "$HOME_SFTP_HOST" \
               port "$HOME_SFTP_PORT" \
               user "$HOME_SFTP_USER" \
               key_file "$HOME_KEY_FILE" \
               known_hosts_file "$HOME_KNOWN_HOSTS_FILE" \
-              --obscure
+              --obscure || return 1
             echo "Testing Home Server Rclone access"
-            rclone --config "$RCLONE_CONFIG_FILE" mkdir "${RCLONE_HOME_REMOTE}:$HOME_DESTINATION"
-            rclone --config "$RCLONE_CONFIG_FILE" lsd "${RCLONE_HOME_REMOTE}:$HOME_DESTINATION" >/dev/null
-          fi
+            rclone --config "$RCLONE_CONFIG_FILE" mkdir "${RCLONE_HOME_REMOTE}:$HOME_DESTINATION" || return 1
+            rclone --config "$RCLONE_CONFIG_FILE" lsd "${RCLONE_HOME_REMOTE}:$HOME_DESTINATION" >/dev/null || return 1
+          }
 
-          if [ "$ENABLE_GDRIVE" = 1 ]; then
+          check_gdrive_target() {
+            local remote_type
             RCLONE_DEST_REMOTE=${RCLONE_DESTINATION%%:*}
-            RCLONE_REMOTE_TYPE=$(
+            remote_type=$(
               rclone --config "$RCLONE_CONFIG_FILE" config dump |
                 jq -r --arg remote "$RCLONE_DEST_REMOTE" '(.remotes // .)[$remote].type // empty'
-            )
-            [ -n "$RCLONE_REMOTE_TYPE" ] || fail "the configured Rclone destination remote '$RCLONE_DEST_REMOTE' is not present"
-            [ "$RCLONE_REMOTE_TYPE" = "crypt" ] || fail "${PREFIX}_CONFIG.backup_rclone_destination must use an Rclone Crypt remote (remote '$RCLONE_DEST_REMOTE' has type '$RCLONE_REMOTE_TYPE')"
-          fi
+            ) || return 1
+            [ -n "$remote_type" ] || { echo "the configured Rclone destination remote '$RCLONE_DEST_REMOTE' is not present" >&2; return 1; }
+            [ "$remote_type" = "crypt" ] || { echo "${PREFIX}_CONFIG.backup_rclone_destination must use an Rclone Crypt remote (remote '$RCLONE_DEST_REMOTE' has type '$remote_type')" >&2; return 1; }
+          }
 
           # Copy semantics only: new archives are added and verified, source
           # deletions never propagate, and retention is applied explicitly on
@@ -536,42 +570,63 @@ jobs:
             local replicate_base=$1
             local replicate_db_keep_age=$2
             local replicate_full_keep_age=$3
-            local artifact relative_artifact destination
+            local artifact relative_artifact destination src_hash dst_hash
             for artifact in "${ARTIFACTS[@]}"; do
               relative_artifact="${artifact#"$BACKUP_ROOT"/}"
               destination="${replicate_base%/}/$relative_artifact"
-              rclone --config "$RCLONE_CONFIG_FILE" copyto "${RCLONE_SOURCE_REMOTE}:$artifact" "$destination" --retries 3 --low-level-retries 3
+              rclone --config "$RCLONE_CONFIG_FILE" copyto "${RCLONE_SOURCE_REMOTE}:$artifact" "$destination" --retries 3 --low-level-retries 3 || return 1
               # rclone check requires directory trees; verify a single file
               # by comparing SHA256 from both ends instead.
-              src_hash=$(rclone --config "$RCLONE_CONFIG_FILE" hashsum sha256 --download "${RCLONE_SOURCE_REMOTE}:$artifact" 2>/dev/null | awk 'NR==1{print $1}')
-              dst_hash=$(rclone --config "$RCLONE_CONFIG_FILE" hashsum sha256 --download "$destination" 2>/dev/null | awk 'NR==1{print $1}')
-              [ -n "$src_hash" ] && [ "$src_hash" = "$dst_hash" ] || fail "checksum mismatch after copy: $destination"
+              src_hash=$(rclone --config "$RCLONE_CONFIG_FILE" hashsum sha256 --download "${RCLONE_SOURCE_REMOTE}:$artifact" 2>/dev/null | awk 'NR==1{print $1}') || return 1
+              dst_hash=$(rclone --config "$RCLONE_CONFIG_FILE" hashsum sha256 --download "$destination" 2>/dev/null | awk 'NR==1{print $1}') || return 1
+              if [ -z "$src_hash" ] || [ "$src_hash" != "$dst_hash" ]; then
+                echo "checksum mismatch after copy: $destination" >&2
+                return 1
+              fi
             done
 
             rclone --config "$RCLONE_CONFIG_FILE" delete "$replicate_base" \
               --min-age "$replicate_db_keep_age" \
               --include '*-dbBK-*' \
-              --rmdirs
+              --rmdirs || return 1
             rclone --config "$RCLONE_CONFIG_FILE" delete "$replicate_base" \
               --min-age "$replicate_full_keep_age" \
               --include '*-fullBK-*' \
-              --rmdirs
+              --rmdirs || return 1
             # Configuration archives are created on every run and share the
             # database-archive retention age, so they need no key of their own.
             rclone --config "$RCLONE_CONFIG_FILE" delete "$replicate_base" \
               --min-age "$replicate_db_keep_age" \
               --include '*-cfgBK-*' \
-              --rmdirs
+              --rmdirs || return 1
           }
 
           if [ "$ENABLE_HOME" = 1 ]; then
             echo "Transferring protected backups to the Home Server"
-            replicate_to "${RCLONE_HOME_REMOTE}:$HOME_DESTINATION" "$HOME_DB_KEEP_AGE" "$HOME_FULL_KEEP_AGE"
+            if setup_home_target && replicate_to "${RCLONE_HOME_REMOTE}:$HOME_DESTINATION" "$HOME_DB_KEEP_AGE" "$HOME_FULL_KEEP_AGE"; then
+              echo "Home Server transfer completed"
+            else
+              note_target_failure "Home Server" "connection test or transfer failed"
+            fi
           fi
 
           if [ "$ENABLE_GDRIVE" = 1 ]; then
             echo "Transferring protected backups to Google Drive"
-            replicate_to "$RCLONE_DESTINATION" "$RCLONE_DB_KEEP_AGE" "$RCLONE_FULL_KEEP_AGE"
+            if check_gdrive_target && replicate_to "$RCLONE_DESTINATION" "$RCLONE_DB_KEEP_AGE" "$RCLONE_FULL_KEEP_AGE"; then
+              echo "Google Drive transfer completed"
+            else
+              note_target_failure "Google Drive" "configuration check or transfer failed"
+            fi
+          fi
+
+          # One enabled target must succeed; with both enabled, losing one is
+          # a warning and losing both is an error. The local archives under
+          # backup_root exist either way.
+          if [ "$FAILED_TARGETS" -gt 0 ]; then
+            if [ "$TARGET_COUNT" -eq 1 ] || [ "$FAILED_TARGETS" -eq "$TARGET_COUNT" ]; then
+              fail "all $FAILED_TARGETS of $TARGET_COUNT enabled off-host target(s) failed; local archives are under $BACKUP_ROOT"
+            fi
+            echo "WARNING: $FAILED_TARGETS of $TARGET_COUNT off-host targets failed; local archives are under $BACKUP_ROOT" >&2
           fi
 
           echo "backup ($DEPLOY_TARGET) completed for ${#ARTIFACTS[@]} artifact(s)"

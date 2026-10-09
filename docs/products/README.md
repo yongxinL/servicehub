@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: PRODUCT-INDEX
 document_id: PRODUCT-INDEX
 title: ServiceHub Product Guides Index
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Operations
 owner: George Li

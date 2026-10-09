@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: INSTALLATION
 title: ServiceHub Installation
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Operations
 owner: George Li
