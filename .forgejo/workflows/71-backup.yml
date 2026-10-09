@@ -3,6 +3,7 @@ name: Backup
 on:
   schedule:
     - cron: '30 2 * * *'
+      timezone: Australia/Sydney
   workflow_dispatch:
     inputs:
       environment:
@@ -14,7 +15,7 @@ on:
           - stag
           - prod
       backup:
-        description: 'auto: daily DB/config + Sunday full; db: DB/config; full: full/config'
+        description: 'auto: scheduled cadence (DB every 3rd day, full every 10th day, config every run); db: DB/config now; full: full/config now'
         required: true
         default: 'auto'
         type: choice
@@ -55,7 +56,7 @@ jobs:
 
           [ -n "${BACKUP_MODE:-}" ] || BACKUP_MODE=auto
           case "$BACKUP_MODE" in
-            auto) RUN_DB=1; RUN_FULL=auto ;;
+            auto) RUN_DB=auto; RUN_FULL=auto ;;
             db) RUN_DB=1; RUN_FULL=0 ;;
             full) RUN_DB=0; RUN_FULL=1 ;;
             *) fail "unknown backup mode '$BACKUP_MODE' (expected auto, db or full)" ;;
@@ -316,7 +317,18 @@ jobs:
           cd '$DEPLOY_PATH'
           if command -v docker-compose >/dev/null 2>&1; then COMPOSE='docker-compose'; else COMPOSE='docker compose'; fi
 
-          if [ '$RUN_DB' = 1 ]; then
+          # Cadence for the scheduled (auto) mode: an epoch-day index gives
+          # exact intervals across months — database every 3 days, full every
+          # 10 days (both fall due on the same run every 30 days). Evaluated
+          # on the source server clock; the configuration archive below is
+          # created on every run regardless.
+          DAY_INDEX=\$(( \$(date +%s) / 86400 ))
+          RUN_DB_NOW='$RUN_DB'
+          if [ \"\$RUN_DB_NOW\" = auto ]; then
+            if [ \$(( \$DAY_INDEX % 3 )) -eq 0 ]; then RUN_DB_NOW=1; else RUN_DB_NOW=0; fi
+          fi
+
+          if [ \"\$RUN_DB_NOW\" = 1 ]; then
             DB_ADMIN_USER=\$(grep -E '^DB_ADMIN_USER=' .env 2>/dev/null | tail -1 | cut -d '=' -f2- | tr -d '\"')
             [ -n \"\$DB_ADMIN_USER\" ] || DB_ADMIN_USER=postgres
 
@@ -378,8 +390,8 @@ jobs:
           # Runtime configuration: .env lives in the deploy path and is not
           # included in the full application-data source. The egress policy
           # file lives under APPS_DATA/shared/gateway and may also be present
-          # in the weekly full archive. Archive both in cfgBK on every run so
-          # a mid-week loss costs at most one day of configuration changes.
+          # in the full archive. Archive both in cfgBK on every run so
+          # a loss costs at most one day of configuration changes.
           CFG_STAGE=\$(mktemp -d)
           install -d -m 700 \"\$CFG_STAGE\"
           sudo -n install -m 600 '$DEPLOY_PATH'/.env \"\$CFG_STAGE/.env\"
@@ -409,11 +421,10 @@ jobs:
           sudo -n find '$BACKUP_ROOT' -type f -name '*-cfgBK-*' -mtime +$DB_RETENTION_DAYS -print -delete
           sudo -n find '$BACKUP_ROOT' -mindepth 2 -type d -empty -path '*/[0-9][0-9][0-9][0-9]/[0-9][0-9][0-9][0-9][0-9][0-9]' -delete
 
-          RUN_FULL_NOW=0
-          case '$RUN_FULL' in
-            1) RUN_FULL_NOW=1 ;;
-            auto) if [ \"\$(date +%u)\" = 7 ]; then RUN_FULL_NOW=1; fi ;;
-          esac
+          RUN_FULL_NOW='$RUN_FULL'
+          if [ \"\$RUN_FULL_NOW\" = auto ]; then
+            if [ \$(( \$DAY_INDEX % 10 )) -eq 0 ]; then RUN_FULL_NOW=1; else RUN_FULL_NOW=0; fi
+          fi
           if [ \"\$RUN_FULL_NOW\" = 1 ]; then
             ARCHIVE=\"\$DST/\$DOMAIN_NAME-webapps-fullBK-\$STAMP.tar.gz\"
             echo \"Archiving \$SRC -> \$ARCHIVE\"
@@ -545,8 +556,8 @@ jobs:
               --min-age "$replicate_full_keep_age" \
               --include '*-fullBK-*' \
               --rmdirs
-            # Configuration archives are created daily like the database dumps,
-            # so they share that retention age rather than needing a new key.
+            # Configuration archives are created on every run and share the
+            # database-archive retention age, so they need no key of their own.
             rclone --config "$RCLONE_CONFIG_FILE" delete "$replicate_base" \
               --min-age "$replicate_db_keep_age" \
               --include '*-cfgBK-*' \
