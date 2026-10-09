@@ -376,7 +376,7 @@ New here? The full setup sequence — prerequisites, clone, initial `scripts/set
 
 Staging certificates are encrypted with git-crypt; the one-time setup, key backup, and daily workflow for that live in [Managing Encrypted Files (git-crypt)](docs/operations/development/DEVELOPMENT.md#managing-encrypted-files-git-crypt) under Development.
 
-One-click staging/production deployment runs through the stack's own Forgejo Actions runner; inputs, secrets, variables, and the full backup workflow are documented in [Deployment (Forgejo Actions)](docs/operations/DEPLOYMENT.md) under Operations.
+One-click staging/production deployment runs through the stack's own Forgejo Actions runner; its inputs, secrets and variables are documented in [Deployment (Forgejo Actions)](docs/operations/DEPLOYMENT.md), and the backup workflow (archives, schedules, retention, `BACKUP_*` secrets) in [Backup and restore](docs/operations/BACKUP-RESTORE.md), both under Operations.
 
 ---
 
