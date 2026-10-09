@@ -530,7 +530,11 @@ jobs:
               relative_artifact="${artifact#"$BACKUP_ROOT"/}"
               destination="${replicate_base%/}/$relative_artifact"
               rclone --config "$RCLONE_CONFIG_FILE" copyto "${RCLONE_SOURCE_REMOTE}:$artifact" "$destination" --retries 3 --low-level-retries 3
-              rclone --config "$RCLONE_CONFIG_FILE" check "${RCLONE_SOURCE_REMOTE}:$artifact" "$destination" --download --one-way
+              # rclone check requires directory trees; verify a single file
+              # by comparing SHA256 from both ends instead.
+              src_hash=$(rclone --config "$RCLONE_CONFIG_FILE" hashsum sha256 --download "${RCLONE_SOURCE_REMOTE}:$artifact" 2>/dev/null | awk 'NR==1{print $1}')
+              dst_hash=$(rclone --config "$RCLONE_CONFIG_FILE" hashsum sha256 --download "$destination" 2>/dev/null | awk 'NR==1{print $1}')
+              [ -n "$src_hash" ] && [ "$src_hash" = "$dst_hash" ] || fail "checksum mismatch after copy: $destination"
             done
 
             rclone --config "$RCLONE_CONFIG_FILE" delete "$replicate_base" \

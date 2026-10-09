@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-007
 title: Adopt Dual-Target Backup and Disaster Recovery
-version: "1.1"
+version: "1.2"
 status: Accepted
 decision_basis: Owner decision recorded on 2026-10-03 and runner consolidation revised on 2026-10-04; repository configuration added; target selection, source-host scope, non-standard SFTP port, and key-based authentication recorded on 2026-10-07; replication revised on 2026-10-08 to use Rclone for both targets and to place Google Drive behind an Rclone Crypt remote; runtime validation pending
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-03
-updated: 2026-10-09
+updated: 2026-10-10
 tags:
   - servicehub
   - architecture
@@ -173,7 +173,7 @@ Replication uses `rclone copy` (or `rclone copyto` for a single named artifact),
 
 ### Integrity verification
 
-Replication verification must not assume that a successful upload means a recoverable backup. After each transfer the workflow runs `rclone check ... --download` against the destination copy for both targets, so comparison is against downloaded bytes rather than size and hash metadata alone. A separate periodic restore test is required in addition to per-transfer checks.
+Replication verification must not assume that a successful upload means a recoverable backup. For each artifact copied by `rclone copyto`, the workflow computes SHA-256 over downloaded bytes on both ends with `rclone hashsum sha256 --download` and fails the run on mismatch, so comparison is against downloaded bytes rather than size and hash metadata alone. A separate periodic restore test is required in addition to per-transfer checks.
 
 ### Retention
 
@@ -257,7 +257,7 @@ The dual-target design addresses host-loss and cloud-outage scenarios while pres
 
 - No snapshot browsing: the `.tar.gz` archive is the only recovery unit, with no per-file history or backup metadata queries.
 - No repository-level deduplication; archives are stored in full at each destination.
-- Integrity checking depends on `rclone check --download` plus periodic restore tests rather than a dedicated repository check.
+- Integrity checking depends on per-artifact `rclone hashsum sha256 --download` plus periodic restore tests rather than a dedicated repository check.
 - Home Server backup archives are readable at rest unless filesystem or storage-level encryption is provided.
 - Google Drive disaster recovery depends on retaining the Rclone Crypt credentials and configuration separately from Google Drive.
 - Two transfer paths increase runtime, storage, credential, and monitoring overhead.
@@ -276,7 +276,7 @@ The dual-target design addresses host-loss and cloud-outage scenarios while pres
 - **Crypt credential loss:** Google Drive content is unrecoverable without the Crypt password and configuration; mitigate by keeping a protected copy separate from Google Drive and testing retrieval from it.
 - **Readable archives on the Home Server:** acceptable only while the Home Server is classified as trusted storage; revisit if the threat model changes or the device leaves trusted control.
 - **Transfer failure remains unnoticed:** alert on missing, stale, failed, or integrity-checked backups.
-- **Integrity regression:** `rclone check --download` after each transfer plus scheduled restore tests must be enforced, not assumed.
+- **Integrity regression:** per-artifact `rclone hashsum sha256 --download` after each transfer plus scheduled restore tests must be enforced, not assumed.
 - **Inconsistent live archives:** use transaction-consistent PostgreSQL dumps and validate filesystem or oCIS-aware consistency rules.
 - **External Google Drive limitations:** test retrieval, quotas, authentication recovery, and off-site retention before relying on the copy.
 - **Single-target drift:** a disabled target raises no error and runs no credential check, so an environment can silently drop to one off-host copy after a single edit to `${PREFIX}_CONFIG`; mitigate by recording which targets each environment is expected to enable and by alerting when a run reports a changed enabled-target count.
@@ -297,6 +297,8 @@ On 2026-10-07 the workflow was changed so that each off-host target is gated on 
 
 On 2026-10-08 the replication technology was revised as recorded in this document, and the workflow was refactored the same day; review corrections followed on 2026-10-09. Both off-host targets now replicate through Rclone: the workflow creates the `_workflow_home` SFTP remote for the Home Server from `backup_home_sftp`, `backup_home_destination`, `BACKUP_HOME_SSH_KEY`, and `BACKUP_HOME_SSH_KNOWN_HOSTS`, and uses the Crypt-wrapped remote named by `backup_rclone_destination` for Google Drive, failing the run unless that remote's type is `crypt`. Every transfer is verified with `rclone check --download --one-way`, the Home Server destination is created and listed before the first transfer, retention is applied per destination with the four keep-age keys after validating each as an Rclone duration, source host keys are required with no `ssh-keyscan` fallback so host trust is deterministic, ports are range-checked to 1–65535, and the workflow logs `Enabled off-host targets: home=<0|1> gdrive=<0|1>`. The earlier Home Server path, its repository keys, and its password secret were removed from the workflow, the runner image, and the documentation. The refactor was verified by extracting the workflow's validation prefix and executing it against 18 combinations — both targets, each target alone, both disabled, missing secrets, missing pinned host keys, malformed endpoint and path values, non-numeric and out-of-range ports, invalid retention durations, missing keep-age keys, legacy configuration keys, and an absent `${PREFIX}_CONFIG` — each returning the expected enabled-target line or the expected error. Transfer stages against real targets remain unexecuted and unevidenced. The existing Home Server backup repository must not be deleted until both new recovery paths have been tested successfully.
 
+On 2026-10-10 the per-artifact integrity check was corrected: `rclone check` requires directory trees and rejects single-file paths with `Failed to create file system for "remote:file": is a file not a directory`, which caused the first Home Server transfer to fail in production. The check was replaced with `rclone hashsum sha256 --download` computed on both ends and compared as strings, keeping the same integrity guarantee (SHA-256 over downloaded bytes) while honouring the per-artifact scope of `copyto`. Integrity verification, the post-copy failure mode, and the requirement for periodic restore tests are unchanged.
+
 ## Related Documents
 
 - [ADR-006 Adopt oCIS with Local Filesystem Storage](ADR-006-adopt-ocis-with-local-filesystem-storage.md)
@@ -313,7 +315,7 @@ On 2026-10-08 the replication technology was revised as recorded in this documen
 | Refactor the backup workflow so both off-host targets replicate each archive with Rclone | ServiceHub Architecture | TBD | Implemented 2026-10-08; transfer execution pending |
 | Set `backup_home_sftp`, `backup_home_destination`, and the Home Server keep-age keys for each environment, with `BACKUP_HOME_SSH_KEY` and `BACKUP_HOME_SSH_KNOWN_HOSTS` secrets | ServiceHub Architecture | TBD | Keys finalised 2026-10-08; environment values pending |
 | Configure the Google Drive Rclone remote and a Crypt remote wrapping it | ServiceHub Architecture | TBD | Proposed 2026-10-08 |
-| Verify `rclone check --download` (or equivalent) runs after every transfer to both targets | ServiceHub Architecture | TBD | Implemented for both targets 2026-10-08; execution evidence pending |
+| Verify per-artifact hash verification (or equivalent) runs after every transfer to both targets | ServiceHub Architecture | TBD | `rclone hashsum sha256 --download` per artifact on both targets 2026-10-10; execution evidence pending |
 | Preserve independent retention policies for `dbBK`, `cfgBK`, and `fullBK` on each destination | ServiceHub Architecture | TBD | Per-destination keep-age keys implemented 2026-10-08; approved values pending |
 | Remove retired Home Server replication configuration and secrets after successful migration | ServiceHub Architecture | TBD | Removed from workflow, image, and documentation 2026-10-08; repository secret removal pending |
 | Preserve the Rclone Crypt credentials and configuration in a secure recovery location separate from Google Drive | ServiceHub Architecture | TBD | Proposed 2026-10-08 |
