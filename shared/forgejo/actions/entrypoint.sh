@@ -10,7 +10,7 @@ if [ ! -s "${RUNNER_FILE}" ]; then
     echo "Creating Forgejo Runner registration from shared secret..."
 
     # Offline registration: the UUID is derived from SOURCECODE_RUNNER_SECRET, which
-    # must also be registered once on the Forgejo side (see shared/forgejo/README.md).
+    # must also be registered once on the Forgejo side (see docs/products/forgejo.md).
     # Labels come from runner.labels in the config file.
     forgejo-runner \
         --config "${CONFIG_FILE}" \

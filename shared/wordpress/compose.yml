@@ -5,9 +5,9 @@
 #   2. In docker-compose.yml, replace `- compose/webapp.yml` with `- shared/wordpress/compose.yml`
 #   3. Ensure MARIADB_DATABASES="${WORKSPACE_DBNAME}" in .env, then: docker compose up -d --build
 #
-# Docs: shared/wordpress/README.md
+# Docs: docs/products/wordpress.md
 services:
-    # webappwpress — WordPress homepage / CMS. Docs: shared/wordpress/README.md
+    # webappwpress — WordPress homepage / CMS. Docs: docs/products/wordpress.md
     webappwpress:
         build:
             context: .

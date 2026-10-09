@@ -4,9 +4,9 @@
 
 ## Overview
 
-[Forgejo](https://forgejo.org/) is a community fork of Gitea and the source-control host for the stack. It is defined by the `devopsforgejo` service in [`compose/devops.yml`](../../compose/devops.yml) and built from [`shared/forgejo/server/Dockerfile`](server/Dockerfile) (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`).
+[Forgejo](https://forgejo.org/) is a community fork of Gitea and the source-control host for the stack. It is defined by the `devopsforgejo` service in [`compose/devops.yml`](../../compose/devops.yml) and built from [`shared/forgejo/server/Dockerfile`](../../shared/forgejo/server/Dockerfile) (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`).
 
-Forgejo Actions provides the stack's CI/CD — including the deployment of ServiceHub itself (see [Forgejo Actions runner](#forgejo-actions-runner) and [Root README — Deployment](../../README.md#deployment-forgejo-actions)).
+Forgejo Actions provides the stack's CI/CD — including the deployment of ServiceHub itself (see [Forgejo Actions runner](#forgejo-actions-runner) and the [deployment guide](../operations/DEPLOYMENT.md)).
 
 ## Service details
 
@@ -52,13 +52,13 @@ Container settings applied by the compose file:
 
 ## Forgejo Actions runner
 
-All Forgejo Actions workflows are executed by `devopsrunner`, built from [`shared/forgejo/actions/Dockerfile`](actions/Dockerfile). The existing image also contains the PostgreSQL client and Rclone required by the backup workflow.
+All Forgejo Actions workflows are executed by `devopsrunner`, built from [`shared/forgejo/actions/Dockerfile`](../../shared/forgejo/actions/Dockerfile). The existing image also contains the PostgreSQL client and Rclone required by the backup workflow.
 
 | Detail | Value |
 |---|---|
 | Service name | `devopsrunner` |
 | Compose file | `compose/devops.yml` |
-| Runner config | [`actions/config.yml`](actions/config.yml) (read-only at `/etc/forgejo-runner/config.yml`) |
+| Runner config | [`actions/config.yml`](../../shared/forgejo/actions/config.yml) (read-only at `/etc/forgejo-runner/config.yml`) |
 | Registration data | `${APPS_DATA}/devops/forgejo/runner` |
 | Registration | Runner writes `.runner` on first boot from `SOURCECODE_RUNNER_SECRET`; the same secret must be registered on the Forgejo side (see [Setup](#setup-first-boot)) |
 | Labels | `ssh-deploy:host` — deployment and backup workflows declare `runs-on: ssh-deploy` |
@@ -75,7 +75,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 > Re-registering: delete `${APPS_DATA}/devops/forgejo/runner/.runner` (or the whole directory), re-run the Forgejo-side registration command if the secret changed, and restart `devopsrunner`.
 >
-> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://devopsforgejo:3000`), so `actions/checkout` needs no public TLS; deploy targets receive the working tree over rsync from the runner checkout and never clone the repository themselves (see [Root README — Deployment](../../README.md#deployment-forgejo-actions)).
+> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://devopsforgejo:3000`), so `actions/checkout` needs no public TLS; deploy targets receive the working tree over rsync from the runner checkout and never clone the repository themselves (see [deployment guide](../operations/DEPLOYMENT.md)).
 
 ## Data & persistence
 
@@ -115,7 +115,7 @@ Because the runner has capacity one, long backup and deployment jobs queue behin
     Alternatively, register through the Forgejo UI — no shell on the Forgejo container needed:
 
     1. **Site Administration → Actions → Runners → Create new runner** (or the repo's **Settings → Actions → Runners** for a per-repo runner). Enter **Name** `devopsrunner` and click **Create runner**. Forgejo shows a **UUID** and **Token**.
-    2. Paste them into [`shared/forgejo/actions/config.yml`](actions/config.yml) under `server.connections.forgejo`:
+    2. Paste them into [`shared/forgejo/actions/config.yml`](../../shared/forgejo/actions/config.yml) under `server.connections.forgejo`:
 
         ```yaml
         server:
@@ -132,7 +132,7 @@ Because the runner has capacity one, long backup and deployment jobs queue behin
         docker compose up -d devopsrunner
         ```
 
-    > The UI flow uses different credentials than the `--secret` flow above, so the entrypoint's `create-runner-file --secret` step in [`actions/entrypoint.sh`](actions/entrypoint.sh) needs to be skipped (the runner daemon will pick up the UI credentials from `config.yml` and write `.runner` itself). Pick **one** flow — the two produce different `.runner` files.
+    > The UI flow uses different credentials than the `--secret` flow above, so the entrypoint's `create-runner-file --secret` step in [`actions/entrypoint.sh`](../../shared/forgejo/actions/entrypoint.sh) needs to be skipped (the runner daemon will pick up the UI credentials from `config.yml` and write `.runner` itself). Pick **one** flow — the two produce different `.runner` files.
 
 4. Start the runner:
 
@@ -159,7 +159,7 @@ docker compose logs -f devopsrunner
 
 ## Security hardening
 
-- **Edge protection** — the router carries `secure-chain` (rate limit + security headers); compose sets `FORGEJO__service__DISABLE_REGISTRATION=true`, so accounts are created by admins only. See [Traefik — Security middlewares](../traefik/README.md#security-middlewares).
+- **Edge protection** — the router carries `secure-chain` (rate limit + security headers); compose sets `FORGEJO__service__DISABLE_REGISTRATION=true`, so accounts are created by admins only. See [Traefik — Security middlewares](traefik.md#security-middlewares).
 - **Delegate sign-in to Authentik** — configure an OAuth2/OIDC source (Site Administration → Identity & Access → OAuth2) pointing at the `infraauth` issuer; MFA policies configured in Authentik then apply to Forgejo logins too. Keep one local admin as break-glass with 2FA enabled (Authentication → Security → 2FA).
 - **Runner secret scope** — `SOURCECODE_RUNNER_SECRET` is only valid for runner registration; rotate it from Site Administration → Actions → Runners if it leaks.
 
@@ -177,14 +177,14 @@ docker compose up -d devopsforgejo devopsrunner
 
 | Path | Purpose |
 |---|---|
-| [`server/Dockerfile`](server/Dockerfile) | Forgejo image build (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`) |
-| [`actions/Dockerfile`](actions/Dockerfile) | Forgejo runner image build (`FROM code.forgejo.org/forgejo/runner:${IMAGE_TAG}`) |
-| [`actions/entrypoint.sh`](actions/entrypoint.sh) | Runner entrypoint: creates `.runner` from `SOURCECODE_RUNNER_SECRET`, then starts the daemon |
-| [`actions/config.yml`](actions/config.yml) | Runner configuration, bind-mounted read-only by `compose/devops.yml` |
+| [`server/Dockerfile`](../../shared/forgejo/server/Dockerfile) | Forgejo image build (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`) |
+| [`actions/Dockerfile`](../../shared/forgejo/actions/Dockerfile) | Forgejo runner image build (`FROM code.forgejo.org/forgejo/runner:${IMAGE_TAG}`) |
+| [`actions/entrypoint.sh`](../../shared/forgejo/actions/entrypoint.sh) | Runner entrypoint: creates `.runner` from `SOURCECODE_RUNNER_SECRET`, then starts the daemon |
+| [`actions/config.yml`](../../shared/forgejo/actions/config.yml) | Runner configuration, bind-mounted read-only by `compose/devops.yml` |
 
 ## See also
 
-- [Root README — Deployment (Forgejo Actions)](../../README.md#deployment-forgejo-actions) — deploy workflow and secrets
+- [Deployment guide](../operations/DEPLOYMENT.md) — deploy workflow and secrets
 - [Backup and restore](../../docs/operations/BACKUP-RESTORE.md) — shared-runner backup scope, targets, and recovery
-- [PostgreSQL](../postgresql/README.md) — database backend
+- [PostgreSQL](postgresql.md) — database backend
 - [Root README — Architecture](../../README.md#architecture-overview)

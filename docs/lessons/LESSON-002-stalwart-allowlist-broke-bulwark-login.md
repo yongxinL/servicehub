@@ -28,7 +28,7 @@ related_documents:
 
 On 2026-10-02, a static repository review examined the reported symptom that Bulwark could not complete login when internet access to `mail.$domain_name` was denied. The services were not running locally, so this record does not claim a runtime reproduction or successful fix.
 
-Evidence came from [`compose/poste.yml`](../../compose/poste.yml), [`compose/route.yml`](../../compose/route.yml), [`env.example`](../../env.example), [`shared/bulwark/README.md`](../../shared/bulwark/README.md), and [`shared/stalwart/README.md`](../../shared/stalwart/README.md). Current Stalwart, Bulwark, and Traefik documentation was also checked for endpoint and routing behaviour.
+Evidence came from [`compose/poste.yml`](../../compose/poste.yml), [`compose/route.yml`](../../compose/route.yml), [`env.example`](../../env.example), [`../products/bulwark.md`](../products/bulwark.md), and [`../products/stalwart.md`](../products/stalwart.md). Current Stalwart, Bulwark, and Traefik documentation was also checked for endpoint and routing behaviour.
 
 ## What Went Well
 
@@ -107,6 +107,6 @@ All due dates are `TBD` because the repository does not provide a schedule.
 
 - [Platform baseline validation](../testing/TEST-001-platform-baseline-validation.md)
 - [Architecture](../architecture/ARCHITECTURE.md)
-- [Bulwark service documentation](../../shared/bulwark/README.md)
-- [Stalwart service documentation](../../shared/stalwart/README.md)
-- [Traefik service documentation](../../shared/traefik/README.md)
+- [Bulwark service documentation](../products/bulwark.md)
+- [Stalwart service documentation](../products/stalwart.md)
+- [Traefik service documentation](../products/traefik.md)

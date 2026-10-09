@@ -4,7 +4,7 @@
 
 ## Overview
 
-[llama.cpp server](https://github.com/ggerganov/llama.cpp) with a Gemma 4 GGUF model provides the local inference tier (`hephaestus`) of the AI agent platform (`aiserv`). It is used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host. The `aiservllamacpp` service is defined in [`compose/aiserv.yml`](../../compose/aiserv.yml) and built from [`shared/llamacpp/Dockerfile`](Dockerfile) (`FROM ghcr.io/ggml-org/llama.cpp:server`).
+[llama.cpp server](https://github.com/ggerganov/llama.cpp) with a Gemma 4 GGUF model provides the local inference tier (`hephaestus`) of the AI agent platform (`aiserv`). It is used for quick tasks, creative writing, translation, local RAG on private documents, and anything that must not leave the host. The `aiservllamacpp` service is defined in [`compose/aiserv.yml`](../../compose/aiserv.yml) and built from [`shared/llamacpp/Dockerfile`](../../shared/llamacpp/Dockerfile) (`FROM ghcr.io/ggml-org/llama.cpp:server`).
 
 ## Service details
 
@@ -41,7 +41,7 @@ Container settings applied by the compose file:
 
 ## Model download & caching
 
-Models are auto-downloaded on first start via llama.cpp's `--hf-repo` flag and cached in `${APPS_DATA}/aiserv/llamacpp` (mounted at `/models`). [`entrypoint.sh`](entrypoint.sh) first looks for `/models/<quant>.gguf` and loads it directly; if it is missing, it starts `llama-server --hf-repo <model>` to download and run.
+Models are auto-downloaded on first start via llama.cpp's `--hf-repo` flag and cached in `${APPS_DATA}/aiserv/llamacpp` (mounted at `/models`). [`entrypoint.sh`](../../shared/llamacpp/entrypoint.sh) first looks for `/models/<quant>.gguf` and loads it directly; if it is missing, it starts `llama-server --hf-repo <model>` to download and run.
 
 ## Operations
 
@@ -60,11 +60,11 @@ curl -sf http://localhost:12386/health
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](Dockerfile) | Image build (`FROM ghcr.io/ggml-org/llama.cpp:server`) |
-| [`entrypoint.sh`](entrypoint.sh) | Reads `LLAMA_*` env vars, loads the cached model or downloads it |
+| [`Dockerfile`](../../shared/llamacpp/Dockerfile) | Image build (`FROM ghcr.io/ggml-org/llama.cpp:server`) |
+| [`entrypoint.sh`](../../shared/llamacpp/entrypoint.sh) | Reads `LLAMA_*` env vars, loads the cached model or downloads it |
 
 ## See also
 
-- [LiteLLM Proxy](../litellm/README.md) — routes `hephaestus` to this service
-- [Hermes Agent](../hermesagent/README.md) — consumes the `hermes` virtual model
+- [LiteLLM Proxy](litellm.md) — routes `hephaestus` to this service
+- [Hermes Agent](hermesagent.md) — consumes the `hermes` virtual model
 - [Root README — AI Agent Platform](../../README.md#ai-agent-platform-aiserv)

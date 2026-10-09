@@ -6,7 +6,7 @@
 
 [Traefik v3](https://traefik.io/) is the edge router for the whole stack. It listens on ports 80/443, forces the HTTP → HTTPS redirect, discovers the rest of the stack through Docker container labels, and terminates TLS with either Let's Encrypt (production) or a self-signed certificate (staging).
 
-It is defined by the `routetraefik` service in [`compose/route.yml`](../../compose/route.yml) and built from the [`shared/traefik/Dockerfile`](Dockerfile) (`FROM traefik:latest`).
+It is defined by the `routetraefik` service in [`compose/route.yml`](../../compose/route.yml) and built from the [`shared/traefik/Dockerfile`](../../shared/traefik/Dockerfile) (`FROM traefik:latest`).
 
 ## Service details
 
@@ -104,11 +104,11 @@ These are entry-point-wide settings. Review their impact on slow clients and con
 chmod 600 ${APPS_DATA}/shared/certs/acme.json
 ```
 
-On remote deploys the file is restored from the `PROD_B64ENC_ACME` Forgejo Actions secret — see the root [Deployment (Forgejo Actions)](../../README.md#deployment-forgejo-actions).
+On remote deploys the file is restored from the `PROD_B64ENC_ACME` Forgejo Actions secret — see the root [Deployment guide](../operations/DEPLOYMENT.md).
 
 ### Staging — self-signed
 
-Set `CERTRESOLVER=` (empty) so routers fall back to the default certificate. The certificate files live in [`advanced/selfsigncert/`](advanced/selfsigncert/) and are referenced by [`advanced/certificates.yml`](advanced/certificates.yml):
+Set `CERTRESOLVER=` (empty) so routers fall back to the default certificate. The certificate files live in [`advanced/selfsigncert/`](../../shared/traefik/advanced/selfsigncert/) and are referenced by [`advanced/certificates.yml`](../../shared/traefik/advanced/certificates.yml):
 
 ```yaml
 tls:
@@ -119,7 +119,7 @@ tls:
                 keyFile: /traefik/config/advanced/selfsigncert/selfcert.key
 ```
 
-The cert/key/CA files are encrypted with **git-crypt** before being committed. See the root [Managing Encrypted Files](../../README.md#managing-encrypted-files-git-crypt) for the full workflow.
+The cert/key/CA files are encrypted with **git-crypt** before being committed. See the root [Managing Encrypted Files](../operations/development/DEVELOPMENT.md#managing-encrypted-files-git-crypt) for the full workflow.
 
 ## Middlewares
 
@@ -127,14 +127,14 @@ Dynamic configuration lives in `advanced/` and is loaded by the file provider.
 
 | File | Provides |
 |---|---|
-| [`advanced/middlewares-authentik.yml`](advanced/middlewares-authentik.yml) | `authentik-forwardauth` — forward-auth to `infraauth:9000` (Authentik outpost) |
-| [`advanced/middlewares-security.yml`](advanced/middlewares-security.yml) | `secure-chain` — security headers + rate limit, applied to every router |
-| [`advanced/certificates.yml`](advanced/certificates.yml) | Default self-signed TLS certificate store |
-| [`advanced/metrics.yml`](advanced/metrics.yml) | Prometheus metrics (entrypoint/service labels + `client_ip` header label) |
+| [`advanced/middlewares-authentik.yml`](../../shared/traefik/advanced/middlewares-authentik.yml) | `authentik-forwardauth` — forward-auth to `infraauth:9000` (Authentik outpost) |
+| [`advanced/middlewares-security.yml`](../../shared/traefik/advanced/middlewares-security.yml) | `secure-chain` — security headers + rate limit, applied to every router |
+| [`advanced/certificates.yml`](../../shared/traefik/advanced/certificates.yml) | Default self-signed TLS certificate store |
+| [`advanced/metrics.yml`](../../shared/traefik/advanced/metrics.yml) | Prometheus metrics (entrypoint/service labels + `client_ip` header label) |
 
 ### Security middlewares
 
-[`advanced/middlewares-security.yml`](advanced/middlewares-security.yml) defines the stack-wide baseline, applied as the **first** middleware on every `websecure` router:
+[`advanced/middlewares-security.yml`](../../shared/traefik/advanced/middlewares-security.yml) defines the stack-wide baseline, applied as the **first** middleware on every `websecure` router:
 
 - **`secure-chain`** — convenience chain composing the two below, so routers list one middleware.
 - **`secure-headers`** — HSTS (180 days, includeSubDomains, preload), `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `X-Frame-Options: SAMEORIGIN`, and `Server`/`X-Powered-By` header stripping. No CSP here — it breaks inline-script apps (Confluence, Open WebUI); add per-app if ever needed.
@@ -147,11 +147,11 @@ To protect a router with Authentik forward-auth, add the file middleware **after
 - "traefik.http.routers.myapp.middlewares=secure-chain,authentik-forwardauth@file"
 ```
 
-The Authentik outpost must be configured first — see [`shared/authentik/README.md`](../authentik/README.md).
+The Authentik outpost must be configured first — see [`authentik.md`](authentik.md).
 
 ## Observability
 
-- **Metrics** — Prometheus exporter enabled (`--metrics.prometheus=true`) with entrypoint/service labels. [`advanced/metrics.yml`](advanced/metrics.yml) adds a `client_ip` label from `X-Forwarded-For`. Grafana Alloy scrapes `routetraefik:8080`.
+- **Metrics** — Prometheus exporter enabled (`--metrics.prometheus=true`) with entrypoint/service labels. [`advanced/metrics.yml`](../../shared/traefik/advanced/metrics.yml) adds a `client_ip` label from `X-Forwarded-For`. Grafana Alloy scrapes `routetraefik:8080`.
 - **Access logs** — JSON format (`--accesslog=true --accesslog.format=json`), collected by Grafana Alloy and stored in VictoriaLogs.
 
 ## Operations
@@ -172,16 +172,16 @@ docker compose logs -f routetraefik
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](Dockerfile) | Image build (`FROM traefik:latest`) |
-| [`advanced/certificates.yml`](advanced/certificates.yml) | Self-signed default certificate store |
-| [`advanced/middlewares-authentik.yml`](advanced/middlewares-authentik.yml) | Authentik forward-auth middleware |
-| [`advanced/middlewares-security.yml`](advanced/middlewares-security.yml) | Security headers + rate limit (`secure-chain`) |
-| [`advanced/metrics.yml`](advanced/metrics.yml) | Prometheus metrics configuration |
-| [`advanced/selfsigncert/`](advanced/selfsigncert/) | git-crypt encrypted staging certificates |
+| [`Dockerfile`](../../shared/traefik/Dockerfile) | Image build (`FROM traefik:latest`) |
+| [`advanced/certificates.yml`](../../shared/traefik/advanced/certificates.yml) | Self-signed default certificate store |
+| [`advanced/middlewares-authentik.yml`](../../shared/traefik/advanced/middlewares-authentik.yml) | Authentik forward-auth middleware |
+| [`advanced/middlewares-security.yml`](../../shared/traefik/advanced/middlewares-security.yml) | Security headers + rate limit (`secure-chain`) |
+| [`advanced/metrics.yml`](../../shared/traefik/advanced/metrics.yml) | Prometheus metrics configuration |
+| [`advanced/selfsigncert/`](../../shared/traefik/advanced/selfsigncert/) | git-crypt encrypted staging certificates |
 
 ## See also
 
 - [Root README — Architecture](../../README.md#architecture-overview)
-- [Root README — Managing Encrypted Files](../../README.md#managing-encrypted-files-git-crypt)
-- [Authentik](../authentik/README.md) — forward-auth IdP
-- [oCIS](../owncloud/README.md) — long-transfer and encoded WebDAV route consumer
+- [Managing Encrypted Files](../operations/development/DEVELOPMENT.md#managing-encrypted-files-git-crypt)
+- [Authentik](authentik.md) — forward-auth IdP
+- [oCIS](owncloud.md) — long-transfer and encoded WebDAV route consumer

@@ -4,7 +4,7 @@
 
 ## Overview
 
-[VictoriaLogs](https://victoriametrics.com/products/victorialogs/) is the log store for the observability stack (`obsvce`). It receives container and Traefik access logs from [Grafana Alloy](../grafana/alloy/README.md) and is queried from [Grafana](../grafana/README.md) through the `victoriametrics-logs-datasource` plugin. It is defined by the `obsvcevlogs` service in [`compose/obsvce.yml`](../../compose/obsvce.yml) and built from [`shared/victorialogs/Dockerfile`](Dockerfile) (`FROM victoriametrics/victoria-logs:latest`).
+[VictoriaLogs](https://victoriametrics.com/products/victorialogs/) is the log store for the observability stack (`obsvce`). It receives container and Traefik access logs from [Grafana Alloy](../../shared/grafana/alloy/README.md) and is queried from [Grafana](grafana.md) through the `victoriametrics-logs-datasource` plugin. It is defined by the `obsvcevlogs` service in [`compose/obsvce.yml`](../../compose/obsvce.yml) and built from [`shared/victorialogs/Dockerfile`](../../shared/victorialogs/Dockerfile) (`FROM victoriametrics/victoria-logs:latest`).
 
 ## Service details
 
@@ -56,11 +56,11 @@ curl -s 'http://localhost:9428/select/logsql/query' \
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](Dockerfile) | Image build (`FROM victoriametrics/victoria-logs:latest`) + curl for health checks |
+| [`Dockerfile`](../../shared/victorialogs/Dockerfile) | Image build (`FROM victoriametrics/victoria-logs:latest`) + curl for health checks |
 
 ## See also
 
-- [VictoriaMetrics](../victoriametrics/README.md) — metrics store
-- [Grafana Alloy](../grafana/alloy/README.md) — collector shipping logs here
-- [Grafana](../grafana/README.md) — dashboards and log exploration
+- [VictoriaMetrics](victoriametrics.md) — metrics store
+- [Grafana Alloy](../../shared/grafana/alloy/README.md) — collector shipping logs here
+- [Grafana](grafana.md) — dashboards and log exploration
 - [Root README — Observability](../../README.md#observability-stack-obsvce)

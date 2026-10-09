@@ -17,7 +17,7 @@ This deployment runs four containers together:
 | `aiservchromum` | Browserless/Chromium renderer (stealth) | `ws://aiservchromum:12363` |
 | `aiservsearxng` | SearXNG search engine sidecar | `http://aiservsearxng:12361` |
 
-> **Optional stack:** These services are **not** included by the root `docker-compose.yml` by default. To enable Hermes web search, add all four files together to its `include` list: [`searxng/compose.yml`](../searxng/compose.yml), [`lightpanda/compose.yml`](lightpanda/compose.yml), [`chromium/compose.yml`](chromium/compose.yml) and [`compose.yml`](compose.yml).
+> **Optional stack:** These services are **not** included by the root `docker-compose.yml` by default. To enable Hermes web search, add all four files together to its `include` list: [`searxng/compose.yml`](../../shared/searxng/compose.yml), [`lightpanda/compose.yml`](../../shared/fastcrw/lightpanda/compose.yml), [`chromium/compose.yml`](../../shared/fastcrw/chromium/compose.yml) and [`compose.yml`](../../shared/fastcrw/compose.yml).
 
 ---
 

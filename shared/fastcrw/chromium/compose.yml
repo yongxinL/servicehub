@@ -4,9 +4,9 @@
 # docker-compose.yml by default — see shared/fastcrw/compose.yml for how to
 # enable the whole stack.
 #
-# Docs: shared/fastcrw/README.md
+# Docs: docs/products/fastcrw.md
 services:
-    # aiservchromum — Browserless Chromium stealth renderer (fallback tier). Docs: shared/fastcrw/README.md
+    # aiservchromum — Browserless Chromium stealth renderer (fallback tier). Docs: docs/products/fastcrw.md
     aiservchromum:
         build:
             context: .

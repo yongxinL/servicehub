@@ -76,7 +76,7 @@ All default database consumers in `compose/*.yml` connect to `dbsvcpgsqldb`. `en
 
 - [compose/dbsvc.yml](../../compose/dbsvc.yml)
 - [PostgreSQL image](../../shared/postgresql/Dockerfile)
-- [PostgreSQL README](../../shared/postgresql/README.md)
+- [PostgreSQL README](../products/postgresql.md)
 - [backup workflow](../../.forgejo/workflows/71-backup.yml)
 - Database environment settings in `compose/authn.yml`, `compose/depot.yml`, `compose/aiagn.yml`, `compose/wbapp.yml`, and `compose/poste.yml`
 

@@ -4,7 +4,7 @@
 
 ## Overview
 
-[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `webappocis` service in [`compose/webapp.yml`](../../compose/webapp.yml) and is built from [`shared/owncloud/Dockerfile`](Dockerfile) (`FROM owncloud/ocis:${IMAGE_TAG}`). It is routed through Traefik at `https://${CLOUD_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/webapp/ocis`, and delegates sign-in to Authentik.
+[ownCloud Infinite Scale (oCIS)](https://doc.owncloud.com/ocis/8.2/) runs as the `webappocis` service in [`compose/webapp.yml`](../../compose/webapp.yml) and is built from [`shared/owncloud/Dockerfile`](../../shared/owncloud/Dockerfile) (`FROM owncloud/ocis:${IMAGE_TAG}`). It is routed through Traefik at `https://${CLOUD_DOMAIN}`, stores configuration and file data under `${APPS_DATA}/webapp/ocis`, and delegates sign-in to Authentik.
 
 The build passes `CLOUD_TAG` to the Dockerfile as `IMAGE_TAG` and tags the result `webappocis:latest`. Its entrypoint initialises `${APPS_DATA}/webapp/ocis/config/ocis.yaml` only when it does not exist, then starts the supported single-container service set and persists configuration separately from file data.
 
@@ -148,14 +148,14 @@ Upgrades must pin a tested `CLOUD_TAG`, back up both oCIS directories, and recor
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](Dockerfile) | Image build (`FROM owncloud/ocis:${IMAGE_TAG}`) |
-| [`entrypoint.sh`](entrypoint.sh) | Initialises a missing configuration file and starts `ocis server` |
+| [`Dockerfile`](../../shared/owncloud/Dockerfile) | Image build (`FROM owncloud/ocis:${IMAGE_TAG}`) |
+| [`entrypoint.sh`](../../shared/owncloud/entrypoint.sh) | Initialises a missing configuration file and starts `ocis server` |
 
 ## Related Documentation
 
 - [ADR-006 Adopt oCIS with Local Filesystem Storage](../../docs/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
 - [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../../docs/adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
-- [Authentik](../authentik/README.md)
-- [Traefik](../traefik/README.md)
-- [PostgreSQL](../postgresql/README.md)
+- [Authentik](authentik.md)
+- [Traefik](traefik.md)
+- [PostgreSQL](postgresql.md)
 - [Backup and restore](../../docs/operations/BACKUP-RESTORE.md)

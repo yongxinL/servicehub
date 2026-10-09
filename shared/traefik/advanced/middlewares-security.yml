@@ -9,7 +9,7 @@
 # credential-stuffing against every login page at once.
 # `secure-headers` sends HSTS and hides implementation details. Do NOT add
 # CSP here — it breaks inline-script apps (Confluence, Open WebUI).
-# Docs: shared/traefik/README.md#security-middlewares
+# Docs: docs/products/traefik.md#security-middlewares
 ################################################################
 
 http:

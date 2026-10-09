@@ -76,7 +76,7 @@ The repository declares `exposedbydefault=false`, labels each intended route, pu
 ## Implementation Evidence
 
 - [compose/route.yml](../../compose/route.yml)
-- [Traefik README](../../shared/traefik/README.md)
+- [Traefik README](../products/traefik.md)
 - [security middleware](../../shared/traefik/advanced/middlewares-security.yml)
 - [forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml)
 - Service router labels across `compose/*.yml`

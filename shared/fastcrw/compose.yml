@@ -9,9 +9,9 @@
 #   - shared/fastcrw/chromium/compose.yml
 #   - shared/fastcrw/compose.yml
 #
-# Docs: shared/fastcrw/README.md
+# Docs: docs/products/fastcrw.md
 services:
-    # aiservfastcrw — FastCRW API server. Docs: shared/fastcrw/README.md
+    # aiservfastcrw — FastCRW API server. Docs: docs/products/fastcrw.md
     aiservfastcrw:
         build:
             context: .

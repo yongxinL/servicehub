@@ -76,7 +76,7 @@ The repository includes LiteLLM configuration, a smart routing hook, health-base
 ## Implementation Evidence
 
 - [compose/aiagn.yml](../../compose/aiagn.yml)
-- [LiteLLM README](../../shared/litellm/README.md)
+- [LiteLLM README](../products/litellm.md)
 - [default configuration](../../shared/litellm/config.default.yaml)
 - [smart router](../../shared/litellm/smartrouter.py)
 - [llama.cpp service](../../compose/aiagn.yml)

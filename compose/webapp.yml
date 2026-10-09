@@ -1,5 +1,5 @@
 services:
-    # webappconf — Confluence homepage / CMS. Docs: shared/confluence/README.md
+    # webappconf — Confluence homepage / CMS. Docs: docs/products/confluence.md
     webappconf:
         build:
             context: ../shared/confluence/
@@ -56,7 +56,7 @@ services:
         volumes:
             - ${APPS_DATA}/webapp/confluence:/var/atlassian/application-data/confluence
 
-    # webappocisinit — oCIS config/data directory ownership initialiser. Docs: shared/owncloud/README.md
+    # webappocisinit — oCIS config/data directory ownership initialiser. Docs: docs/products/owncloud.md
     webappocisinit:
         command: >
             sh -c 'mkdir -p /config /data &&
@@ -70,7 +70,7 @@ services:
             - ${APPS_DATA}/webapp/ocis/config:/config
             - ${APPS_DATA}/webapp/ocis/data:/data
 
-    # webappocis — ownCloud Infinite Scale cloud drive. Docs: shared/owncloud/README.md
+    # webappocis — ownCloud Infinite Scale cloud drive. Docs: docs/products/owncloud.md
     webappocis:
         build:
             context: ../shared/owncloud/

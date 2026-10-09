@@ -41,7 +41,7 @@ At the time of the decision, no oCIS service, route, OIDC application, or persis
 
 Deploy the `wbappmydrive` service in `compose/wbapp.yml` using the `owncloud/ocis` image, Authentik OIDC, Docker Compose, and local filesystem storage on the Oracle Cloud VM. Mount oCIS configuration under `${APPS_DATA}/cloud/ocis/config` and file data under `${APPS_DATA}/cloud/ocis/data`, and include both paths in the backup scope under [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md).
 
-oCIS 8.2 does not use a ServiceHub PostgreSQL database for its own service state. PostgreSQL continues to store Authentik identity data and other ServiceHub relational workloads. The operational guide is [shared/owncloud/README.md](../../shared/owncloud/README.md).
+oCIS 8.2 does not use a ServiceHub PostgreSQL database for its own service state. PostgreSQL continues to store Authentik identity data and other ServiceHub relational workloads. The operational guide is [../products/owncloud.md](../products/owncloud.md).
 
 Do not deploy MinIO, OCI Object Storage, or an S3 storage backend for the initial implementation. Reconsider an object-storage backend only if measured scale, availability, or operational requirements justify the additional component.
 
@@ -157,7 +157,7 @@ Repository configuration added on 2026-10-03:
 - [`env.example`](../../env.example) defines the oCIS image, public hostname, Authentik issuer, public OIDC client ID, and certificate-verification setting.
 - [Traefik route configuration](../../compose/route.yml) permits long transfers and encoded WebDAV path characters.
 - [Deployment workflow](../../.forgejo/workflows/61-deploy.yml) can deploy `wbappmydrive` after its directory initialiser.
-- [oCIS operational guide](../../shared/owncloud/README.md) records Authentik provider setup, redirect URIs, validation, backup scope, and operations.
+- [oCIS operational guide](../products/owncloud.md) records Authentik provider setup, redirect URIs, validation, backup scope, and operations.
 - [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) and [backup and restore](../operations/BACKUP-RESTORE.md) record the target recovery strategy.
 
 This is configuration evidence only. The container, Authentik OIDC flow, account provisioning, file operations, monitoring, dual-target backup, and restore have not been runtime-validated by this change.

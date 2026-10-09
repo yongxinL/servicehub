@@ -4,9 +4,9 @@
 
 ## Overview
 
-[Confluence](https://www.atlassian.com/software/confluence) runs as a custom Data Center image and serves `WORKSPACE_DOMAIN` plus the apex `${DOMAIN_NAME}`. It is defined by the `webappconf` service in [`compose/webapp.yml`](../../compose/webapp.yml) and built from [`shared/confluence/Dockerfile`](Dockerfile) (`FROM atlassian/confluence:${IMAGE_TAG}`).
+[Confluence](https://www.atlassian.com/software/confluence) runs as a custom Data Center image and serves `WORKSPACE_DOMAIN` plus the apex `${DOMAIN_NAME}`. It is defined by the `webappconf` service in [`compose/webapp.yml`](../../compose/webapp.yml) and built from [`shared/confluence/Dockerfile`](../../shared/confluence/Dockerfile) (`FROM atlassian/confluence:${IMAGE_TAG}`).
 
-Confluence is the default homepage and is backed by [PostgreSQL](../postgresql/README.md).
+Confluence is the default homepage and is backed by [PostgreSQL](postgresql.md).
 
 ## Service details
 
@@ -81,7 +81,7 @@ docker compose logs -f webappconf
 
 ## Security hardening
 
-- **Edge protection** — the router carries `secure-chain` (rate limit + security headers, before the compression middleware). See [Traefik — Security middlewares](../traefik/README.md#security-middlewares).
+- **Edge protection** — the router carries `secure-chain` (rate limit + security headers, before the compression middleware). See [Traefik — Security middlewares](traefik.md#security-middlewares).
 - **Admin console** — restrict the admin UI to trusted networks (Confluence Administration → General Configuration → **Security and Permissions** → admin session / network restrictions) and never leave anonymous access on a public space (Space Settings → Permissions → check *Anonymous* is off).
 - **Delegate accounts to Authentik** — set up a SAML/OIDC user directory pointing at `infraauth` (Administration → User Management → User Directories) so passwords and MFA live in Authentik; keep one local `confluence-admin` as break-glass.
 
@@ -111,11 +111,11 @@ Kernel-level drop logs come from the `LOG` rules: `sudo dmesg -w | grep -E 'egre
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](Dockerfile) | Image build (`FROM atlassian/confluence:${IMAGE_TAG}`) + plugin/agent install |
-| [`plugins/`](plugins/) | Local plugin tarballs copied into the image |
+| [`Dockerfile`](../../shared/confluence/Dockerfile) | Image build (`FROM atlassian/confluence:${IMAGE_TAG}`) + plugin/agent install |
+| [`plugins/`](../../shared/confluence/plugins/) | Local plugin tarballs copied into the image |
 
 ## See also
 
-- [PostgreSQL](../postgresql/README.md) — database backend
-- [Traefik](../traefik/README.md) — edge routing and TLS
+- [PostgreSQL](postgresql.md) — database backend
+- [Traefik](traefik.md) — edge routing and TLS
 - [Root README — Homepage](../../README.md#homepage)

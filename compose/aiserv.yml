@@ -1,5 +1,5 @@
 services:
-    # aiservhermesinit — one-shot: set ownership of the Hermes data dir. Docs: shared/hermesagent/README.md
+    # aiservhermesinit — one-shot: set ownership of the Hermes data dir. Docs: docs/products/hermesagent.md
     aiservhermesinit:
         command: >
             sh -c 'chown -R 10000:10000 /data00;
@@ -11,7 +11,7 @@ services:
         volumes:
             - ${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}:/data00
 
-    # aiservhermes — Hermes Agent (single shared agent). Docs: shared/hermesagent/README.md
+    # aiservhermes — Hermes Agent (single shared agent). Docs: docs/products/hermesagent.md
     aiservhermes:
         build:
             context: ../shared/hermesagent/
@@ -56,7 +56,7 @@ services:
             - "traefik.http.services.aiservhermes.loadbalancer.server.port=12320"
 
     # aiservlitellm — LiteLLM complexity router (local Gemma + MiniMax).
-    # Docs: shared/litellm/README.md
+    # Docs: docs/products/litellm.md
     aiservlitellm:
         build:
             context: ../shared/litellm/
@@ -96,7 +96,7 @@ services:
             - ${APPS_DATA}/aiserv/litellm:/opt/litellm   # place config.yaml here to override default
 
     # aiservllamacpp — llama.cpp Gemma chat inference.
-    # Docs: shared/llamacpp/README.md
+    # Docs: docs/products/llamacpp.md
     aiservllamacpp:
         build:
             context: ../shared/llamacpp/
@@ -130,7 +130,7 @@ services:
 
     # aiservowui — Open WebUI AI platform chat interface (moved from webapp per
     # ADR-009; it serves the AI platform, not the business applications).
-    # Docs: shared/openwebui/README.md
+    # Docs: docs/products/openwebui.md
     aiservowui:
         build:
             context: ../shared/openwebui/

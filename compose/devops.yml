@@ -1,5 +1,5 @@
 services:
-    # devopsforgejoinit — one-shot: create Forgejo and runner data dirs, chown 1000:1000. Docs: shared/forgejo/README.md
+    # devopsforgejoinit — one-shot: create Forgejo and runner data dirs, chown 1000:1000. Docs: docs/products/forgejo.md
     devopsforgejoinit:
         command: >
             sh -c 'mkdir -p /data /var/lib/forgejo-runner &&
@@ -12,7 +12,7 @@ services:
             - ${APPS_DATA}/devops/forgejo/data:/data
             - ${APPS_DATA}/devops/forgejo/runner:/var/lib/forgejo-runner
 
-    # devopsforgejo — Forgejo git server + Actions (HTTPS clone via Traefik; SSH not published — use HTTPS clones). Docs: shared/forgejo/README.md
+    # devopsforgejo — Forgejo git server + Actions (HTTPS clone via Traefik; SSH not published — use HTTPS clones). Docs: docs/products/forgejo.md
     devopsforgejo:
         build:
             context: ../shared/forgejo/server/
@@ -40,7 +40,7 @@ services:
             - FORGEJO__openid__ENABLE_OPENID_SIGNUP=false
             - FORGEJO__actions__ENABLED=true
             # Security: only admins create accounts; sign-in should be delegated
-            # to Authentik (OIDC) so MFA applies — see shared/forgejo/README.md
+            # to Authentik (OIDC) so MFA applies — see docs/products/forgejo.md
             - FORGEJO__service__DISABLE_REGISTRATION=true
         healthcheck:
             test: [ "CMD", "curl", "-fsS", "http://localhost:3000/api/healthz" ]
@@ -68,7 +68,7 @@ services:
     # devopsrunner — Forgejo Actions runner using host-mode execution.
     # Workflow jobs run inside this runner container and deploy to Docker hosts
     # over SSH. No temporary job container or Docker socket is required.
-    # Docs: shared/forgejo/README.md
+    # Docs: docs/products/forgejo.md
     devopsrunner:
         build:
             context: ../shared/forgejo/actions/

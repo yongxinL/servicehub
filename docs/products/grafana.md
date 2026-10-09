@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Grafana](https://grafana.com/) is the visualization layer of the observability stack (`obsvce`). It reads metrics from [VictoriaMetrics](../victoriametrics/README.md) and logs from [VictoriaLogs](../victorialogs/README.md). The `obsvcegrafana` service is defined in [`compose/obsvce.yml`](../../compose/obsvce.yml) and built from [`shared/grafana/Dockerfile`](Dockerfile) (`FROM grafana/grafana:latest`). A one-shot `obsvcegrafanainit` container fixes data-directory ownership before Grafana starts.
+[Grafana](https://grafana.com/) is the visualization layer of the observability stack (`obsvce`). It reads metrics from [VictoriaMetrics](victoriametrics.md) and logs from [VictoriaLogs](victorialogs.md). The `obsvcegrafana` service is defined in [`compose/obsvce.yml`](../../compose/obsvce.yml) and built from [`shared/grafana/Dockerfile`](../../shared/grafana/Dockerfile) (`FROM grafana/grafana:latest`). A one-shot `obsvcegrafanainit` container fixes data-directory ownership before Grafana starts.
 
 ## Service details
 
@@ -40,14 +40,14 @@ Grafana settings applied by the compose file:
 
 ## Provisioning
 
-Both provisioning files are mounted read-only from [`provisioning/`](provisioning):
+Both provisioning files are mounted read-only from [`provisioning/`](../../shared/grafana/provisioning):
 
 | File | Purpose |
 |---|---|
-| [`provisioning/datasources/datasources.yml`](provisioning/datasources/datasources.yml) | VictoriaMetrics (default) and VictoriaLogs data sources |
-| [`provisioning/dashboards/dashboards.yml`](provisioning/dashboards/dashboards.yml) | Loads dashboards from `/var/lib/grafana/dashboards` |
+| [`provisioning/datasources/datasources.yml`](../../shared/grafana/provisioning/datasources/datasources.yml) | VictoriaMetrics (default) and VictoriaLogs data sources |
+| [`provisioning/dashboards/dashboards.yml`](../../shared/grafana/provisioning/dashboards/dashboards.yml) | Loads dashboards from `/var/lib/grafana/dashboards` |
 
-Pre-built dashboards in [`dashboards/`](dashboards) are mounted at `/var/lib/grafana/dashboards/observability` and include:
+Pre-built dashboards in [`dashboards/`](../../shared/grafana/dashboards) are mounted at `/var/lib/grafana/dashboards/observability` and include:
 
 - Node Exporter Full
 - Docker Dashboard / Docker Containers Overview
@@ -82,16 +82,16 @@ docker compose up obsvcegrafanainit
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](Dockerfile) | Image build (`FROM grafana/grafana:latest`) |
-| [`provisioning/`](provisioning) | Data source and dashboard provisioning |
-| [`dashboards/`](dashboards) | Pre-built dashboard JSON |
-| [`alloy/`](alloy) | Grafana Alloy collector — see [alloy/README.md](alloy/README.md) |
-| [`geoip/`](geoip) | GeoIP database used by Alloy log enrichment |
+| [`Dockerfile`](../../shared/grafana/Dockerfile) | Image build (`FROM grafana/grafana:latest`) |
+| [`provisioning/`](../../shared/grafana/provisioning) | Data source and dashboard provisioning |
+| [`dashboards/`](../../shared/grafana/dashboards) | Pre-built dashboard JSON |
+| [`alloy/`](../../shared/grafana/alloy) | Grafana Alloy collector — see [alloy/README.md](../../shared/grafana/alloy/README.md) |
+| [`geoip/`](../../shared/grafana/geoip) | GeoIP database used by Alloy log enrichment |
 
 ## See also
 
-- [VictoriaMetrics](../victoriametrics/README.md) — metrics data source
-- [VictoriaLogs](../victorialogs/README.md) — logs data source
-- [Grafana Alloy](alloy/README.md) — collector
-- [Authentik](../authentik/README.md) — forward-auth
+- [VictoriaMetrics](victoriametrics.md) — metrics data source
+- [VictoriaLogs](victorialogs.md) — logs data source
+- [Grafana Alloy](../../shared/grafana/alloy/README.md) — collector
+- [Authentik](authentik.md) — forward-auth
 - [Root README — Observability](../../README.md#observability-stack-obsvce)

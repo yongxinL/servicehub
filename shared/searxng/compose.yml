@@ -4,9 +4,9 @@
 # docker-compose.yml by default — see shared/fastcrw/compose.yml for how to
 # enable the whole stack.
 #
-# Docs: shared/fastcrw/README.md
+# Docs: docs/products/fastcrw.md
 services:
-    # aiservsearxng — SearXNG search backend. Docs: shared/fastcrw/README.md
+    # aiservsearxng — SearXNG search backend. Docs: docs/products/fastcrw.md
     aiservsearxng:
         build:
             context: .

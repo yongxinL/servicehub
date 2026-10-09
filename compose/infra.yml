@@ -1,5 +1,5 @@
 services:
-    # inframariadb — MariaDB 11.8 (MySQL-compatible). Docs: shared/mariadb/README.md
+    # inframariadb — MariaDB 11.8 (MySQL-compatible). Docs: docs/products/mariadb.md
     inframariadb:
         build:
             context: ../shared/mariadb/
@@ -21,7 +21,7 @@ services:
         volumes:
             - ${APPS_DATA}/infra/mariadb:/var/lib/mysql
 
-    # infrapgsql — PostgreSQL 16. Docs: shared/postgresql/README.md
+    # infrapgsql — PostgreSQL 16. Docs: docs/products/postgresql.md
     infrapgsql:
         build:
             context: ../shared/postgresql/
@@ -43,7 +43,7 @@ services:
         volumes:
             - ${APPS_DATA}/infra/postgresql:/var/lib/postgresql/data
 
-    # infraauthinit — one-shot: Authentik data dir ownership fix. Docs: shared/authentik/README.md
+    # infraauthinit — one-shot: Authentik data dir ownership fix. Docs: docs/products/authentik.md
     infraauthinit:
         command: >
             sh -c 'chown -R 1000:1000 /data /templates 2>/dev/null; chmod -R 755 /data /templates 2>/dev/null || true'
@@ -55,7 +55,7 @@ services:
             - ${APPS_DATA}/infra/authentik/media:/data
             - ${APPS_DATA}/infra/authentik/templates:/templates
 
-    # infraauth — Authentik server (UI/API). Docs: shared/authentik/README.md
+    # infraauth — Authentik server (UI/API). Docs: docs/products/authentik.md
     # First boot: https://${IDENTITY_DOMAIN}/if/flow/initial-setup/
     infraauth:
         build:
@@ -112,7 +112,7 @@ services:
             # dozens of chunks within a second and exhausts rate-limit's burst of
             # 50 (429s, the SPA never finishes loading). secure-headers only;
             # priority 200 beats the catch-all infraauth router (docs/operations/
-            # TROUBLESHOOTING.md, shared/traefik/README.md#security-middlewares).
+            # TROUBLESHOOTING.md, docs/products/traefik.md#security-middlewares).
             - "traefik.http.routers.infraauth-static.rule=Host(`${IDENTITY_DOMAIN}`) && PathPrefix(`/static`)"
             - "traefik.http.routers.infraauth-static.entrypoints=websecure"
             - "traefik.http.routers.infraauth-static.service=infraauth"
@@ -128,7 +128,7 @@ services:
             - ${APPS_DATA}/infra/authentik/media:/data
             - ${APPS_DATA}/infra/authentik/templates:/templates
 
-    # infraauthwrk — Authentik background worker. Docs: shared/authentik/README.md
+    # infraauthwrk — Authentik background worker. Docs: docs/products/authentik.md
     infraauthwrk:
         command: worker
         depends_on:

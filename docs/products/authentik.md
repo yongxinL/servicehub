@@ -6,7 +6,7 @@
 
 [Authentik](https://goauthentik.io/) provides single sign-on and forward-authentication for Traefik-protected services (for example Grafana). It can be extended to cover any service behind the reverse proxy.
 
-Authentik is defined in [`compose/infra.yml`](../../compose/infra.yml) and built from [`shared/authentik/Dockerfile`](Dockerfile) (`FROM ghcr.io/goauthentik/server:${IMAGE_TAG}`).
+Authentik is defined in [`compose/infra.yml`](../../compose/infra.yml) and built from [`shared/authentik/Dockerfile`](../../shared/authentik/Dockerfile) (`FROM ghcr.io/goauthentik/server:${IMAGE_TAG}`).
 
 ## Components
 
@@ -76,7 +76,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
     http://infraauth:9000/outpost.goauthentik.io/auth/traefik
     ```
 
-    (defined in [`shared/traefik/advanced/middlewares-authentik.yml`](../traefik/advanced/middlewares-authentik.yml))
+    (defined in [`shared/traefik/advanced/middlewares-authentik.yml`](../../shared/traefik/advanced/middlewares-authentik.yml))
 
 5. Attach `authentik-forwardauth@file` to the target router's middleware chain. For example, Grafana already does this in `compose/obsvce.yml`.
 
@@ -91,7 +91,7 @@ oCIS uses an **OAuth 2.0 authorization-code flow with OpenID Connect**, not Trae
 - **Scopes:** `openid`, `profile`, and `email`
 - **Issuer:** `https://${IDENTITY_DOMAIN}/application/o/ocis/`
 
-Copy the provider client ID to `CLOUD_OIDC_CLIENT_ID`. No client secret is required for the public PKCE client and no secret value should be recorded in repository documentation. The complete provider setup, oCIS environment mapping, and validation checklist are in the [oCIS README](../owncloud/README.md#authentik-oidc-setup).
+Copy the provider client ID to `CLOUD_OIDC_CLIENT_ID`. No client secret is required for the public PKCE client and no secret value should be recorded in repository documentation. The complete provider setup, oCIS environment mapping, and validation checklist are in the [oCIS README](owncloud.md#authentik-oidc-setup).
 
 ## LDAP (Stalwart mail directory)
 
@@ -99,7 +99,7 @@ The email stack uses Authentik as its mail-account directory: Stalwart validates
 
 That integration belongs to the email stack, so the full walkthrough lives in the Stalwart README — provider fields, Bind/Unbind flows, bind/search modes, service account role and permissions, outpost, Stalwart-side directory settings, domain binding and bind troubleshooting:
 
-- [Stalwart — Directory: Authentik LDAP (SSO)](../stalwart/README.md#directory-authentik-ldap-sso)
+- [Stalwart — Directory: Authentik LDAP (SSO)](stalwart.md#directory-authentik-ldap-sso)
 
 ## Operations
 
@@ -137,6 +137,6 @@ Do these in the Authentik admin UI (one-time):
 
 - [Root README — Architecture](../../README.md#architecture-overview)
 - [Root README — Security Observability Stack](../../README.md#security-observability-stack) — Grafana is an example forward-auth–protected service
-- [Stalwart Mail Server](../stalwart/README.md#directory-authentik-ldap-sso) — consumes this IdP as its LDAP mail directory (walkthrough consolidated there)
-- [Traefik](../traefik/README.md) — forward-auth middleware and routing
-- [oCIS](../owncloud/README.md) — Authentik OIDC cloud-drive integration
+- [Stalwart Mail Server](stalwart.md#directory-authentik-ldap-sso) — consumes this IdP as its LDAP mail directory (walkthrough consolidated there)
+- [Traefik](traefik.md) — forward-auth middleware and routing
+- [oCIS](owncloud.md) — Authentik OIDC cloud-drive integration

@@ -46,7 +46,7 @@ Establish observable services, governed operational procedures, tested backup an
 - [Alloy configuration](../../shared/grafana/alloy/config.alloy)
 - [Grafana provisioning and dashboards](../../shared/grafana/)
 - [Backup workflow](../../.forgejo/workflows/71-backup.yml)
-- [Forgejo runner and backup workflow runtime](../../shared/forgejo/README.md#backup-workflow-runtime)
+- [Forgejo runner and backup workflow runtime](../products/forgejo.md#backup-workflow-runtime)
 - Operations documentation under [docs/operations/](../operations/)
 - Test and release registers under [docs/testing/](../testing/) and [docs/releases/](../releases/)
 

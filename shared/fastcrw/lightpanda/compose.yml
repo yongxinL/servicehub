@@ -4,13 +4,13 @@
 # docker-compose.yml by default — see shared/fastcrw/compose.yml for how to
 # enable the whole stack.
 #
-# Docs: shared/fastcrw/README.md
+# Docs: docs/products/fastcrw.md
 #
 # `restart: unless-stopped` is load-bearing: LightPanda can OOM/segfault on
 # adversarial pages, and without auto-restart every JS request falls through
 # to Chrome. `mem_limit` keeps a runaway tab from dragging the host into swap.
 services:
-    # aiservlighpda — LightPanda JS renderer (lightweight tier). Docs: shared/fastcrw/README.md
+    # aiservlighpda — LightPanda JS renderer (lightweight tier). Docs: docs/products/fastcrw.md
     aiservlighpda:
         build:
             context: .

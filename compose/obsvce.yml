@@ -1,5 +1,5 @@
 services:
-    # obsvcevm — VictoriaMetrics time-series database. Docs: shared/victoriametrics/README.md
+    # obsvcevm — VictoriaMetrics time-series database. Docs: docs/products/victoriametrics.md
     obsvcevm:
         build:
             context: ../shared/victoriametrics/
@@ -25,7 +25,7 @@ services:
             - ${APPS_DATA}/obsvce/victoriametrics:/storage
             - ../shared/victoriametrics/scrape.yaml:/etc/vm/scrape.yaml:ro
 
-    # obsvcevlogs — VictoriaLogs log aggregation. Docs: shared/victorialogs/README.md
+    # obsvcevlogs — VictoriaLogs log aggregation. Docs: docs/products/victorialogs.md
     obsvcevlogs:
         build:
             context: ../shared/victorialogs/
@@ -79,7 +79,7 @@ services:
             - /sys:/host/sys:ro # unix exporter — sysfs_path (disk I/O, hardware info)
             - /sys/fs/cgroup:/sys/fs/cgroup:ro # cAdvisor — cgroup stats (standard in-container path)
 
-    # obsvcegrafana — Grafana dashboards. Docs: shared/grafana/README.md
+    # obsvcegrafana — Grafana dashboards. Docs: docs/products/grafana.md
     obsvcegrafana:
         build:
             context: ../shared/grafana/
@@ -124,7 +124,7 @@ services:
             - ../shared/grafana/provisioning:/etc/grafana/provisioning:ro
             - ../shared/grafana/dashboards:/var/lib/grafana/dashboards/observability:ro
 
-    # obsvcegrafanainit — one-shot: Grafana data dir ownership fix. Docs: shared/grafana/README.md
+    # obsvcegrafanainit — one-shot: Grafana data dir ownership fix. Docs: docs/products/grafana.md
     obsvcegrafanainit:
         command: >
             sh -c '[ "$(stat -c %u /var/lib/grafana 2>/dev/null)" != "472" ] && chown -R 472:472 /var/lib/grafana || true; chmod -R 775 /var/lib/grafana'

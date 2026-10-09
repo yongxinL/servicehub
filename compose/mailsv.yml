@@ -70,7 +70,7 @@ services:
             - ${APPS_DATA}/mailsv/stalwart:/var/lib/stalwart
             - ${APPS_DATA}/shared/certs:/letsencrypt:ro
 
-    # mailsvbulwarkinit — one-shot: create webmail data dirs, chown 1001:1001 (nextjs:nodejs). Docs: shared/bulwark/README.md
+    # mailsvbulwarkinit — one-shot: create webmail data dirs, chown 1001:1001 (nextjs:nodejs). Docs: docs/products/bulwark.md
     mailsvbulwarkinit:
         command: >
             sh -c 'mkdir -p /data/settings /data/admin /data/admin-state /data/telemetry &&
@@ -107,7 +107,7 @@ services:
             - STALWART_FEATURES=true
             # Authentication: password form validated by Stalwart over JMAP.
             # No OIDC/SSO: it requires an OIDC-backed Stalwart directory, this
-            # stack uses LDAP (docs: shared/bulwark/README.md).
+            # stack uses LDAP (docs: docs/products/bulwark.md).
             # Session cookie encryption (openssl rand -base64 32)
             - SESSION_SECRET=${WEBMAIL_SESSION_SECRET}
             # Sync per-account settings (encrypted at rest with SESSION_SECRET)
