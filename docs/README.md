@@ -52,6 +52,8 @@ The repository implementation remains the source of truth. Documentation describ
 | Testing | Test plans, reports, and execution evidence | [Test register](testing/README.md) |
 | Releases | Release governance, evidence, and notes | [Release register](releases/README.md) |
 | Operations | Runbooks, inventory, backup, monitoring, and troubleshooting | [Operations index](operations/README.md) |
+| Products | Per-product build, configuration, and setup guides | [Products](products/README.md) |
+| Development | Developer workflows: git-crypt, local dev flow, contributing | [Development](operations/development/DEVELOPMENT.md) |
 | Lessons | Retrospective learning and improvement actions | [Lessons register](lessons/README.md) |
 | Investigations | Technical findings and open questions | [Investigation register](investigations/README.md) |
 | Templates | Reusable record formats | [Templates](templates/ADR-TEMPLATE.md) |
@@ -83,14 +85,7 @@ Allowed statuses are `Draft`, `Proposed`, `In Review`, `Accepted`, `Rejected`, `
 
 ## Contributing
 
-1. Read the relevant index and template.
-2. Use the next unused stable ID and current date.
-3. Add or update the document in the same pull request as its implementation change.
-4. Label claims as Confirmed, Inferred, Proposed, or TBD.
-5. Link to relative repository paths and check every link.
-6. Update `updated` and add the record to its index.
-7. Never copy secrets, private keys, recovery material, production hostnames, or unverified results.
-8. Request owner review for charter, requirements, ADR statuses, RFC decisions, phase completion, and releases.
+See [Contributing](../operations/development/DEVELOPMENT.md#contributing) in the development workflows guide.
 
 ## Repository Links
 

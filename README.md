@@ -14,10 +14,7 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Web Applications](#web-applications)
 - [Observability Stack (obsvce)](#observability-stack-obsvce)
 - [Email Stack (mailsv)](#email-stack-mailsv)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
-- [Deployment (Forgejo Actions)](#deployment-forgejo-actions)
+- [Getting Started](#getting-started)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [License](#license)
@@ -231,9 +228,9 @@ servicehub/
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Traefik v3 — edge router + TLS termination | `routetraefik` | [shared/traefik/README.md](shared/traefik/README.md) |
-| MariaDB 11.8 — MySQL-compatible database | `inframariadb` | [shared/mariadb/README.md](shared/mariadb/README.md) |
-| PostgreSQL 16 — primary database | `infrapgsql` | [shared/postgresql/README.md](shared/postgresql/README.md) |
+| Traefik v3 — edge router + TLS termination | `routetraefik` | [docs/products/traefik.md](docs/products/traefik.md) |
+| MariaDB 11.8 — MySQL-compatible database | `inframariadb` | [docs/products/mariadb.md](docs/products/mariadb.md) |
+| PostgreSQL 16 — primary database | `infrapgsql` | [docs/products/postgresql.md](docs/products/postgresql.md) |
 
 > Service-specific configuration, data layout, first-boot steps and operations notes live in each service's own `README.md` under `shared/`.
 
@@ -243,9 +240,9 @@ servicehub/
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Forgejo — self-hosted Git service + Actions | `devopsforgejo`, `devopsrunner` | [shared/forgejo/README.md](shared/forgejo/README.md) |
+| Forgejo — self-hosted Git service + Actions | `devopsforgejo`, `devopsrunner` | [docs/products/forgejo.md](docs/products/forgejo.md) |
 
-Setup, configuration, Actions runner registration and operations are documented in the service README. Forgejo Actions also deploys the application services (databases, Authentik, Forgejo and Traefik are foundational and deployed manually) — see [Deployment (Forgejo Actions)](#deployment-forgejo-actions).
+Setup, configuration, Actions runner registration and operations are documented in the service README. Forgejo Actions also deploys the application services (databases, Authentik, Forgejo and Traefik are foundational and deployed manually) — see [Deployment (Forgejo Actions)](docs/operations/DEPLOYMENT.md).
 
 ---
 
@@ -255,10 +252,10 @@ Local and cloud LLM services power the Hermes AI agents. The llama.cpp server pr
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Open WebUI — AI platform chat interface | `aiservowui` | [shared/openwebui/README.md](shared/openwebui/README.md) |
-| Hermes Agent — single shared agent workspace + gateway | `aiservhermes` (+ one-shot `aiservhermesinit`) | [shared/hermesagent/README.md](shared/hermesagent/README.md) |
-| LiteLLM Proxy — unified API gateway + complexity router | `aiservlitellm` | [shared/litellm/README.md](shared/litellm/README.md) |
-| llama.cpp chat inference — local Gemma tier | `aiservllamacpp` | [shared/llamacpp/README.md](shared/llamacpp/README.md) |
+| Open WebUI — AI platform chat interface | `aiservowui` | [docs/products/openwebui.md](docs/products/openwebui.md) |
+| Hermes Agent — single shared agent workspace + gateway | `aiservhermes` (+ one-shot `aiservhermesinit`) | [docs/products/hermesagent.md](docs/products/hermesagent.md) |
+| LiteLLM Proxy — unified API gateway + complexity router | `aiservlitellm` | [docs/products/litellm.md](docs/products/litellm.md) |
+| llama.cpp chat inference — local Gemma tier | `aiservllamacpp` | [docs/products/llamacpp.md](docs/products/llamacpp.md) |
 
 **At a glance:**
 
@@ -279,11 +276,11 @@ Local and cloud LLM services power the Hermes AI agents. The llama.cpp server pr
 [e] translate this paragraph                       → hephaestus / Gemma (shorthand)
 ```
 
-See [shared/litellm/README.md](shared/litellm/README.md#routing-logic) for the full routing rules, and [shared/hermesagent/README.md](shared/hermesagent/README.md) for the workspace, overlay system and profiles.
+See [docs/products/litellm.md](docs/products/litellm.md#routing-logic) for the full routing rules, and [docs/products/hermesagent.md](docs/products/hermesagent.md) for the workspace, overlay system and profiles.
 
 ### Multi-user & scaling
 
-Hermes Agent is **single-user / single-tenant**: one container serves exactly one login and one agent identity. Everything under a Hermes home — sessions, `MEMORY.md`, `USER.md`, skills and `state.db` — is shared by anyone logged into that container. Upstream is explicit that profiles are *configuration, not a person* and that profile multiplexing "does not authenticate or authorize end users". See [shared/hermesagent/README.md](shared/hermesagent/README.md#multi-user-support) for the full findings.
+Hermes Agent is **single-user / single-tenant**: one container serves exactly one login and one agent identity. Everything under a Hermes home — sessions, `MEMORY.md`, `USER.md`, skills and `state.db` — is shared by anyone logged into that container. Upstream is explicit that profiles are *configuration, not a person* and that profile multiplexing "does not authenticate or authorize end users". See [docs/products/hermesagent.md](docs/products/hermesagent.md#multi-user-support) for the full findings.
 
 The stack therefore ships **one** Hermes Agent (`aiservhermes`) that acts as a shared team assistant. When more people need their **own** private agent, add another isolated container rather than sharing one login. To scale to N users, replicate the `aiservhermes` pattern in [`compose/aiserv.yml`](compose/aiserv.yml):
 
@@ -303,15 +300,15 @@ All agents share the same `aiservlitellm` router and `aiservllamacpp` model, so 
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Authentik — IdP / SSO | `infraauth`, `infraauthwrk` (+ one-shot `infraauthinit`) | [shared/authentik/README.md](shared/authentik/README.md) |
-| Confluence Data Center — homepage / CMS | `webappconf` | [shared/confluence/README.md](shared/confluence/README.md) |
-| ownCloud Infinite Scale — family cloud drive | `webappocis` (+ one-shot `webappocisinit`) | [shared/owncloud/README.md](shared/owncloud/README.md) |
+| Authentik — IdP / SSO | `infraauth`, `infraauthwrk` (+ one-shot `infraauthinit`) | [docs/products/authentik.md](docs/products/authentik.md) |
+| Confluence Data Center — homepage / CMS | `webappconf` | [docs/products/confluence.md](docs/products/confluence.md) |
+| ownCloud Infinite Scale — family cloud drive | `webappocis` (+ one-shot `webappocisinit`) | [docs/products/owncloud.md](docs/products/owncloud.md) |
 
 Confluence serves `WORKSPACE_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WORKSPACE_DBNAME}`). Open WebUI (AI platform, `compose/aiserv.yml`) is served at `https://${CHAT_DOMAIN}`. oCIS is served at `https://${CLOUD_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
 
 > **Database lists only initialize empty data directories.** Updating `POSTGRES_DATABASES` or `MARIADB_DATABASES` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
 >
-> An optional [WordPress homepage](shared/wordpress/README.md) can replace Confluence; the two must never run together.
+> An optional [WordPress homepage](docs/products/wordpress.md) can replace Confluence; the two must never run together.
 
 ---
 
@@ -321,10 +318,10 @@ A full metrics and log observability stack built on Grafana, VictoriaMetrics, Vi
 
 | Component | Runs as | Full documentation |
 |---|---|---|
-| VictoriaMetrics — time-series metrics store | `obsvcevm` | [shared/victoriametrics/README.md](shared/victoriametrics/README.md) |
-| VictoriaLogs — log aggregation | `obsvcevlogs` | [shared/victorialogs/README.md](shared/victorialogs/README.md) |
+| VictoriaMetrics — time-series metrics store | `obsvcevm` | [docs/products/victoriametrics.md](docs/products/victoriametrics.md) |
+| VictoriaLogs — log aggregation | `obsvcevlogs` | [docs/products/victorialogs.md](docs/products/victorialogs.md) |
 | Grafana Alloy — host/container/metrics/log collector | `obsvcealloy` | [shared/grafana/alloy/README.md](shared/grafana/alloy/README.md) |
-| Grafana — dashboards for metrics and logs | `obsvcegrafana` (+ one-shot `obsvcegrafanainit`) | [shared/grafana/README.md](shared/grafana/README.md) |
+| Grafana — dashboards for metrics and logs | `obsvcegrafana` (+ one-shot `obsvcegrafanainit`) | [docs/products/grafana.md](docs/products/grafana.md) |
 
 ```mermaid
 graph LR
@@ -354,8 +351,8 @@ A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) 
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `mailsvstalwart` | [shared/stalwart/README.md](shared/stalwart/README.md) |
-| Bulwark Webmail — JMAP webmail client | `mailsvbulwark` | [shared/bulwark/README.md](shared/bulwark/README.md) |
+| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `mailsvstalwart` | [docs/products/stalwart.md](docs/products/stalwart.md) |
+| Bulwark Webmail — JMAP webmail client | `mailsvbulwark` | [docs/products/bulwark.md](docs/products/bulwark.md) |
 
 **At a glance:**
 
@@ -366,446 +363,20 @@ A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) 
 | Ports published to the host | 25 / 465 / 587 / 993 (SMTP server-to-server, submission ×2, IMAP) |
 | Storage | PostgreSQL (`${POSTOFFICE_DBNAME}` on `infrapgsql`) holds all mail data — accounts, messages, indexes, blobs |
 | TLS | Reused from Traefik's shared `acme.json` via an in-container certificate exporter |
-| Webmail → Stalwart | JMAP at `https://${EMAIL_HOST}` — browser-side, so Stalwart needs **Permissive CORS** (`usePermissiveCors`) and a trusted certificate (see [Bulwark — Login prerequisites](shared/bulwark/README.md#login-prerequisites-stalwart-side)) |
+| Webmail → Stalwart | JMAP at `https://${EMAIL_HOST}` — browser-side, so Stalwart needs **Permissive CORS** (`usePermissiveCors`) and a trusted certificate (see [Bulwark — Login prerequisites](docs/products/bulwark.md#login-prerequisites-stalwart-side)) |
 | Single sign-on | Authentik serves the directory: webmail users log in with their Authentik password through the JMAP password form, IMAP/SMTP/JMAP logins bind against Authentik's LDAP outpost |
 
-The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration). Accounts come from Authentik over LDAP for every path — webmail, IMAP, SMTP, JMAP (webmail OIDC SSO is not used; it requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](shared/bulwark/README.md#sso--oidc-not-used)) — setup walkthrough in the [Stalwart README](shared/stalwart/README.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](shared/stalwart/README.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
+The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration). Accounts come from Authentik over LDAP for every path — webmail, IMAP, SMTP, JMAP (webmail OIDC SSO is not used; it requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](docs/products/bulwark.md#sso--oidc-not-used)) — setup walkthrough in the [Stalwart README](docs/products/stalwart.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](docs/products/stalwart.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
 
 ---
 
-## Prerequisites
+## Getting Started
 
-- **Docker** 24+ with **Compose 2.20+** (`docker compose` or standalone `docker-compose` v2) for `include` support
-- **python3** 3.8+ (required by `scripts/setup.sh`)
-- **Git** 2.x
-- **git-crypt** (macOS: `brew install git-crypt`) — required to encrypt/decrypt self-signed certificates stored in the repo. The deploy workflow decrypts them in the runner checkout; the deploy server needs neither git nor git-crypt.
-- A domain name with DNS A records pointing to your server (for Let's Encrypt) **or** a local domain with a self-signed certificate (for staging)
-- A Linux server with SSH access (for remote deployment). The deploy user needs Docker access, `rsync`, and **passwordless sudo** (`NOPASSWD`) — the workflow syncs the working tree with rsync and installs the root-owned ACME store (`${APPS_DATA}/shared/certs/acme.json`, mode `600`, contains private keys):
+New here? The full setup sequence — prerequisites, clone, initial `scripts/setup.sh` run, environment configuration, TLS preparation, data directories, and first stack start — lives in [Installation](docs/operations/INSTALLATION.md) under Operations.
 
-  ```bash
-  echo "deploy ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/servicehub-deploy
-  ```
-- `openssl` (used by `setup.sh` to generate database passwords)
+Staging certificates are encrypted with git-crypt; the one-time setup, key backup, and daily workflow for that live in [Managing Encrypted Files (git-crypt)](docs/operations/development/DEVELOPMENT.md#managing-encrypted-files-git-crypt) under Development.
 
----
-
-## Installation
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/yongxinL/servicehub.git
-cd servicehub
-```
-
-### 2. Initial Setup
-
-Run the setup script to create your `.env` from the template. It auto-generates strong passwords and API keys for all services:
-
-```bash
-bash scripts/setup.sh
-```
-
-If `.env` already exists (e.g., after pulling updates), the script merges new variables from `env.example` without overwriting existing values. Variable renames are not migrated automatically — they are a manual one-time edit.
-
-### 3. Configure Environment Variables
-
-Edit `.env` to match your environment:
-
-```bash
-# Required — set these before first start
-DOMAIN_NAME=example.com          # Your primary domain
-TRAEFIK_DOMAIN=traefik.${DOMAIN_NAME}   # keep the ${DOMAIN_NAME} form: a later domain change follows it
-IDENTITY_DOMAIN=login.${DOMAIN_NAME}    # Authentik hostname
-SOURCECODE_DOMAIN=git.${DOMAIN_NAME}    # Forgejo hostname
-TRAEFIK_ACMEMAIL=you@example.com # Let's Encrypt registration email
-APPS_DATA=~/Documents/containerd # Default host path for persistent data
-TIME_ZONE=Australia/Sydney
-WORKSPACE_DOMAIN=www.${DOMAIN_NAME}
-WORKSPACE_DBNAME=svchub_workspace
-WORKSPACE_TAG=10.2
-```
-
-See [Configuration](#configuration) for the variable reference. For an existing installation, retain database names and credentials rather than copying new-install defaults.
-
-### 4. Prepare TLS
-
-For **production** (Let's Encrypt), Traefik creates `${APPS_DATA}/shared/certs/acme.json` automatically on the first successful certificate issuance — no manual step is needed. Verify its permissions are restricted after it is created (Traefik refuses to use a world-readable file):
-
-```bash
-chmod 600 ${APPS_DATA}/shared/certs/acme.json
-```
-
-For **staging** (self-signed), place your `.pem` and `.key` files in `shared/traefik/advanced/selfsigncert/` matching `shared/traefik/advanced/certificates.yml`. These are encrypted with git-crypt before committing. No `acme.json` is needed.
-
-For remote deployments via the Forgejo Actions workflow, `acme.json` is restored automatically from the `*_B64ENC_ACME` secret (gzip+base64 encoded via `setup.sh --encode`) with `install -m 600 -o root -g root`, so ownership and permissions are deterministic. The restore only overwrites the existing file if the secret is newer, preserving certificates renewed by Traefik since the last encode.
-
-### 5. Prepare Data Directories
-
-Service init containers (`infraauthinit`, `devopsforgejoinit`, `aiservhermesinit`, `obsvcegrafanainit`) fix ownership on every boot. To prepare directories ahead of time:
-
-```bash
-mkdir -p ${APPS_DATA}/infra/{mariadb,postgresql}
-mkdir -p ${APPS_DATA}/infra/authentik/{media,templates}
-mkdir -p ${APPS_DATA}/shared/certs
-mkdir -p ${APPS_DATA}/devops/forgejo/{data,runner}
-mkdir -p ${APPS_DATA}/aiserv/hermes/00
-mkdir -p ${APPS_DATA}/mailsv/{stalwart,bulwark}
-chown -R 1000:1000 ${APPS_DATA}/devops/forgejo/{data,runner}
-```
-
-Replace `${APPS_DATA}` with the actual path you set in `.env` (default: `~/Documents/containerd`). Homepage data lives under `${APPS_DATA}/webapp/confluence`; follow the service README for directory ownership.
-
-### 6. Start the Stack
-
-Start the base services and the default homepage (Confluence).
-
-```bash
-docker compose up -d
-```
-
-Or start a specific service:
-
-```bash
-docker compose up -d devopsforgejo
-```
-
----
-
-## Managing Encrypted Files (git-crypt)
-
-Self-signed certificates for staging are stored **encrypted** in `shared/traefik/advanced/selfsigncert/` using [git-crypt](https://github.com/AGWA/git-crypt). They appear as binary blobs to anyone without the key, making it safe to commit them. The deploy workflow decrypts them in the runner checkout before syncing the working tree to the remote server.
-
-### One-time Setup (new repository)
-
-```bash
-# 1. Initialise git-crypt in the repo (only needed once)
-git-crypt init
-
-# 2. Export the symmetric key — back this up securely (password manager, etc.)
-#    Losing this key means losing access to all encrypted files permanently.
-git-crypt export-key ./servicehub.key
-
-# 3. Verify .gitattributes is present (already included in this repo)
-cat .gitattributes
-```
-
-`.gitattributes` encrypts every certificate file under the self-signed cert directory:
-
-```
-shared/traefik/advanced/selfsigncert/*.pem filter=git-crypt diff=git-crypt
-shared/traefik/advanced/selfsigncert/*.key filter=git-crypt diff=git-crypt
-shared/traefik/advanced/selfsigncert/*.crt filter=git-crypt diff=git-crypt
-shared/traefik/advanced/selfsigncert/*.pfx filter=git-crypt diff=git-crypt
-```
-
-### Add Your Staging Certificates
-
-Place your self-signed files in `shared/traefik/advanced/selfsigncert/` matching the names in `shared/traefik/advanced/certificates.yml`, then commit normally:
-
-```bash
-cp /path/to/selfcert.pem    shared/traefik/advanced/selfsigncert/
-cp /path/to/selfcert.key    shared/traefik/advanced/selfsigncert/
-cp /path/to/selfcertCA.crt  shared/traefik/advanced/selfsigncert/
-git add shared/traefik/advanced/selfsigncert/
-git commit -m "add staging self-signed certificates (encrypted)"
-```
-
-git-crypt encrypts the files transparently on commit. Verify with:
-```bash
-# Should print non-text (encrypted) output — not your cert content
-git show HEAD:shared/traefik/advanced/selfsigncert/selfcert.pem | file -
-```
-
-### Encode the Key for Forgejo Actions
-
-The deploy workflow needs the key as a Forgejo Actions secret:
-
-```bash
-# Encode the binary key as base64 (single line, no trailing newline)
-base64 -i servicehub.key | tr -d '\n'   # macOS / BSD
-base64 -w0 servicehub.key               # Linux (GNU coreutils)
-```
-
-Copy the output into Forgejo → Repository → Settings → Actions → Secrets as **`GIT_CRYPT_KEY`**.
-
-### Unlock on a New Machine
-
-```bash
-git-crypt unlock ./servicehub.key
-```
-
----
-
-## Deployment (Forgejo Actions)
-
-The Forgejo Actions workflow at [.forgejo/workflows/61-deploy.yml](.forgejo/workflows/61-deploy.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs, secrets and variables are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`devopsrunner`).
-
-| Trigger | Behaviour |
-|---|---|
-| **Run workflow** button (workflow_dispatch) | Deploys a chosen **service** (`all` or a single compose service), to a chosen **environment** (`stag` or `prod`) from a chosen **branch** — the same inputs as the previous Gitea Actions workflow |
-
-### How It Works
-
-1. Selects the `STAG_*` or `PROD_*` secrets from the **environment** input, defaulting to staging
-2. Configures SSH known hosts from a stored secret (or falls back to `ssh-keyscan`)
-3. Checks out the chosen branch in the runner and decrypts git-crypt files (e.g. staging certs) in the checkout
-4. Syncs the working tree to the deploy path with `rsync --delete` — the target keeps no `.git`, and repository-only files (`.git`, `.gitignore`, `.gitattributes`, `.forgejo/`, `AGENTS.md`, `docs/`) are excluded while `.env` and generated files are protected from deletion
-5. Restores `.env` from the `*_B64ENC_ENVS` secret if the secret is newer than the existing file
-6. Runs `scripts/setup.sh` to merge any new variables from `env.example` into `.env`
-7. Restores `acme.json` from the `*_B64ENC_ACME` secret if the secret is newer than the existing file
-8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to every non-foundational service in the ADR-009 OCI scope; `aiserv*` and `obsvce*` are never deployed by CI)
-
-> **Deploy scope:** databases (`infra*`), Authentik (`infra*`), DevOps / Forgejo + runner (`devops*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deployment altogether per [ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md): the AI platform runs on local infrastructure and the observability stack is retained in source control only. Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
->
-> **Timestamp-based restore:** Both `.env` and `acme.json` are gzip-compressed before base64-encoding, which preserves the file's original mtime in the gzip header. On deploy, the workflow compares that mtime against the existing file on the server — the newer file always wins. This prevents a stale secret from overwriting a `.env` edited directly on the server or an `acme.json` renewed by Traefik since the last encode.
-
-### Encoding Secrets for Forgejo Actions
-
-Before triggering the workflow, encode your local `.env` and `acme.json` into Forgejo Actions secrets using the helper:
-
-```bash
-# For staging
-bash scripts/setup.sh --encode STAG
-
-# For production
-bash scripts/setup.sh --encode PROD
-```
-
-The script outputs `.b64` files and prints instructions for copying their content into Forgejo Actions secrets.
-
-### Required Actions Secrets and Variables
-
-Stored workflow configuration lives in two separate stores, both under **Forgejo → Repository → Settings → Actions**. Use this table to decide where each item goes:
-
-| Where | Used for | Items |
-|---|---|---|
-| **Secrets** (Settings → Actions → **Secrets**) | Credentials, private keys and encoded `.env` / `acme.json` — encrypted and masked in logs | `GIT_CRYPT_KEY`, every `STAG_*` / `PROD_*` entry below, and the `BACKUP_*` secrets |
-| **Variables** (Settings → Actions → **Variables**) | Non-sensitive configuration — plaintext, readable by anyone with repository access | `STAG_CONFIG`, `PROD_CONFIG` |
-| **Neither** — selected per run in the **Run Workflow** dialog | Per-deployment choices | `service`, `environment`, `branch` |
-
-> **Working-tree deploys:** the deploy workflow checks out the repository in the runner and syncs the working tree over SSH with rsync. `SOURCECODE_PUBLIC_URL` and `SOURCECODE_DEPLOY_TOKEN` are no longer read by any workflow and can be removed from **Forgejo → Settings → Actions**.
-
-#### Secrets (Settings → Actions → Secrets)
-
-Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
-
-> Forgejo secrets are available to every workflow of the repository — no per-event enablement is needed. Create **all** secrets listed below; leave unused ones (e.g. `STAG_B64ENC_ACME` on staging) empty.
-
-##### Shared (both environments)
-
-| Secret | How to obtain | Description |
-|---|---|---|
-| `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates in the runner checkout before the working tree is synced to the remote server. Generate with `git-crypt init && git-crypt export-key ./servicehub.key`. |
-| `BACKUP_HOME_SSH_KEY` | *(protected private key; do not record)* | SSH private key that authenticates the connection to the Target 1 Home Server SFTP endpoint. Required whenever Target 1 is enabled. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
-| `BACKUP_HOME_SSH_KNOWN_HOSTS` | *(see [SSH host keys](#ssh-host-keys-server_ssh_known_hosts-and-backup_home_ssh_known_hosts))* | Target 1 host keys used for strict SSH host verification — raw multi-line `ssh-keyscan` output. Required whenever Target 1 is enabled; no runtime fallback. |
-| `BACKUP_RCLONE_CONFIG` | *(protected Rclone configuration; do not record)* | Rclone configuration containing the Google Drive remote and the Crypt remote that wraps it, with credentials. Required whenever Target 2 is enabled. |
-
-##### Staging (`STAG_*`)
-
-| Secret | Example value | Description |
-|---|---|---|
-| `STAG_SERVER_PASS` | `••••••••` | SSH password for `server_user`. **Either this or `STAG_SERVER_KEY` must be set** — not both required. Ignored if `STAG_SERVER_KEY` is also set. |
-| `STAG_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `STAG_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the staging server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
-| `STAG_B64ENC_ENVS` | *(output of `setup.sh --encode STAG`)* | Gzip+base64-encoded `.env` file. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
-| `STAG_B64ENC_ACME` | *(leave the value empty for staging)* | Gzip+base64-encoded `acme.json` (Let's Encrypt certificates). For staging, create the secret with an **empty value** — Traefik uses the self-signed cert from `shared/traefik/advanced/selfsigncert/` instead. |
-
-##### Production (`PROD_*`)
-
-| Secret | Example value | Description |
-|---|---|---|
-| `PROD_SERVER_PASS` | `••••••••` | SSH password for `server_user`. **Either this or `PROD_SERVER_KEY` must be set** — not both required. Ignored if `PROD_SERVER_KEY` is also set. |
-| `PROD_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `PROD_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the production server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
-| `PROD_B64ENC_ENVS` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded production `.env`. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
-| `PROD_B64ENC_ACME` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded `acme.json` containing your Let's Encrypt certificates. Generated by `setup.sh --encode PROD` when `acme.json` is larger than 1 KB (i.e. after Traefik has issued real certificates). Restored only if the secret is newer than the existing file. |
-
-#### Variables (Settings → Actions → Variables)
-
-Set these in **Forgejo → Repository → Settings → Actions → Variables**. Variables are plaintext — anyone with repository read access can see them — so credentials stay in secrets.
-
-##### Per-environment configuration (`${PREFIX}_CONFIG`)
-
-All non-credential target settings live in **one JSON variable per environment** — `STAG_CONFIG` and `PROD_CONFIG` — instead of one value per key. Values may be strings or numbers; multi-line values (host keys) use `\n` escapes. Example:
-
-```json
-{
-  "server_host": "203.0.113.10",
-  "server_port": "2222",
-  "server_user": "deploy",
-  "deploy_path": "/srv/servicehub",
-  "server_ssh_known_hosts": "ssh-ed25519 AAAA... host\nssh-rsa BBBB... host",
-  "backup_root": "/srv/backups/servicehub",
-  "backup_exclude": "webapp/confluence/logs,devops/forgejo/workspace",
-  "db_backup_retention_days": "14",
-  "backup_local_full_retention_days": "90",
-  "backup_home_sftp": "backup@home.example:2222",
-  "backup_home_destination": "/srv/backups/servicehub",
-  "backup_home_db_keep_age": "30d",
-  "backup_home_full_keep_age": "90d",
-  "backup_rclone_destination": "gdrive-crypt:servicehub-backups",
-  "backup_rclone_db_keep_age": "30d",
-  "backup_rclone_full_keep_age": "90d"
-}
-```
-
-The example enables both off-host targets. Remove a key (or leave it empty) to disable that target — see the key table below.
-
-| Key | Required by | Description |
-|---|---|---|
-| `server_host` | all | Hostname or address of the **source server** — the host that receives deployments and that the backup workflow SSHes into to create and read archives. Not the address of an off-host backup target. |
-| `server_port` | no | SSH port for the source server; defaults to `22`. Applies to every SSH use: deploy and backup archive creation. This is unrelated to the Home Server SFTP endpoint, which is part of `backup_home_sftp`. |
-| `server_user` | all | SSH login account. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
-| `deploy_path` | all | Absolute path that receives the deployed working tree. Created on first deploy; no git metadata is kept there. |
-| `server_ssh_known_hosts` | backup | The source server's public SSH host key(s), verbatim `ssh-keyscan -p <port> -H <host>` output — see [SSH host keys](#ssh-host-keys-server_ssh_known_hosts-and-backup_home_ssh_known_hosts). **Required by the backup workflow** (no runtime fallback, so host trust is deterministic). The deploy workflow falls back to `ssh-keyscan` at runtime with a warning if it is unset. |
-| `backup_root` | backup | Directory **on the source server** where the archives are written before any transfer; `<YYYY>/<YYYYMM>` subdirectories are created automatically. The source server is the host running the services, Forgejo, and the Forgejo Actions runner — a homelab server or an Oracle Cloud VM instance. This is a source-side path, not a backup target. |
-| `backup_exclude` | no | Comma-separated paths, relative to `APPS_DATA`, to exclude from the full archive. `*` and `?` globs are allowed; leave unset to archive everything. |
-| `db_backup_retention_days` | backup | Required same-host retention for database archives under `backup_root`. |
-| `backup_local_full_retention_days` | backup | Required same-host retention for full archives. |
-| `backup_home_sftp` | backup* | SFTP endpoint of **Target 1 (Home Server)** as `user@host` or `user@host:port`; the port defaults to `22` and must be `1`–`65535`. The host must be a DNS name or IPv4 address — IPv6 literals (including `user@[::1]:port`) are not supported. Required only when Target 1 is enabled. |
-| `backup_home_destination` | no | Absolute path on the Home Server where archives are stored, under the same `<YYYY>/<YYYYMM>` hierarchy as `backup_root`. **Leave unset or empty to disable Target 1.** |
-| `backup_home_db_keep_age` | backup* | Home Server retention for database and configuration archives. Required only when Target 1 is enabled. |
-| `backup_home_full_keep_age` | backup* | Home Server retention for full archives. Required only when Target 1 is enabled. |
-| `backup_rclone_destination` | no | Rclone destination for **Target 2 (Google Drive)**. Must include a configured remote (`remote:path`) and must point at a Crypt remote so archives are encrypted client-side — the workflow verifies the remote's type is `crypt` at run time and fails otherwise. **Leave unset or empty to disable Target 2.** |
-| `backup_rclone_db_keep_age` | backup* | Google Drive retention for database archives. Required only when Target 2 is enabled. |
-| `backup_rclone_full_keep_age` | backup* | Google Drive retention for full archives. Required only when Target 2 is enabled. |
-
-\* Required only when the target it belongs to is enabled. An absent or empty target key disables that target, and every other setting and secret that only it uses is then ignored rather than validated. At least one of `backup_home_destination` and `backup_rclone_destination` must be set — the workflow fails with `no off-host target is enabled` if both are missing. Same-host archives under `backup_root` are created on every run regardless of target selection.
-
-To enable one target only, delete the other target's key from the JSON (do not leave a placeholder value — an empty string disables, a non-empty value must be well-formed).
-
-**Non-standard SFTP port for Target 1.** The port is part of the `backup_home_sftp` endpoint:
-
-```json
-"backup_home_sftp": "backup@backuphost:2222"
-```
-
-Omit the port (`user@host`) to use `22`. The target can be any SFTP server reachable from the runner, including one on your local network.
-
-**Authentication for Target 1.** The Home Server connection uses two secrets, and both are required whenever Target 1 is enabled:
-
-| Credential | Secret | Protects |
-|---|---|---|
-| SSH private key | `BACKUP_HOME_SSH_KEY` | The SSH/SFTP connection to the Home Server |
-| Host keys | `BACKUP_HOME_SSH_KNOWN_HOSTS` | Strict host-key verification for that connection |
-
-Archives on the Home Server are stored as plain `.tar.gz` files — the Home Server is treated as trusted storage. The Google Drive copy is encrypted client-side by the Crypt remote in `BACKUP_RCLONE_CONFIG`; its password and configuration are recovery material and must be preserved outside Google Drive.
-
-##### SSH host keys (`server_ssh_known_hosts` and `BACKUP_HOME_SSH_KNOWN_HOSTS`)
-
-Both values are the same kind of data: `ssh-keyscan` output for the host you are verifying — the **source server** for `server_ssh_known_hosts`, the **Home Server** for `BACKUP_HOME_SSH_KNOWN_HOSTS`.
-
-**Step 1 — scan the host.** Run from any trusted machine, replacing the port and host with your values:
-
-```sh
-ssh-keyscan -p 2222 -H home.example
-```
-
-- The port flag is **`-p` (lowercase)** — there is no `-P`. It is required for any non-standard port: without it the output records port 22 only, and verification later fails against `[host]:port`. For port 22 you may omit `-p`.
-- `-H` **hashes** the hostname, so each returned line looks like this:
-
-  ```
-  |1|4WoxzcmbyVvE8gkYs2PDB...=|...= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...
-  |1|2ZK6YKYzqsO296AomkX20PAy...=|...= ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbWl...
-  |1|ckmnzHGkDnqGR+d0r...=|...= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ...
-  ```
-
-  This is expected. The bracketed form `[home.example]:2222 ssh-ed25519 AAAAC3...` only appears when `-H` is omitted; both forms are accepted, but prefer `-H` so hostnames are not stored in plaintext. There is no lowercase `-h` flag — hashing is `-H`.
-- One line per host-key type the server offers; a typical server returns **three lines** (`ssh-rsa`, `ecdsa-sha2-nistp256`, `ssh-ed25519`).
-
-**Step 2 — verify out of band.** `ssh-keyscan` trusts whatever answers the query, so compare against the key on the target itself, e.g. `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the Home Server, before trusting the scan.
-
-**Step 3 — paste the value.**
-
-- `BACKUP_HOME_SSH_KNOWN_HOSTS` (Forgejo → Settings → Actions → Secrets): copy **all three lines exactly as returned**, one per line, with real newlines — do not escape or reformat them. The secret should look like:
-
-  ```
-  |1|.......=|.......= ssh-rsa AAAA...
-  |1|.......=|.......= ecdsa-sha2-nistp256 AAAA...
-  |1|.......=|.......= ssh-ed25519 AAAA...
-  ```
-
-- `server_ssh_known_hosts` (`STAG_CONFIG`/`PROD_CONFIG` JSON variable): same output, but the variable is a single-line JSON value, so newlines are escaped as `\n`. Generate the ready-to-paste string instead of hand-editing:
-
-  ```sh
-  ssh-keyscan -p 2222 -H 203.0.113.10 | grep -v '^#' | jq -Rs .
-  ```
-
-  Paste the quoted result as the value: `"server_ssh_known_hosts": "|1|…=|…= ssh-rsa AAAA…\n|1|…=|…= ecdsa-sha2-nistp256 AAAA…\n|1|…=|…= ssh-ed25519 AAAA…"`. The workflow converts `\n` back to real lines with `jq` at run time. Host keys are public data (any SSH client receives them during the handshake), so storing them in the plaintext variable is safe — never store the host's *private* keys anywhere.
-- `server_ssh_known_hosts` is **required by the backup workflow** — it fails fast with `PROD_CONFIG.server_ssh_known_hosts is not set` rather than trusting whatever answers a scan at run time. The deploy workflow still falls back to `ssh-keyscan -H -p <port>` with a warning when it is unset. `BACKUP_HOME_SSH_KNOWN_HOSTS` is **required** whenever Target 1 is enabled — there is no fallback, so an incomplete paste (e.g. only one or two of the three lines) fails fast rather than silently.
-
-> **Migration:** earlier releases used one secret per key (`STAG_SERVER_HOST`, `STAG_BACKUP_ROOT`, …). Add `STAG_CONFIG` / `PROD_CONFIG` as repository **variables** built from those values, run one workflow to confirm, then delete the obsolete secret rows. A missing required key fails fast with `${PREFIX}_CONFIG.<key> is not set`.
-
-| Variable | Example value | Description |
-|---|---|---|
-| `STAG_CONFIG` | *(JSON; see the key table above)* | All non-credential staging settings as one JSON object. |
-| `PROD_CONFIG` | *(JSON; see the key table above)* | All non-credential production settings as one JSON object. |
-
-### Triggering a Deployment
-
-1. Open the repository in Forgejo (`https://${SOURCECODE_DOMAIN}`) → **Actions**
-2. Select the **deploy** workflow and click **Run workflow**
-3. Set the inputs:
-   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`webappconf`, `webappocis`, `mailsvstalwart`, `mailsvbulwark`). Foundational services are not listed, and AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deploy scope ([ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) — see [Deploy scope](#how-it-works).
-   - **environment** — `stag` (default) or `prod`
-   - **branch** — branch to deploy (default `main`)
-4. Click the green **Run workflow** button — progress and logs appear in the workflow run page
-
-> Deployments are serialised: the workflow declares a `concurrency` group so two deploys never run at the same time, and a running deployment is never cancelled by a newer trigger.
-
-### Data Backups (Forgejo Actions)
-
-The `71-backup.yml` workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, creates archives under the `backup_root` key of `${PREFIX}_CONFIG` **on the source server** (the host running the services, Forgejo, and the Actions runner — a homelab server or an Oracle Cloud VM instance), then copies each archive to the off-host targets that are enabled in the same JSON. Repository configuration exists; successful transfers and restores are not yet evidenced.
-
-**Off-host targets.** Two independent copies are configured, both read from the source server — neither depends on the other:
-
-| | Target | Enabled by | Disabled when |
-|---|---|---|---|
-| Target 1 | Home Server, Rclone SFTP (plain archives) | `backup_home_destination` | key absent or empty |
-| Target 2 | Google Drive, Rclone behind a Crypt remote (encrypted archives) | `backup_rclone_destination` | key absent or empty |
-
-Leave a key out to run only the other target; the workflow logs `Enabled off-host targets: home=<0|1> gdrive=<0|1>` before it creates any archive, and fails if both targets are disabled. The per-environment configuration key table above gives the SFTP endpoint form and the authentication credentials.
-
-**Database dumps (daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `infrapgsql` container while the services keep running, then packed into a single daily archive so each day has exactly one database backup file:
-
-```
-<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-dbBK-<YYYYMMDD>.tar.gz
-#  contents:
-#    <domain>-dbBK-<db>-<YYYYMMDD>.dump   (one per database)
-#    <domain>-dbBK-globals-<YYYYMMDD>.sql
-```
-
-The workflow deletes database archives older than the approved `db_backup_retention_days` value in `${PREFIX}_CONFIG` — only files matching `*-dbBK-*` are pruned, and empty `<YYYY>/<YYYYMM>` directories are removed too. The approved value is not recorded here.
-
-**Full archive (weekly, Sunday)** — the whole persistent data volume, the `APPS_DATA` path read from the server's `.env`:
-
-```
-<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
-```
-
-The full archive includes `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data`. oCIS does not add a PostgreSQL dump; restore both filesystem paths together and follow [shared/owncloud/README.md](shared/owncloud/README.md#backup-and-recovery).
-
-**Configuration archive (daily)** — the two files operators edit at runtime:
-
-```
-<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-cfgBK-<YYYYMMDD>.tar.gz
-#  contents (mode 600):
-#    .env                    the merged environment: every variable and secret
-#    egress-policies.conf    the egress allow/deny policy map
-```
-
-`.env` lives in the deploy path and is **never** in the full archive. `egress-policies.conf` lives in `${APPS_DATA}/shared/gateway/egress-policies.conf` (seeded there by `scripts/setup.sh`, which also moves a copy left at the older `${APPS_DATA}` root; see [egress controls](docs/operations/EGRESS-CONTROLS.md)), so the weekly full archive covers it as well — this daily archive just holds the recovery point to one day for both files. The archive is created on every run of the workflow and pruned with `*-cfgBK-*` on the same `db_backup_retention_days` value as the database archives; a file that is not present is skipped rather than failing the run. On restore, put `egress-policies.conf` back at `${APPS_DATA}/shared/gateway/egress-policies.conf` and `.env` at the deploy path root.
-
-`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The workflow runs **daily at 02:30 server time** — database and configuration archives every day, the full archive additionally on Sundays — and can also be started manually from **Actions → Backup**: `environment` defaults to `prod`, and `backup` selects `auto` (daily DB/config + Sunday full), `db` (DB/config), or `full` (full/config) — the configuration archive is included in every mode. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data, the full archive contains ACME private keys, and the configuration archive contains `.env` secrets. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](#prerequisites). One authoritative archive per type is kept per day: a second run on the same day replaces that day's archive rather than adding one.
-
-Paths can be excluded from the **full archive** with the optional `backup_exclude` key in `STAG_CONFIG` / `PROD_CONFIG` — a comma-separated list relative to `APPS_DATA`, with `*` and `?` globs allowed. For example, to skip Confluence logs/caches and the runner workspace:
-
-```
-webapp/confluence/logs,webapp/confluence/temp,webapp/confluence/plugins-temp,devops/forgejo/workspace
-```
-
-A leading `./` or `/` is ignored; leave the secret unset to archive everything.
-
-> **Consistency:** the weekly archive is taken while containers are running, so `infra/` inside it is crash-consistent rather than transaction-consistent — the daily `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](shared/stalwart/README.md#database-management-create--delete--backup--restore)). Backup and deployment jobs share the existing capacity-one runner, so long jobs queue behind one another.
+One-click staging/production deployment runs through the stack's own Forgejo Actions runner; inputs, secrets, variables, and the full backup workflow are documented in [Deployment (Forgejo Actions)](docs/operations/DEPLOYMENT.md) under Operations.
 
 ---
 
@@ -813,7 +384,7 @@ A leading `./` or `/` is ignored; leave the secret unset to archive everything.
 
 ### Security baseline
 
-Every inbound route is fronted by Traefik with the `secure-chain` middleware — security headers (HSTS, nosniff, referrer policy) and a per-client-IP rate limit (20 req/s, burst 50) — defined in [`shared/traefik/advanced/middlewares-security.yml`](shared/traefik/advanced/middlewares-security.yml) and documented in [Traefik — Security middlewares](shared/traefik/README.md#security-middlewares). Admin surfaces (Traefik dashboard, Stalwart admin) additionally carry IP allowlists built from `TRUSTED_IP` and Host rules built from `TRAEFIK_DOMAIN` / `EMAIL_HOST` / `IDENTITY_DOMAIN` (themselves `${DOMAIN_NAME}` references), generated into [`shared/traefik/advanced/admin-routers.yml`](shared/traefik/advanced/admin-routers.yml) and hot-reloaded by Traefik — edit `.env` (including `DOMAIN_NAME`), re-run `scripts/setup.sh`, no restart. Per-service hardening steps (Authentik MFA, Confluence anonymous access, Forgejo registration/OIDC, Stalwart auto-ban, Bulwark dashboard) live in each service's README under **Security hardening**.
+Every inbound route is fronted by Traefik with the `secure-chain` middleware — security headers (HSTS, nosniff, referrer policy) and a per-client-IP rate limit (20 req/s, burst 50) — defined in [`shared/traefik/advanced/middlewares-security.yml`](shared/traefik/advanced/middlewares-security.yml) and documented in [Traefik — Security middlewares](docs/products/traefik.md#security-middlewares). Admin surfaces (Traefik dashboard, Stalwart admin) additionally carry IP allowlists built from `TRUSTED_IP` and Host rules built from `TRAEFIK_DOMAIN` / `EMAIL_HOST` / `IDENTITY_DOMAIN` (themselves `${DOMAIN_NAME}` references), generated into [`shared/traefik/advanced/admin-routers.yml`](shared/traefik/advanced/admin-routers.yml) and hot-reloaded by Traefik — edit `.env` (including `DOMAIN_NAME`), re-run `scripts/setup.sh`, no restart. Per-service hardening steps (Authentik MFA, Confluence anonymous access, Forgejo registration/OIDC, Stalwart auto-ban, Bulwark dashboard) live in each service's README under **Security hardening**.
 
 ### Start / Stop Services
 
@@ -849,7 +420,7 @@ docker compose pull && docker compose up -d
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
 
-> Services with a dedicated README ([Traefik](shared/traefik/README.md), [Authentik](shared/authentik/README.md), [MariaDB](shared/mariadb/README.md), [PostgreSQL](shared/postgresql/README.md), [Forgejo + Actions](shared/forgejo/README.md), [Confluence](shared/confluence/README.md), [oCIS](shared/owncloud/README.md), [Hermes Agent](shared/hermesagent/README.md), [LiteLLM](shared/litellm/README.md), [llama.cpp](shared/llamacpp/README.md), [Open WebUI](shared/openwebui/README.md), [VictoriaMetrics](shared/victoriametrics/README.md), [VictoriaLogs](shared/victorialogs/README.md), [Grafana](shared/grafana/README.md), [Stalwart](shared/stalwart/README.md), [Bulwark](shared/bulwark/README.md)) also document their own variables there.
+> Services with a dedicated README ([Traefik](docs/products/traefik.md), [Authentik](docs/products/authentik.md), [MariaDB](docs/products/mariadb.md), [PostgreSQL](docs/products/postgresql.md), [Forgejo + Actions](docs/products/forgejo.md), [Confluence](docs/products/confluence.md), [oCIS](docs/products/owncloud.md), [Hermes Agent](docs/products/hermesagent.md), [LiteLLM](docs/products/litellm.md), [llama.cpp](docs/products/llamacpp.md), [Open WebUI](docs/products/openwebui.md), [VictoriaMetrics](docs/products/victoriametrics.md), [VictoriaLogs](docs/products/victorialogs.md), [Grafana](docs/products/grafana.md), [Stalwart](docs/products/stalwart.md), [Bulwark](docs/products/bulwark.md)) also document their own variables there.
 
 ### General
 
@@ -899,7 +470,7 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 
 ### AI Agent Platform (aiserv)
 
-The agent platform variables are documented in the service READMEs — see [Hermes Agent](shared/hermesagent/README.md#configuration-in-env), [LiteLLM](shared/litellm/README.md#configuration) and [llama.cpp](shared/llamacpp/README.md#configuration). In short:
+The agent platform variables are documented in the service READMEs — see [Hermes Agent](docs/products/hermesagent.md#configuration-in-env), [LiteLLM](docs/products/litellm.md#configuration) and [llama.cpp](docs/products/llamacpp.md#configuration). In short:
 
 | Variable | Description |
 |---|---|
@@ -937,7 +508,7 @@ MARIADB_DATABASES="${WORKSPACE_DBNAME}"
 POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${WORKSPACE_DBNAME},${POSTOFFICE_DBNAME}"
 ```
 
-These lists only initialize empty database data directories. Preserve existing database names and passwords; create missing databases and grants explicitly on existing installations. See the [PostgreSQL](shared/postgresql/README.md) and [MariaDB](shared/mariadb/README.md) READMEs.
+These lists only initialize empty database data directories. Preserve existing database names and passwords; create missing databases and grants explicitly on existing installations. See the [PostgreSQL](docs/products/postgresql.md) and [MariaDB](docs/products/mariadb.md) READMEs.
 
 ### Email (SMTP)
 
@@ -950,7 +521,7 @@ These lists only initialize empty database data directories. Preserve existing d
 
 ### Email Services (mailsv)
 
-The webmail variables are documented in the service READMEs — see [Bulwark](shared/bulwark/README.md#configuration-env) and [Stalwart](shared/stalwart/README.md#configuration-env). In short:
+The webmail variables are documented in the service READMEs — see [Bulwark](docs/products/bulwark.md#configuration-env) and [Stalwart](docs/products/stalwart.md#configuration-env). In short:
 
 | Variable | Description |
 |---|---|

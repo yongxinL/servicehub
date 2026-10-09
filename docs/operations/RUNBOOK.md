@@ -25,13 +25,7 @@ related_documents:
 
 ## Prerequisites
 
-- Docker 24+ and Compose 2.20+.
-- Repository checkout with valid `.env`.
-- `python3` and `openssl` for `scripts/setup.sh`.
-- `git-crypt` when encrypted certificate material must be unlocked.
-- Docker group access for the administrator.
-- Read access to logs and `APPS_DATA`.
-- Backup and escalation details before maintenance: `TBD`.
+Docker 24+, Compose 2.20+, `python3`, `openssl`, `git-crypt` when encrypted certificate material must be unlocked, Docker group access for the administrator, and read access to logs and `APPS_DATA`. The full prerequisite and installation sequence is in [Installation](INSTALLATION.md); backup and escalation details before maintenance: `TBD`.
 
 Confirm the working directory contains the root `docker-compose.yml` before running commands.
 

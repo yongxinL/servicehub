@@ -27,7 +27,10 @@ Operations guidance is derived from repository commands, Compose definitions, se
 
 ## Documents
 
+- [Installation](INSTALLATION.md) — prerequisites, clone, initial setup, TLS, data directories, and first stack start.
+- [Deployment (Forgejo Actions)](DEPLOYMENT.md) — one-click staging/production deploy: inputs, secrets, variables, SSH host keys, and the backup workflow.
 - [Runbook](RUNBOOK.md) — prerequisites, lifecycle commands, health, logs, upgrades, rollback, and escalation.
+- [Development](development/DEVELOPMENT.md) — git-crypt key management, local dev flow, and documentation contribution.
 - [Backup and restore](BACKUP-RESTORE.md) — implemented backup scope, configured dual-target strategy, recovery procedure, and evidence template.
 - [Monitoring and alerting](MONITORING-ALERTING.md) — metrics, logs, dashboards, signals, severity, and alert testing.
 - [Container egress controls](EGRESS-CONTROLS.md) — per-service egress policy, global block, exceptions, and verification.
