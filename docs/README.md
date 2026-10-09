@@ -53,7 +53,7 @@ The repository implementation remains the source of truth. Documentation describ
 | Releases | Release governance, evidence, and notes | [Release register](releases/README.md) |
 | Operations | Runbooks, inventory, backup, monitoring, and troubleshooting | [Operations index](operations/README.md) |
 | Products | Per-product build, configuration, and setup guides | [Products](products/README.md) |
-| Development | Developer workflows: git-crypt, local dev flow, contributing | [Development](operations/development/DEVELOPMENT.md) |
+| Development | Developer workflows: git-crypt, local dev flow, contributing | [Development](operations/DEVELOPMENT.md) |
 | Lessons | Retrospective learning and improvement actions | [Lessons register](lessons/README.md) |
 | Investigations | Technical findings and open questions | [Investigation register](investigations/README.md) |
 | Templates | Reusable record formats | [Templates](templates/ADR-TEMPLATE.md) |
@@ -85,7 +85,7 @@ Allowed statuses are `Draft`, `Proposed`, `In Review`, `Accepted`, `Rejected`, `
 
 ## Contributing
 
-See [Contributing](../operations/development/DEVELOPMENT.md#contributing) in the development workflows guide.
+See [Contributing](operations/DEVELOPMENT.md#contributing) in the development workflows guide.
 
 ## Repository Links
 

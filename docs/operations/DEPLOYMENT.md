@@ -83,7 +83,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 | Secret | How to obtain | Description |
 |---|---|---|
-| `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates in the runner checkout before the working tree is synced to the remote server. Required: the deploy fails before any sync if it is missing or wrong. Generate with `git-crypt init && git-crypt export-key ./servicehub.key` (see [Managing Encrypted Files](development/DEVELOPMENT.md#managing-encrypted-files-git-crypt)). |
+| `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates in the runner checkout before the working tree is synced to the remote server. Required: the deploy fails before any sync if it is missing or wrong. Generate with `git-crypt init && git-crypt export-key ./servicehub.key` (see [Managing Encrypted Files](DEVELOPMENT.md#managing-encrypted-files-git-crypt)). |
 
 > The three backup secrets — `BACKUP_HOME_SSH_KEY`, `BACKUP_HOME_SSH_KNOWN_HOSTS` and `BACKUP_RCLONE_CONFIG` — are set in the same store but belong to the backup workflow; they are documented under [Backup secrets](BACKUP-RESTORE.md#backup-secrets).
 

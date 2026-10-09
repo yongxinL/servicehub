@@ -119,7 +119,7 @@ tls:
                 keyFile: /traefik/config/advanced/selfsigncert/selfcert.key
 ```
 
-The cert/key/CA files are encrypted with **git-crypt** before being committed. See the root [Managing Encrypted Files](../operations/development/DEVELOPMENT.md#managing-encrypted-files-git-crypt) for the full workflow.
+The cert/key/CA files are encrypted with **git-crypt** before being committed. See the root [Managing Encrypted Files](../operations/DEVELOPMENT.md#managing-encrypted-files-git-crypt) for the full workflow.
 
 ## Middlewares
 
@@ -182,6 +182,6 @@ docker compose logs -f routetraefik
 ## See also
 
 - [Root README — Architecture](../../README.md#architecture-overview)
-- [Managing Encrypted Files](../operations/development/DEVELOPMENT.md#managing-encrypted-files-git-crypt)
+- [Managing Encrypted Files](../operations/DEVELOPMENT.md#managing-encrypted-files-git-crypt)
 - [Authentik](authentik.md) — forward-auth IdP
 - [oCIS](owncloud.md) — long-transfer and encoded WebDAV route consumer

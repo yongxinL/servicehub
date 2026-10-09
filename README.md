@@ -374,7 +374,7 @@ The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` rec
 
 New here? The full setup sequence — prerequisites, clone, initial `scripts/setup.sh` run, environment configuration, TLS preparation, data directories, and first stack start — lives in [Installation](docs/operations/INSTALLATION.md) under Operations.
 
-Staging certificates are encrypted with git-crypt; the one-time setup, key backup, and daily workflow for that live in [Managing Encrypted Files (git-crypt)](docs/operations/development/DEVELOPMENT.md#managing-encrypted-files-git-crypt) under Development.
+Staging certificates are encrypted with git-crypt; the one-time setup, key backup, and daily workflow for that live in [Managing Encrypted Files (git-crypt)](docs/operations/DEVELOPMENT.md#managing-encrypted-files-git-crypt) under Development.
 
 One-click staging/production deployment runs through the stack's own Forgejo Actions runner; its inputs, secrets and variables are documented in [Deployment (Forgejo Actions)](docs/operations/DEPLOYMENT.md), and the backup workflow (archives, schedules, retention, `BACKUP_*` secrets) in [Backup and restore](docs/operations/BACKUP-RESTORE.md), both under Operations.
 

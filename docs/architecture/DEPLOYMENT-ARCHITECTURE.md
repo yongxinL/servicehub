@@ -39,7 +39,7 @@ The root [docker-compose.yml](../../docker-compose.yml) include set and the `61-
 
 ## Local Development or Administration Flow
 
-The local Compose flow — prerequisites, `scripts/setup.sh`, configuration validation, and first stack start — is documented under [Local Development and Administration Flow](../operations/development/DEVELOPMENT.md#local-development-and-administration-flow).
+The local Compose flow — prerequisites, `scripts/setup.sh`, configuration validation, and first stack start — is documented under [Local Development and Administration Flow](../operations/DEVELOPMENT.md#local-development-and-administration-flow).
 
 ## Staging Deployment
 
