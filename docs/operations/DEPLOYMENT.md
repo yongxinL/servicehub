@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: DEPLOYMENT
 title: ServiceHub Deployment (Forgejo Actions)
-version: "1.0"
+version: "1.1"
 status: Active
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 tags:
   - servicehub
   - operations
@@ -220,6 +220,103 @@ ssh-keyscan -p 2222 -H home.example
   Paste the quoted result as the value: `"server_ssh_known_hosts": "|1|…=|…= ssh-rsa AAAA…\n|1|…=|…= ecdsa-sha2-nistp256 AAAA…\n|1|…=|…= ssh-ed25519 AAAA…"`. The workflow converts `\n` back to real lines with `jq` at run time. Host keys are public data (any SSH client receives them during the handshake), so storing them in the plaintext variable is safe — never store the host's *private* keys anywhere.
 
 - `server_ssh_known_hosts` is **required by both the backup and deploy workflows** — they fail fast with `PROD_CONFIG.server_ssh_known_hosts is not set` rather than trusting whatever answers a scan at run time. `BACKUP_HOME_SSH_KNOWN_HOSTS` is **required** whenever Target 1 is enabled — there is no fallback, so an incomplete paste (e.g. only one or two of the three lines) fails fast rather than silently.
+
+**Authentication for Target 2.** Target 2 is enabled when `backup_rclone_destination` is non-empty. The workflow writes the secret body verbatim into a temporary Rclone config (`tr -d '\r'`; LF endings required, not CRLF) and refuses to start the transfer if the destination remote is missing or has any type other than `crypt`. Set the secret up before enabling the target, and store the **Crypt password** outside Google Drive — losing it makes the encrypted archive unreadable.
+
+| Credential | Secret | Protects |
+|---|---|---|
+| Google Drive remote + Crypt overlay | `BACKUP_RCLONE_CONFIG` | The Google Drive OAuth/credentials and the `crypt` remote wrapping it |
+| Crypt password (kept *outside* the secret) | recovery storage (password manager / printed in sealed envelope) | Required only to **decrypt**; without it, archived `.tar.gz` files are unreadable |
+
+#### Target 2 — Google Drive setup (`BACKUP_RCLONE_CONFIG`)
+
+The secret body is exactly what an `rclone.conf` would contain. The workflow consumes it as-is — do not redact, comment, or wrap it in JSON.
+
+**Step 1 — install Rclone on a workstation.** Match the Rclone version that ships in `devopsrunner`. Use the same machine to keep the OAuth token and the crypt password with the operator who authorises them.
+
+**Step 2 — create the Google Drive remote.** From a terminal with browser access:
+
+```sh
+rclone config
+# n) New remote
+# name> gdrive
+# Storage> drive              (23 in the picker — Google Drive)
+# client_id>                 (blank for a personal account, or your OAuth client_id)
+# client_secret>             (blank for a personal account, or your OAuth client_secret)
+# scope> 1                   (Full access; pick 2 for read-only)
+# service_account_file>      (blank; OAuth flow authenticates interactively)
+# Edit advanced config> n
+# Use web browser> y
+```
+
+Verify with `rclone lsd gdrive:` — it should list folder names (`My Drive`, `Computers`, shared drives you have access to). For shared drives, switch to drive's `team_drive` / `shared_with_me` / `root_folder_id` during creation; verify with `rclone lsd gdrive:` again.
+
+**Step 3 — create the Crypt remote over it.** Same `rclone config` session (or repeat on a second machine — both see the same final `rclone.conf`):
+
+```text
+n) New remote
+name> gdrive-crypt
+Storage> crypt                       (24 in the picker)
+remote> gdrive:servicehub-backups    (path on Google Drive; colon = remote:path)
+filename_encryption> 1               (standard; obfuscates file names)
+directory_name_encryption> 1         (true; also encrypts folder names)
+password> y, then type a strong password — Rclone stores only its obscured form
+password2> g, 128 bits              (recommended salt; treat as recovery material too)
+Edit advanced config> n
+y) Yes this is OK
+```
+
+The password (and `password2` if used) are **recovery material in their own right**: Rclone stores their obscured forms in the config, but the obscured form is reversible, and the workflow only needs the obscured form to *upload*. To **decrypt** an archive during restore, the original password is required and Google Drive cannot supply it.
+
+**Step 4 — record the password as recovery material.** Store the original Crypt password and `password2` in a credential store that is independent of Google Drive (password manager, sealed envelope, hardware token) and independent of the runner image. Do not commit it; do not paste it into `BACKUP_RCLONE_CONFIG`; do not store it in `${PREFIX}_CONFIG`. A checklist item in the runbook for the protected configuration is enough metadata.
+
+**Step 5 — build `BACKUP_RCLONE_CONFIG`.** Export the config from the workstation. Either copy the file Rclone already manages, or ask it to print it:
+
+```sh
+# Option A — copy the on-disk file directly (simplest, byte-identical)
+cp "$(rclone config file)" rclone.conf.body
+
+# Option B — let Rclone print it; same content, same obscured passwords
+rclone config show > rclone.conf.body
+```
+
+The body is exactly two `[remotes]` plus their options (token lives under `[gdrive]`, the obscured `password` / `password2` under `[gdrive-crypt]`). Example shape:
+
+```ini
+[gdrive]
+type = drive
+client_id =
+client_secret =
+scope = drive
+token = {"access_token":"...","refresh_token":"...","expiry":"..."}
+
+[gdrive-crypt]
+type = crypt
+remote = gdrive:servicehub-backups
+filename_encryption = standard
+directory_name_encryption = true
+password = …obscured by Rclone…
+password2 = …obscured by Rclone…
+```
+
+Workflow-created remotes use reserved `_workflow_*` names (`_workflow_source`, `_workflow_home`) so the names of remotes you define here cannot collide with them.
+
+**Step 6 — pre-flight.** Verify the body works **before** pasting the secret:
+
+```sh
+rclone --config ./rclone.conf.body lsf gdrive-crypt:        # should be empty (or list any prior content)
+rclone --config ./rclone.conf.body lsf gdrive:              # should list your Drive root
+# Confirm the destination remote type the workflow will assert (uses `rclone config dump`,
+# the same JSON form the workflow's `71-backup.yml:511` reads)
+rclone --config ./rclone.conf.body config dump | \
+  jq -r --arg r "gdrive-crypt" '(.remotes // .)[$r].type // "missing"'  # → crypt
+```
+
+If `lsf gdrive-crypt:` returns "directory not found", create the path with `rclone --config ./rclone.conf.body mkdir gdrive-crypt:servicehub-backups` so the workflow's first transfer does not need to create it.
+
+**Step 7 — paste the value.** Forgejo → **Settings → Actions → Secrets**, name `BACKUP_RCLONE_CONFIG`, paste `rclone.conf.body` verbatim — preserve **real newlines** (the workflow normalises CRLF to LF, but the input should still be LF). Do not JSON-encode, base64-encode, quote, or wrap the body; Rclone would not parse it.
+
+**Step 8 — enable the target.** Once `BACKUP_RCLONE_CONFIG` is set, set `backup_rclone_destination` in `${PREFIX}_CONFIG` to `gdrive-crypt:servicehub-backups` (or another subpath under `gdrive-crypt:`). The retention keys `backup_rclone_db_keep_age` and `backup_rclone_full_keep_age` are required whenever this target is enabled. The first backup run rejects the configuration with a clear error if any of these three pieces is missing.
 
 > **Migration:** earlier releases used one secret per key (`STAG_SERVER_HOST`, `STAG_BACKUP_ROOT`, …). Add `STAG_CONFIG` / `PROD_CONFIG` as repository **variables** built from those values, run one workflow to confirm, then delete the obsolete secret rows. A missing required key fails fast with `${PREFIX}_CONFIG.<key> is not set`.
 
