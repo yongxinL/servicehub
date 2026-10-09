@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ADR-INDEX
 document_id: ADR-INDEX
 title: ServiceHub Architecture Decision Register
-version: "1.2"
+version: "1.1"
 status: Active
 lifecycle_stage: Design
 owner: George Li

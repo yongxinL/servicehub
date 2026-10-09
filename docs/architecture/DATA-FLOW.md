@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: ARCHITECTURE
 document_id: DATA-FLOW
 title: ServiceHub Data Flow
-version: "1.2"
+version: "1.1"
 status: Draft
 lifecycle_stage: Design
 owner: George Li
@@ -135,7 +135,7 @@ Alloy discovers Docker container logs through the Docker socket, applies GeoIP e
 
 ## Backup and Restore Flow
 
-The backup workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, SSHes to the remote target, discovers `APPS_DATA`, creates per-database PostgreSQL dumps and a globals dump, packs them into an archive per backup day, and optionally archives the full `APPS_DATA` tree. It runs daily at 02:30 (`Australia/Sydney`); full archives are taken every tenth day in `auto` mode and database archives every third day.
+The backup workflow runs on the existing `devopsrunner` with the `ssh-deploy` label, SSHes to the remote target, discovers `APPS_DATA`, creates per-database PostgreSQL dumps and a globals dump, packs them into an archive per backup day, and optionally archives the full `APPS_DATA` tree. It runs daily at 02:30 (`Australia/Sydney`); in `auto` mode full archives are taken every `full_backup_interval_days` days (default 7) and database archives every `db_backup_interval_days` days (default 1), both read from `${PREFIX}_CONFIG`.
 
 The database archive is transaction-consistent because it uses `pg_dump`; the live filesystem archive is only crash-consistent for database directories. The created files remain under the configured backup root and are streamed or copied to both accepted targets by the same workflow.
 
@@ -147,7 +147,7 @@ Both `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data` are i
 flowchart LR
     W[Forgejo backup workflow on ssh-deploy] --> SSH[SSH target]
     SSH --> P[(PostgreSQL)]
-    P --> D[Database archive (every 3rd day)]
+    P --> D[Database archive (daily by default)]
     SSH --> F[APPS_DATA filesystem archive]
     D --> R[Backup root]
     F --> R

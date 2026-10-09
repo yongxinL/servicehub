@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS-INDEX
 document_id: OPS-INDEX
 title: ServiceHub Operations Index
-version: "1.2"
+version: "1.1"
 status: Active
 lifecycle_stage: Operations
 owner: George Li

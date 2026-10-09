@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: BACKUP-RESTORE
 title: ServiceHub Backup and Restore
-version: "1.4"
+version: "1.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
@@ -31,6 +31,8 @@ related_documents:
 
 The repository configures same-host backup creation, backup tooling on the existing Forgejo runner, and the accepted dual-target strategy. Runtime execution, independently retrievable copies, and restore remain unverified. This document distinguishes repository configuration from recovery evidence recorded under [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
 
+The target failure handling and the `db_backup_interval_days` / `full_backup_interval_days` cadence keys were exercised on 2026-10-10 by extracting the workflow's shell script, syntax-checking the generated remote script, and running it against stubbed `ssh` and `rclone` for every target combination (none, Home only, Google Drive only, both) with each stub made to fail: each combination produced the expected local archives line, warning, or error and exit status, and the interval keys produced the expected values in the remote script plus validation errors for `0` and non-numeric input. No transfer against a real Home Server or Google Drive has been run.
+
 ## Implemented Backup Scope
 
 The [backup workflow](../../.forgejo/workflows/71-backup.yml) runs through the existing `ssh-deploy` label, creates archives at the `backup_root` key of the `<PREFIX>_CONFIG` repository variable **on the source server**, and copies each archive to the off-host targets that the same variable enables.
@@ -39,8 +41,8 @@ The source server is the host running the ServiceHub services together with Forg
 
 | Backup type | Schedule or trigger | Content | Consistency | Status |
 |---|---|---|---|---|
-| PostgreSQL database | Every third day at 02:30 (Australia/Sydney) in scheduled mode; manual `db` on demand | One `pg_dump` per non-template database plus `pg_dumpall --globals-only` packed into one archive per backup day | Transaction-consistent logical dump | Implemented; execution evidence not available |
-| Full `APPS_DATA` | Every tenth day at 02:30 (Australia/Sydney) in scheduled mode; manual `full` on demand | Entire configured persistent-data tree with optional exclusions | Crash-consistent for live database directories | Implemented; execution evidence not available |
+| PostgreSQL database | Every `db_backup_interval_days` day (default 1, daily) at 02:30 (Australia/Sydney) in scheduled mode; manual `db` on demand | One `pg_dump` per non-template database plus `pg_dumpall --globals-only` packed into one archive per backup day | Transaction-consistent logical dump | Implemented; execution evidence not available |
+| Full `APPS_DATA` | Every `full_backup_interval_days` day (default 7, weekly) at 02:30 (Australia/Sydney) in scheduled mode; manual `full` on demand | Entire configured persistent-data tree with optional exclusions | Crash-consistent for live database directories | Implemented; execution evidence not available |
 | Host configuration | Every run of the backup workflow (daily with the scheduled cadence) | `.env` from the deploy path (never in the full archive) and `egress-policies.conf` from `${APPS_DATA}/shared/gateway` (also in the full archive) — both edited on the server at runtime | Not applicable (plain files) | Implemented; execution evidence not available |
 | Off-host copy | Same backup workflow | Rclone Home Server copy and Rclone Google Drive copy behind a Crypt remote, each enabled independently by its own key | `rclone hashsum sha256 --download` computed on both ends and compared per artifact; destination preflight before the first transfer | Workflow refactored 2026-10-08, review fixes 2026-10-09; per-artifact SHA-256 verification fix applied 2026-10-10; execution evidence unavailable |
 | Encrypted backup archive | Every run of the Google Drive copy | Client-side encryption through an Rclone Crypt remote; credentials governed separately | Not applicable (plain files before encryption) | Accepted in ADR-007; credential governance TBD |
@@ -51,7 +53,7 @@ Database, full-archive, and configuration-archive same-host retention values (`d
 
 ### Archive layout and schedule
 
-**Database dumps (every 3 days)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `infrapgsql` container while the services keep running, then packed into a single archive so each backup day has exactly one database backup file:
+**Database dumps (every `db_backup_interval_days` days, default 1 — daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `infrapgsql` container while the services keep running, then packed into a single archive so each backup day has exactly one database backup file:
 
 ```
 <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-dbBK-<YYYYMMDD>.tar.gz
@@ -62,7 +64,7 @@ Database, full-archive, and configuration-archive same-host retention values (`d
 
 The workflow deletes database archives older than the approved `db_backup_retention_days` value in `${PREFIX}_CONFIG` — only files matching `*-dbBK-*` are pruned, and empty `<YYYY>/<YYYYMM>` directories are removed too. The approved value is not recorded here.
 
-**Full archive (every 10 days)** — the whole persistent data volume, the `APPS_DATA` path read from the server's `.env`:
+**Full archive (every `full_backup_interval_days` days, default 7 — weekly)** — the whole persistent data volume, the `APPS_DATA` path read from the server's `.env`:
 
 ```
 <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
@@ -81,7 +83,7 @@ The full archive includes `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/we
 
 `.env` lives in the deploy path and is **never** in the full archive. `egress-policies.conf` lives in `${APPS_DATA}/shared/gateway/egress-policies.conf` (seeded there by `scripts/setup.sh`, which also moves a copy left at the older `${APPS_DATA}` root; see [egress controls](EGRESS-CONTROLS.md)), so the full archive covers it as well — this daily archive just holds the recovery point to one day for both files. The archive is created on every run of the workflow and pruned with `*-cfgBK-*` on the same `db_backup_retention_days` value as the database archives; a file that is not present is skipped rather than failing the run. On restore, put `egress-policies.conf` back at `${APPS_DATA}/shared/gateway/egress-policies.conf` and `.env` at the deploy path root.
 
-`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The scheduled trigger runs **daily at 02:30 in the `Australia/Sydney` time zone** (set by the schedule's `timezone` key; a cron expression without `timezone` is read as UTC), so the run lands at 02:30 local clock year-round — AEST in winter, AEDT in summer. Two daylight-saving consequences: on the night saving starts (first Sunday in October, 02:00 → 03:00) 02:30 never occurs and Forgejo **skips that night's run**, so a due day falling that night waits for the next due day; when saving ends (first Sunday in April) 02:30 occurs twice and the second run just replaces the first's archives. On that schedule the configuration archive is created every run, the database archive on every third day, and the full archive on every tenth day; both due days are decided by an epoch-day index on the source server, so a database archive and a full archive fall together every 30 days. A due day that is missed (runner stopped, run failed) is **not** retried until the next due day. The workflow can also be started manually from **Actions → Backup**: `environment` defaults to `prod`, and `backup` selects `auto` (apply the same every-third-day / every-tenth-day cadence), `db` (database/config archive now), or `full` (full/config archive now) — the configuration archive is included in every mode, and `db` / `full` are the modes to use for an on-demand backup outside the cadence. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data, the full archive contains ACME private keys, and the configuration archive contains `.env` secrets. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](INSTALLATION.md#prerequisites). One authoritative archive per type is kept per day: a second run on the same day replaces that day's archive rather than adding one.
+`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The scheduled trigger runs **daily at 02:30 in the `Australia/Sydney` time zone** (set by the schedule's `timezone` key; a cron expression without `timezone` is read as UTC), so the run lands at 02:30 local clock year-round — AEST in winter, AEDT in summer. Two daylight-saving consequences: on the night saving starts (first Sunday in October, 02:00 → 03:00) 02:30 never occurs and Forgejo **skips that night's run**, so a due day falling that night waits for the next due day; when saving ends (first Sunday in April) 02:30 occurs twice and the second run just replaces the first's archives. On that schedule the configuration archive is created every run. The database archive is due when the source server's epoch-day index is a multiple of `db_backup_interval_days`, and the full archive when it is a multiple of `full_backup_interval_days`; both are optional keys of `<PREFIX>_CONFIG` with defaults 1 (daily) and 7 (weekly), so retiming the cadence is a variable edit rather than a workflow commit, and with the defaults every full-archive day is also a database-archive day. A due day that is missed (runner stopped, run failed) is **not** retried until the next due day. The workflow can also be started manually from **Actions → Backup**: `environment` defaults to `prod`, and `backup` selects `auto` (apply the configured `db_backup_interval_days` / `full_backup_interval_days` cadence), `db` (database/config archive now), or `full` (full/config archive now) — the configuration archive is included in every mode, and `db` / `full` are the modes to use for an on-demand backup outside the cadence. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data, the full archive contains ACME private keys, and the configuration archive contains `.env` secrets. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](INSTALLATION.md#prerequisites). One authoritative archive per type is kept per day: a second run on the same day replaces that day's archive rather than adding one.
 
 ### Managing the schedule (enable, disable, retime)
 
@@ -90,6 +92,7 @@ The schedule lives in the workflow file, not in a Forgejo setting. Forgejo regis
 - **Pause without touching the file:** open **Actions → Backup**, select the workflow in the run list, open the kebab menu (**⋮**) and choose **Disable Workflow** (repository administrator). Scheduled runs stop being created. Choose **Enable Workflow** in the same place to resume; the workflow file and its `cron` are unchanged.
 - **Pause everything:** repository **Settings → Units** → untick **Actions** (an instance administrator can also toggle Actions globally). This stops manual deployments and manual backup runs as well, so it is a blunt switch — prefer the per-workflow toggle above.
 - **Retime:** edit `cron` (and `timezone`) under `on.schedule` in `.forgejo/workflows/71-backup.yml` on the default branch and push — there is no UI or API that overrides a cron expression. The change takes effect from that push.
+- **Change how often each archive is due:** set `db_backup_interval_days` and `full_backup_interval_days` in `STAG_CONFIG` / `PROD_CONFIG` (optional keys, defaults `1` and `7`, minimum `1`). The workflow still runs daily; the interval decides which runs are due, so a cadence change is a variable edit and needs no commit. Values below `1` or non-numeric values fail the run before any archive is created.
 - **Cadence outside the repository:** delete `on.schedule` entirely and have the host's crontab or a systemd timer call `POST /repos/<owner>/<repo>/actions/workflows/71-backup.yml/dispatches` with a token, selecting `db` or `full` per run. Enable/disable/retime then happens in the crontab, with no repository change.
 - **Stop the runner instead:** works, but every scheduled run is still created and waits in the queue — a backlog you must clear later. Not recommended.
 
@@ -119,6 +122,8 @@ Backup settings live in the same two Forgejo stores as the deploy settings (see 
 | `backup_exclude` | optional | Comma-separated paths, relative to `APPS_DATA`, to exclude from the full archive. `*` and `?` globs are allowed; leave unset to archive everything. |
 | `db_backup_retention_days` | always | Required same-host retention for database (and configuration) archives under `backup_root`. |
 | `backup_local_full_retention_days` | always | Required same-host retention for full archives. |
+| `db_backup_interval_days` | optional (default `1`) | Days between database archives in scheduled `auto` mode (default: daily). Minimum `1`. |
+| `full_backup_interval_days` | optional (default `7`) | Days between full archives in scheduled `auto` mode (default: weekly). Minimum `1`. |
 | `backup_home_sftp` | Target 1 enabled | SFTP endpoint of **Target 1 (Home Server)** as `user@host` or `user@host:port`; the port defaults to `22` and must be `1`–`65535`. The host must be a DNS name or IPv4 address — IPv6 literals (including `user@[::1]:port`) are not supported. Required only when Target 1 is enabled. |
 | `backup_home_destination` | optional (enables Target 1) | Absolute path on the Home Server where archives are stored, under the same `<YYYY>/<YYYYMM>` hierarchy as `backup_root`. **Leave unset or empty to disable Target 1.** |
 | `backup_home_db_keep_age` | Target 1 enabled | Home Server retention for database and configuration archives. Required only when Target 1 is enabled. |
@@ -127,7 +132,7 @@ Backup settings live in the same two Forgejo stores as the deploy settings (see 
 | `backup_rclone_db_keep_age` | Target 2 enabled | Google Drive retention for database archives. Required only when Target 2 is enabled. |
 | `backup_rclone_full_keep_age` | Target 2 enabled | Google Drive retention for full archives. Required only when Target 2 is enabled. |
 
-At least one of `backup_home_destination` and `backup_rclone_destination` must be set — the workflow fails with `no off-host target is enabled` if both are missing, and same-host archives under `backup_root` are created on every run regardless of target selection.
+Both target keys are optional. Same-host archives under `backup_root` are created on every run regardless of target selection, and with neither key set the run is a **local-only backup** (it reports `No off-host target enabled` and succeeds). When at least one target is enabled, a target that fails its connection test, its configuration check, or its transfer is reported as a `WARNING` and the run continues with the remaining target; the run **fails** when every enabled target failed, so losing the only enabled target is always an error and losing one of two is a warning. Local archives under `backup_root` exist either way and are named in the failure message.
 
 To enable one target only, delete the other target's key from the JSON (do not leave a placeholder value — an empty string disables, a non-empty value must be well-formed).
 
@@ -141,7 +146,7 @@ Omit the port (`user@host`) to use `22`. The target can be any SFTP server reach
 
 ## Target Backup Strategy
 
-**Accepted on 2026-10-03; repository configuration added, not runtime-validated. Target selection made optional on 2026-10-07. Replication revised to Rclone for both targets and the workflow refactored on 2026-10-08; transfers not runtime-validated.**
+**Accepted on 2026-10-03; repository configuration added, not runtime-validated. Target selection made optional on 2026-10-07. Replication revised to Rclone for both targets and the workflow refactored on 2026-10-08; transfers not runtime-validated. Degraded-target handling, local-only runs, and configuration-driven cadence intervals added on 2026-10-10.**
 
 | Target | Purpose | Technology | Enabled by | Status |
 |---|---|---|---|---|
@@ -150,14 +155,16 @@ Omit the port (`user@host`) to use `22`. The target can be any SFTP server reach
 
 Both targets read from the source server: the workflow copies each archive out of `backup_root` to each destination with Rclone. Neither target depends on the other, so either can be disabled without changing the data path of the remaining one.
 
-A target is enabled when its key is non-empty. An absent or empty key disables that target, and every setting and secret used only by it is ignored rather than validated — see the table below. At least one target must be enabled; the workflow fails with `no off-host target is enabled` when both are missing. Same-host archives under `backup_root` are always created.
+A target is enabled when its key is non-empty. An absent or empty key disables that target, and every setting and secret used only by it is ignored rather than validated — see the table below. No target is required: with both keys absent the run creates the same-host archives and reports `No off-host target enabled`. Same-host archives under `backup_root` are always created.
+
+When one or both targets are enabled, each target is prepared and transferred independently. A target that fails its connection test, its configuration check, or its transfer emits `WARNING: <target> backup failed: ...` and the run continues to the next target; at the end of the run a summary line `WARNING: N of M off-host targets failed` is emitted while any target succeeded. The run fails when every enabled target failed (`Error: all N of M enabled off-host target(s) failed`), so a single-enabled-target environment always errors rather than reporting success with archives left on the source host only.
 
 | Disabled target | Keys ignored | Secrets ignored |
 |---|---|---|
 | Home Server (Target 1) | `backup_home_sftp`, `backup_home_destination`, `backup_home_db_keep_age`, `backup_home_full_keep_age` | `BACKUP_HOME_SSH_KEY`, `BACKUP_HOME_SSH_KNOWN_HOSTS` |
 | Google Drive (Target 2) | `backup_rclone_destination`, `backup_rclone_db_keep_age`, `backup_rclone_full_keep_age` | `BACKUP_RCLONE_CONFIG` |
 
-Disabling one target reduces the environment to a single off-host copy, which is the condition ADR-007 rejected as a design. Treat a single-target environment as an accepted reduction in protection and record which targets each environment is expected to enable.
+Disabling one target reduces the environment to a single off-host copy, which is the condition ADR-007 rejected as a design. Disabling both leaves archives on the source host only, which is not disaster recovery at all — the run then succeeds by design, so record which targets each environment is expected to enable and treat local-only as the weakest accepted state.
 
 ### Home Server connection
 
@@ -171,7 +178,7 @@ The target scope includes Compose and service configuration, PostgreSQL role and
 
 ### Google Drive setup (`BACKUP_RCLONE_CONFIG`)
 
-**Authentication for Target 2.** Target 2 is enabled when `backup_rclone_destination` is non-empty. The workflow writes the secret body verbatim into a temporary Rclone config (`tr -d '\r'`; LF endings required, not CRLF) and refuses to start the transfer if the destination remote is missing or has any type other than `crypt`. Set the secret up before enabling the target, and store the **Crypt password** outside Google Drive — losing it makes the encrypted archive unreadable.
+**Authentication for Target 2.** Target 2 is enabled when `backup_rclone_destination` is non-empty. The workflow writes the secret body verbatim into a temporary Rclone config (`tr -d '\r'`; LF endings required, not CRLF) and refuses to start the transfer if the destination remote is missing or has any type other than `crypt`. That check is treated as a Target 2 failure: a warning when the Home Server transfer succeeds, an error when Target 2 is the only enabled target. Set the secret up before enabling the target, and store the **Crypt password** outside Google Drive — losing it makes the encrypted archive unreadable.
 
 | Credential | Secret | Protects |
 |---|---|---|
@@ -286,13 +293,13 @@ If `lsf gdrive-crypt:` returns "directory not found", create the path with `rclo
 For each archive created in the run, and for each target that is enabled in `<PREFIX>_CONFIG`, the workflow:
 
 1. Copies the file to the Home Server through the `_workflow_home` Rclone SFTP remote. *(Target 1 only)*
-2. Computes SHA-256 over downloaded bytes on both ends with `rclone hashsum sha256 --download` and fails the run on mismatch. *(Target 1 only)*
+2. Computes SHA-256 over downloaded bytes on both ends with `rclone hashsum sha256 --download` and fails that target on mismatch. *(Target 1 only)*
 3. Applies the approved Home Server retention policy. *(Target 1 only)*
 4. Copies the file through the configured Rclone destination to Google Drive. *(Target 2 only)*
-5. Computes SHA-256 over downloaded bytes on both ends with `rclone hashsum sha256 --download` and fails the run on mismatch. *(Target 2 only)*
+5. Computes SHA-256 over downloaded bytes on both ends with `rclone hashsum sha256 --download` and fails that target on mismatch. *(Target 2 only)*
 6. Applies separate approved database and full-archive retention policies. *(Target 2 only)*
 
-Before the first transfer, the workflow creates the Home Server destination directory and lists it to confirm the endpoint, key, host key, port, user, and path are all correct; for Google Drive it verifies that the configured remote exists and has type `crypt`. Both fail the run before any archive is read.
+Before the first transfer, the workflow creates the Home Server destination directory and lists it to confirm the endpoint, key, host key, port, user, and path are all correct; for Google Drive it verifies that the configured remote exists and has type `crypt`. Either check failing fails that target — a warning when the other enabled target still succeeds, an error when it is the only enabled target.
 
 Replication uses copy semantics, never sync: source deletions must not propagate to backup destinations, and retention is applied explicitly on each destination. Both copies are read from the source server; the workflow creates an `_workflow_source` Rclone SFTP remote back to `server_host` (reserved names, so they cannot collide with remotes inside `BACKUP_RCLONE_CONFIG`), so no step fetches data from the Home Server.
 
@@ -300,7 +307,7 @@ Per-destination retention ages are `backup_home_db_keep_age` and `backup_home_fu
 
 The workflow logs `Enabled off-host targets: home=<0|1> gdrive=<0|1>` before any transfer, and skips every step, tool check, and secret check belonging to a disabled target.
 
-The workflow fails on a missing required secret or command for an enabled target, a missing key for an enabled target, both targets disabled, a failed dump or archive, a failed transfer, a failed integrity check, or a failed retention operation. Configuration presence does not record a successful transfer.
+The workflow fails on a missing required secret or command for an enabled target, a missing key for an enabled target, a failed dump or archive, a failed retention operation, and on a failed transfer or integrity check whenever every enabled target failed. A failed target while another enabled target succeeded is reported as a warning instead, and a run with no enabled target succeeds after creating the local archives. Configuration presence does not record a successful transfer.
 
 ## Databases
 

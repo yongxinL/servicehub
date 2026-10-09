@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: OPS
 document_id: EGRESS-CONTROLS
 title: ServiceHub Container Egress Controls
-version: "1.2"
+version: "1.1"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li

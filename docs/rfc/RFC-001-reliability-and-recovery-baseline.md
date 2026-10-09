@@ -4,7 +4,7 @@ project_code: SVCHUB
 document_type: RFC
 document_id: RFC-001
 title: ServiceHub Reliability and Recovery Baseline
-version: "1.2"
+version: "1.1"
 status: Accepted
 lifecycle_stage: Design
 owner: George Li
@@ -37,12 +37,13 @@ The repository implements a Forgejo Actions backup workflow that:
 - Runs daily at 02:30 (`Australia/Sydney`) in its default scheduled mode.
 - Creates one `pg_dump` per non-template PostgreSQL database.
 - Creates a role-globals `pg_dumpall` output.
-- Packs database dumps into one archive per backup day (every third scheduled day).
+- Packs database dumps into one archive per backup day (`db_backup_interval_days`, default daily).
 - Requires approved protected retention inputs for database and full archives.
-- Creates a full `APPS_DATA` archive every tenth scheduled day or on demand.
+- Creates a full `APPS_DATA` archive every `full_backup_interval_days` scheduled days (default 7, weekly) or on demand.
 - Writes archives under a repository-secret backup root on the same target host.
 - Runs on the existing Forgejo runner, whose image is extended with Rclone, SSH, the PostgreSQL client, Bash, and jq.
 - Copies archives to the Home Server over an Rclone SFTP remote and to Google Drive through an Rclone Crypt remote, with destination integrity checks and target retention.
+- Degrades per target: a failed enabled target is a warning while another enabled target succeeds, an error when every enabled target failed, and a run with no enabled target succeeds as a local-only backup.
 
 The workflow explicitly states that the live full archive is crash-consistent for database directories, while the database dumps are the transaction-consistent layer.
 
