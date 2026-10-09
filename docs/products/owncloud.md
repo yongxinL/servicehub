@@ -114,7 +114,7 @@ These checks are required before the deployment is described as tested.
 
 ## Backup and Recovery
 
-Both oCIS paths are beneath `APPS_DATA`, so the current weekly full archive includes them unless they are explicitly excluded. Preserve both directories together:
+Both oCIS paths are beneath `APPS_DATA`, so the current full archive includes them unless they are explicitly excluded. Preserve both directories together:
 
 - `${APPS_DATA}/webapp/ocis/config`
 - `${APPS_DATA}/webapp/ocis/data`

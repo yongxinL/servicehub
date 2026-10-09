@@ -104,7 +104,7 @@ docker compose up -d infrapgsql
 
 ## See also
 
-- [Root README — Data Backups](../../README.md#data-backups-forgejo-actions) — the scheduled Forgejo workflow takes daily `pg_dump` backups of every database (6-month retention) and a weekly `APPS_DATA` archive
+- [Backup and restore](../operations/BACKUP-RESTORE.md) — the scheduled Forgejo backup workflow takes `pg_dump` backups of every database every third day (6-month retention) and a full `APPS_DATA` archive every tenth day
 - [Stalwart — Database management](stalwart.md#database-management-create--delete--backup--restore) — worked create/drop/`pg_dump`/`pg_restore` example
 - [MariaDB](mariadb.md) — MySQL-compatible alternative (unused by default)
 - [Root README — Configuration](../../README.md#configuration)
