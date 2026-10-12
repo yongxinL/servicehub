@@ -1,47 +1,28 @@
----
-project: ServiceHub
-project_code: SVCHUB
-document_type: OPS-INDEX
-document_id: OPS-INDEX
-title: ServiceHub Operations Index
-version: "1.1"
-status: Active
-lifecycle_stage: Operations
-owner: George Li
-maintainer: George Li
-created: 2026-10-01
-updated: 2026-10-10
-tags:
-  - servicehub
-  - operations
-  - index
-related_documents:
-  - ARCHITECTURE
-  - TEST-001
-  - RFC-001
----
+# Operations
 
-# ServiceHub Operations Index
+## Purpose
+Describes how `<PROJECT_NAME>` is deployed, configured, monitored, backed up, and recovered.
 
-Operations guidance is derived from repository commands, Compose definitions, service configuration, and workflows. Runtime results and recovery guarantees remain unverified unless a linked record states otherwise.
+## Authority
+Authoritative for the operational model. Procedures are authoritative in runbooks ([runbooks/README.md](runbooks/README.md)); design decisions belong in ADRs. Contains no secret values. Owning chapter: central manual 15.
 
-## Documents
+## Artifact triggers
+Write the operational model before the first deployment to any shared or production environment; update on infrastructure change.
 
-- [Installation](INSTALLATION.md) — prerequisites, clone, initial setup, TLS, data directories, and first stack start.
-- [Deployment (Forgejo Actions)](DEPLOYMENT.md) — one-click staging/production deploy: inputs, secrets, variables, and SSH host keys.
-- [Runbook](RUNBOOK.md) — prerequisites, lifecycle commands, health, logs, upgrades, rollback, and escalation.
-- [Development](DEVELOPMENT.md) — git-crypt key management, local dev flow, and documentation contribution.
-- [Backup and restore](BACKUP-RESTORE.md) — backup workflow (archives, schedules, schedule enable/disable, retention), `BACKUP_*` secrets and `backup_*` keys, dual-target strategy, archive retrieval from both targets, recovery procedure, and evidence template.
-- [Monitoring and alerting](MONITORING-ALERTING.md) — metrics, logs, dashboards, signals, severity, and alert testing.
-- [Container egress controls](EGRESS-CONTROLS.md) — per-service egress policy, global block, exceptions, and verification.
-- [Service inventory](SERVICE-INVENTORY.md) — evidence-based service register.
-- [Troubleshooting](TROUBLESHOOTING.md) — structured diagnostics for common failures.
+## Naming and identifiers
+This README holds the operational model. No identifiers.
 
-## Safe Use
+## Status expectations
+Reviewed date recorded per section.
 
-- Read the relevant service README before changing configuration.
-- Validate Compose configuration before starting or rebuilding.
-- Back up data before upgrades or destructive maintenance.
-- Do not paste secret values into commands, issues, test evidence, or documentation.
-- Treat commands labelled `Proposed` as unverified.
-- Escalate to the project owner when recovery, security, or data-loss decisions are required; named escalation contacts are `TBD`.
+## Operational model
+No operational model has yet been recorded. When recorded, cover: environments, hosting, deployment path, configuration sources and precedence, secret store references by name, monitoring, alerting, backup scope and method, restore and recovery objectives, and links to runbooks.
+
+## Index-entry requirements
+Each section links the runbook that implements it.
+
+## Relationship to other artifacts
+Release records reference deployment and rollback runbooks.
+
+## Current scaffold state
+No project artifacts have yet been created in this area.

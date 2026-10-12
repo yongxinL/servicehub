@@ -1,70 +1,38 @@
----
-project: ServiceHub
-project_code: SVCHUB
-document_type: TEMPLATE
-document_id: TEMPLATE-INVESTIGATION-001
-title: Technical Investigation Template
-version: "1.1"
-status: Draft
-lifecycle_stage: Discovery
-owner: George Li
-maintainer: George Li
-created: 2026-10-01
-updated: 2026-10-01
-tags:
-  - servicehub
-  - template
-  - investigation
-related_documents: []
----
+# INV-NNN: <Investigation title>
 
-# Technical Investigation Template
+> **Template (non-authoritative).** Copy to `docs/investigations/INV-NNN-<kebab-title>.md`. Investigations recommend; they do not decide.
 
-> Guidance: copy to `docs/investigations/INV-NNN-short-title.md`. Replace metadata, preserve `INV-NNN`, and add the record to `docs/investigations/README.md`.
+| Field | Value |
+|---|---|
+| ID | INV-NNN |
+| Title | |
+| Status | Planned |
+| Owner | project-owner |
+| Created | YYYY-MM-DD |
+| Updated | YYYY-MM-DD |
+| Blocks | *Artifact awaiting this investigation* |
 
-<!-- Allowed status: Draft, In Review, Accepted, Completed, Superseded, Archived -->
+## 1. Question (Mandatory)
+*The specific question to answer.*
 
-## Investigation Summary
+## 2. Scope (Mandatory)
+*In scope and out of scope.*
 
-State the question and preliminary outcome.
+## 3. Method (Mandatory)
+*How evidence will be gathered.*
 
-## Scope
+## 4. Evidence and experiments (Mandatory)
 
-Include bounded areas and explicit exclusions.
+| # | Experiment or source | Environment and versions | Result | Evidence location |
+|---|---|---|---|---|
 
-## Evidence Reviewed
+*Commit summaries and reproducible scripts; reference large or sensitive evidence externally; never commit secrets.*
 
-- Files, history, logs, or external evidence with links or identifiers
-
-## Findings
-
-- Finding, evidence, confidence, and validation state
-
-## Impact
-
-- Technical, operational, security, or project impact
-
-## Root Cause
-
-Distinguish confirmed cause from hypothesis.
-
-## Recommendations
-
-- Recommendation, owner, due date, status
-
-## Preventive Actions
-
-- Action that reduces recurrence
-
-## Open Questions
-
-- Unknown requiring owner input or runtime validation
-
-## Outcome
-
-Keep the outcome preliminary until evidence and decisions are complete.
-
-## Related Documents
-
-- Link with relative repository paths.
-
+## 5. Findings (Mandatory)
+## 6. Limitations (Mandatory)
+*What the evidence does not show.*
+## 7. Options (Optional)
+## 8. Recommendation (Mandatory)
+*A recommendation, not a decision.*
+## 9. Follow-up (Mandatory)
+*Which artifact will record the decision (ADR, RFC outcome, specification, exception).*

@@ -1,77 +1,37 @@
----
-project: ServiceHub
-project_code: SVCHUB
-document_type: TEMPLATE
-document_id: TEMPLATE-RELEASE-001
-title: Release Notes Template
-version: "1.1"
-status: Draft
-lifecycle_stage: Release
-owner: George Li
-maintainer: George Li
-created: 2026-10-01
-updated: 2026-10-01
-tags:
-  - servicehub
-  - template
-  - release
-related_documents: []
----
+# Release <VERSION>
 
-# Release Notes Template
-
-> Guidance: copy to `docs/releases/RELEASE-vMAJOR.MINOR.PATCH.md`. Replace metadata, preserve the actual release version in the document ID field, and add the record to `docs/releases/README.md`.
-
-<!-- Allowed status: Draft, Proposed, In Review, Accepted, Completed, Superseded, Deprecated, Archived -->
-
-## Release Identity
+> **Template (non-authoritative).** Copy to `docs/releases/<version>.md`. Release records reference specification baselines; they never redefine specifications. Once Released, the record is corrected only through addenda.
 
 | Field | Value |
 |---|---|
-| Version | TBD |
-| Tag | TBD |
-| Commit | TBD |
-| Date | TBD |
-| Status | Draft |
+| Version | |
+| Status | Planned |
+| Owner | project-owner |
+| Created | YYYY-MM-DD |
+| Updated | YYYY-MM-DD |
+| Release date | *Completed when Released* |
+| Tag | *Annotated tag name* |
+| Source commit | *Recorded after tagging* |
+| Approved by / mode / date | *Completed on approval* |
 
-## Summary
+## 1. Summary (Mandatory)
 
-Describe purpose and user-visible changes.
+## 2. Included specifications (Mandatory)
 
-## Changes
-
-- Added
-- Changed
-- Fixed
-- Removed
-
-## Upgrade and Migration
-
-Pre-upgrade backup, steps, compatibility, verification, downtime, and irreversible changes.
-
-## Test Evidence
-
-Link executed tests with environment, commit, tester, date, and deviations.
-
-## Deployment Evidence
-
-Link the target deployment record.
-
-## Rollback
-
-Procedure, data limitations, owner, and validation.
-
-## Post-Release Validation
-
-Health, routes, TLS, identity, data, AI, telemetry, and backup checks.
-
-## Approval
-
-| Role | Name | Date | Decision |
+| SPEC | Title | Baseline commit | Convergence outcome |
 |---|---|---|---|
-| Owner | TBD | TBD | TBD |
 
-## Related Documents
+## 3. Other changes (Optional)
+*Defect fixes (including `bug` extension slugs), maintenance.*
 
-- Link test, deployment, migration, and operational records.
-
+## 4. Verification references (Mandatory)
+## 5. Migrations (Mandatory; "none" if none)
+## 6. Compatibility (Mandatory)
+## 7. Deployment (Mandatory)
+*Runbook link.*
+## 8. Rollback (Mandatory)
+*Procedure, data implications, tested status.*
+## 9. Known issues (Mandatory; "none" if none)
+## 10. Approved deviations (Mandatory; "none" if none)
+## 11. Addenda (Optional)
+*Dated corrections after release.*

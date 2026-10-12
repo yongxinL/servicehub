@@ -1,73 +1,43 @@
----
-project: ServiceHub
-project_code: SVCHUB
-document_type: TEMPLATE
-document_id: TEMPLATE-ADR-001
-title: Architecture Decision Record Template
-version: "1.1"
-status: Draft
-lifecycle_stage: Design
-owner: George Li
-maintainer: George Li
-created: 2026-10-01
-updated: 2026-10-01
-tags:
-  - servicehub
-  - template
-  - adr
-related_documents: []
----
+# ADR-NNN: <Decision title>
 
-# Architecture Decision Record Template
+> **Template (non-authoritative).** Copy to `docs/architecture/adr/ADR-NNN-<kebab-title>.md`, allocate NNN in the ADR index. One decision per ADR. Once Accepted, the decision and rationale are never rewritten; supersede instead.
 
-> Guidance: copy to `docs/adr/ADR-NNN-short-decision-title.md`. Replace metadata placeholders, preserve the stable `ADR-NNN` ID, add the record to `docs/adr/README.md`, and use one H1.
+| Field | Value |
+|---|---|
+| ID | ADR-NNN |
+| Title | |
+| Status | Proposed |
+| Owner | project-owner |
+| Created | YYYY-MM-DD |
+| Updated | YYYY-MM-DD |
+| Approved by / mode / date | *Completed on acceptance* |
+| Supersedes | *Optional: ADR-NNN* |
+| Superseded by | *Completed if superseded* |
+| Related | *Optional: RFC-NNN, SPEC-NNN, INV-NNN* |
 
-<!-- Allowed status: Draft, Proposed, In Review, Accepted, Rejected, Superseded, Deprecated, Archived -->
+## Context (Mandatory)
+*The forces at play: requirements, constraints, current state, and why a decision is needed now.*
 
-## Context
+## Decision (Mandatory)
+*The decision in one or two sentences, stated actively ("We will ...").*
 
-Describe the problem, forces, constraints, and evidence that make a decision necessary.
+## Alternatives considered (Mandatory)
 
-## Decision
+| Option | Benefits | Drawbacks | Reason not chosen |
+|---|---|---|---|
+| *Chosen option* | | | n/a |
+| *Alternative, including do nothing where relevant* | | | |
 
-State the decision in one clear, testable paragraph.
+## Rationale (Mandatory)
+*Why the chosen option best satisfies the context.*
 
-## Decision Drivers
+## Consequences (Mandatory)
+- **Positive:**
+- **Negative:**
+- **Follow-up obligations:** *specifications, tasks, runbooks, or migrations required*
 
-- Driver 1
-- Driver 2
+## Risks (Optional)
+*Risks introduced and their mitigations.*
 
-## Options Considered
-
-1. Option A
-2. Option B
-3. Option C
-
-## Rationale
-
-Explain why the selected option best addresses the drivers and evidence.
-
-## Positive Consequences
-
-- Benefit 1
-
-## Negative Consequences
-
-- Cost or trade-off 1
-
-## Risks
-
-- Risk 1, mitigation, and residual uncertainty
-
-## Implementation Evidence
-
-- Link to Compose, workflow, script, configuration, test, or Git evidence.
-
-## Related Documents
-
-- Link with relative repository paths.
-
-## Follow-up Actions
-
-- Action, owner, due date, and status.
-
+## Validation (Mandatory)
+*How we will know the decision works in practice, and when to revisit it.*
