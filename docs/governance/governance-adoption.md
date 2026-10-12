@@ -2,16 +2,16 @@
 
 | Field | Value |
 |---|---|
-| Project name | `<PROJECT_NAME>` |
-| Project Owner | `<PROJECT_OWNER>` |
+| Project name | ServiceHub |
+| Project Owner | George Li |
 | Governance mode | `solo` |
 | Central repository | `<CENTRAL_GOVERNANCE_REPOSITORY>` |
 | Adopted version | 1.0.0 |
 | Release tag | `v1.0.0` |
-| Adoption date | `<ADOPTION_DATE>` |
+| Adoption date | 2026-10-12 |
 | Adoption state | Adoption in Progress |
-| Primary agent | `<PRIMARY_AGENT>` |
-| Active Spec Kit integration | `<SPEC_KIT_INTEGRATION_KEY>` |
+| Primary agent | codex |
+| Active Spec Kit integration | codex (not yet initialized) |
 | Exceptions location | [documentation-exceptions.md](documentation-exceptions.md) |
 | Tooling register | [tooling-adoption-register.md](tooling-adoption-register.md) |
 | Maturity target (optional) | Level 1: Controlled |
@@ -24,8 +24,11 @@ Review this record on: governance upgrade, ownership change, contributor-access 
 
 | Date | Version | Tag | State | Approval mode | Baseline commit |
 |---|---|---|---|---|---|
-| `<ADOPTION_DATE>` | 1.0.0 | `v1.0.0` | Adoption in Progress | owner-self-approval | Recorded after the adoption commit |
+| 2026-10-12 | 1.0.0 | `v1.0.0` | Adoption in Progress | owner-self-approval | Recorded after the adoption commit |
 
 ## Notes
 
 Record here any customization marker that cannot yet be resolved and why. Remove resolved notes.
+
+- The Forgejo URL will be supplied later.
+- Governance adoption plan: `docs/architecture/delivery-plan-governance-adoption.md`.
