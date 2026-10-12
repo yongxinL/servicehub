@@ -1,0 +1,35 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "_nexora_example": "EXAMPLE ONLY. Nexora Governance v1.0 project configuration for OpenCode v2 (verified 2026-10-12). Copy to opencode.json in the project root. Keys starting with _nexora are explanatory and must be removed from the live file. Model, provider, and update settings are user-specific: keep them in ~/.config/opencode/opencode.json, not here. Precedence: global < project opencode.json < .opencode/opencode.json < OPENCODE_CONFIG_CONTENT; configs merge, and a higher-precedence server entry replaces the whole server object. The published schema at opencode.ai/config.json may flag valid v2 fields (mcp.servers, disabled); the runtime accepts them.",
+  "mcp": {
+    "servers": {
+      "context7": {
+        "type": "remote",
+        "url": "https://mcp.context7.com/mcp",
+        "oauth": false,
+        "headers": {
+          "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+        },
+        "disabled": true
+      },
+      "openaiDeveloperDocs": {
+        "type": "remote",
+        "url": "https://developers.openai.com/mcp",
+        "disabled": true
+      },
+      "playwright": {
+        "type": "local",
+        "command": ["npx", "@playwright/mcp@<PLAYWRIGHT_MCP_VERSION>", "--isolated", "--headless"],
+        "disabled": true
+      }
+    }
+  },
+  "_nexora_notes": [
+    "All servers start disabled. Set disabled to false only after an entry exists in docs/governance/tooling-adoption-register.md.",
+    "Context7: approved after data-handling acceptance. For OAuth instead of an API key, remove oauth and headers and sign in via /mcps.",
+    "OpenAI Developer Documentation MCP: enable only when OpenAI or Codex work is relevant.",
+    "Playwright MCP: disabled initially; --isolated is mandatory; replace <PLAYWRIGHT_MCP_VERSION> with a pinned version.",
+    "codebase-memory-mcp, Ponytail, Forgejo write, deployment, and infrastructure integrations are intentionally absent; add them only through tool adoption review.",
+    "Never place secret values in this file; use {env:NAME}."
+  ]
+}

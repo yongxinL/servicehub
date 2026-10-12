@@ -1,73 +1,41 @@
----
-project: ServiceHub
-project_code: SVCHUB
-document_type: TEMPLATE
-document_id: TEMPLATE-RFC-001
-title: Request for Comments Template
-version: "1.1"
-status: Draft
-lifecycle_stage: Design
-owner: George Li
-maintainer: George Li
-created: 2026-10-01
-updated: 2026-10-01
-tags:
-  - servicehub
-  - template
-  - rfc
-related_documents: []
----
+# RFC-NNN: <Proposal title>
 
-# Request for Comments Template
+> **Template (non-authoritative).** Copy to `docs/rfc/RFC-NNN-<kebab-title>.md`. An accepted RFC authorizes pursuing the proposal; it does not specify behaviour or prove implementation.
 
-> Guidance: copy to `docs/rfc/RFC-NNN-short-title.md`. Replace metadata, preserve `RFC-NNN`, and add the record to `docs/rfc/README.md`.
+| Field | Value |
+|---|---|
+| ID | RFC-NNN |
+| Title | |
+| Status | Draft |
+| Owner | project-owner |
+| Created | YYYY-MM-DD |
+| Updated | YYYY-MM-DD |
+| Approved by / mode / date | *Completed at outcome* |
+| Supersedes / Superseded by | *Optional* |
+| Related | *Optional: INV-NNN, ADR-NNN, SPEC-NNN* |
 
-<!-- Allowed status: Draft, Proposed, In Review, Accepted, Rejected, Superseded, Deprecated, Archived -->
+## 1. Summary (Mandatory)
+## 2. Problem and motivation (Mandatory)
+## 3. Proposal (Mandatory)
+## 4. Alternatives (Mandatory)
+*Include do nothing.*
+## 5. Risks (Mandatory)
+## 6. Security and privacy (Mandatory)
+## 7. Data impact (Mandatory; state "none" with reason if not applicable)
+## 8. Operational impact (Mandatory)
+## 9. Migration and rollback (Mandatory)
+## 10. Testing approach (Mandatory)
+## 11. Cost and effort (Mandatory)
+## 12. Reversibility (Mandatory)
+## 13. Success criteria (Mandatory)
+## 14. Open questions (Optional)
 
-## Summary
+## 15. Outcome (Mandatory at decision)
 
-State the proposal and intended decision in a few sentences.
-
-## Current Evidence
-
-Link confirmed repository behaviour and identify missing evidence.
-
-## Requirements to Evaluate
-
-- Requirement 1
-- Requirement 2
-
-## Options
-
-### Option A
-
-Benefits, costs, dependencies, and fit.
-
-### Option B
-
-Benefits, costs, dependencies, and fit.
-
-## Evaluation
-
-Use a table only when it improves comparison. Mark untested conclusions as Proposed or TBD.
-
-## Proposed Decision
-
-State the recommendation and whether it is implemented.
-
-## Consequences
-
-- Positive, negative, and operational consequences.
-
-## Acceptance Criteria
-
-- Evidence required before acceptance.
-
-## Decision
-
-Record the owner decision, date, and supersession if later changed.
-
-## Related Documents
-
-- Link with relative repository paths.
-
+| Field | Value |
+|---|---|
+| Decision | Accepted / Rejected / Deferred / Withdrawn |
+| Date | |
+| Approval mode | |
+| Conditions | |
+| Resulting artifacts | *ADR-NNN, SPEC-NNN, delivery plan* |

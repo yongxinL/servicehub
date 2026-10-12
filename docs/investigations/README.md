@@ -1,32 +1,29 @@
----
-project: ServiceHub
-project_code: SVCHUB
-document_type: INVESTIGATION-INDEX
-document_id: INVESTIGATION-INDEX
-title: ServiceHub Investigation Register
-version: "1.1"
-status: Active
-lifecycle_stage: Discovery
-owner: George Li
-maintainer: George Li
-created: 2026-10-01
-updated: 2026-10-01
-tags:
-  - servicehub
-  - investigations
-  - index
-related_documents:
-  - LESSON-001
-  - TEST-001
----
+# Investigations
 
-# ServiceHub Investigation Register
+## Purpose
+Index of evidence-gathering inquiries that resolve material uncertainty.
 
-Investigations record bounded technical analysis, evidence, impact, recommendations, and unresolved questions.
+## Authority
+Investigations are authoritative for their findings and limitations only. They recommend; they do not decide. Owning chapter: central manual 11.
 
-| ID | Title | Status | Date | Outcome | Link |
-|---|---|---|---|---|---|
-| INV-001 | Architecture and Documentation Gap Analysis | Draft | 2026-10-01 | Preliminary; runtime validation required | [Investigation](INV-001-architecture-and-documentation-gap-analysis.md) |
+## Artifact triggers
+Unknown root cause, unproven feasibility, unclear performance or capacity, unknown legacy behaviour, tool evaluation, or vendor comparison that blocks another governed artifact.
 
-Use [INVESTIGATION-TEMPLATE.md](../templates/INVESTIGATION-TEMPLATE.md) for new records and add them here.
+## Naming and identifiers
+`INV-NNN-<kebab-title>.md`, allocated here, never reused.
 
+## Status expectations
+Planned, In Progress, Completed, Cancelled, Superseded.
+
+## Index
+
+| ID | Title | Status | Updated | Resulting decision artifact |
+|---|---|---|---|---|
+
+No project artifacts have yet been created in this area. Next available identifier: INV-001.
+
+## Relationship to other artifacts
+Findings feed ADRs, RFCs, specifications, or exceptions. Template: [../templates/investigation-template.md](../templates/investigation-template.md).
+
+## Current scaffold state
+Empty index.
