@@ -19,11 +19,10 @@ Test plans: Draft, Approved, Superseded. Verification summaries record a result 
 
 | Document | Type | Status or result | Updated |
 |---|---|---|---|
-
-No project artifacts have yet been created in this area.
+| [TEST-001](TEST-001-platform-baseline-validation.md) | Test plan | Not Executed | 2026-10-08 |
 
 ## Relationship to other artifacts
 Maps evidence to `SPEC-NNN-AC-NNN` and `SPEC-NNN-NFR-NNN`. Templates: [../templates/test-plan-template.md](../templates/test-plan-template.md), [../templates/verification-summary-template.md](../templates/verification-summary-template.md).
 
 ## Current scaffold state
-Empty index.
+One test plan is indexed.

@@ -79,7 +79,7 @@ Record health, routes, TLS, authentication, databases, affected AI paths, teleme
 
 ## Related Documents
 
-- [Release register](../releases/README.md)
-- [Test register](../testing/README.md)
-- [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md)
+- [Release register](../../releases/README.md)
+- [Test register](../../testing/README.md)
+- [Deployment architecture](../../architecture/DEPLOYMENT-ARCHITECTURE.md)
 

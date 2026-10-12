@@ -19,11 +19,12 @@ Planned, In Progress, Completed, Cancelled, Superseded.
 
 | ID | Title | Status | Updated | Resulting decision artifact |
 |---|---|---|---|---|
+| [INV-001](INV-001-architecture-and-documentation-gap-analysis.md) | Architecture and Documentation Gap Analysis | Draft | 2026-10-08 | Not recorded |
 
-No project artifacts have yet been created in this area. Next available identifier: INV-001.
+Next available identifier: INV-002.
 
 ## Relationship to other artifacts
 Findings feed ADRs, RFCs, specifications, or exceptions. Template: [../templates/investigation-template.md](../templates/investigation-template.md).
 
 ## Current scaffold state
-Empty index.
+One investigation is indexed.
