@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Title | ServiceHub Governance Adoption |
-| Status | Draft |
+| Status | Approved |
 | Owner | project-owner |
 | Created | 2026-10-12 |
 | Updated | 2026-10-12 |

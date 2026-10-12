@@ -16,17 +16,24 @@ Delivery plans: `delivery-plan-<kebab-title>.md` (no governed identifier). ADRs:
 Delivery plans use the specification status vocabulary (Draft, In Review, Approved, In Implementation, Implemented, Verified, Superseded, Withdrawn), per central manual chapter 16.
 
 ## Architecture overview
-No architecture overview has yet been written. When written, summarize components, boundaries, data stores, external dependencies, and deployment topology, each linking the governing ADR.
+
+| Document | Type | Status | Updated |
+|---|---|---|---|
+| [ARCHITECTURE](ARCHITECTURE.md) | Architecture overview | Draft | 2026-10-08 |
+| [COMPONENT-CATALOGUE](COMPONENT-CATALOGUE.md) | Component catalogue | Draft | 2026-10-07 |
+| [DATA-FLOW](DATA-FLOW.md) | Data-flow diagram | Draft | 2026-10-10 |
+| [DEPLOYMENT-ARCHITECTURE](DEPLOYMENT-ARCHITECTURE.md) | Deployment architecture | Draft | 2026-10-09 |
+| [SYSTEM-CONTEXT](SYSTEM-CONTEXT.md) | System-context diagram | Draft | 2026-10-08 |
+| [ADR index](adr/README.md) | ADR index | Not recorded | Not recorded |
 
 ## Cross-specification delivery plans
 
 | Plan | Status | Participating specifications | Updated |
 |---|---|---|---|
-
-No project artifacts have yet been created in this area.
+| [Governance adoption](delivery-plan-governance-adoption.md) | Approved | Not recorded | 2026-10-12 |
 
 ## Relationship to other artifacts
 Native feature plans in `specs/` are not indexed here. Template: [../templates/cross-specification-delivery-plan-template.md](../templates/cross-specification-delivery-plan-template.md).
 
 ## Current scaffold state
-Index only; no overview or delivery plans exist yet.
+Five architecture documents, the canonical ADR index, and the governance-adoption delivery plan are indexed; native feature plans are not initialized.
