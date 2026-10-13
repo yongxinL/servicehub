@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Bulwark](https://github.com/bulwarkmail/webmail) provides the web UI for the ServiceHub email domain (`mailsv`): mail, calendar, contacts and files over JMAP against [Stalwart](stalwart.md). It is defined by the `mailsvbulwark` service in [`compose/mailsv.yml`](../../compose/mailsv.yml) and built from [`Dockerfile`](../../shared/bulwark/Dockerfile) (`FROM ghcr.io/bulwarkmail/webmail:${IMAGE_TAG}`). Upstream configuration reference: [Configuration](https://github.com/bulwarkmail/webmail#configuration).
+[Bulwark](https://github.com/bulwarkmail/webmail) provides the web UI for the ServiceHub email domain (`mailsv`): mail, calendar, contacts and files over JMAP against [Stalwart](stalwart.md). It is defined by the `mailsvbulwark` service in [`compose/mailsv.yml`](../../../compose/mailsv.yml) and built from [`Dockerfile`](../../../shared/bulwark/Dockerfile) (`FROM ghcr.io/bulwarkmail/webmail:${IMAGE_TAG}`). Upstream configuration reference: [Configuration](https://github.com/bulwarkmail/webmail#configuration).
 
 ## Service details
 
@@ -92,11 +92,11 @@ docker compose logs -f mailsvbulwark
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](../../shared/bulwark/Dockerfile) | Image build (`FROM ghcr.io/bulwarkmail/webmail:${IMAGE_TAG}`) |
+| [`Dockerfile`](../../../shared/bulwark/Dockerfile) | Image build (`FROM ghcr.io/bulwarkmail/webmail:${IMAGE_TAG}`) |
 
 ## See also
 
 - [Stalwart Mail Server](stalwart.md) — the JMAP backend this client talks to
 - [Authentik](authentik.md) — IdP; serves the LDAP directory behind all webmail/IMAP/SMTP logins
 - [Traefik](traefik.md) — edge routing and TLS termination
-- [Root README — Email stack](../../README.md#email-stack-mailsv)
+- [Root README — Email stack](../../../README.md#email-stack-mailsv)

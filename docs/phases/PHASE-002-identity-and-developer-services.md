@@ -43,11 +43,11 @@ Provide governed identity infrastructure and repository-hosted development and d
 
 - [Authentik Compose domain](../../compose/authn.yml)
 - [Forgejo Compose domain](../../compose/depot.yml)
-- [Authentik README](../products/authentik.md)
-- [Forgejo README](../products/forgejo.md)
+- [Authentik README](../operations/services/authentik.md)
+- [Forgejo README](../operations/services/forgejo.md)
 - [Forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml)
 - [oCIS Compose service](../../compose/wbapp.yml)
-- [oCIS operational guide](../products/owncloud.md)
+- [oCIS operational guide](../operations/services/owncloud.md)
 - [.forgejo workflows](../../.forgejo/workflows/)
 
 ## Requirements Addressed

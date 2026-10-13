@@ -83,7 +83,7 @@ Compose matches the repository's current single-host deployment model, keeps top
 
 - [Architecture](../architecture/ARCHITECTURE.md)
 - [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md)
-- [Runbook](../operations/RUNBOOK.md)
+- [Runbook](../operations/runbooks/RUNBOOK.md)
 
 ## Follow-up Actions
 

@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Open WebUI](https://docs.openwebui.com/) is a web-based interface for interacting with Large Language Models. It is defined by the `aiservowui` service in [`compose/aiserv.yml`](../../compose/aiserv.yml) and built from [`shared/openwebui/Dockerfile`](../../shared/openwebui/Dockerfile) (`FROM ghcr.io/open-webui/open-webui:main`). It can connect to the [LiteLLM proxy](litellm.md) or directly to a [Hermes Agent](hermesagent.md) gateway as an OpenAI-compatible endpoint. Per [ADR-009](../../docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) Open WebUI runs on local infrastructure with the rest of the AI platform and is not deployed to OCI.
+[Open WebUI](https://docs.openwebui.com/) is a web-based interface for interacting with Large Language Models. It is defined by the `aiservowui` service in [`compose/aiserv.yml`](../../../compose/aiserv.yml) and built from [`shared/openwebui/Dockerfile`](../../../shared/openwebui/Dockerfile) (`FROM ghcr.io/open-webui/open-webui:main`). It can connect to the [LiteLLM proxy](litellm.md) or directly to a [Hermes Agent](hermesagent.md) gateway as an OpenAI-compatible endpoint. Per [ADR-009](../../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) Open WebUI runs on local infrastructure with the rest of the AI platform and is not deployed to OCI.
 
 ## Service details
 
@@ -18,7 +18,7 @@
 
 ## Configuration
 
-Set in `.env` (see [`env.example`](../../env.example)):
+Set in `.env` (see [`env.example`](../../../env.example)):
 
 | Variable | Description |
 |---|---|
@@ -55,10 +55,10 @@ docker compose logs -f aiservowui
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](../../shared/openwebui/Dockerfile) | Image build (`FROM ghcr.io/open-webui/open-webui:main`) |
+| [`Dockerfile`](../../../shared/openwebui/Dockerfile) | Image build (`FROM ghcr.io/open-webui/open-webui:main`) |
 
 ## See also
 
 - [LiteLLM Proxy](litellm.md) — unified LLM endpoint
 - [Hermes Agent](hermesagent.md) — agent workspaces and gateway
-- [Root README — AI Agent Platform](../../README.md#ai-agent-platform-aiserv)
+- [Root README — AI Agent Platform](../../../README.md#ai-agent-platform-aiserv)

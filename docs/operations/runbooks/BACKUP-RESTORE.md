@@ -29,13 +29,13 @@ related_documents:
 
 ## Status
 
-The repository configures same-host backup creation, backup tooling on the existing Forgejo runner, and the accepted dual-target strategy. Runtime execution, independently retrievable copies, and restore remain unverified. This document distinguishes repository configuration from recovery evidence recorded under [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
+The repository configures same-host backup creation, backup tooling on the existing Forgejo runner, and the accepted dual-target strategy. Runtime execution, independently retrievable copies, and restore remain unverified. This document distinguishes repository configuration from recovery evidence recorded under [ADR-007](../../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
 
 The target failure handling and the `db_backup_interval_days` / `full_backup_interval_days` cadence keys were exercised on 2026-10-10 by extracting the workflow's shell script, syntax-checking the generated remote script, and running it against stubbed `ssh` and `rclone` for every target combination (none, Home only, Google Drive only, both) with each stub made to fail: each combination produced the expected local archives line, warning, or error and exit status, and the interval keys produced the expected values in the remote script plus validation errors for `0` and non-numeric input. No transfer against a real Home Server or Google Drive has been run.
 
 ## Implemented Backup Scope
 
-The [backup workflow](../../.forgejo/workflows/71-backup.yml) runs through the existing `ssh-deploy` label, creates archives at the `backup_root` key of the `<PREFIX>_CONFIG` repository variable **on the source server**, and copies each archive to the off-host targets that the same variable enables.
+The [backup workflow](../../../.forgejo/workflows/71-backup.yml) runs through the existing `ssh-deploy` label, creates archives at the `backup_root` key of the `<PREFIX>_CONFIG` repository variable **on the source server**, and copies each archive to the off-host targets that the same variable enables.
 
 The source server is the host running the ServiceHub services together with Forgejo and the Forgejo Actions runner. It may be a homelab server or an Oracle Cloud VM instance; the workflow reads `server_host`, `server_port`, and `deploy_path` from `<PREFIX>_CONFIG` and does not assume which, and it requires `server_ssh_known_hosts` (pinned host keys) with no runtime `ssh-keyscan` fallback, so host trust is deterministic. `backup_root` is a path on that source server, not a backup target.
 
@@ -70,7 +70,7 @@ The workflow deletes database archives older than the approved `db_backup_retent
 <BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
 ```
 
-The full archive includes `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data`. oCIS does not add a PostgreSQL dump; restore both filesystem paths together and follow [oCIS — Backup and recovery](../products/owncloud.md#backup-and-recovery).
+The full archive includes `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data`. oCIS does not add a PostgreSQL dump; restore both filesystem paths together and follow [oCIS — Backup and recovery](../services/owncloud.md#backup-and-recovery).
 
 **Configuration archive (daily)** — the two files operators edit at runtime:
 
@@ -81,9 +81,9 @@ The full archive includes `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/we
 #    egress-policies.conf    the egress allow/deny policy map
 ```
 
-`.env` lives in the deploy path and is **never** in the full archive. `egress-policies.conf` lives in `${APPS_DATA}/shared/gateway/egress-policies.conf` (seeded there by `scripts/setup.sh`, which also moves a copy left at the older `${APPS_DATA}` root; see [egress controls](EGRESS-CONTROLS.md)), so the full archive covers it as well — this daily archive just holds the recovery point to one day for both files. The archive is created on every run of the workflow and pruned with `*-cfgBK-*` on the same `db_backup_retention_days` value as the database archives; a file that is not present is skipped rather than failing the run. On restore, put `egress-policies.conf` back at `${APPS_DATA}/shared/gateway/egress-policies.conf` and `.env` at the deploy path root.
+`.env` lives in the deploy path and is **never** in the full archive. `egress-policies.conf` lives in `${APPS_DATA}/shared/gateway/egress-policies.conf` (seeded there by `scripts/setup.sh`, which also moves a copy left at the older `${APPS_DATA}` root; see [egress controls](../EGRESS-CONTROLS.md)), so the full archive covers it as well — this daily archive just holds the recovery point to one day for both files. The archive is created on every run of the workflow and pruned with `*-cfgBK-*` on the same `db_backup_retention_days` value as the database archives; a file that is not present is skipped rather than failing the run. On restore, put `egress-policies.conf` back at `${APPS_DATA}/shared/gateway/egress-policies.conf` and `.env` at the deploy path root.
 
-`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The scheduled trigger runs **daily at 02:30 in the `Australia/Sydney` time zone** (set by the schedule's `timezone` key; a cron expression without `timezone` is read as UTC), so the run lands at 02:30 local clock year-round — AEST in winter, AEDT in summer. Two daylight-saving consequences: on the night saving starts (first Sunday in October, 02:00 → 03:00) 02:30 never occurs and Forgejo **skips that night's run**, so a due day falling that night waits for the next due day; when saving ends (first Sunday in April) 02:30 occurs twice and the second run just replaces the first's archives. On that schedule the configuration archive is created every run. The database archive is due when the source server's epoch-day index is a multiple of `db_backup_interval_days`, and the full archive when it is a multiple of `full_backup_interval_days`; both are optional keys of `<PREFIX>_CONFIG` with defaults 1 (daily) and 7 (weekly), so retiming the cadence is a variable edit rather than a workflow commit, and with the defaults every full-archive day is also a database-archive day. A due day that is missed (runner stopped, run failed) is **not** retried until the next due day. The workflow can also be started manually from **Actions → Backup**: `environment` defaults to `prod`, and `backup` selects `auto` (apply the configured `db_backup_interval_days` / `full_backup_interval_days` cadence), `db` (database/config archive now), or `full` (full/config archive now) — the configuration archive is included in every mode, and `db` / `full` are the modes to use for an on-demand backup outside the cadence. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data, the full archive contains ACME private keys, and the configuration archive contains `.env` secrets. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](INSTALLATION.md#prerequisites). One authoritative archive per type is kept per day: a second run on the same day replaces that day's archive rather than adding one.
+`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env`, so backup names match the deployment. The scheduled trigger runs **daily at 02:30 in the `Australia/Sydney` time zone** (set by the schedule's `timezone` key; a cron expression without `timezone` is read as UTC), so the run lands at 02:30 local clock year-round — AEST in winter, AEDT in summer. Two daylight-saving consequences: on the night saving starts (first Sunday in October, 02:00 → 03:00) 02:30 never occurs and Forgejo **skips that night's run**, so a due day falling that night waits for the next due day; when saving ends (first Sunday in April) 02:30 occurs twice and the second run just replaces the first's archives. On that schedule the configuration archive is created every run. The database archive is due when the source server's epoch-day index is a multiple of `db_backup_interval_days`, and the full archive when it is a multiple of `full_backup_interval_days`; both are optional keys of `<PREFIX>_CONFIG` with defaults 1 (daily) and 7 (weekly), so retiming the cadence is a variable edit rather than a workflow commit, and with the defaults every full-archive day is also a database-archive day. A due day that is missed (runner stopped, run failed) is **not** retried until the next due day. The workflow can also be started manually from **Actions → Backup**: `environment` defaults to `prod`, and `backup` selects `auto` (apply the configured `db_backup_interval_days` / `full_backup_interval_days` cadence), `db` (database/config archive now), or `full` (full/config archive now) — the configuration archive is included in every mode, and `db` / `full` are the modes to use for an on-demand backup outside the cadence. All files are written to a `.part` file first and renamed only on success; they have mode `600`, readable only by the deploying SSH account and root, because the dumps contain mail and identity data, the full archive contains ACME private keys, and the configuration archive contains `.env` secrets. The workflow uses protected backup secrets and requires passwordless sudo — see [Prerequisites](../INSTALLATION.md#prerequisites). One authoritative archive per type is kept per day: a second run on the same day replaces that day's archive rather than adding one.
 
 ### Managing the schedule (enable, disable, retime)
 
@@ -100,7 +100,7 @@ Manual `db` and `full` runs are unaffected by the cadence (and by a disabled sch
 
 ### Consistency
 
-The full archive is taken while containers are running, so `infra/` inside it is crash-consistent rather than transaction-consistent — the `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](../products/stalwart.md#database-management-create--delete--backup--restore)).
+The full archive is taken while containers are running, so `infra/` inside it is crash-consistent rather than transaction-consistent — the `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](../services/stalwart.md#database-management-create--delete--backup--restore)).
 
 ## Backup configuration
 
@@ -172,7 +172,7 @@ The Target 1 endpoint comes from `backup_home_sftp` (`user@host` or `user@host:p
 
 Authentication uses the SSH private key in `BACKUP_HOME_SSH_KEY`, with strict host verification enforced by `BACKUP_HOME_SSH_KNOWN_HOSTS`. Both secrets are required whenever Target 1 is enabled. There is no repository password: the Home Server is treated as trusted storage and holds readable archives. The exact `ssh-keyscan -p <port> -H <host>` procedure for producing the host-key value, and how to paste it into each secret or variable, is documented under [SSH host keys](DEPLOYMENT.md#ssh-host-keys-server_ssh_known_hosts-and-backup_home_ssh_known_hosts) in the deployment guide.
 
-Forgejo Actions uses the existing `devopsrunner` image, extended with `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq`, to orchestrate database dumps, persistent-data archives, retention, transfers, and integrity checks. The runner configuration is documented in [`../products/forgejo.md`](../products/forgejo.md). Because deployment and backup jobs share one capacity-one runner, they queue behind one another.
+Forgejo Actions uses the existing `devopsrunner` image, extended with `rclone`, `openssh-client`, `postgresql-client`, `bash`, and `jq`, to orchestrate database dumps, persistent-data archives, retention, transfers, and integrity checks. The runner configuration is documented in [`../services/forgejo.md`](../services/forgejo.md). Because deployment and backup jobs share one capacity-one runner, they queue behind one another.
 
 The target scope includes Compose and service configuration, PostgreSQL role and database dumps, oCIS configuration and file data, Forgejo data, mail data, Authentik data, certificates, and the remaining inventoried persistent state. The same-host archive remains an intermediate artifact; it is not sufficient disaster recovery by itself.
 
@@ -349,13 +349,13 @@ The full archive covers `APPS_DATA`, which includes paths declared in the defaul
 - `${APPS_DATA}/mailsv/bulwark/telemetry`
 - `${APPS_DATA}/shared/certs`
 
-Per [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) the AI platform moves to local infrastructure; backup, recovery, and retention coverage for the `aiserv/*` paths on local infrastructure is an open follow-up and is not yet re-scoped here.
+Per [ADR-009](../../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) the AI platform moves to local infrastructure; backup, recovery, and retention coverage for the `aiserv/*` paths on local infrastructure is an open follow-up and is not yet re-scoped here.
 
 If `HERMES_DATA_00` points outside `APPS_DATA`, it is not covered by the full archive unless the operating system copies it separately. The workflow allows exclusions through the `backup_exclude` key of `<PREFIX>_CONFIG`; set them per the tier classification below.
 
 ## Backup tiers
 
-[ADR-008 §8](../adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md) classifies the paths above:
+[ADR-008 §8](../../adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md) classifies the paths above:
 
 - **Tier 1 — critical** (`infra/`, `devops/forgejo/data`, `webapp/confluence`, `webapp/ocis`, `mailsv/stalwart`, `shared/certs`): must be included in all backups; never add to `backup_exclude`.
 - **Tier 2 — important** (`aiserv/openwebui`, `aiserv/hermes`, `aiserv/litellm`, `obsvce/grafana`): recommended backup; exclude only when storage constraints require it.
@@ -532,8 +532,8 @@ Exact commands, target layout, ordering details, and compatibility checks remain
 
 ## Related Documents
 
-- [RFC-001 Reliability and Recovery Baseline](../rfc/RFC-001-reliability-and-recovery-baseline.md)
-- [ADR-006 Adopt oCIS with Local Filesystem Storage](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
-- [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
-- [Monitoring and alerting](MONITORING-ALERTING.md)
-- [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
+- [RFC-001 Reliability and Recovery Baseline](../../rfc/RFC-001-reliability-and-recovery-baseline.md)
+- [ADR-006 Adopt oCIS with Local Filesystem Storage](../../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
+- [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../../adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
+- [Monitoring and alerting](../MONITORING-ALERTING.md)
+- [Baseline test plan](../../testing/TEST-001-platform-baseline-validation.md)

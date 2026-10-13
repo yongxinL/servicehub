@@ -6,7 +6,7 @@
 
 [Authentik](https://goauthentik.io/) provides single sign-on and forward-authentication for Traefik-protected services (for example Grafana). It can be extended to cover any service behind the reverse proxy.
 
-Authentik is defined in [`compose/infra.yml`](../../compose/infra.yml) and built from [`shared/authentik/Dockerfile`](../../shared/authentik/Dockerfile) (`FROM ghcr.io/goauthentik/server:${IMAGE_TAG}`).
+Authentik is defined in [`compose/infra.yml`](../../../compose/infra.yml) and built from [`shared/authentik/Dockerfile`](../../../shared/authentik/Dockerfile) (`FROM ghcr.io/goauthentik/server:${IMAGE_TAG}`).
 
 ## Components
 
@@ -35,7 +35,7 @@ Startup order: `infraauthinit` completes → `infraauthwrk` starts (after a heal
 
 ## Configuration
 
-Set in `.env` (see [`env.example`](../../env.example)):
+Set in `.env` (see [`env.example`](../../../env.example)):
 
 | Variable | Description |
 |---|---|
@@ -76,7 +76,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
     http://infraauth:9000/outpost.goauthentik.io/auth/traefik
     ```
 
-    (defined in [`shared/traefik/advanced/middlewares-authentik.yml`](../../shared/traefik/advanced/middlewares-authentik.yml))
+    (defined in [`shared/traefik/advanced/middlewares-authentik.yml`](../../../shared/traefik/advanced/middlewares-authentik.yml))
 
 5. Attach `authentik-forwardauth@file` to the target router's middleware chain. For example, Grafana already does this in `compose/obsvce.yml`.
 
@@ -135,8 +135,8 @@ Do these in the Authentik admin UI (one-time):
 
 ## See also
 
-- [Root README — Architecture](../../README.md#architecture-overview)
-- [Root README — Security Observability Stack](../../README.md#security-observability-stack) — Grafana is an example forward-auth–protected service
+- [Root README — Architecture](../../../README.md#architecture-overview)
+- [Root README — Security Observability Stack](../../../README.md#security-observability-stack) — Grafana is an example forward-auth–protected service
 - [Stalwart Mail Server](stalwart.md#directory-authentik-ldap-sso) — consumes this IdP as its LDAP mail directory (walkthrough consolidated there)
 - [Traefik](traefik.md) — forward-auth middleware and routing
 - [oCIS](owncloud.md) — Authentik OIDC cloud-drive integration

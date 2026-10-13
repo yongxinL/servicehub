@@ -4,7 +4,7 @@
 
 ## Overview
 
-[MariaDB 11.8](https://mariadb.org/) provides a MySQL-compatible relational database. It is defined by the `inframariadb` service in [`compose/infra.yml`](../../compose/infra.yml) and built from [`shared/mariadb/Dockerfile`](../../shared/mariadb/Dockerfile) (`FROM mariadb:11.8`).
+[MariaDB 11.8](https://mariadb.org/) provides a MySQL-compatible relational database. It is defined by the `inframariadb` service in [`compose/infra.yml`](../../../compose/infra.yml) and built from [`shared/mariadb/Dockerfile`](../../../shared/mariadb/Dockerfile) (`FROM mariadb:11.8`).
 
 > **Note:** No service in the default stack uses MariaDB — Authentik, Forgejo, LiteLLM and Confluence all use [PostgreSQL](postgresql.md). The service is kept available for future MySQL-backed services; leave `MARIADB_DATABASES` empty if you don't need it.
 
@@ -16,11 +16,11 @@
 | Internal port | 3306 (not published to the host) |
 | Data persistence | `${APPS_DATA}/infra/mariadb` |
 | Health check | `healthcheck.sh --connect --innodb_initialized` every 10 s |
-| Init script | [`create-multiple-databases.sh`](../../shared/mariadb/create-multiple-databases.sh) |
+| Init script | [`create-multiple-databases.sh`](../../../shared/mariadb/create-multiple-databases.sh) |
 
 ## Configuration
 
-Set in `.env` (see [`env.example`](../../env.example)):
+Set in `.env` (see [`env.example`](../../../env.example)):
 
 | Variable | Description |
 |---|---|
@@ -31,7 +31,7 @@ Set in `.env` (see [`env.example`](../../env.example)):
 
 ## Multiple databases
 
-[`create-multiple-databases.sh`](../../shared/mariadb/create-multiple-databases.sh) is copied to `/docker-entrypoint-initdb.d/` and runs **only on first initialisation** of an empty data directory. For each entry in `MARIADB_DATABASES` (comma-separated) it runs:
+[`create-multiple-databases.sh`](../../../shared/mariadb/create-multiple-databases.sh) is copied to `/docker-entrypoint-initdb.d/` and runs **only on first initialisation** of an empty data directory. For each entry in `MARIADB_DATABASES` (comma-separated) it runs:
 
 ```sql
 CREATE DATABASE IF NOT EXISTS `<name>`;
@@ -84,10 +84,10 @@ docker compose up -d inframariadb
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](../../shared/mariadb/Dockerfile) | Image build (`FROM mariadb:11.8`) + init script copy |
-| [`create-multiple-databases.sh`](../../shared/mariadb/create-multiple-databases.sh) | First-boot database/bootstrap script |
+| [`Dockerfile`](../../../shared/mariadb/Dockerfile) | Image build (`FROM mariadb:11.8`) + init script copy |
+| [`create-multiple-databases.sh`](../../../shared/mariadb/create-multiple-databases.sh) | First-boot database/bootstrap script |
 
 ## See also
 
 - [PostgreSQL](postgresql.md) — the primary database in this stack
-- [Root README — Configuration](../../README.md#configuration)
+- [Root README — Configuration](../../../README.md#configuration)

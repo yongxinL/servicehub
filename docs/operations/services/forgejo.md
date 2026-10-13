@@ -4,9 +4,9 @@
 
 ## Overview
 
-[Forgejo](https://forgejo.org/) is a community fork of Gitea and the source-control host for the stack. It is defined by the `devopsforgejo` service in [`compose/devops.yml`](../../compose/devops.yml) and built from [`shared/forgejo/server/Dockerfile`](../../shared/forgejo/server/Dockerfile) (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`).
+[Forgejo](https://forgejo.org/) is a community fork of Gitea and the source-control host for the stack. It is defined by the `devopsforgejo` service in [`compose/devops.yml`](../../../compose/devops.yml) and built from [`shared/forgejo/server/Dockerfile`](../../../shared/forgejo/server/Dockerfile) (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`).
 
-Forgejo Actions provides the stack's CI/CD — including the deployment of ServiceHub itself (see [Forgejo Actions runner](#forgejo-actions-runner) and the [deployment guide](../operations/DEPLOYMENT.md)).
+Forgejo Actions provides the stack's CI/CD — including the deployment of ServiceHub itself (see [Forgejo Actions runner](#forgejo-actions-runner) and the [deployment guide](../runbooks/DEPLOYMENT.md)).
 
 ## Service details
 
@@ -25,7 +25,7 @@ Forgejo Actions provides the stack's CI/CD — including the deployment of Servi
 
 ## Configuration
 
-Set in `.env` (see [`env.example`](../../env.example)):
+Set in `.env` (see [`env.example`](../../../env.example)):
 
 | Variable | Description |
 |---|---|
@@ -52,13 +52,13 @@ Container settings applied by the compose file:
 
 ## Forgejo Actions runner
 
-All Forgejo Actions workflows are executed by `devopsrunner`, built from [`shared/forgejo/actions/Dockerfile`](../../shared/forgejo/actions/Dockerfile). The existing image also contains the PostgreSQL client and Rclone required by the backup workflow.
+All Forgejo Actions workflows are executed by `devopsrunner`, built from [`shared/forgejo/actions/Dockerfile`](../../../shared/forgejo/actions/Dockerfile). The existing image also contains the PostgreSQL client and Rclone required by the backup workflow.
 
 | Detail | Value |
 |---|---|
 | Service name | `devopsrunner` |
 | Compose file | `compose/devops.yml` |
-| Runner config | [`actions/config.yml`](../../shared/forgejo/actions/config.yml) (read-only at `/etc/forgejo-runner/config.yml`) |
+| Runner config | [`actions/config.yml`](../../../shared/forgejo/actions/config.yml) (read-only at `/etc/forgejo-runner/config.yml`) |
 | Registration data | `${APPS_DATA}/devops/forgejo/runner` |
 | Registration | Runner writes `.runner` on first boot from `SOURCECODE_RUNNER_SECRET`; the same secret must be registered on the Forgejo side (see [Setup](#setup-first-boot)) |
 | Labels | `ssh-deploy:host` — deployment and backup workflows declare `runs-on: ssh-deploy` |
@@ -66,7 +66,7 @@ All Forgejo Actions workflows are executed by `devopsrunner`, built from [`share
 | Health check | `pidof forgejo-runner` + `.runner` non-empty every 30 s (30 s startup delay) |
 | Depends on | `devopsforgejoinit` (completed), `devopsforgejo` (healthy) |
 
-Runner-specific variables (`.env` / [`env.example`](../../env.example)):
+Runner-specific variables (`.env` / [`env.example`](../../../env.example)):
 
 | Variable | Description |
 |---|---|
@@ -75,7 +75,7 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 > Re-registering: delete `${APPS_DATA}/devops/forgejo/runner/.runner` (or the whole directory), re-run the Forgejo-side registration command if the secret changed, and restart `devopsrunner`.
 >
-> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://devopsforgejo:3000`), so `actions/checkout` needs no public TLS; deploy targets receive the working tree over rsync from the runner checkout and never clone the repository themselves (see [deployment guide](../operations/DEPLOYMENT.md)).
+> Host mode means workflow jobs run in the runner container and reach Forgejo over the internal URL (`http://devopsforgejo:3000`), so `actions/checkout` needs no public TLS; deploy targets receive the working tree over rsync from the runner checkout and never clone the repository themselves (see [deployment guide](../runbooks/DEPLOYMENT.md)).
 
 ## Data & persistence
 
@@ -88,9 +88,9 @@ Runner-specific variables (`.env` / [`env.example`](../../env.example)):
 
 ## Backup Workflow Runtime
 
-The [`Backup`](../../.forgejo/workflows/71-backup.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `rclone`, `rsync`, `postgresql-client`, `bash`, `jq`, `git-crypt`, OpenSSH, and `sshpass`, so archive creation, transfers, integrity checks, and retention share the same host-mode runner as deployment workflows; the PostgreSQL dumps themselves run inside the remote `infrapgsql` container, so the runner does not need `psql` on its own PATH.
+The [`Backup`](../../../.forgejo/workflows/71-backup.yml) workflow runs on the existing `ssh-deploy` label. Its image includes `rclone`, `rsync`, `postgresql-client`, `bash`, `jq`, `git-crypt`, OpenSSH, and `sshpass`, so archive creation, transfers, integrity checks, and retention share the same host-mode runner as deployment workflows; the PostgreSQL dumps themselves run inside the remote `infrapgsql` container, so the runner does not need `psql` on its own PATH.
 
-Because the runner has capacity one, long backup and deployment jobs queue behind each other. Retention and target paths are non-sensitive and live in the `STAG_CONFIG` / `PROD_CONFIG` repository **variables**; credentials and encoded key material live in the `GIT_CRYPT_KEY`, `STAG_*`, `PROD_*`, and `BACKUP_*` repository **secrets**. Both are documented by name in [backup and restore](../../docs/operations/BACKUP-RESTORE.md) and the [root README](../../README.md#required-actions-secrets-and-variables).
+Because the runner has capacity one, long backup and deployment jobs queue behind each other. Retention and target paths are non-sensitive and live in the `STAG_CONFIG` / `PROD_CONFIG` repository **variables**; credentials and encoded key material live in the `GIT_CRYPT_KEY`, `STAG_*`, `PROD_*`, and `BACKUP_*` repository **secrets**. Both are documented by name in [backup and restore](../runbooks/BACKUP-RESTORE.md) and the [root README](../../../README.md#required-actions-secrets-and-variables).
 
 ## Setup (first boot)
 
@@ -115,7 +115,7 @@ Because the runner has capacity one, long backup and deployment jobs queue behin
     Alternatively, register through the Forgejo UI — no shell on the Forgejo container needed:
 
     1. **Site Administration → Actions → Runners → Create new runner** (or the repo's **Settings → Actions → Runners** for a per-repo runner). Enter **Name** `devopsrunner` and click **Create runner**. Forgejo shows a **UUID** and **Token**.
-    2. Paste them into [`shared/forgejo/actions/config.yml`](../../shared/forgejo/actions/config.yml) under `server.connections.forgejo`:
+    2. Paste them into [`shared/forgejo/actions/config.yml`](../../../shared/forgejo/actions/config.yml) under `server.connections.forgejo`:
 
         ```yaml
         server:
@@ -132,7 +132,7 @@ Because the runner has capacity one, long backup and deployment jobs queue behin
         docker compose up -d devopsrunner
         ```
 
-    > The UI flow uses different credentials than the `--secret` flow above, so the entrypoint's `create-runner-file --secret` step in [`actions/entrypoint.sh`](../../shared/forgejo/actions/entrypoint.sh) needs to be skipped (the runner daemon will pick up the UI credentials from `config.yml` and write `.runner` itself). Pick **one** flow — the two produce different `.runner` files.
+    > The UI flow uses different credentials than the `--secret` flow above, so the entrypoint's `create-runner-file --secret` step in [`actions/entrypoint.sh`](../../../shared/forgejo/actions/entrypoint.sh) needs to be skipped (the runner daemon will pick up the UI credentials from `config.yml` and write `.runner` itself). Pick **one** flow — the two produce different `.runner` files.
 
 4. Start the runner:
 
@@ -141,7 +141,7 @@ Because the runner has capacity one, long backup and deployment jobs queue behin
     ```
 
 5. Verify the runner appears in **Site Administration → Actions → Runners** (or repo **Settings → Actions → Runners**) and that the repo's **Settings → Units → Actions** checkbox is ticked.
-6. Add workflow files under `.forgejo/workflows/` — see [`61-deploy.yml`](../../.forgejo/workflows/61-deploy.yml) (deploy) and [`71-backup.yml`](../../.forgejo/workflows/71-backup.yml) (backup).
+6. Add workflow files under `.forgejo/workflows/` — see [`61-deploy.yml`](../../../.forgejo/workflows/61-deploy.yml) (deploy) and [`71-backup.yml`](../../../.forgejo/workflows/71-backup.yml) (backup).
 
 ## Operations
 
@@ -177,14 +177,14 @@ docker compose up -d devopsforgejo devopsrunner
 
 | Path | Purpose |
 |---|---|
-| [`server/Dockerfile`](../../shared/forgejo/server/Dockerfile) | Forgejo image build (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`) |
-| [`actions/Dockerfile`](../../shared/forgejo/actions/Dockerfile) | Forgejo runner image build (`FROM code.forgejo.org/forgejo/runner:${IMAGE_TAG}`) |
-| [`actions/entrypoint.sh`](../../shared/forgejo/actions/entrypoint.sh) | Runner entrypoint: creates `.runner` from `SOURCECODE_RUNNER_SECRET`, then starts the daemon |
-| [`actions/config.yml`](../../shared/forgejo/actions/config.yml) | Runner configuration, bind-mounted read-only by `compose/devops.yml` |
+| [`server/Dockerfile`](../../../shared/forgejo/server/Dockerfile) | Forgejo image build (`FROM codeberg.org/forgejo/forgejo:${IMAGE_TAG}`) |
+| [`actions/Dockerfile`](../../../shared/forgejo/actions/Dockerfile) | Forgejo runner image build (`FROM code.forgejo.org/forgejo/runner:${IMAGE_TAG}`) |
+| [`actions/entrypoint.sh`](../../../shared/forgejo/actions/entrypoint.sh) | Runner entrypoint: creates `.runner` from `SOURCECODE_RUNNER_SECRET`, then starts the daemon |
+| [`actions/config.yml`](../../../shared/forgejo/actions/config.yml) | Runner configuration, bind-mounted read-only by `compose/devops.yml` |
 
 ## See also
 
-- [Deployment guide](../operations/DEPLOYMENT.md) — deploy workflow and secrets
-- [Backup and restore](../../docs/operations/BACKUP-RESTORE.md) — shared-runner backup scope, targets, and recovery
+- [Deployment guide](../runbooks/DEPLOYMENT.md) — deploy workflow and secrets
+- [Backup and restore](../runbooks/BACKUP-RESTORE.md) — shared-runner backup scope, targets, and recovery
 - [PostgreSQL](postgresql.md) — database backend
-- [Root README — Architecture](../../README.md#architecture-overview)
+- [Root README — Architecture](../../../README.md#architecture-overview)

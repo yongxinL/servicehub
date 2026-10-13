@@ -411,7 +411,7 @@ Superseded baseline: the pre-change compose set (`route.yml`, `dbsvc.yml`, `auth
 - [ADR-006 Adopt oCIS with Local Filesystem Storage](ADR-006-adopt-ocis-with-local-filesystem-storage.md) — oCIS storage paths affected by the new layout.
 - [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](ADR-007-adopt-dual-target-backup-and-recovery.md) — backup scope and workflow affected by the tier model.
 - [Service inventory](../operations/SERVICE-INVENTORY.md) — current service names and mounts.
-- [Backup and restore](../operations/BACKUP-RESTORE.md) — backup scope re-expressed with the tier model.
+- [Backup and restore](../operations/runbooks/BACKUP-RESTORE.md) — backup scope re-expressed with the tier model.
 - [Architecture](../architecture/ARCHITECTURE.md) — component and boundary diagrams updated by this decision.
 
 ## Follow-up Actions
@@ -424,7 +424,7 @@ Superseded baseline: the pre-change compose set (`route.yml`, `dbsvc.yml`, `auth
 | Remove the listed bind mounts, restrict Docker socket access, and replace `/etc/localtime` with `TZ` | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`79e810a`); server validation pending |
 | Move certificates to `${APPS_DATA}/shared/certs` and update Traefik and Stalwart consumers | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`79e810a`); host ACME migration pending |
 | Apply the environment variable and database variable renames across `env.example`, `compose/*.yml`, `scripts/setup.sh`, workflows, `shared/` configuration, and documentation in one change | ServiceHub Architecture | 2026-10-05 | Repository change applied on `service-renaming` (`41f6b1d`); `.env` files migrated manually by the owner and the `setup.sh` migration block removed (2026-10-06); server validation pending |
-| Update backup scope and exclusions to the tier classification under ADR-007 | ServiceHub Architecture | 2026-10-05 | Tier classification documented in [BACKUP-RESTORE](../operations/BACKUP-RESTORE.md); exclusion values remain deployment secrets |
+| Update backup scope and exclusions to the tier classification under ADR-007 | ServiceHub Architecture | 2026-10-05 | Tier classification documented in [BACKUP-RESTORE](../operations/runbooks/BACKUP-RESTORE.md); exclusion values remain deployment secrets |
 | Rename the five databases to the `svchub_<purpose>` values and update every consumer in one maintenance window | ServiceHub Architecture | TBD | Proposed; `.env` values migrated manually — server-side database rename and grants pending |
 | Update Forgejo Actions deploy and backup workflows, monitoring provisioning, and dashboards | ServiceHub Architecture | 2026-10-05 | Workflows and monitoring configuration renamed (`975c701`, `41f6b1d`, `76ec13e`); dead dashboard panels for the removed mounts stripped (`9e636af`); runtime provisioning pending |
 | Rename `SOURCECODE_PUBLIC_URL` and `SOURCECODE_DEPLOY_TOKEN` in Forgejo repository Actions settings on staging and production | George Li | TBD | Superseded — the deploy workflow syncs the working tree from the runner checkout and reads neither entry; removing them from the Forgejo UI is optional (repository side applied on `service-renaming` (`76ec13e`)) |

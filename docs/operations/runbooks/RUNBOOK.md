@@ -25,7 +25,7 @@ related_documents:
 
 ## Prerequisites
 
-Docker 24+, Compose 2.20+, `python3`, `openssl`, `git-crypt` when encrypted certificate material must be unlocked, Docker group access for the administrator, and read access to logs and `APPS_DATA`. The full prerequisite and installation sequence is in [Installation](INSTALLATION.md); backup and escalation details before maintenance: `TBD`.
+Docker 24+, Compose 2.20+, `python3`, `openssl`, `git-crypt` when encrypted certificate material must be unlocked, Docker group access for the administrator, and read access to logs and `APPS_DATA`. The full prerequisite and installation sequence is in [Installation](../INSTALLATION.md); backup and escalation details before maintenance: `TBD`.
 
 Confirm the working directory contains the root `docker-compose.yml` before running commands.
 
@@ -93,7 +93,7 @@ Restart the identity server and worker:
 docker compose restart infraauth infraauthwrk
 ```
 
-Use the [service inventory](SERVICE-INVENTORY.md) to identify dependencies before restarting.
+Use the [service inventory](../SERVICE-INVENTORY.md) to identify dependencies before restarting.
 
 ## Health Checks
 
@@ -107,7 +107,7 @@ Check a specific service's declared health through Compose status:
 docker compose ps devopsforgejo
 ```
 
-For routed services, combine container health with a redacted HTTPS request to the configured hostname. Health definitions are recorded in the [component catalogue](../architecture/COMPONENT-CATALOGUE.md).
+For routed services, combine container health with a redacted HTTPS request to the configured hostname. Health definitions are recorded in the [component catalogue](../../architecture/COMPONENT-CATALOGUE.md).
 
 ## Log Access
 
@@ -165,7 +165,7 @@ Treat this as a controlled maintenance action because mutable `latest` images ma
 7. Check health, authentication, routes, data, metrics, and logs.
 8. Record evidence and update documentation.
 
-The Forgejo deployment workflow handles application services with `--no-deps`; foundational services are updated manually. See [deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md).
+The Forgejo deployment workflow handles application services with `--no-deps`; foundational services are updated manually. See [deployment architecture](../../architecture/DEPLOYMENT-ARCHITECTURE.md).
 
 ## Rollback
 
@@ -194,7 +194,7 @@ Escalate immediately when:
 - Secrets or private keys may have been exposed.
 - A proposed workaround could delete or overwrite persistent data.
 
-Preserve logs and timestamps, avoid reproducing secrets, and link the relevant [troubleshooting](TROUBLESHOOTING.md) workflow.
+Preserve logs and timestamps, avoid reproducing secrets, and link the relevant [troubleshooting](../TROUBLESHOOTING.md) workflow.
 
 ## Emergency Considerations
 
@@ -206,9 +206,9 @@ Preserve logs and timestamps, avoid reproducing secrets, and link the relevant [
 
 ## Related Documents
 
-- [Service inventory](SERVICE-INVENTORY.md)
+- [Service inventory](../SERVICE-INVENTORY.md)
 - [Backup and restore](BACKUP-RESTORE.md)
-- [Monitoring and alerting](MONITORING-ALERTING.md)
-- [Troubleshooting](TROUBLESHOOTING.md)
-- [Test register](../testing/README.md)
+- [Monitoring and alerting](../MONITORING-ALERTING.md)
+- [Troubleshooting](../TROUBLESHOOTING.md)
+- [Test register](../../testing/README.md)
 

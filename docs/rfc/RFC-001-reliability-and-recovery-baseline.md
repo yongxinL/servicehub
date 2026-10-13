@@ -136,8 +136,8 @@ Accepted on 2026-10-03 through [ADR-007](../adr/ADR-007-adopt-dual-target-backup
 
 ## Related Documents
 
-- [Backup and restore](../operations/BACKUP-RESTORE.md)
-- [Forgejo runner and backup workflow runtime](../products/forgejo.md#backup-workflow-runtime)
+- [Backup and restore](../operations/runbooks/BACKUP-RESTORE.md)
+- [Forgejo runner and backup workflow runtime](../operations/services/forgejo.md#backup-workflow-runtime)
 - [Monitoring and alerting](../operations/MONITORING-ALERTING.md)
 - [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
 - [Observability and hardening phase](../phases/PHASE-004-observability-and-operational-hardening.md)

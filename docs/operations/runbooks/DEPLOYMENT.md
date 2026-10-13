@@ -24,7 +24,7 @@ related_documents:
 
 # ServiceHub Deployment (Forgejo Actions)
 
-The Forgejo Actions workflow at [`61-deploy.yml`](../../.forgejo/workflows/61-deploy.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs, secrets and variables are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`devopsrunner`).
+The Forgejo Actions workflow at [`61-deploy.yml`](../../../.forgejo/workflows/61-deploy.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs, secrets and variables are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`devopsrunner`).
 
 ## Workflow Inputs
 
@@ -43,7 +43,7 @@ The Forgejo Actions workflow at [`61-deploy.yml`](../../.forgejo/workflows/61-de
 7. On production only, restores `acme.json` from the `*_B64ENC_ACME` secret only when it is missing on the server (bootstrap-only)
 8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to the fixed app allowlist — `webappconf`, `webappocis`, `mailsvstalwart`, `mailsvbulwark` — with `webappocisinit` first; `aiserv*` and `obsvce*` are never deployed by CI)
 
-> **Deploy scope:** databases (`infra*`), Authentik (`infra*`), DevOps / Forgejo + runner (`devops*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deployment altogether per [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md): the AI platform runs on local infrastructure and the observability stack is retained in source control only. Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
+> **Deploy scope:** databases (`infra*`), Authentik (`infra*`), DevOps / Forgejo + runner (`devops*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deployment altogether per [ADR-009](../../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md): the AI platform runs on local infrastructure and the observability stack is retained in source control only. Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
 >
 > **Bootstrap-only restore:** `.env` and `acme.json` are restored from their secrets only when the file is missing on the server; an existing file is never overwritten. After the first deploy, `scripts/setup.sh` owns `.env` (it merges new `env.example` keys in place) and Traefik owns `acme.json` (it renews certificates in place), so neither needs a timestamp comparison to stay current.
 
@@ -83,7 +83,7 @@ Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
 
 | Secret | How to obtain | Description |
 |---|---|---|
-| `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates in the runner checkout before the working tree is synced to the remote server. Required: the deploy fails before any sync if it is missing or wrong. Generate with `git-crypt init && git-crypt export-key ./servicehub.key` (see [Managing Encrypted Files](DEVELOPMENT.md#managing-encrypted-files-git-crypt)). |
+| `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates in the runner checkout before the working tree is synced to the remote server. Required: the deploy fails before any sync if it is missing or wrong. Generate with `git-crypt init && git-crypt export-key ./servicehub.key` (see [Managing Encrypted Files](../DEVELOPMENT.md#managing-encrypted-files-git-crypt)). |
 
 > The three backup secrets — `BACKUP_HOME_SSH_KEY`, `BACKUP_HOME_SSH_KNOWN_HOSTS` and `BACKUP_RCLONE_CONFIG` — are set in the same store but belong to the backup workflow; they are documented under [Backup secrets](BACKUP-RESTORE.md#backup-secrets).
 
@@ -142,7 +142,7 @@ The example also carries the `backup_*` keys of the [backup workflow](BACKUP-RES
 |---|---|---|
 | `server_host` | all | Hostname or address of the **source server** — the host that receives deployments and that the backup workflow SSHes into to create and read archives. Not the address of an off-host backup target. Must be a DNS name or IPv4 address — IPv6 literals are not supported (consistent with `backup_home_sftp`). |
 | `server_port` | no | SSH port for the source server; defaults to `22`. Applies to every SSH use: deploy and backup archive creation. This is unrelated to the Home Server SFTP endpoint, which is part of `backup_home_sftp`. |
-| `server_user` | all | SSH login account. Needs Docker access and passwordless sudo — see [Prerequisites](../operations/INSTALLATION.md#prerequisites). |
+| `server_user` | all | SSH login account. Needs Docker access and passwordless sudo — see [Prerequisites](../INSTALLATION.md#prerequisites). |
 | `deploy_path` | all | Absolute path that receives the deployed working tree. Created on first deploy; no git metadata is kept there. |
 | `server_ssh_known_hosts` | all | The source server's public SSH host key(s), verbatim `ssh-keyscan -p <port> -H <host>` output — see [SSH host keys](#ssh-host-keys-server_ssh_known_hosts-and-backup_home_ssh_known_hosts). **Required by both the backup and deploy workflows** (no runtime fallback, so host trust is deterministic). |
 
@@ -202,7 +202,7 @@ ssh-keyscan -p 2222 -H home.example
 1. Open the repository in Forgejo (`https://${SOURCECODE_DOMAIN}`) → **Actions**
 2. Select the **Deploy** workflow and click **Run workflow**
 3. Set the inputs:
-   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`webappconf`, `webappocis`, `mailsvstalwart`, `mailsvbulwark`). Foundational services are not listed, and AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deploy scope ([ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) — see [How It Works](#how-it-works).
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`webappconf`, `webappocis`, `mailsvstalwart`, `mailsvbulwark`). Foundational services are not listed, and AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deploy scope ([ADR-009](../../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) — see [How It Works](#how-it-works).
    - **environment** — `stag` (default) or `prod`
    - **branch** — branch to deploy (default `main`; production accepts only `main`)
 4. Click the green **Run workflow** button — progress and logs appear in the workflow run page
@@ -211,10 +211,10 @@ ssh-keyscan -p 2222 -H home.example
 
 ## Backup Schedule
 
-The companion backup workflow ([`71-backup.yml`](../../.forgejo/workflows/71-backup.yml)) runs **daily at 02:30 (`Australia/Sydney`)**: a configuration archive on every run, a database archive every `db_backup_interval_days` days (default 1, daily), and a full archive every `full_backup_interval_days` days (default 7, weekly) — set those keys in `${PREFIX}_CONFIG` to change the cadence without a commit. To pause it without changing any file, open **Actions → Backup**, select the workflow in the run list, and use the **⋮** menu → **Disable Workflow** (repository administrator); **Enable Workflow** in the same menu resumes it. To retime the daily trigger itself, edit `cron` / `timezone` under `on.schedule` in `.forgejo/workflows/71-backup.yml` **on the default branch** and push — Forgejo has no UI or API override for a cron expression. Full options: [Managing the schedule](BACKUP-RESTORE.md#managing-the-schedule-enable-disable-retime).
+The companion backup workflow ([`71-backup.yml`](../../../.forgejo/workflows/71-backup.yml)) runs **daily at 02:30 (`Australia/Sydney`)**: a configuration archive on every run, a database archive every `db_backup_interval_days` days (default 1, daily), and a full archive every `full_backup_interval_days` days (default 7, weekly) — set those keys in `${PREFIX}_CONFIG` to change the cadence without a commit. To pause it without changing any file, open **Actions → Backup**, select the workflow in the run list, and use the **⋮** menu → **Disable Workflow** (repository administrator); **Enable Workflow** in the same menu resumes it. To retime the daily trigger itself, edit `cron` / `timezone` under `on.schedule` in `.forgejo/workflows/71-backup.yml` **on the default branch** and push — Forgejo has no UI or API override for a cron expression. Full options: [Managing the schedule](BACKUP-RESTORE.md#managing-the-schedule-enable-disable-retime).
 
 ## Related
 
-- Deployment scope, risks, and architecture model: [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md)
+- Deployment scope, risks, and architecture model: [Deployment architecture](../../architecture/DEPLOYMENT-ARCHITECTURE.md)
 - Backup workflow configuration (`BACKUP_*` secrets, `backup_*` keys, schedules, retention) and restore: [Backup and restore](BACKUP-RESTORE.md)
-- Server-side prerequisites: [Installation](../operations/INSTALLATION.md)
+- Server-side prerequisites: [Installation](../INSTALLATION.md)

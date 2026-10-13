@@ -76,10 +76,10 @@ Authentik has a dedicated server, worker, initialiser, persistent media and temp
 ## Implementation Evidence
 
 - [compose/authn.yml](../../compose/authn.yml)
-- [Authentik README](../products/authentik.md)
+- [Authentik README](../operations/services/authentik.md)
 - [forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml)
 - [Grafana route](../../compose/obsvc.yml)
-- [Stalwart directory documentation](../products/stalwart.md)
+- [Stalwart directory documentation](../operations/services/stalwart.md)
 
 ## Related Documents
 

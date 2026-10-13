@@ -6,7 +6,7 @@
 
 [WordPress](https://wordpress.org/) runs on a custom `wordpress:fpm-alpine` image with Nginx and PHP-FPM managed by supervisord. It can replace Confluence as the homepage, serving `WORKSPACE_DOMAIN` plus the apex `${DOMAIN_NAME}`.
 
-The service is kept ready to run in [`compose.yml`](../../shared/wordpress/compose.yml) but is **not** included by the root `docker-compose.yml`. It is backed by [MariaDB](mariadb.md). Only one homepage can run at a time — Confluence and WordPress both claim `WORKSPACE_DOMAIN` and the apex domain.
+The service is kept ready to run in [`compose.yml`](../../../shared/wordpress/compose.yml) but is **not** included by the root `docker-compose.yml`. It is backed by [MariaDB](mariadb.md). Only one homepage can run at a time — Confluence and WordPress both claim `WORKSPACE_DOMAIN` and the apex domain.
 
 ## Service details
 
@@ -29,7 +29,7 @@ The service is kept ready to run in [`compose.yml`](../../shared/wordpress/compo
     docker compose stop webappconf
     ```
 
-2. In [`docker-compose.yml`](../../docker-compose.yml), replace `- compose/webapp.yml` with `- shared/wordpress/compose.yml`.
+2. In [`docker-compose.yml`](../../../docker-compose.yml), replace `- compose/webapp.yml` with `- shared/wordpress/compose.yml`.
 3. In `.env`, ensure `MARIADB_DATABASES` contains `${WORKSPACE_DBNAME}` (the default) and set `WORKSPACE_DOMAIN` / `WORKSPACE_DBNAME` as desired.
 4. Start it:
 
@@ -41,7 +41,7 @@ Reverse the change to go back to Confluence; the two must never run together.
 
 ## Configuration
 
-Set in `.env` (see [`env.example`](../../env.example)):
+Set in `.env` (see [`env.example`](../../../env.example)):
 
 | Variable | Description |
 |---|---|
@@ -95,16 +95,16 @@ docker compose logs -f webappwpress
 
 | Path | Purpose |
 |---|---|
-| [`compose.yml`](../../shared/wordpress/compose.yml) | Service definition (swap this in for `compose/webapp.yml` to enable) |
-| [`Dockerfile`](../../shared/wordpress/Dockerfile) | Image build (`FROM wordpress:fpm-alpine`) + Nginx/supervisord/PHP setup |
-| [`etc/nginx/nginx.conf`](../../shared/wordpress/etc/nginx/nginx.conf) | Nginx base configuration |
-| [`etc/nginx/http.d/00-common.inc`](../../shared/wordpress/etc/nginx/http.d/00-common.inc) | Shared locations (caching, hidden-file denial) |
-| [`etc/nginx/http.d/10-wordpress.inc`](../../shared/wordpress/etc/nginx/http.d/10-wordpress.inc) | WordPress rewrite and PHP-FPM proxying |
-| [`etc/supervisord.conf`](../../shared/wordpress/etc/supervisord.conf) | Runs PHP-FPM and Nginx in one container |
+| [`compose.yml`](../../../shared/wordpress/compose.yml) | Service definition (swap this in for `compose/webapp.yml` to enable) |
+| [`Dockerfile`](../../../shared/wordpress/Dockerfile) | Image build (`FROM wordpress:fpm-alpine`) + Nginx/supervisord/PHP setup |
+| [`etc/nginx/nginx.conf`](../../../shared/wordpress/etc/nginx/nginx.conf) | Nginx base configuration |
+| [`etc/nginx/http.d/00-common.inc`](../../../shared/wordpress/etc/nginx/http.d/00-common.inc) | Shared locations (caching, hidden-file denial) |
+| [`etc/nginx/http.d/10-wordpress.inc`](../../../shared/wordpress/etc/nginx/http.d/10-wordpress.inc) | WordPress rewrite and PHP-FPM proxying |
+| [`etc/supervisord.conf`](../../../shared/wordpress/etc/supervisord.conf) | Runs PHP-FPM and Nginx in one container |
 
 ## See also
 
 - [Confluence](confluence.md) — the default homepage (never run both)
 - [MariaDB](mariadb.md) — database backend
 - [Traefik](traefik.md) — edge routing and TLS
-- [Root README — Homepage](../../README.md#homepage)
+- [Root README — Homepage](../../../README.md#homepage)

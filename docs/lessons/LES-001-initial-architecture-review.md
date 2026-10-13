@@ -2,7 +2,8 @@
 project: ServiceHub
 project_code: SVCHUB
 document_type: LESSON
-document_id: LESSON-001
+document_id: LES-001
+Formerly: LESSON-001
 title: Initial Architecture Review
 version: "1.1"
 status: Draft
@@ -21,7 +22,7 @@ related_documents:
   - ROADMAP-001
 ---
 
-# LESSON-001: Initial Architecture Review
+# LES-001: Initial Architecture Review
 
 ## Context
 
