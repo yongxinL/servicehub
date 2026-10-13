@@ -11,7 +11,7 @@
 | Adoption date | 2026-10-12 |
 | Adoption state | Adoption in Progress |
 | Primary agent | codex |
-| Active Spec Kit integration | codex (not yet initialized) |
+| Active Spec Kit integration | codex |
 | Exceptions location | [documentation-exceptions.md](documentation-exceptions.md) |
 | Tooling register | [tooling-adoption-register.md](tooling-adoption-register.md) |
 | Maturity target (optional) | Level 1: Controlled |

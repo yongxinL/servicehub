@@ -6,8 +6,8 @@ Records which tools are **actually configured or enabled** in this project. Each
 
 | Tool | Version | Scope | State | Entry |
 |---|---|---|---|---|
-| GitHub Spec Kit | `<SPEC_KIT_VERSION>` | Project | Planned | TA-001 |
-| Primary agent (`<PRIMARY_AGENT>`) | `<OPENCODE_VERSION>` or installed Codex version | User install, project config | Planned | TA-002 |
+| GitHub Spec Kit | `1.1.3` | Project | Enabled | TA-001 |
+| Primary agent (`codex`) | `0.162.1` | User install, project config | Enabled | TA-002 |
 
 States: Planned, Pilot, Enabled, Disabled, Removed. Removed entries remain listed.
 
