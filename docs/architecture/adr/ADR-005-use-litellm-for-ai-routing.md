@@ -75,21 +75,20 @@ The repository includes LiteLLM configuration, a smart routing hook, health-base
 
 ## Implementation Evidence
 
-- [compose/aiagn.yml](../../compose/aiagn.yml)
-- [LiteLLM README](../operations/services/litellm.md)
-- [default configuration](../../shared/litellm/config.default.yaml)
-- [smart router](../../shared/litellm/smartrouter.py)
-- [llama.cpp service](../../compose/aiagn.yml)
+- [compose/aiserv.yml](../../../compose/aiserv.yml) (Rename note 2026-10-12: formerly compose/aiagn.yml.)
+- [LiteLLM README](../../operations/services/litellm.md)
+- [default configuration](../../../shared/litellm/config.default.yaml)
+- [smart router](../../../shared/litellm/smartrouter.py)
+- [llama.cpp service](../../../compose/aiserv.yml) (Rename note 2026-10-12: formerly compose/aiagn.yml.)
 
 ## Related Documents
 
-- [Data flow](../architecture/DATA-FLOW.md)
-- [AI platform phase](../phases/PHASE-003-ai-platform.md)
-- [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
+- [Data flow](../DATA-FLOW.md)
+- [AI platform phase](../../phases/PHASE-003-ai-platform.md)
+- [Baseline test plan](../../testing/TEST-001-platform-baseline-validation.md)
 
 ## Follow-up Actions
 
 - Execute privacy, local, cloud, unhealthy-local, and context-window routing tests.
 - Review published port protection.
 - Record actual cloud-provider availability without exposing credentials.
-

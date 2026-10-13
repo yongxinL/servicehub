@@ -29,7 +29,7 @@ related_documents:
 
 ## Architecture Overview
 
-ServiceHub is a Docker Compose project named `servicehub`. The root file includes eight domain Compose files for routing, databases, identity, developer services, web applications, AI, observability, and email. All included services join the `subnet` bridge network; `webappconf` additionally has its non-private egress dropped by a host firewall rule ([ADR-009 §5](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)).
+ServiceHub is a Docker Compose project named `servicehub`. The root file includes eight domain Compose files for routing, databases, identity, developer services, web applications, AI, observability, and email. All included services join the `subnet` bridge network; `webappconf` additionally has its non-private egress dropped by a host firewall rule ([ADR-009 §5](adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)).
 
 ```mermaid
 flowchart LR
@@ -92,37 +92,10 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 ## Security Boundaries
 
 - **External ingress:** Traefik publishes 80 and 443 and is the designed web boundary.
-- **Docker network:** Included services communicate through `servicehub_subnet`; databases publish no host ports. Container egress is restricted by host firewall rules in the Docker `DOCKER-USER` chain — a per-service policy from [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf) (seeded at setup to `${APPS_DATA}/shared/gateway/egress-policies.conf`, which is the copy actually applied) by [scripts/egress-guard.sh](../../scripts/egress-guard.sh) (Confluence is `restricted` to private destinations), plus a global block of Atlassian CIDRs ([ADR-009 §5](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) — not by network separation.
+- **Docker network:** Included services communicate through `servicehub_subnet`; databases publish no host ports. Container egress is restricted by host firewall rules in the Docker `DOCKER-USER` chain — a per-service policy from [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf) (seeded at setup to `${APPS_DATA}/shared/gateway/egress-policies.conf`, which is the copy actually applied) by [scripts/egress-guard.sh](../../scripts/egress-guard.sh) (Confluence is `restricted` to private destinations), plus a global block of Atlassian CIDRs ([ADR-009 §5](adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) — not by network separation.
 - **Identity boundary:** Grafana uses Authentik forward auth; oCIS uses an Authentik OIDC authorization-code flow. Authentik itself is application-authenticated. Other Authentik integrations vary and are not all configured in Compose.
 - **Privileged boundary:** Traefik, Authentik's worker, and Alloy have Docker socket access; Alloy is privileged and mounts host filesystem paths.
-- **Administrative endpoint boundary:** the Traefik dashboard and mail admin paths accept only trusted client addresses (IP allow list); other clients are redirected to `login.<domain>` instead of receiving HTTP 403 (ADR-009).
-- **Deployment and backup boundaries:** Forgejo runner jobs reach remote hosts over SSH using protected repository secrets; backup transfer credentials are supplied only to the backup workflow environment.
-- **Direct-host boundary:** Hermes, LiteLLM, llama.cpp, VictoriaMetrics, VictoriaLogs, and Stalwart publish selected host ports independent of Traefik.
-
-These boundaries are Confirmed from configuration. Their security effectiveness requires runtime review.
-
-## Data Platforms
-
-- **PostgreSQL 16:** default database for Authentik, Forgejo, LiteLLM, Confluence, and Stalwart; persistent path `${APPS_DATA}/infra/postgresql`.
-- **MariaDB 11.8:** retained for the optional WordPress service; not used by the default stack according to `env.example`.
-- **VictoriaMetrics:** Prometheus-compatible metric storage under `${APPS_DATA}/obsvce/victoriametrics`.
-- **VictoriaLogs:** log storage under `${APPS_DATA}/obsvce/victorialogs`.
-- **Grafana:** dashboard and alert-rendering state under `${APPS_DATA}/obsvce/grafana`.
-
-The `webappocis` oCIS service uses local filesystem storage and has no dedicated PostgreSQL database. PostgreSQL continues to store Authentik identity data used by the OIDC flow. Repository configuration is recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md); runtime authentication and file operations remain unvalidated.
-
-## Identity Architecture
-
-Authentik runs a server, worker, and permission-initialisation service. PostgreSQL stores Authentik state; media and templates use bind mounts. The repository documents:
-
-- Grafana Traefik forward authentication.
-- Stalwart LDAP authentication through an Authentik LDAP outpost.
-- Recommended Authentik delegation for Forgejo and Confluence.
-- oCIS authorization-code OIDC configuration using the Authentik provider issuer and public client ID.
-
-The Compose files do not prove that every application integration has been configured at runtime. Identity coverage beyond Grafana and the documented Stalwart path is `Not yet verified`.
-
-Bulwark uses a password form validated by Stalwart, not OIDC. The Traefik dashboard uses basic authentication and an IP allowlist.
+- **Administrative endpoint boundary:** the Traefik dashboard and mail admin paths accept only t…2230 chars truncated…e Traefik dashboard uses basic authentication and an IP allowlist.
 
 ## AI Architecture
 
@@ -143,11 +116,11 @@ Grafana alerting is enabled with `render_only_panels=true`. No notification chan
 
 ## Deployment Architecture
 
-The root Compose project deploys the OCI scope only (`route`, `infra`, `devops`, `webapp`, `mailsv`); the AI platform runs on local infrastructure and the self-hosted observability stack is retained but not deployed, per [ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md).
+The root Compose project deploys the OCI scope only (`route`, `infra`, `devops`, `webapp`, `mailsv`); the AI platform runs on local infrastructure and the self-hosted observability stack is retained but not deployed, per [ADR-009](adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md).
 
 Forgejo Actions deployment workflows run on the host-mode `ssh-deploy` runner. Deployment SSHes to a staging or production target, updates a Git checkout, restores git-crypt and environment material when configured, and rebuilds application services with `--no-deps`. Foundational services are excluded from CI deployment.
 
-The backup workflow runs on the existing `devopsrunner` with the `ssh-deploy` label. It SSHes to the target to create PostgreSQL dumps and a periodic `APPS_DATA` archive, then copies archives to the Home Server over an Rclone SFTP remote and to Google Drive through an Rclone Crypt remote under [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is present; image build, transfers, integrity checks, retention, and restores are not runtime-validated.
+The backup workflow runs on the existing `devopsrunner` with the `ssh-deploy` label. It SSHes to the target to create PostgreSQL dumps and a periodic `APPS_DATA` archive, then copies archives to the Home Server over an Rclone SFTP remote and to Google Drive through an Rclone Crypt remote under [ADR-007](adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is present; image build, transfers, integrity checks, retention, and restores are not runtime-validated.
 
 See [deployment architecture](DEPLOYMENT-ARCHITECTURE.md) for details and validation gaps.
 
@@ -190,4 +163,5 @@ Configuration files under `shared/` are mostly read-only mounts. Off-host durabi
 - Rollback model and first governed release.
 - Runtime validation of the configured family file-cloud service and its recovery path.
 
-Related records: [system context](SYSTEM-CONTEXT.md), [data flow](DATA-FLOW.md), [ADR register](../adr/README.md), and [baseline test plan](../testing/TEST-001-platform-baseline-validation.md).
+Related records: [system context](SYSTEM-CONTEXT.md), [data flow](DATA-FLOW.md), [ADR register](adr/README.md), and [baseline test plan](../testing/TEST-001-platform-baseline-validation.md).
+

@@ -29,5 +29,6 @@ Maps each information category to exactly one authoritative location. Consult be
 | Lessons | `docs/lessons/` | | Binding only once incorporated |
 | Retired documentation | `docs/archive/` | | |
 | Secrets | Outside the repository: `<SECRET_STORE>` | | Names only, never values |
+| TLS certificate material | `shared/traefik/advanced/selfsigncert/` (git-crypt encrypted; key held outside the repository) | `docs/operations/DEVELOPMENT.md`, `docs/operations/runbooks/DEPLOYMENT.md` | Encrypted at rest; not a plaintext credential |
 
 Add project-specific categories (for example API schemas or infrastructure definitions) with a single authoritative location each. Replace `<SECRET_STORE>` with the name of the project's secret store or environment mechanism.

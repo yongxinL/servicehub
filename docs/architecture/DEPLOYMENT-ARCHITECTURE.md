@@ -26,16 +26,15 @@ related_documents:
 
 ## Deployment Scope
 
-[ADR-009](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) scopes what the deployment workflows deploy:
+[ADR-009](adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) scopes what the deployment workflows deploy:
 
 | Scope | Compose includes | Where it runs |
 |---|---|---|
 | OCI deployment | `route`, `infra`, `devops`, `webapp`, `mailsv` | Oracle Cloud Infrastructure |
 | Local infrastructure | `aiserv` (Hermes, LiteLLM, llama.cpp, Open WebUI) | Local infrastructure; entrypoint for local deployment is an open follow-up |
-| Retained, not deployed | `obsvce` (VictoriaMetrics, VictoriaLogs, Grafana Alloy, Grafana) | Not deployed to any environment; OCI workloads use Oracle Cloud native monitoring per [ADR-010](../adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md), which is not yet configured |
+| Retained, not deployed | `obsvce` (VictoriaMetrics, VictoriaLogs, Grafana Alloy, Grafana) | Not deployed to any environment; OCI workloads use Oracle Cloud native monitoring per [ADR-010](adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md), which is not yet configured |
 
 The root [docker-compose.yml](../../docker-compose.yml) include set and the `61-deploy.yml` workflow options both reflect this scope. The AI platform compose definition stays in source control so it can be started locally with `docker compose up -d`.
-
 
 ## Local Development or Administration Flow
 

@@ -95,9 +95,9 @@ The matrix records evaluation criteria, not tested product results.
 
 ## Decision
 
-On 2026-10-03, ServiceHub adopted oCIS as its cloud-drive platform using Authentik OIDC, Docker Compose, and local filesystem storage. PostgreSQL remains the Authentik identity store but is not an oCIS service database. MinIO, OCI Object Storage, and an S3 storage backend are not part of the initial implementation. The architecture, options, risks, and implementation requirements are recorded in [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md).
+On 2026-10-03, ServiceHub adopted oCIS as its cloud-drive platform using Authentik OIDC, Docker Compose, and local filesystem storage. PostgreSQL remains the Authentik identity store but is not an oCIS service database. MinIO, OCI Object Storage, and an S3 storage backend are not part of the initial implementation. The architecture, options, risks, and implementation requirements are recorded in [ADR-006](../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md).
 
-Nextcloud remains deferred unless collaboration requirements expand beyond oCIS. Backup and recovery scope is recorded in [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
+Nextcloud remains deferred unless collaboration requirements expand beyond oCIS. Backup and recovery scope is recorded in [ADR-007](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
 
 ## Implementation Status
 
@@ -123,6 +123,6 @@ The `wbappmydrive` oCIS service and its local filesystem paths now exist in repo
 - [Product requirements](../requirements/PRD.md)
 - [Roadmap](../requirements/ROADMAP.md)
 - [Architecture](../architecture/ARCHITECTURE.md)
-- [ADR-006 Adopt oCIS with Local Filesystem Storage](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
-- [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
+- [ADR-006 Adopt oCIS with Local Filesystem Storage](../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
+- [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
 - [Backup and restore](../operations/runbooks/BACKUP-RESTORE.md)

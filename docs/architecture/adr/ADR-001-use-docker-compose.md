@@ -74,20 +74,19 @@ Compose matches the repository's current single-host deployment model, keeps top
 
 ## Implementation Evidence
 
-- [docker-compose.yml](../../docker-compose.yml)
-- [compose/](../../compose/)
-- [deployment workflow](../../.forgejo/workflows/61-deploy.yml)
+- [docker-compose.yml](../../../docker-compose.yml)
+- [compose/](../../../compose/)
+- [deployment workflow](../../../.forgejo/workflows/61-deploy.yml)
 - Root README prerequisites requiring Compose 2.20+
 
 ## Related Documents
 
-- [Architecture](../architecture/ARCHITECTURE.md)
-- [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md)
-- [Runbook](../operations/runbooks/RUNBOOK.md)
+- [Architecture](../ARCHITECTURE.md)
+- [Deployment architecture](../DEPLOYMENT-ARCHITECTURE.md)
+- [Runbook](../../operations/runbooks/RUNBOOK.md)
 
 ## Follow-up Actions
 
 - Validate `docker compose config` and service health in staging.
 - Define and test rollback behaviour.
 - Confirm foundational-service update procedure.
-

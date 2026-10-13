@@ -37,16 +37,16 @@ Provide governed identity infrastructure and repository-hosted development and d
 - Stalwart LDAP directory integration documentation.
 - Forgejo server, database, HTTPS route, and registration controls.
 - Host-mode Forgejo Actions runner and deployment workflows.
-- Application identity coverage for Grafana, Forgejo, Confluence, webmail, oCIS, and other services.
+- Application identity coverage for Grafana, ForgeJo, Confluence, webmail, oCIS, and other services.
 
 ## Deliverables
 
-- [Authentik Compose domain](../../compose/authn.yml)
-- [Forgejo Compose domain](../../compose/depot.yml)
+- [Authentik Compose domain](../../compose/infra.yml) (Rename note 2026-10-12: formerly compose/authn.yml.)
+- [Forgejo Compose domain](../../compose/devops.yml) (Rename note 2026-10-12: formerly compose/depot.yml.)
 - [Authentik README](../operations/services/authentik.md)
 - [Forgejo README](../operations/services/forgejo.md)
 - [Forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml)
-- [oCIS Compose service](../../compose/wbapp.yml)
+- [oCIS Compose service](../../compose/webapp.yml) (Rename note 2026-10-12: formerly compose/wbapp.yml.)
 - [oCIS operational guide](../operations/services/owncloud.md)
 - [.forgejo workflows](../../.forgejo/workflows/)
 

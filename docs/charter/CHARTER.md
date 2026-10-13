@@ -131,6 +131,5 @@ External stakeholder names, teams, approval bodies, and escalation contacts are 
 - [Product requirements](../requirements/PRD.md)
 - [Roadmap](../requirements/ROADMAP.md)
 - [Architecture overview](../architecture/ARCHITECTURE.md)
-- [Architecture decisions](../adr/README.md)
+- [Architecture decisions](../architecture/adr/README.md)
 - [Operations index](../operations/README.md)
-

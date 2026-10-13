@@ -115,7 +115,7 @@ The repository now configures backup creation, dual-target transfer, integrity c
 
 ## Decision
 
-Accepted on 2026-10-03 through [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is added but not tested. RPO, RTO, approved retention values, encryption controls, successful transfers, and restoration evidence remain `TBD` until verified.
+Accepted on 2026-10-03 through [ADR-007](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration is added but not tested. RPO, RTO, approved retention values, encryption controls, successful transfers, and restoration evidence remain `TBD` until verified.
 
 ## Consequences
 

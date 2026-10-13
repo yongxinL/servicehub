@@ -87,7 +87,7 @@ docker compose logs -f webappconf
 
 ## Outbound egress policy
 
-[ADR-009 §5](../../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) treats Confluence as independent of Atlassian-hosted services. Confluence stays on the single `subnet` network; its egress is restricted on the host by the `restricted` policy entry in [`scripts/egress-policies.conf`](../../../scripts/egress-policies.conf), enforced in the Docker `DOCKER-USER` chain by [`scripts/egress-guard.sh`](../../../scripts/egress-guard.sh).
+[ADR-009 §5](../../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) treats Confluence as independent of Atlassian-hosted services. Confluence stays on the single `subnet` network; its egress is restricted on the host by the `restricted` policy entry in [`scripts/egress-policies.conf`](../../../scripts/egress-policies.conf), enforced in the Docker `DOCKER-USER` chain by [`scripts/egress-guard.sh`](../../../scripts/egress-guard.sh).
 
 | Destination | Treatment |
 |---|---|

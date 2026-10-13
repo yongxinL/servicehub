@@ -8,7 +8,7 @@
 
 The build passes `CLOUD_TAG` to the Dockerfile as `IMAGE_TAG` and tags the result `webappocis:latest`. Its entrypoint initialises `${APPS_DATA}/webapp/ocis/config/ocis.yaml` only when it does not exist, then starts the supported single-container service set and persists configuration separately from file data.
 
-oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authentik stores identity and application state in PostgreSQL; oCIS stores its core state in its local configuration and data directories. See [ADR-006](../../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) for the persistence decision and implementation note.
+oCIS does not use a ServiceHub PostgreSQL database in this implementation. Authentik stores identity and application state in PostgreSQL; oCIS stores its core state in its local configuration and data directories. See [ADR-006](../../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) for the persistence decision and implementation note.
 
 ## Service Details
 
@@ -119,7 +119,7 @@ Both oCIS paths are beneath `APPS_DATA`, so the current full archive includes th
 - `${APPS_DATA}/webapp/ocis/config`
 - `${APPS_DATA}/webapp/ocis/data`
 
-oCIS does not add a PostgreSQL dump. Its configuration and file paths are covered by the full-archive and configured dual-target transfer scope in [ADR-007](../../adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration does not prove successful transfer or restore capability.
+oCIS does not add a PostgreSQL dump. Its configuration and file paths are covered by the full-archive and configured dual-target transfer scope in [ADR-007](../../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md). Repository configuration does not prove successful transfer or restore capability.
 
 ## Operations
 
@@ -153,8 +153,8 @@ Upgrades must pin a tested `CLOUD_TAG`, back up both oCIS directories, and recor
 
 ## Related Documentation
 
-- [ADR-006 Adopt oCIS with Local Filesystem Storage](../../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
-- [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../../adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
+- [ADR-006 Adopt oCIS with Local Filesystem Storage](../../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
+- [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
 - [Authentik](authentik.md)
 - [Traefik](traefik.md)
 - [PostgreSQL](postgresql.md)
