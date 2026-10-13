@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Stalwart](https://github.com/stalwartlabs/stalwart) is the email server of the ServiceHub email domain (`mailsv`). It handles server-to-server and submission SMTP, IMAP and JMAP, and serves the web admin UI and API over HTTP. Bulwark webmail ([`../bulwark/README.md`](bulwark.md)) talks to Stalwart via JMAP. The service is defined by `mailsvstalwart` in [`compose/mailsv.yml`](../../compose/mailsv.yml) and built from [`Dockerfile`](../../shared/stalwart/Dockerfile) (`FROM stalwartlabs/stalwart:${IMAGE_TAG}`).
+[Stalwart](https://github.com/stalwartlabs/stalwart) is the email server of the ServiceHub email domain (`mailsv`). It handles server-to-server and submission SMTP, IMAP and JMAP, and serves the web admin UI and API over HTTP. Bulwark webmail ([`../bulwark/README.md`](bulwark.md)) talks to Stalwart via JMAP. The service is defined by `mailsvstalwart` in [`compose/mailsv.yml`](../../../compose/mailsv.yml) and built from [`Dockerfile`](../../../shared/stalwart/Dockerfile) (`FROM stalwartlabs/stalwart:${IMAGE_TAG}`).
 
 ## Service details
 
@@ -34,7 +34,7 @@ Stalwart keeps its whole dataset (metadata, indexes, message blobs, FTS) in one 
 | Database | `${POSTOFFICE_DBNAME}` (`svchub_postoffice`) — created by the PostgreSQL init script on first start |
 | Credentials | `${DB_ADMIN_USER}` / `${DB_ADMIN_PASSWORD}` (shared stack superuser) |
 
-[`entrypoint.sh`](../../shared/stalwart/entrypoint.sh) writes `/etc/stalwart/config.json` with `jq` on **every start** from the `STALWART_DB_*` environment variables (host, port, database, username and pool size; the password is referenced as a `STALWART_DB_PASSWORD` environment-variable secret, so it never lands on disk), so credentials can rotate without a rebuild.
+[`entrypoint.sh`](../../../shared/stalwart/entrypoint.sh) writes `/etc/stalwart/config.json` with `jq` on **every start** from the `STALWART_DB_*` environment variables (host, port, database, username and pool size; the password is referenced as a `STALWART_DB_PASSWORD` environment-variable secret, so it never lands on disk), so credentials can rotate without a rebuild.
 
 > The datastore location is the only setting Stalwart cannot change through its API (the API is served out of the datastore) — hence the render approach instead of runtime provisioning.
 
@@ -92,7 +92,7 @@ docker compose exec -T infrapgsql pg_dump -U "${DB_ADMIN_USER}" -Fc "${POSTOFFIC
   > "mailsv-$(date +%F).dump"
 ```
 
-`-Fc` is the compressed custom format used by `pg_restore` (selective/parallel restore); for a plain-SQL dump use `-Fp | gzip > mailsv-$(date +%F).sql.gz` instead. Copy the dump off the server — the scheduled [Forgejo backup workflow](../operations/BACKUP-RESTORE.md) also dumps every database every `db_backup_interval_days` days (default 1, daily; kept 6 months) and archives `APPS_DATA` every `full_backup_interval_days` days (default 7, weekly), so this section is the manual path.
+`-Fc` is the compressed custom format used by `pg_restore` (selective/parallel restore); for a plain-SQL dump use `-Fp | gzip > mailsv-$(date +%F).sql.gz` instead. Copy the dump off the server — the scheduled [Forgejo backup workflow](../runbooks/BACKUP-RESTORE.md) also dumps every database every `db_backup_interval_days` days (default 1, daily; kept 6 months) and archives `APPS_DATA` every `full_backup_interval_days` days (default 7, weekly), so this section is the manual path.
 
 **Restore** — stop Stalwart (no writers), recreate the database, import the dump and start again:
 
@@ -229,8 +229,8 @@ Incoming HTTPS requests for `${EMAIL_HOST}` are routed to the internal HTTP port
 
 Certificates come from the shared Traefik ACME store — Stalwart does not run its own ACME client:
 
-1. On first boot, before any public certificate exists, [`entrypoint.sh`](../../shared/stalwart/entrypoint.sh) generates a 2-day bootstrap self-signed certificate for `${MAIL_DOMAIN}` so the server can start.
-2. [`acme-export.sh`](../../shared/stalwart/acme-export.sh) runs as a background watcher: every `${CERT_CHECK_INTERVAL}` seconds (and on `acme.json` changes via `inotifywait`) it:
+1. On first boot, before any public certificate exists, [`entrypoint.sh`](../../../shared/stalwart/entrypoint.sh) generates a 2-day bootstrap self-signed certificate for `${MAIL_DOMAIN}` so the server can start.
+2. [`acme-export.sh`](../../../shared/stalwart/acme-export.sh) runs as a background watcher: every `${CERT_CHECK_INTERVAL}` seconds (and on `acme.json` changes via `inotifywait`) it:
     - extracts the fullchain and key for `${MAIL_DOMAIN}` from `/letsencrypt/acme.json` under the `${CERTRESOLVER}` resolver,
     - validates them with `openssl` and checks cert/key match,
     - on change, installs them into `/var/lib/stalwart/tls/` and restarts the server.
@@ -330,7 +330,7 @@ Directory settings (LDAP URL, bind DN/secret, filters) are applied once through 
 
 3. Configure the Authentik LDAP directory (next section); the stack's own sender account `${EMAIL_USER}` is created as an Authentik service account.
 
-For external clients to reach ports 25/465/587/993, DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail using `${EMAIL_USER}` / `${EMAIL_PASS}` over port `${EMAIL_PORT}` (see [Root README — Email](../../README.md#configuration)).
+For external clients to reach ports 25/465/587/993, DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail using `${EMAIL_USER}` / `${EMAIL_PASS}` over port `${EMAIL_PORT}` (see [Root README — Email](../../../README.md#configuration)).
 
 ## Initial provisioning walkthrough
 
@@ -342,7 +342,7 @@ PostgreSQL holds everything, so the fastest path is: first `docker compose up -d
 4. **LDAP service account in Authentik** — Directory → Users → New User `stalwart-ldap`; set a password under Recovery. Create a role `LDAP search` with the **Search full LDAP directory** permission, add the service account to it, and assign the role to the provider under its **Permissions** tab (object vs global permission, and application access: [Authentik: service account, role and permissions](#authentik-service-account-role-and-permissions)).
 5. **LDAP outpost in Authentik** — **Applications → Outposts → Create Outpost**, type **LDAP**, integration **Docker**, applications: `stalwart-mail`; edit the outpost config and set **Docker network** to `servicehub_subnet`. The outpost container is named after the outpost (`ak-outpost-<name>`) and listens on `3389`/`6636` — note it also maps host ports `389`/`636` unless you untick *Map ports*. Verify with the `ldapsearch` command in the [directory section](#directory-authentik-ldap-sso).
 6. **Point Stalwart at the outpost** — Stalwart admin → **Settings → Authentication → Directories → Create directory** (type LDAP), using the values from the [directory table](#directory-authentik-ldap-sso) above. Then bind the mail domain: **Management → Domains → Domains** → `${EMAIL_HOST}` → **Domain** section → **Directory** (or, for all domains at once, **Settings → Authentication → General** → **Authentication Directory**).
-7. **Technical sender account in Authentik** — since the mail domain is bound to LDAP, create `servicehub@${EMAIL_HOST}` as an Authentik service account with that address as its **email**; `${EMAIL_PASS}` is the account's password. Stack components send with `${EMAIL_USER}` / `${EMAIL_PASS}` on port `${EMAIL_PORT}` (see [Root README — Email](../../README.md#configuration)).
+7. **Technical sender account in Authentik** — since the mail domain is bound to LDAP, create `servicehub@${EMAIL_HOST}` as an Authentik service account with that address as its **email**; `${EMAIL_PASS}` is the account's password. Stack components send with `${EMAIL_USER}` / `${EMAIL_PASS}` on port `${EMAIL_PORT}` (see [Root README — Email](../../../README.md#configuration)).
 8. **Mailboxes for users** — for LDAP-backed users authentication needs no extra setup; create the mailbox in Stalwart (matching the user's `mail` attribute) to assign quota and groups. Verify a login with the user's **email + Authentik password** from an IMAP/JMAP client or Bulwark's password form.
 9. **Bulwark webmail** — `docker compose up -d mailsvbulwarkinit mailsvbulwark`; users sign in at `https://${POSTOFFICE_DOMAIN}` with their **email + Authentik password** (the password form validates through Stalwart's LDAP directory). Before first login, enable **Permissive CORS policy** (**Settings → Network → HTTP → Security**, `usePermissiveCors`) and confirm the [Certificate object](#tls-certificates) is in place — both are login prerequisites documented in [Bulwark — Login prerequisites](bulwark.md#login-prerequisites-stalwart-side). OIDC SSO is not used in this stack (requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](bulwark.md#sso--oidc-not-used)).
 
@@ -374,9 +374,9 @@ docker compose exec infrapgsql psql -U "${DB_ADMIN_USER}" -d "${POSTOFFICE_DBNAM
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](../../shared/stalwart/Dockerfile) | Image build — upstream image + curl/jq/inotify-tools for the cert watch tooling; `ldap-utils` for LDAP connectivity/debugging against the Authentik outpost (`docker compose exec mailsvstalwart ldapsearch ...`) |
-| [`entrypoint.sh`](../../shared/stalwart/entrypoint.sh) | Generates the PostgreSQL `DataStore` config with `jq`, pins the recovery admin, bootstraps certs, drops privileges, starts the export watcher |
-| [`acme-export.sh`](../../shared/stalwart/acme-export.sh) | Extracts and installs the public certificate from Traefik's `acme.json` |
+| [`Dockerfile`](../../../shared/stalwart/Dockerfile) | Image build — upstream image + curl/jq/inotify-tools for the cert watch tooling; `ldap-utils` for LDAP connectivity/debugging against the Authentik outpost (`docker compose exec mailsvstalwart ldapsearch ...`) |
+| [`entrypoint.sh`](../../../shared/stalwart/entrypoint.sh) | Generates the PostgreSQL `DataStore` config with `jq`, pins the recovery admin, bootstraps certs, drops privileges, starts the export watcher |
+| [`acme-export.sh`](../../../shared/stalwart/acme-export.sh) | Extracts and installs the public certificate from Traefik's `acme.json` |
 
 ## See also
 
@@ -384,4 +384,4 @@ docker compose exec infrapgsql psql -U "${DB_ADMIN_USER}" -d "${POSTOFFICE_DBNAM
 - [Authentik](authentik.md) — IdP; the LDAP directory walkthrough is above
 - [PostgreSQL](postgresql.md) — the shared database host (`infrapgsql`)
 - [Traefik](traefik.md) — edge routing and TLS termination
-- [Root README — Email stack](../../README.md#email-stack-mailsv)
+- [Root README — Email stack](../../../README.md#email-stack-mailsv)

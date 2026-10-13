@@ -287,8 +287,8 @@ The dual-target design addresses host-loss and cloud-outage scenarios while pres
 The current repository contains:
 
 - [Backup workflow (scheduled database, configuration, and full archives)](../../.forgejo/workflows/71-backup.yml)
-- [Shared Forgejo runner image and configuration](../products/forgejo.md)
-- [Backup and restore operations record](../operations/BACKUP-RESTORE.md)
+- [Shared Forgejo runner image and configuration](../operations/services/forgejo.md)
+- [Backup and restore operations record](../operations/runbooks/BACKUP-RESTORE.md)
 - [RFC-001 Reliability and Recovery Baseline](../rfc/RFC-001-reliability-and-recovery-baseline.md)
 - [ADR-006 oCIS filesystem configuration](ADR-006-adopt-ocis-with-local-filesystem-storage.md)
 
@@ -306,7 +306,7 @@ Also on 2026-10-10, failure handling and cadence configuration were revised: a f
 
 - [ADR-006 Adopt oCIS with Local Filesystem Storage](ADR-006-adopt-ocis-with-local-filesystem-storage.md)
 - [RFC-001 Reliability and Recovery Baseline](../rfc/RFC-001-reliability-and-recovery-baseline.md)
-- [Backup and restore](../operations/BACKUP-RESTORE.md)
+- [Backup and restore](../operations/runbooks/BACKUP-RESTORE.md)
 - [PHASE-004 Observability and Operational Hardening](../phases/PHASE-004-observability-and-operational-hardening.md)
 - [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
 - [ServiceHub Roadmap](../requirements/ROADMAP.md)

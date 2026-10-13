@@ -125,4 +125,4 @@ The `wbappmydrive` oCIS service and its local filesystem paths now exist in repo
 - [Architecture](../architecture/ARCHITECTURE.md)
 - [ADR-006 Adopt oCIS with Local Filesystem Storage](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
 - [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
-- [Backup and restore](../operations/BACKUP-RESTORE.md)
+- [Backup and restore](../operations/runbooks/BACKUP-RESTORE.md)

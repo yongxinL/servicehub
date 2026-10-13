@@ -21,8 +21,21 @@ No operational model has yet been recorded. When recorded, cover: environments, 
 ## Index-entry requirements
 Each section links the runbook that implements it.
 
+## Index
+
+| Document | Type | Status | Updated |
+|---|---|---|---|
+| [Development Workflows](DEVELOPMENT.md) | Development guide | Active | 2026-10-10 |
+| [Container Egress Controls](EGRESS-CONTROLS.md) | Operations guide | Draft | 2026-10-10 |
+| [Installation](INSTALLATION.md) | Operations guide | Active | 2026-10-09 |
+| [Monitoring and Alerting](MONITORING-ALERTING.md) | Operations guide | Draft | 2026-10-05 |
+| [Service Inventory](SERVICE-INVENTORY.md) | Operations guide | Draft | 2026-10-10 |
+| [Troubleshooting](TROUBLESHOOTING.md) | Operations guide | Draft | 2026-10-08 |
+| [Project-specific service guides](services/README.md) | Service-guide index | Active | 2026-10-09 |
+| [Runbooks](runbooks/README.md) | Runbook index | Not recorded | Not recorded |
+
 ## Relationship to other artifacts
 Release records reference deployment and rollback runbooks.
 
 ## Current scaffold state
-No project artifacts have yet been created in this area.
+Operations documents and indexes are listed above.

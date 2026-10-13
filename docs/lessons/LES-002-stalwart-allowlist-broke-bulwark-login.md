@@ -2,7 +2,8 @@
 project: ServiceHub
 project_code: SVCHUB
 document_type: LESSON
-document_id: LESSON-002
+document_id: LES-002
+Formerly: LESSON-002
 title: Stalwart Host Allowlist Can Block Bulwark Login
 version: "1.1"
 status: Draft
@@ -22,13 +23,15 @@ related_documents:
   - TEST-001
 ---
 
-# LESSON-002: Stalwart Host Allowlist Can Block Bulwark Login
+# LES-002: Stalwart Host Allowlist Can Block Bulwark Login
 
 ## Context
 
 On 2026-10-02, a static repository review examined the reported symptom that Bulwark could not complete login when internet access to `mail.$domain_name` was denied. The services were not running locally, so this record does not claim a runtime reproduction or successful fix.
 
-Evidence came from [`compose/poste.yml`](../../compose/poste.yml), [`compose/route.yml`](../../compose/route.yml), [`env.example`](../../env.example), [`../products/bulwark.md`](../products/bulwark.md), and [`../products/stalwart.md`](../products/stalwart.md). Current Stalwart, Bulwark, and Traefik documentation was also checked for endpoint and routing behaviour.
+Evidence came from [`compose/poste.yml`](../../compose/mailsv.yml), [`compose/route.yml`](../../compose/route.yml), [`env.example`](../../env.example), [`../operations/services/bulwark.md`](../operations/services/bulwark.md), and [`../operations/services/stalwart.md`](../operations/services/stalwart.md). Current Stalwart, Bulwark, and Traefik documentation was also checked for endpoint and routing behaviour.
+
+Rename note (2026-10-12): compose/poste.yml was renamed compose/mailsv.yml; historical incident wording is retained.
 
 ## What Went Well
 
@@ -107,6 +110,6 @@ All due dates are `TBD` because the repository does not provide a schedule.
 
 - [Platform baseline validation](../testing/TEST-001-platform-baseline-validation.md)
 - [Architecture](../architecture/ARCHITECTURE.md)
-- [Bulwark service documentation](../products/bulwark.md)
-- [Stalwart service documentation](../products/stalwart.md)
-- [Traefik service documentation](../products/traefik.md)
+- [Bulwark service documentation](../operations/services/bulwark.md)
+- [Stalwart service documentation](../operations/services/stalwart.md)
+- [Traefik service documentation](../operations/services/traefik.md)

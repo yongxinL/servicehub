@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Grafana Alloy](https://grafana.com/docs/alloy/) is the collector of the observability stack (`obsvce`). It gathers host metrics, container metrics and logs, enriches Traefik access logs with GeoIP data, and writes metrics to [VictoriaMetrics](../../victoriametrics/README.md) and logs to [VictoriaLogs](../../victorialogs/README.md). It is defined by the `obsvcealloy` service in [`compose/obsvce.yml`](../../../compose/obsvce.yml) and built from [`shared/grafana/alloy/Dockerfile`](Dockerfile) (`FROM grafana/alloy:latest`).
+[Grafana Alloy](https://grafana.com/docs/alloy/) is the collector of the observability stack (`obsvce`). It gathers host metrics, container metrics and logs, enriches Traefik access logs with GeoIP data, and writes metrics to [VictoriaMetrics](../../../docs/operations/services/victoriametrics.md) and logs to [VictoriaLogs](../../../docs/operations/services/victorialogs.md). It is defined by the `obsvcealloy` service in [`compose/obsvce.yml`](../../../compose/obsvce.yml) and built from [`shared/grafana/alloy/Dockerfile`](Dockerfile) (`FROM grafana/alloy:latest`).
 
 ## Service details
 
@@ -66,7 +66,7 @@ open http://localhost:9080
 
 ## See also
 
-- [VictoriaMetrics](../../victoriametrics/README.md) — metrics destination
-- [VictoriaLogs](../../victorialogs/README.md) — logs destination
-- [Grafana](../README.md) — dashboards
+- [VictoriaMetrics](../../../docs/operations/services/victoriametrics.md) — metrics destination
+- [VictoriaLogs](../../../docs/operations/services/victorialogs.md) — logs destination
+- [Grafana](../../../docs/operations/services/grafana.md) — dashboards
 - [Root README — Observability](../../../README.md#observability-stack-obsvce)

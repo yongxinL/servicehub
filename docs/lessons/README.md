@@ -19,11 +19,13 @@ Draft, Accepted, Incorporated, Retired.
 
 | ID | Title | Status | Incorporated into | Updated |
 |---|---|---|---|---|
+| [LES-001](LES-001-initial-architecture-review.md) | Initial Architecture Review | Draft | Not recorded | 2026-10-03 |
+| [LES-002](LES-002-stalwart-allowlist-broke-bulwark-login.md) | Stalwart Host Allowlist Can Block Bulwark Login | Draft | Not recorded | 2026-10-02 |
 
-No project artifacts have yet been created in this area. Next available identifier: LES-001.
+Next available identifier: LES-003.
 
 ## Relationship to other artifacts
 Incorporation targets include runbooks, the constitution, ADRs, tests, and governance records. Template: [../templates/lesson-learned-template.md](../templates/lesson-learned-template.md).
 
 ## Current scaffold state
-Empty index.
+Two lessons are indexed.

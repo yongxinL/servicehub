@@ -116,5 +116,5 @@ This flow is Confirmed from repository commands; local execution results are `No
 ## Related
 
 - When the git-crypt key is needed during installation: [Installation](INSTALLATION.md)
-- How the deploy workflow uses the key: [Deployment (Forgejo Actions)](DEPLOYMENT.md)
+- How the deploy workflow uses the key: [Deployment (Forgejo Actions)](runbooks/DEPLOYMENT.md)
 - Deployment scope and architecture model: [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md)

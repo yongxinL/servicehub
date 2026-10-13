@@ -21,9 +21,9 @@ related_documents:
   - ARCHITECTURE
 ---
 
-# ServiceHub Product Guides Index
+# ServiceHub Project-Specific Service Guides
 
-Per-product build, configuration, and setup guides. Each guide covers the product's Compose service, environment variables, and product-specific operations. These guides were relocated from `shared/<product>/README.md` into the documentation set; the repository implementation remains the source of truth.
+Project-specific service guides cover build, configuration, and setup. Each guide covers the product's Compose service, environment variables, and product-specific operations. These guides were relocated from `shared/<product>/README.md` into the documentation set; the repository implementation remains the source of truth.
 
 ## Documents
 

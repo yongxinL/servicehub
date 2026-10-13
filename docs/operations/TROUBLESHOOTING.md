@@ -55,7 +55,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate repeated CA failures, unexpected certificate replacement, or suspected private-key exposure.
 
-**Related documents:** [Runbook](RUNBOOK.md), [backup and restore](BACKUP-RESTORE.md).
+**Related documents:** [Runbook](runbooks/RUNBOOK.md), [backup and restore](runbooks/BACKUP-RESTORE.md).
 
 ## Authentik Unavailable
 
@@ -71,7 +71,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate if login recovery or administrator access may be lost.
 
-**Related documents:** [ADR-004](../adr/ADR-004-use-authentik-for-central-identity.md), [Authentik README](../products/authentik.md).
+**Related documents:** [ADR-004](../adr/ADR-004-use-authentik-for-central-identity.md), [Authentik README](services/authentik.md).
 
 ## Forward-Auth Redirect Loop
 
@@ -103,7 +103,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate if 429s continue on a quiet, single-client load after the exemption is deployed.
 
-**Related documents:** [Traefik security middlewares](../products/traefik.md#security-middlewares), [ADR-002](../adr/ADR-002-use-traefik-as-ingress.md).
+**Related documents:** [Traefik security middlewares](services/traefik.md#security-middlewares), [ADR-002](../adr/ADR-002-use-traefik-as-ingress.md).
 
 ## Database Connection Failure
 
@@ -119,7 +119,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate suspected corruption, unexplained restarts, or data loss.
 
-**Related documents:** [PostgreSQL README](../products/postgresql.md), [backup and restore](BACKUP-RESTORE.md).
+**Related documents:** [PostgreSQL README](services/postgresql.md), [backup and restore](runbooks/BACKUP-RESTORE.md).
 
 ## Forgejo Unavailable
 
@@ -135,7 +135,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate repository corruption, access-control failure, or inability to recover repositories.
 
-**Related documents:** [Forgejo README](../products/forgejo.md), [service inventory](SERVICE-INVENTORY.md).
+**Related documents:** [Forgejo README](services/forgejo.md), [service inventory](SERVICE-INVENTORY.md).
 
 ## Runner Deployment Failure
 
@@ -151,7 +151,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate repeated SSH host-key mismatch, credential exposure, or remote filesystem damage.
 
-**Related documents:** [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md), [Forgejo README](../products/forgejo.md).
+**Related documents:** [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md), [Forgejo README](services/forgejo.md).
 
 ## WordPress Failure
 
@@ -163,11 +163,11 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Diagnostic steps:** Confirm whether WordPress is intentionally enabled, validate its Compose file, check MariaDB health and database-name configuration, then test the route.
 
-**Resolution:** Follow the [WordPress README](../products/wordpress.md) for an approved enablement or repair. Do not swap the default homepage during an incident without a change record.
+**Resolution:** Follow the [WordPress README](services/wordpress.md) for an approved enablement or repair. Do not swap the default homepage during an incident without a change record.
 
 **Escalation:** Escalate if enabling or disabling WordPress threatens Confluence data or routing.
 
-**Related documents:** [WordPress README](../products/wordpress.md), [roadmap](../requirements/ROADMAP.md).
+**Related documents:** [WordPress README](services/wordpress.md), [roadmap](../requirements/ROADMAP.md).
 
 ## LiteLLM Unavailable
 
@@ -183,7 +183,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate suspected key exposure or persistent provider outage.
 
-**Related documents:** [LiteLLM README](../products/litellm.md), [ADR-005](../adr/ADR-005-use-litellm-for-ai-routing.md).
+**Related documents:** [LiteLLM README](services/litellm.md), [ADR-005](../adr/ADR-005-use-litellm-for-ai-routing.md).
 
 ## Local Model Unavailable
 
@@ -199,7 +199,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate persistent memory pressure or repeated crashes affecting the host.
 
-**Related documents:** [llama.cpp README](../products/llamacpp.md), [AI phase](../phases/PHASE-003-ai-platform.md).
+**Related documents:** [llama.cpp README](services/llamacpp.md), [AI phase](../phases/PHASE-003-ai-platform.md).
 
 ## Wrong AI Routing Destination
 
@@ -231,7 +231,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate if historical data may have been lost or overwritten.
 
-**Related documents:** [Grafana README](../products/grafana.md), [monitoring](MONITORING-ALERTING.md).
+**Related documents:** [Grafana README](services/grafana.md), [monitoring](MONITORING-ALERTING.md).
 
 ## VictoriaMetrics or VictoriaLogs Unavailable
 
@@ -247,7 +247,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate suspected telemetry-store corruption or data loss.
 
-**Related documents:** [VictoriaMetrics README](../products/victoriametrics.md), [VictoriaLogs README](../products/victorialogs.md).
+**Related documents:** [VictoriaMetrics README](services/victoriametrics.md), [VictoriaLogs README](services/victorialogs.md).
 
 ## Disk Capacity Problems
 
@@ -263,7 +263,7 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate when free-space thresholds threaten data integrity or backups.
 
-**Related documents:** [Backup and restore](BACKUP-RESTORE.md), [monitoring](MONITORING-ALERTING.md).
+**Related documents:** [Backup and restore](runbooks/BACKUP-RESTORE.md), [monitoring](MONITORING-ALERTING.md).
 
 ## Failed Container Health Check
 
@@ -279,4 +279,4 @@ Start with read-only diagnostics. Do not paste resolved Compose output, environm
 
 **Escalation:** Escalate repeated restart loops, host resource risk, or multiple failed services.
 
-**Related documents:** [Runbook](RUNBOOK.md), [service inventory](SERVICE-INVENTORY.md), [test plan](../testing/TEST-001-platform-baseline-validation.md).
+**Related documents:** [Runbook](runbooks/RUNBOOK.md), [service inventory](SERVICE-INVENTORY.md), [test plan](../testing/TEST-001-platform-baseline-validation.md).

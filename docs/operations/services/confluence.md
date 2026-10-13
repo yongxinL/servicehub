@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Confluence](https://www.atlassian.com/software/confluence) runs as a custom Data Center image and serves `WORKSPACE_DOMAIN` plus the apex `${DOMAIN_NAME}`. It is defined by the `webappconf` service in [`compose/webapp.yml`](../../compose/webapp.yml) and built from [`shared/confluence/Dockerfile`](../../shared/confluence/Dockerfile) (`FROM atlassian/confluence:${IMAGE_TAG}`).
+[Confluence](https://www.atlassian.com/software/confluence) runs as a custom Data Center image and serves `WORKSPACE_DOMAIN` plus the apex `${DOMAIN_NAME}`. It is defined by the `webappconf` service in [`compose/webapp.yml`](../../../compose/webapp.yml) and built from [`shared/confluence/Dockerfile`](../../../shared/confluence/Dockerfile) (`FROM atlassian/confluence:${IMAGE_TAG}`).
 
 Confluence is the default homepage and is backed by [PostgreSQL](postgresql.md).
 
@@ -25,7 +25,7 @@ Confluence is the default homepage and is backed by [PostgreSQL](postgresql.md).
 
 ## Configuration
 
-Set in `.env` (see [`env.example`](../../env.example)):
+Set in `.env` (see [`env.example`](../../../env.example)):
 
 | Variable | Description |
 |---|---|
@@ -87,7 +87,7 @@ docker compose logs -f webappconf
 
 ## Outbound egress policy
 
-[ADR-009 §5](../../docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) treats Confluence as independent of Atlassian-hosted services. Confluence stays on the single `subnet` network; its egress is restricted on the host by the `restricted` policy entry in [`scripts/egress-policies.conf`](../../scripts/egress-policies.conf), enforced in the Docker `DOCKER-USER` chain by [`scripts/egress-guard.sh`](../../scripts/egress-guard.sh).
+[ADR-009 §5](../../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) treats Confluence as independent of Atlassian-hosted services. Confluence stays on the single `subnet` network; its egress is restricted on the host by the `restricted` policy entry in [`scripts/egress-policies.conf`](../../../scripts/egress-policies.conf), enforced in the Docker `DOCKER-USER` chain by [`scripts/egress-guard.sh`](../../../scripts/egress-guard.sh).
 
 | Destination | Treatment |
 |---|---|
@@ -97,7 +97,7 @@ docker compose logs -f webappconf
 
 DNS resolution is unaffected (the Docker resolver sits on a private address), so external names may still resolve; the connection is what gets dropped.
 
-Install, persistent operation (`watch`), verification, the command reference, the time-boxed exception procedure, and the global block apply to every container: see [Container egress controls](../../docs/operations/EGRESS-CONTROLS.md).
+Install, persistent operation (`watch`), verification, the command reference, the time-boxed exception procedure, and the global block apply to every container: see [Container egress controls](../EGRESS-CONTROLS.md).
 
 ### Observing blocked destinations
 
@@ -111,11 +111,11 @@ Kernel-level drop logs come from the `LOG` rules: `sudo dmesg -w | grep -E 'egre
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](../../shared/confluence/Dockerfile) | Image build (`FROM atlassian/confluence:${IMAGE_TAG}`) + plugin/agent install |
-| [`plugins/`](../../shared/confluence/plugins/) | Local plugin tarballs copied into the image |
+| [`Dockerfile`](../../../shared/confluence/Dockerfile) | Image build (`FROM atlassian/confluence:${IMAGE_TAG}`) + plugin/agent install |
+| [`plugins/`](../../../shared/confluence/plugins) | Local plugin tarballs copied into the image |
 
 ## See also
 
 - [PostgreSQL](postgresql.md) — database backend
 - [Traefik](traefik.md) — edge routing and TLS
-- [Root README — Homepage](../../README.md#homepage)
+- [Root README — Homepage](../../../README.md#homepage)

@@ -4,7 +4,7 @@
 
 ## Overview
 
-[LiteLLM](https://github.com/BerriAI/litellm) is the single LLM endpoint for the AI agent platform (`aiserv`). Every Hermes Agent request uses the virtual model `hermes`; [`smartrouter.py`](../../shared/litellm/smartrouter.py) rewrites each request to either `hephaestus` (local Gemma via [llama.cpp](llamacpp.md)) or `prometheus` (MiniMax cloud) before the provider call is made. The `aiservlitellm` service is defined in [`compose/aiserv.yml`](../../compose/aiserv.yml) and built from [`shared/litellm/Dockerfile`](../../shared/litellm/Dockerfile) (`FROM ghcr.io/berriai/litellm-database:main-latest`).
+[LiteLLM](https://github.com/BerriAI/litellm) is the single LLM endpoint for the AI agent platform (`aiserv`). Every Hermes Agent request uses the virtual model `hermes`; [`smartrouter.py`](../../../shared/litellm/smartrouter.py) rewrites each request to either `hephaestus` (local Gemma via [llama.cpp](llamacpp.md)) or `prometheus` (MiniMax cloud) before the provider call is made. The `aiservlitellm` service is defined in [`compose/aiserv.yml`](../../../compose/aiserv.yml) and built from [`shared/litellm/Dockerfile`](../../../shared/litellm/Dockerfile) (`FROM ghcr.io/berriai/litellm-database:main-latest`).
 
 ## Service details
 
@@ -22,7 +22,7 @@
 
 ## Configuration
 
-Set in `.env` (see [`env.example`](../../env.example)):
+Set in `.env` (see [`env.example`](../../../env.example)):
 
 | Variable | Default | Description |
 |---|---|---|
@@ -49,7 +49,7 @@ Container settings applied by the compose file:
 
 ## Routing logic
 
-`smartrouter.py` intercepts `hermes` and rewrites the target model. The full keyword lists live in [`smartrouter.py`](../../shared/litellm/smartrouter.py); the rules are (first match wins):
+`smartrouter.py` intercepts `hermes` and rewrites the target model. The full keyword lists live in [`smartrouter.py`](../../../shared/litellm/smartrouter.py); the rules are (first match wins):
 
 | Signal | Destination |
 |---|---|
@@ -61,14 +61,14 @@ Container settings applied by the compose file:
 | Complexity keywords (root cause, system architecture, academic essay, curriculum map, etc.) | prometheus — formal / logic-heavy task |
 | Default | hephaestus |
 
-The explicit tags are stripped from the message before forwarding so the model never sees the routing instruction. [`config.default.yaml`](../../shared/litellm/config.default.yaml) adds safety nets:
+The explicit tags are stripped from the message before forwarding so the model never sees the routing instruction. [`config.default.yaml`](../../../shared/litellm/config.default.yaml) adds safety nets:
 
 - `context_window_fallbacks` — any request that overflows the local model's context window is escalated to prometheus.
 - `fallbacks` — provider-failure routing sends each tier to the other on timeout or error.
 
 ## Configuration file
 
-The image bakes in [`config.default.yaml`](../../shared/litellm/config.default.yaml). At startup [`entrypoint.sh`](../../shared/litellm/entrypoint.sh) copies it to `/opt/litellm/config.yaml` if no user override exists, so you can edit it in place:
+The image bakes in [`config.default.yaml`](../../../shared/litellm/config.default.yaml). At startup [`entrypoint.sh`](../../../shared/litellm/entrypoint.sh) copies it to `/opt/litellm/config.yaml` if no user override exists, so you can edit it in place:
 
 ```bash
 docker compose exec aiservlitellm cat /app/config.default.yaml
@@ -94,10 +94,10 @@ curl -sf -H "Authorization: Bearer ${AIGATE_API_KEY}" \
 
 | Path | Purpose |
 |---|---|
-| [`Dockerfile`](../../shared/litellm/Dockerfile) | Image build + bakes config and routing callback |
-| [`config.default.yaml`](../../shared/litellm/config.default.yaml) | Default model list, router settings, fallbacks |
-| [`smartrouter.py`](../../shared/litellm/smartrouter.py) | Content-based routing hook (privacy + complexity) |
-| [`entrypoint.sh`](../../shared/litellm/entrypoint.sh) | Seeds the user config and starts LiteLLM |
+| [`Dockerfile`](../../../shared/litellm/Dockerfile) | Image build + bakes config and routing callback |
+| [`config.default.yaml`](../../../shared/litellm/config.default.yaml) | Default model list, router settings, fallbacks |
+| [`smartrouter.py`](../../../shared/litellm/smartrouter.py) | Content-based routing hook (privacy + complexity) |
+| [`entrypoint.sh`](../../../shared/litellm/entrypoint.sh) | Seeds the user config and starts LiteLLM |
 
 ## See also
 
@@ -105,4 +105,4 @@ curl -sf -H "Authorization: Bearer ${AIGATE_API_KEY}" \
 - [Hermes Agent](hermesagent.md) — primary client (`model: hermes`)
 - [FastCRW](fastcrw.md) — optional web-search backend for Hermes
 - [PostgreSQL](postgresql.md) — usage database
-- [Root README — AI Agent Platform](../../README.md#ai-agent-platform-aiserv)
+- [Root README — AI Agent Platform](../../../README.md#ai-agent-platform-aiserv)

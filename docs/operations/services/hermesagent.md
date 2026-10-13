@@ -184,7 +184,7 @@ shared agent identity.** This is confirmed by upstream design:
 ### Scaling to more users
 
 The platform ships one agent because Hermes is single-user. To extend it, copy
-the `aiservhermes` pattern in [`compose/aiserv.yml`](../../compose/aiserv.yml):
+the `aiservhermes` pattern in [`compose/aiserv.yml`](../../../compose/aiserv.yml):
 
 1. **Add the data directory** to `aiservhermesinit` (or add a sibling init
    container) — e.g. `${HERMES_DATA_01:-${APPS_DATA}/aiserv/hermes/01}:/data01`
