@@ -36,10 +36,10 @@ related_documents:
 
 Evidence of the current gap, verified on 2026-10-05:
 
-- [env.example](../../env.example) defines no Oracle APM, OCI logging, or OCI credential variables.
-- [docker-compose.yml](../../docker-compose.yml) includes only `route`, `infra`, `devops`, `webapp`, and `mailsv`; no telemetry collector service exists.
+- [env.example](../../../env.example) defines no Oracle APM, OCI logging, or OCI credential variables.
+- [docker-compose.yml](../../../docker-compose.yml) includes only `route`, `infra`, `devops`, `webapp`, and `mailsv`; no telemetry collector service exists.
 - No service in `compose/*.yml` exports traces, and no OCI agent configuration is recorded anywhere in the repository.
-- [Monitoring and alerting](../operations/MONITORING-ALERTING.md) previously asserted that OCI APM, Monitoring, Logging, and Tracing are in use; they are not configured.
+- [Monitoring and alerting](../../operations/MONITORING-ALERTING.md) previously asserted that OCI APM, Monitoring, Logging, and Tracing are in use; they are not configured.
 
 Two different credential models are involved, which is the main source of confusion:
 
@@ -76,7 +76,7 @@ Container logs SHALL be collected by the Oracle Cloud Agent **Logging** plugin u
 - Destination: an OCI Logging log group and custom log created for ServiceHub.
 - Scope: all containers in the deployed OCI scope (`route`, `infra`, `devops`, `webapp`, `mailsv`).
 
-The agent configuration, log group, and IAM policy SHALL be recorded in [Monitoring and alerting](../operations/MONITORING-ALERTING.md) when implemented. If search, parsing, or dashboards over logs are later required, a Service Connector SHALL route the OCI Logging log group to OCI Logging Analytics; this is not part of the initial implementation.
+The agent configuration, log group, and IAM policy SHALL be recorded in [Monitoring and alerting](../../operations/MONITORING-ALERTING.md) when implemented. If search, parsing, or dashboards over logs are later required, a Service Connector SHALL route the OCI Logging log group to OCI Logging Analytics; this is not part of the initial implementation.
 
 ### 3. Host metrics
 
@@ -96,34 +96,7 @@ Integration is opt-in per service, in this order:
 
 | Priority | Service | Method |
 |---|---|---|
-| 1 | LiteLLM | `OTEL_*` environment variables pointing at the endpoints above |
-| 2 | Confluence | Oracle APM Java agent (`-javaagent`), which also enables browser-agent injection if RUM is adopted |
-| 3 | Others | Reassess only if a service gains practical OpenTelemetry support |
-
-Traefik, Authentik, Forgejo, Stalwart, and oCIS SHALL rely on the log collection in decision 2: attaching a vendor agent to those third-party images is not supported in practice, and access plus container logs give the request-level visibility they need.
-
-### 5. Browser real-user monitoring
-
-RUM is deferred. It requires the public data key to be exposed to browsers through a Traefik middleware and SHALL be reconsidered only after decisions 1 to 4 are running.
-
-### 6. Egress
-
-Collection runs on the OCI host, not inside a stack container, so it needs outbound TCP 443 to `*.oraclecloud.com` permitted by the host's security list or firewall; without it, collection silently fails. The [ADR-009](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) Confluence egress rule does not apply here and SHALL NOT be relaxed for it — Confluence itself gains no APM egress.
-
-### 7. Fallback option
-
-If the host agent cannot meet parsing or labelling requirements, a single containerised collector (Fluent Bit with the `oracle_log_analytics` output, plus an OTel collector exporting to APM) MAY be introduced as a new compose include. That would extend the ADR-009 OCI service scope beyond `route`, `infra`, `devops`, `webapp`, and `mailsv`, so it requires an ADR-009 scope amendment and is explicitly excluded from this decision.
-
-### 8. Out of scope
-
-Observability for locally hosted `aiserv` services remains a separate ADR-009 follow-up: the local platform has no Oracle Cloud Agent, so it needs its own approach.
-
-## Decision Drivers
-
-- ADR-009 removed the self-hosted stack without a replacement, leaving the OCI deployment with no log or metric collection.
-- Logs and APM traces use different credential models; conflating them produces a design that cannot work.
-- The OCI deployment scope in ADR-009 is fixed to five domains, so adding a collector container has governance cost beyond its runtime cost.
-- The repository convention is that configuration lives in `env.example` and Compose, not only in a cloud console.
+| 1 | LiteLLM | `OTEL_*` environment variables pointing at the endpoints above…2222 chars truncated…a cloud console.
 - Ingested spans and log volume are billed by OCI, so the design must start narrow.
 
 ## Non-Goals
@@ -170,16 +143,16 @@ Option 1 needs no new container, no credential material in the repository for lo
 
 None as of 2026-10-05. Verified absences:
 
-- [env.example](../../env.example) — no `APM_*` or OCI logging variables.
-- [docker-compose.yml](../../docker-compose.yml) — no collector include.
-- [Compose domain files](../../compose/) — no OTLP or APM configuration.
-- [Monitoring and alerting](../operations/MONITORING-ALERTING.md) — status note corrected to reference this ADR instead of claiming the services are in use.
+- [env.example](../../../env.example) — no `APM_*` or OCI logging variables.
+- [docker-compose.yml](../../../docker-compose.yml) — no collector include.
+- [Compose domain files](../../../compose/) — no OTLP or APM configuration.
+- [Monitoring and alerting](../../operations/MONITORING-ALERTING.md) — status note corrected to reference this ADR instead of claiming the services are in use.
 
 ## Related Documents
 
 - [ADR-009 Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) — retires the self-hosted stack and defers the replacement to this record.
-- [Monitoring and alerting](../operations/MONITORING-ALERTING.md) — where the implemented agent configuration and credentials are recorded.
-- [Deployment architecture](../architecture/DEPLOYMENT-ARCHITECTURE.md) — deployment scope this collection sits inside.
+- [Monitoring and alerting](../../operations/MONITORING-ALERTING.md) — where the implemented agent configuration and credentials are recorded.
+- [Deployment architecture](../DEPLOYMENT-ARCHITECTURE.md) — deployment scope this collection sits inside.
 
 ## Follow-up Actions
 

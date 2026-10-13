@@ -42,7 +42,7 @@ Establish observable services, governed operational procedures, tested backup an
 
 ## Deliverables
 
-- [Observability Compose domain](../../compose/obsvc.yml)
+- [Observability Compose domain](../../compose/obsvce.yml)
 - [Alloy configuration](../../shared/grafana/alloy/config.alloy)
 - [Grafana provisioning and dashboards](../../shared/grafana/)
 - [Backup workflow](../../.forgejo/workflows/71-backup.yml)
@@ -74,7 +74,7 @@ Establish observable services, governed operational procedures, tested backup an
 - [x] Grafana data sources and dashboards are provisioned.
 - [x] Backup workflow implements database dumps and full archives.
 - [x] Rclone and PostgreSQL client configuration exists on the shared Forgejo runner image.
-- [x] Rclone Home Server and Google Drive transfer, integrity-check, and retention configuration exists.
+- [x] RClone Home Server and Google Drive transfer, integrity-check, and retention configuration exists.
 - [x] Operations and test documentation exists in this documentation set.
 - [ ] Validate metrics, logs, dashboards, and retention.
 - [ ] Define alert severities, notifications, owners, and alert tests.
@@ -120,6 +120,6 @@ Establish observable services, governed operational procedures, tested backup an
 
 ## Follow-up Work
 
-- Execute and validate [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
+- Execute and validate [ADR-007](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
 - Execute operational sections of [TEST-001](../testing/TEST-001-platform-baseline-validation.md).
 - Define the first release under [release governance](../releases/README.md).

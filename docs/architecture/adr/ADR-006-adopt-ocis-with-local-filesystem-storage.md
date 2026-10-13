@@ -39,9 +39,9 @@ At the time of the decision, no oCIS service, route, OIDC application, or persis
 
 ## Decision
 
-Deploy the `wbappmydrive` service in `compose/wbapp.yml` using the `owncloud/ocis` image, Authentik OIDC, Docker Compose, and local filesystem storage on the Oracle Cloud VM. Mount oCIS configuration under `${APPS_DATA}/cloud/ocis/config` and file data under `${APPS_DATA}/cloud/ocis/data`, and include both paths in the backup scope under [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md).
+Deploy the `wbappmydrive` service in `compose/webapp.yml` (Rename note 2026-10-12: formerly compose/wbapp.yml.) using the `owncloud/ocis` image, Authentik OIDC, Docker Compose, and local filesystem storage on the Oracle Cloud VM. Mount oCIS configuration under `${APPS_DATA}/cloud/ocis/config` and file data under `${APPS_DATA}/cloud/ocis/data`, and include both paths in the backup scope under [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md).
 
-oCIS 8.2 does not use a ServiceHub PostgreSQL database for its own service state. PostgreSQL continues to store Authentik identity data and other ServiceHub relational workloads. The operational guide is [../operations/services/owncloud.md](../operations/services/owncloud.md).
+oCIS 8.2 does not use a ServiceHub PostgreSQL database for its own service state. PostgreSQL continues to store Authentik identity data and other ServiceHub relational workloads. The operational guide is [../../operations/services/owncloud.md](../../operations/services/owncloud.md).
 
 Do not deploy MinIO, OCI Object Storage, or an S3 storage backend for the initial implementation. Reconsider an object-storage backend only if measured scale, availability, or operational requirements justify the additional component.
 
@@ -152,13 +152,13 @@ The repository now contains the Compose service, routing, OIDC environment, loca
 
 Repository configuration added on 2026-10-03:
 
-- [`wbappmydrive` and `wbappdriveinit`](../../compose/wbapp.yml) define the oCIS service, local bind mounts, dependency order, Traefik route, health check, and Authentik OIDC environment.
-- [`shared/owncloud/Dockerfile`](../../shared/owncloud/Dockerfile) builds the pinned official oCIS base image, installs [`entrypoint.sh`](../../shared/owncloud/entrypoint.sh), and Compose tags the result `wbappmydrive:latest`.
-- [`env.example`](../../env.example) defines the oCIS image, public hostname, Authentik issuer, public OIDC client ID, and certificate-verification setting.
-- [Traefik route configuration](../../compose/route.yml) permits long transfers and encoded WebDAV path characters.
-- [Deployment workflow](../../.forgejo/workflows/61-deploy.yml) can deploy `wbappmydrive` after its directory initialiser.
-- [oCIS operational guide](../operations/services/owncloud.md) records Authentik provider setup, redirect URIs, validation, backup scope, and operations.
-- [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) and [backup and restore](../operations/runbooks/BACKUP-RESTORE.md) record the target recovery strategy.
+- [`wbappmydrive` and `wbappdriveinit`](../../../compose/webapp.yml) (Rename note 2026-10-12: formerly compose/wbapp.yml.) define the oCIS service, local bind mounts, dependency order, Traefik route, health check, and Authentik OIDC environment.
+- [`shared/owncloud/Dockerfile`](../../../shared/owncloud/Dockerfile) builds the pinned official oCIS base image, installs [`entrypoint.sh`](../../../shared/owncloud/entrypoint.sh), and Compose tags the result `wbappmydrive:latest`.
+- [`env.example`](../../../env.example) defines the oCIS image, public hostname, Authentik issuer, public OIDC client ID, and certificate-verification setting.
+- [Traefik route configuration](../../../compose/route.yml) permits long transfers and encoded WebDAV path characters.
+- [Deployment workflow](../../../.forgejo/workflows/61-deploy.yml) can deploy `wbappmydrive` after its directory initialiser.
+- [oCIS operational guide](../../operations/services/owncloud.md) records Authentik provider setup, redirect URIs, validation, backup scope, and operations.
+- [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) and [backup and restore](../../operations/runbooks/BACKUP-RESTORE.md) record the target recovery strategy.
 
 This is configuration evidence only. The container, Authentik OIDC flow, account provisioning, file operations, monitoring, dual-target backup, and restore have not been runtime-validated by this change.
 
@@ -167,9 +167,9 @@ This is configuration evidence only. The container, Authentik OIDC flow, account
 - [ADR-003 Use PostgreSQL as the Primary Relational Platform](ADR-003-use-postgresql-as-primary-database.md)
 - [ADR-004 Use Authentik for Central Identity](ADR-004-use-authentik-for-central-identity.md)
 - [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](ADR-007-adopt-dual-target-backup-and-recovery.md)
-- [RFC-002 Family Cloud Platform Strategy](../rfc/RFC-002-family-cloud-platform-strategy.md)
-- [ServiceHub Roadmap](../requirements/ROADMAP.md)
-- [Backup and restore](../operations/runbooks/BACKUP-RESTORE.md)
+- [RFC-002 Family Cloud Platform Strategy](../../rfc/RFC-002-family-cloud-platform-strategy.md)
+- [ServiceHub Roadmap](../../requirements/ROADMAP.md)
+- [Backup and restore](../../operations/runbooks/BACKUP-RESTORE.md)
 
 ## Follow-up Actions
 

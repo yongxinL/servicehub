@@ -19,8 +19,8 @@ Draft, In Review, Accepted, Rejected, Deferred, Withdrawn, Superseded.
 
 | ID | Title | Status | Updated | Outcome date | Resulting artifacts |
 |---|---|---|---|---|---|
-| [RFC-001](RFC-001-reliability-and-recovery-baseline.md) | ServiceHub Reliability and Recovery Baseline | Accepted | 2026-10-10 | 2026-10-03 | [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) |
-| [RFC-002](RFC-002-family-cloud-platform-strategy.md) | Family Cloud Platform Strategy | Accepted | 2026-10-04 | 2026-10-03 | [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md), [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) |
+| [RFC-001](RFC-001-reliability-and-recovery-baseline.md) | ServiceHub Reliability and Recovery Baseline | Accepted | 2026-10-10 | 2026-10-03 | [ADR-007](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md) |
+| [RFC-002](RFC-002-family-cloud-platform-strategy.md) | Family Cloud Platform Strategy | Accepted | 2026-10-04 | 2026-10-03 | [ADR-006](../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md), [ADR-007](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md) |
 
 Next available identifier: RFC-003.
 

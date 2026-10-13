@@ -36,7 +36,7 @@ The migration is complete only after:
 |---|---|---|---|
 | Governance records and adoption metadata | Governance | docs/governance/ | Draft migration |
 | Legacy documentation migration | Governance adoption | docs/architecture/delivery-plan-governance-adoption.md | Draft |
-| ADR-001..ADR-011 | ADRs | docs/architecture/adr/ | Mixed: Accepted, Proposed, owner decision pending |
+| ADR-001..ADR-010 | ADRs | docs/architecture/adr/ | Mixed: Accepted, Proposed, owner decision pending |
 | RFC-001, RFC-002 | RFCs | docs/rfc/ | Accepted |
 | INV-001 | Investigation | docs/investigations/ | Draft |
 | TEST-001 | Test plan | docs/testing/ | Not Executed |
@@ -53,7 +53,7 @@ The batches must be applied in this order:
 1. Batch 0 records the owner decisions and creates this plan.
 2. Batch 1 resolves the case-sensitive template problem before any lower-case copies are created.
 3. Batch 2 moves unambiguous service guides, lessons, and runbooks and repairs their links.
-4. Batch 3 moves ADRs to the canonical location, normalizes ADR relationships, and records ADR-011.
+4. Batch 3 moves ADRs to the canonical location, normalizes ADR relationships
 5. Batch 4 initializes Spec Kit only after a recorded baseline commit.
 6. Batch 5 consolidates product intent and the legacy roadmap/phase store.
 7. Batch 6 completes metadata, indexes, and traceability.
@@ -69,7 +69,7 @@ No batch may be approved until the preceding batch has been reviewed and committ
 | Decision record | Owner decisions supplied | Draft plan contains OD-1 through OD-9 and open decisions | Approve map |
 | Template normalization | APFS case behavior verified | Uppercase templates archived; lower-case templates tracked | Approve archive layout |
 | Safe relocation | Directory contents reviewed | Product guides, lessons, and runbooks moved with valid links | Approve moves |
-| ADR normalization | Product/runbook moves complete | Canonical ADR index, ADR-011, ADR-009/A​​DR-010 states recorded | Approve ADR changes |
+| ADR normalization | Product/runbook moves complete | Canonical ADR index, ADR-009/A​​DR-010 states recorded | Approve ADR changes |
 | Native workflow | Baseline commit recorded | .specify/ and specs/ initialized or blocked with evidence | Approve initialization |
 | Product consolidation | Product templates available | Vision, requirements, and delivery plan created | Approve content equivalence |
 | Traceability | All artifacts exist | Metadata and indexes complete | Approve metadata batch |
@@ -111,7 +111,7 @@ Each row represents one audit finding or one deliberately grouped homogeneous fi
 | ADR-008/ADR-009 relation | ADR-009 partially supersedes ADR-008 | owner decision | Record partial supersession on both ADRs and in the index | 3 | OD-6 |
 | ADR-009 status | ADR-009 is Proposed despite implemented scope | owner decision | Set Accepted retrospectively; preserve follow-up obligations | 3 | OD-5 |
 | ADR-010 status | ADR-010 remains unapproved | owner decision | Leave Proposed; list under Owner Decisions | 3, 13 | Owner decision |
-| ADR-011 certificate policy | Certificate material is tracked encrypted; key is external | owner decision | Create retrospective Accepted ADR-011 with key-replacement follow-up | 3 | OD-1 |
+
 | ADR-001..010 links | ADR files contain historical Compose paths | careful consolidation | Repair links and add dated rename notes without changing decision meaning | 3 | OD-6 |
 | Legacy product guides | docs/products/ is not an operations category | safe automatic | Move to docs/operations/services/ and register category | 2 | OD-approved move |
 | Product-guide links | Relative links depend on docs/products/ depth | safe automatic | Repair every affected relative link | 2 | Product move |
@@ -135,7 +135,7 @@ Each row represents one audit finding or one deliberately grouped homogeneous fi
 | Spec Kit absent | No .specify/ or specs/ exists | owner decision | Initialize native Spec Kit with codex; create no retrospective specifications | 4 | Baseline commit and pinned version |
 | TEST-001 | TEST-001 is Not Executed | owner decision | Record as post-adoption gap, not a migration task | 6, 13 | OD-9 |
 | Restore and release | Restore, rollback, alert delivery, and release evidence are absent | owner decision | Record as known gaps; do not claim completion | 6, 13 | OD-9 |
-| Certificate tracking | Five certificate paths are tracked but git-crypt encrypted | owner decision | Accept under OD-1; no critical classification or remediation | 0, 3, 7 | OD-1 |
+| Certificate tracking | Five certificate paths are tracked but git-crypt encrypted | owner decision | Revised 2026-10-13: no ADR-011; the encrypted certificate state is recorded in the source-of-truth register and existing operations guides. | 0, 3, 7 | OD-1 |
 | .env and servicehub.key | Not tracked at audited commit | safe automatic | Verify absence during validation; do not add | 7 | None |
 | Decision-bearing comments | Compose, workflow, egress, routing, and shell comments contain implementation decisions | safe automatic | Inventory and retain; no code/config changes | 7 | None |
 | Legacy archive | Several displaced records need durable archive entries | careful consolidation | Add archive index entries and replacement links | 5, 8 | Replacement artifacts |
@@ -1276,12 +1276,12 @@ This migration is ready for Project Owner acceptance only when:
 - Batch 0 records the owner decisions.
 - Batch 1 restores the missing lower-case templates after archiving upper-case templates.
 - Batch 2 completes the product-guide, lesson, and runbook moves with valid links.
-- Batch 3 moves all ADRs to docs/architecture/adr/, records ADR-011, marks ADR-009 Accepted, and leaves ADR-010 Proposed pending owner decision.
+- Batch 3 moves all ADRs to docs/architecture/adr/, records ADR-009 Accepted, and leaves ADR-010 Proposed pending owner decision.
 - Batch 4 initializes native Spec Kit with codex after a recorded baseline commit.
 - Batch 5 creates docs/product/vision.md, docs/product/requirements.md, and docs/architecture/delivery-plan-servicehub-platform.md.
 - Batch 6 completes metadata, source-of-truth mappings, and indexes.
 - Batch 7 validates links, git-crypt attributes, sensitive-file absence, statuses, and archive replacements.
 - Batch 8 completes the archive register after the old ADR index is archived in Batch 3.
-- TEST-001, restore validation, alert validation, rollback validation, and release 1.0.0 remain explicitly recorded as post-adoption gaps.
+- TEST-001, restore validation, alert validation, rollback validation, and release 1.0.0 remain explicitly recorded as post-adoption gaps. Replace the git-crypt key (part of the key was displayed on 2026-10-12) and update the GIT_CRYPT_KEY Forgejo Actions secret.
 
 No files were modified during this read-only planning task.

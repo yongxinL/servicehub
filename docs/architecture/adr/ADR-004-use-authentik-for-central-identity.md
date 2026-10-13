@@ -75,21 +75,20 @@ Authentik has a dedicated server, worker, initialiser, persistent media and temp
 
 ## Implementation Evidence
 
-- [compose/authn.yml](../../compose/authn.yml)
-- [Authentik README](../operations/services/authentik.md)
-- [forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml)
-- [Grafana route](../../compose/obsvc.yml)
-- [Stalwart directory documentation](../operations/services/stalwart.md)
+- [compose/infra.yml](../../../compose/infra.yml) (Rename note 2026-10-12: formerly compose/authn.yml.)
+- [Authentik README](../../operations/services/authentik.md)
+- [forward-auth middleware](../../../shared/traefik/advanced/middlewares-authentik.yml)
+- [Grafana route](../../../compose/obsvce.yml) (Rename note 2026-10-12: formerly compose/obsvc.yml.)
+- [Stalwart directory documentation](../../operations/services/stalwart.md)
 
 ## Related Documents
 
-- [Architecture](../architecture/ARCHITECTURE.md)
-- [Troubleshooting](../operations/TROUBLESHOOTING.md)
-- [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
+- [Architecture](../ARCHITECTURE.md)
+- [Troubleshooting](../../operations/TROUBLESHOOTING.md)
+- [Baseline test plan](../../testing/TEST-001-platform-baseline-validation.md)
 
 ## Follow-up Actions
 
 - Record actual application integration coverage from runtime configuration.
 - Validate forward auth and LDAP flows.
 - Define break-glass accounts and recovery procedures.
-

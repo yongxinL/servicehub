@@ -75,16 +75,16 @@ The repository declares `exposedbydefault=false`, labels each intended route, pu
 
 ## Implementation Evidence
 
-- [compose/route.yml](../../compose/route.yml)
-- [Traefik README](../operations/services/traefik.md)
-- [security middleware](../../shared/traefik/advanced/middlewares-security.yml)
-- [forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml)
+- [compose/route.yml](../../../compose/route.yml)
+- [Traefik README](../../operations/services/traefik.md)
+- [security middleware](../../../shared/traefik/advanced/middlewares-security.yml)
+- [forward-auth middleware](../../../shared/traefik/advanced/middlewares-authentik.yml)
 - Service router labels across `compose/*.yml`
 
 ## Related Documents
 
-- [System context](../architecture/SYSTEM-CONTEXT.md)
-- [Data flow](../architecture/DATA-FLOW.md)
+- [System context](../SYSTEM-CONTEXT.md)
+- [Data flow](../DATA-FLOW.md)
 - [ADR-004](ADR-004-use-authentik-for-central-identity.md)
 
 ## Follow-up Actions
@@ -92,4 +92,3 @@ The repository declares `exposedbydefault=false`, labels each intended route, pu
 - Validate HTTP redirect, TLS, host routes, rate limits, and headers.
 - Review trusted proxy and allowlist values.
 - Review Docker socket and privileged-mode exposure.
-

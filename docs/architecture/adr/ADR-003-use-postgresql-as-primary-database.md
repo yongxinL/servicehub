@@ -74,17 +74,17 @@ All default database consumers in `compose/*.yml` connect to `dbsvcpgsqldb`. `en
 
 ## Implementation Evidence
 
-- [compose/dbsvc.yml](../../compose/dbsvc.yml)
-- [PostgreSQL image](../../shared/postgresql/Dockerfile)
-- [PostgreSQL README](../operations/services/postgresql.md)
-- [backup workflow](../../.forgejo/workflows/71-backup.yml)
-- Database environment settings in `compose/authn.yml`, `compose/depot.yml`, `compose/aiagn.yml`, `compose/wbapp.yml`, and `compose/poste.yml`
+- [compose/infra.yml](../../../compose/infra.yml) (Rename note 2026-10-12: formerly compose/dbsvc.yml.)
+- [PostgreSQL image](../../../shared/postgresql/Dockerfile)
+- [PostgreSQL README](../../operations/services/postgresql.md)
+- [backup workflow](../../../.forgejo/workflows/71-backup.yml)
+- Database environment settings in `compose/infra.yml` (Rename note 2026-10-12: formerly compose/authn.yml.), `compose/devops.yml` (Rename note 2026-10-12: formerly compose/depot.yml.), `compose/aiserv.yml` (Rename note 2026-10-12: formerly compose/aiagn.yml.), `compose/webapp.yml` (Rename note 2026-10-12: formerly compose/wbapp.yml.), and `compose/mailsv.yml` (Rename note 2026-10-12: formerly compose/poste.yml.)
 
 ## Related Documents
 
-- [Component catalogue](../architecture/COMPONENT-CATALOGUE.md)
-- [Backup and restore](../operations/runbooks/BACKUP-RESTORE.md)
-- [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
+- [Component catalogue](../COMPONENT-CATALOGUE.md)
+- [Backup and restore](../../operations/runbooks/BACKUP-RESTORE.md)
+- [Baseline test plan](../../testing/TEST-001-platform-baseline-validation.md)
 
 ## Follow-up Actions
 

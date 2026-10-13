@@ -141,7 +141,7 @@ The database archive is transaction-consistent because it uses `pg_dump`; the li
 
 Both `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data` are in the current full-archive scope, but no oCIS-specific consistency or restore validation exists.
 
-[ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts a target flow in which Forgejo Actions uses the existing `devopsrunner` toolchain to copy database dumps and persistent-data archives to a Home Server over an Rclone SFTP remote and independently to Google Drive through an Rclone Crypt remote. Repository configuration for this flow is present, but transfers and restores are not runtime-validated.
+[ADR-007](adr/ADR-007-adopt-dual-target-backup-and-recovery.md) accepts a target flow in which Forgejo Actions uses the existing `devopsrunner` toolchain to copy database dumps and persistent-data archives to a Home Server over an Rclone SFTP remote and independently to Google Drive through an Rclone Crypt remote. Repository configuration for this flow is present, but transfers and restores are not runtime-validated.
 
 ```mermaid
 flowchart LR

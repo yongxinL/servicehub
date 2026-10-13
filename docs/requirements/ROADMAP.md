@@ -77,8 +77,8 @@ No dates are assigned because the repository does not provide a reliable schedul
 
 | Feature | Phase | Priority | Decision | Delivery status |
 |---|---|---|---|---|
-| Cloud Drive Platform | Infrastructure Services | High | [ADR-006](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) | Repository configuration added; runtime validation pending |
-| Dual-Target Backup and Recovery | Observability and Operational Hardening | High | [ADR-007](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md) | Repository configuration added; runtime and recovery evidence pending |
+| Cloud Drive Platform | Infrastructure Services | High | [ADR-006](../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) | Repository configuration added; runtime validation pending |
+| Dual-Target Backup and Recovery | Observability and Operational Hardening | High | [ADR-007](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md) | Repository configuration added; runtime and recovery evidence pending |
 
 Deploy oCIS integrated with Authentik SSO to provide personal and family storage, shared spaces, secure file sharing, and a foundation for future office integration.
 
