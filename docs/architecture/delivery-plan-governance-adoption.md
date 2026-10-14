@@ -92,7 +92,7 @@ No batch may be approved until the preceding batch has been reviewed and committ
 - Product-guide relocation changes many relative paths.
 - Roadmap and phase records contain planning material that must not become competing native specifications.
 - Spec Kit initialization depends on an installed, pinned CLI version that is not supplied by the owner decision.
-- The central Forgejo URL contains <FORGEJO_URL> and cannot be made concrete without owner input.
+- The central Forgejo URL contains https://git.example.com and cannot be made concrete without owner input.
 - TEST-001, restore validation, rollback, alert delivery, service criticality, and release evidence remain unverified.
 
 ## 7. Migration Map
@@ -103,7 +103,7 @@ Each row represents one audit finding or one deliberately grouped homogeneous fi
 |---|---|---|---|---|---|
 | Owner decision ledger | Owner decisions were supplied but are not committed | owner decision | Create this delivery plan and point the adoption record to it | 0 | Owner approval |
 | Adoption metadata | docs/governance/governance-adoption.md contained placeholders at audit time | owner decision | Apply the Batch 0 values without advancing the adoption state | 0 | OD-8 |
-| Central repository pointer | CENTRAL-GOVERNANCE-REFERENCE.md:6 is unresolved | owner decision | Set <FORGEJO_URL>/Nexora/governance | 6 | Actual Forgejo URL |
+| Central repository pointer | CENTRAL-GOVERNANCE-REFERENCE.md:6 is unresolved | owner decision | Set https://git.example.com/Nexora/governance | 6 | Actual Forgejo URL |
 | Secret-store register | docs/governance/source-of-truth-register.md:31 is unresolved | owner decision | Record server .env (mode 600) and Forgejo Actions secrets | 6 | OD-8 |
 | Agent instructions | AGENTS.md still uses project and validation placeholders | owner decision | Set project name and agent metadata; retain unresolved command placeholders | 6 | Owner-provided commands |
 | Tool register | Spec Kit and Codex versions are placeholders | owner decision | Record integration codex; keep version unresolved until installed | 4, 6 | Pinned CLI version |
@@ -1006,7 +1006,7 @@ Adoption metadata in docs/governance/governance-adoption.md was completed in Bat
 
 - AGENTS.md:1 — replace <PROJECT_NAME> with ServiceHub.
 - AGENTS.md:46 through AGENTS.md:48 — retain unresolved test/build/lint placeholders until the owner supplies commands.
-- CENTRAL-GOVERNANCE-REFERENCE.md:6 — <FORGEJO_URL>/Nexora/governance.
+- CENTRAL-GOVERNANCE-REFERENCE.md:6 — https://git.example.com/Nexora/governance.
 - docs/governance/source-of-truth-register.md:14 — confirm docs/product/vision.md and docs/product/requirements.md.
 - docs/governance/source-of-truth-register.md:20 — confirm docs/architecture/adr/.
 - docs/governance/source-of-truth-register.md:21 — record the two actual delivery-plan filenames.
@@ -1136,7 +1136,7 @@ The batch is complete only if no new broken links appear.
 
 1. ADR-010: accept, reject, defer, or revise the Oracle APM/logging design. It remains Proposed and must not be assumed accepted.
 2. Migration map approval: approve this plan before any batch is executed.
-3. Central URL: provide the concrete Forgejo host represented by <FORGEJO_URL>.
+3. Central URL: provide the concrete Forgejo host represented by https://git.example.com.
 4. Spec Kit version: provide the pinned Spec Kit CLI version and confirm it is installed.
 5. Baseline commit: identify the exact Batch 3 commit SHA to use for Spec Kit initialization.
 6. Validation commands: provide project test, build, and lint commands for AGENTS.md:46 through AGENTS.md:48.

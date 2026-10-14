@@ -1,7 +1,7 @@
 # Operations
 
 ## Purpose
-Describes how `<PROJECT_NAME>` is deployed, configured, monitored, backed up, and recovered.
+Describes how ServiceHub is deployed, configured, monitored, backed up, and recovered.
 
 ## Authority
 Authoritative for the operational model. Procedures are authoritative in runbooks ([runbooks/README.md](runbooks/README.md)); design decisions belong in ADRs. Contains no secret values. Owning chapter: central manual 15.

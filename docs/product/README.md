@@ -19,11 +19,11 @@ Draft, In Review, Approved, Superseded.
 
 | Document | Status | Updated | Baseline |
 |---|---|---|---|
-| [vision.md](vision.md) | Draft | 2026-10-13 | Not approved |
-| [requirements.md](requirements.md) | Draft | 2026-10-13 | Not approved |
+| [vision.md](vision.md) | Approved | 2026-10-13 | 2026-10-13 |
+| [requirements.md](requirements.md) | Approved | 2026-10-13 | 2026-10-13 |
 
 ## Relationship to other artifacts
 Specifications cite the product requirement they serve. Templates: [vision-template.md](vision-template.md), [requirements-template.md](requirements-template.md).
 
 ## Current scaffold state
-Vision and requirements created from templates on 2026-10-13; awaiting owner approval.
+Vision and requirements approved on 2026-10-13.

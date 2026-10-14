@@ -1,7 +1,7 @@
 # Architecture
 
 ## Purpose
-Summarizes the current architecture of `<PROJECT_NAME>` and links the decisions that shape it. Also indexes cross-specification delivery plans.
+Summarizes the current architecture of ServiceHub and links the decisions that shape it. Also indexes cross-specification delivery plans.
 
 ## Authority
 This overview is authoritative for the current architectural summary. Detailed decisions are authoritative in ADRs ([adr/README.md](adr/README.md)). Owning chapters: central manual 09 and 12.

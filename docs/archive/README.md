@@ -20,6 +20,7 @@ Archived items carry no lifecycle status.
 | Item | Origin path | Archived on | Reason | Replacement |
 |---|---|---|---|---|
 | [ADR-TEMPLATE.md](2026-10-legacy-templates/ADR-TEMPLATE.md) | `docs/templates/ADR-TEMPLATE.md` | 2026-10-12 | Legacy upper-case template | [adr-template.md](../templates/adr-template.md) |
+| [README.md](2026-10-legacy-adr-index/README.md) | `docs/adr/README.md` | 2026-10-12 | ADR index migrated to architecture/adr/ | [adr/README.md](../architecture/adr/README.md) |
 | [INVESTIGATION-TEMPLATE.md](2026-10-legacy-templates/INVESTIGATION-TEMPLATE.md) | `docs/templates/INVESTIGATION-TEMPLATE.md` | 2026-10-12 | Legacy upper-case template | [investigation-template.md](../templates/investigation-template.md) |
 | [LESSON-TEMPLATE.md](2026-10-legacy-templates/LESSON-TEMPLATE.md) | `docs/templates/LESSON-TEMPLATE.md` | 2026-10-12 | Legacy upper-case template | [lesson-learned-template.md](../templates/lesson-learned-template.md) |
 | [PHASE-TEMPLATE.md](2026-10-legacy-templates/PHASE-TEMPLATE.md) | `docs/templates/PHASE-TEMPLATE.md` | 2026-10-12 | Legacy upper-case template with no lower-case replacement | Native plans or [cross-specification-delivery-plan-template.md](../templates/cross-specification-delivery-plan-template.md) |
@@ -40,4 +41,4 @@ Archived items carry no lifecycle status.
 Every archived item links to its replacement where one exists.
 
 ## Current scaffold state
-Eight legacy templates and eight product/planning documents are indexed.
+Eight legacy templates, eight product/planning documents, and the legacy ADR index are indexed.

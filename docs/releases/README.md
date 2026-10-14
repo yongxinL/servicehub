@@ -20,10 +20,10 @@ Planned, Candidate, Released, Withdrawn, Superseded.
 | Version | Status | Release date | Tag | Commit |
 |---|---|---|---|---|
 
-No project artifacts have yet been created in this area.
+Release 1.0.0 is planned post-adoption work.
 
 ## Relationship to other artifacts
 References specification baselines, verification summaries, and runbooks. Template: [../templates/release-template.md](../templates/release-template.md).
 
 ## Current scaffold state
-Empty index.
+No release records yet; Release 1.0.0 is planned post-adoption work.
