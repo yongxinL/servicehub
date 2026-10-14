@@ -46,14 +46,14 @@ Provide governed identity infrastructure and repository-hosted development and d
 
 ## Deliverables
 
-- [Authentik Compose domain](../../compose/infra.yml) (Rename note 2026-10-12: formerly compose/authn.yml.)
-- [Forgejo Compose domain](../../compose/devops.yml) (Rename note 2026-10-12: formerly compose/depot.yml.)
-- [Authentik README](../../../operations/services/authentik.md)
-- [Forgejo README](../../../operations/services/forgejo.md)
-- [Forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml)
-- [oCIS Compose service](../../compose/webapp.yml) (Rename note 2026-10-12: formerly compose/wbapp.yml.)
-- [oCIS operational guide](../../../operations/services/owncloud.md)
-- [.forgejo workflows](../../.forgejo/workflows/)
+- [Authentik Compose domain](../../../compose/infra.yml) (Rename note 2026-10-12: formerly compose/authn.yml.)
+- [Forgejo Compose domain](../../../compose/devops.yml) (Rename note 2026-10-12: formerly compose/depot.yml.)
+- [Authentik README](../../operations/services/authentik.md)
+- [Forgejo README](../../operations/services/forgejo.md)
+- [Forward-auth middleware](../../../shared/traefik/advanced/middlewares-authentik.yml)
+- [oCIS Compose service](../../../compose/webapp.yml) (Rename note 2026-10-12: formerly compose/wbapp.yml.)
+- [oCIS operational guide](../../operations/services/owncloud.md)
+- [.forgejo workflows](../../../.forgejo/workflows/)
 
 ## Requirements Addressed
 

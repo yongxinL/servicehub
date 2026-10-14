@@ -71,10 +71,10 @@ Current state is therefore **implemented in part, not yet verified as a governed
 
 | Sequence | Phase | Primary outcome |
 |---|---|---|
-| 1 | [PHASE-001 Platform Foundation](../../../phases/PHASE-001-platform-foundation.md) | Compose, network, ingress, data, and deployment baseline |
-| 2 | [PHASE-002 Identity and Developer Services](../../../phases/PHASE-002-identity-and-developer-services.md) | Authentik, Forgejo, runner, and application identity coverage |
-| 3 | [PHASE-003 AI Platform](../../../phases/PHASE-003-ai-platform.md) | Local inference, LiteLLM routing, privacy, and client access |
-| 4 | [PHASE-004 Observability and Operational Hardening](../../../phases/PHASE-004-observability-and-operational-hardening.md) | Metrics, logs, dashboards, backup, restoration, and release controls |
+| 1 | [PHASE-001 Platform Foundation](./PHASE-001-platform-foundation.md) | Compose, network, ingress, data, and deployment baseline |
+| 2 | [PHASE-002 Identity and Developer Services](./PHASE-002-identity-and-developer-services.md) | Authentik, Forgejo, runner, and application identity coverage |
+| 3 | [PHASE-003 AI Platform](./PHASE-003-ai-platform.md) | Local inference, LiteLLM routing, privacy, and client access |
+| 4 | [PHASE-004 Observability and Operational Hardening](./PHASE-004-observability-and-operational-hardening.md) | Metrics, logs, dashboards, backup, restoration, and release controls |
 
 No dates are assigned because the repository does not provide a reliable schedule.
 
@@ -82,8 +82,8 @@ No dates are assigned because the repository does not provide a reliable schedul
 
 | Feature | Phase | Priority | Decision | Delivery status |
 |---|---|---|---|---|
-| Cloud Drive Platform | Infrastructure Services | High | [ADR-006](../../../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) | Repository configuration added; runtime validation pending |
-| Dual-Target Backup and Recovery | Observability and Operational Hardening | High | [ADR-007](../../../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md) | Repository configuration added; runtime and recovery evidence pending |
+| Cloud Drive Platform | Infrastructure Services | High | [ADR-006](../../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) | Repository configuration added; runtime validation pending |
+| Dual-Target Backup and Recovery | Observability and Operational Hardening | High | [ADR-007](../../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md) | Repository configuration added; runtime and recovery evidence pending |
 
 Deploy oCIS integrated with Authentik SSO to provide personal and family storage, shared spaces, secure file sharing, and a foundation for future office integration.
 
