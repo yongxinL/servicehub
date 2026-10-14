@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | Title | Product Requirements |
-| Status | Draft |
+| Status | Approved |
 | Owner | project-owner |
 | Created | 2026-10-13 |
 | Updated | 2026-10-13 |
-| Approved by / mode / date | |
+| Approved by project-owner / owner-self-approval / 2026-10-13 | |
 | Vision | `vision.md` |
 
 ## 1. Scope
@@ -137,9 +137,9 @@ Technology appears here only where it is itself a product constraint (Compose `i
 
 | Question | Raised | Decision needed by | Resolution |
 |---|---|---|---|
-| Which applications have completed Authentik OIDC integration? (PR-005, PR-014: coverage is partial or pending) | 2026-10-13 | Before phase acceptance | Application coverage to be recorded in the identity and developer services phase. |
-| What is the validated RPO, RTO, and off-host retention for backups? (PR-027, PR-043, PR-044: not yet defined) | 2026-10-13 | Before first governed release | Values to be approved with restoration evidence. |
-| Which alert destinations, owners, and severities apply to which services? (PR-037, PR-038: not yet defined) | 2026-10-13 | Before first governed release | Alerting policy to be defined and tested. |
+| Which applications have completed Authentik OIDC integration? (PR-005, PR-014: coverage is partial or pending) | 2026-10-13 | Before the identity work in the platform delivery plan is marked complete | Open. To be recorded per application in [delivery-plan-servicehub-platform.md](../architecture/delivery-plan-servicehub-platform.md) and verified in TEST-001. |
+| What are the validated RPO, RTO, and off-host retention for backups? (PR-027, PR-043, PR-044: not yet defined) | 2026-10-13 | Before release 1.0.0 | Open. Values to be approved by the Project Owner with restore-exercise evidence (ADR-007, RFC-001). |
+| Which alert destinations, owners, and severities apply to which services? (PR-037, PR-038: not yet defined) | 2026-10-13 | Before release 1.0.0 | Open. Alerting policy to be defined in docs/operations/MONITORING-ALERTING.md and tested. |
 
 ## 9. Change history
 
