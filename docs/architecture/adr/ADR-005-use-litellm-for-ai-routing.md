@@ -20,7 +20,7 @@ tags:
 related_documents:
   - ARCHITECTURE
   - DATA-FLOW
-  - PHASE-003
+  - PHASE-003 (archived)
 ---
 
 # ADR-005: Use LiteLLM for AI Workload Routing
@@ -84,7 +84,7 @@ The repository includes LiteLLM configuration, a smart routing hook, health-base
 ## Related Documents
 
 - [Data flow](../DATA-FLOW.md)
-- [AI platform phase](../../phases/PHASE-003-ai-platform.md)
+- [AI platform phase (archived)](../../archive/2026-10-delivery-plan/PHASE-003-ai-platform.md)
 - [Baseline test plan](../../testing/TEST-001-platform-baseline-validation.md)
 
 ## Follow-up Actions

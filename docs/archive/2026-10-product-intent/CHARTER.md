@@ -21,6 +21,11 @@ related_documents:
   - ARCHITECTURE
 ---
 
+> **Archived 2026-10-12.** Superseded by [<new document>](../../product/vision.md).
+> Kept for history; not authoritative.
+
+
+
 # ServiceHub Project Charter
 
 ## Executive Summary
@@ -128,8 +133,8 @@ External stakeholder names, teams, approval bodies, and escalation contacts are 
 
 ## Related Documents
 
-- [Product requirements](../requirements/PRD.md)
-- [Roadmap](../requirements/ROADMAP.md)
-- [Architecture overview](../architecture/ARCHITECTURE.md)
-- [Architecture decisions](../architecture/adr/README.md)
-- [Operations index](../operations/README.md)
+- [Product requirements](../../../requirements/PRD.md)
+- [Roadmap](../../../requirements/ROADMAP.md)
+- [Architecture overview](../../../architecture/ARCHITECTURE.md)
+- [Architecture decisions](../../../architecture/adr/README.md)
+- [Operations index](../../../operations/README.md)

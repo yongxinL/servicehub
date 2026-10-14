@@ -25,6 +25,11 @@ related_documents:
   - DEPLOYMENT-ARCHITECTURE
 ---
 
+> **Archived 2026-10-12.** Superseded by [<new document>](../../architecture/delivery-plan-servicehub-platform.md).
+> Kept for history; not authoritative.
+
+
+
 # PHASE-002: Identity and Developer Services
 
 ## Objective
@@ -43,11 +48,11 @@ Provide governed identity infrastructure and repository-hosted development and d
 
 - [Authentik Compose domain](../../compose/infra.yml) (Rename note 2026-10-12: formerly compose/authn.yml.)
 - [Forgejo Compose domain](../../compose/devops.yml) (Rename note 2026-10-12: formerly compose/depot.yml.)
-- [Authentik README](../operations/services/authentik.md)
-- [Forgejo README](../operations/services/forgejo.md)
+- [Authentik README](../../../operations/services/authentik.md)
+- [Forgejo README](../../../operations/services/forgejo.md)
 - [Forward-auth middleware](../../shared/traefik/advanced/middlewares-authentik.yml)
 - [oCIS Compose service](../../compose/webapp.yml) (Rename note 2026-10-12: formerly compose/wbapp.yml.)
-- [oCIS operational guide](../operations/services/owncloud.md)
+- [oCIS operational guide](../../../operations/services/owncloud.md)
 - [.forgejo workflows](../../.forgejo/workflows/)
 
 ## Requirements Addressed

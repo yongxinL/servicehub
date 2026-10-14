@@ -23,6 +23,11 @@ related_documents:
   - ADR-003
 ---
 
+> **Archived 2026-10-12.** Superseded by [<new document>](../../architecture/delivery-plan-servicehub-platform.md).
+> Kept for history; not authoritative.
+
+
+
 # PHASE-001: Platform Foundation
 
 ## Objective
@@ -112,7 +117,7 @@ No such execution record is present in this documentation set.
 
 ## Follow-up Work
 
-- Execute the foundation portion of [TEST-001](../testing/TEST-001-platform-baseline-validation.md).
+- Execute the foundation portion of [TEST-001](../../../testing/TEST-001-platform-baseline-validation.md).
 - Document rollback.
 - Review privileged and direct network exposure.
 

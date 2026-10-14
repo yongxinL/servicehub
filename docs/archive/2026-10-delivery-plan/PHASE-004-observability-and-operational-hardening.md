@@ -25,6 +25,11 @@ related_documents:
   - TEST-001
 ---
 
+> **Archived 2026-10-12.** Superseded by [<new document>](../../architecture/delivery-plan-servicehub-platform.md).
+> Kept for history; not authoritative.
+
+
+
 # PHASE-004: Observability and Operational Hardening
 
 ## Objective
@@ -46,9 +51,9 @@ Establish observable services, governed operational procedures, tested backup an
 - [Alloy configuration](../../shared/grafana/alloy/config.alloy)
 - [Grafana provisioning and dashboards](../../shared/grafana/)
 - [Backup workflow](../../.forgejo/workflows/71-backup.yml)
-- [Forgejo runner and backup workflow runtime](../operations/services/forgejo.md#backup-workflow-runtime)
-- Operations documentation under [docs/operations/](../operations/)
-- Test and release registers under [docs/testing/](../testing/) and [docs/releases/](../releases/)
+- [Forgejo runner and backup workflow runtime](../../../operations/services/forgejo.md#backup-workflow-runtime)
+- Operations documentation under [docs/operations/](../../../operations/)
+- Test and release registers under [docs/testing/](../../../testing/) and [docs/releases/](../../../releases/)
 
 ## Requirements Addressed
 
@@ -120,6 +125,6 @@ Establish observable services, governed operational procedures, tested backup an
 
 ## Follow-up Work
 
-- Execute and validate [ADR-007](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
-- Execute operational sections of [TEST-001](../testing/TEST-001-platform-baseline-validation.md).
-- Define the first release under [release governance](../releases/README.md).
+- Execute and validate [ADR-007](../../../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md).
+- Execute operational sections of [TEST-001](../../../testing/TEST-001-platform-baseline-validation.md).
+- Define the first release under [release governance](../../../releases/README.md).
