@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | Title | ServiceHub Governance Adoption |
-| Status | Approved |
+| Status | Implemented |
 | Owner | project-owner |
 | Created | 2026-10-12 |
-| Updated | 2026-10-12 |
+| Updated | 2026-10-13 |
 | Approved by / mode / date | Pending Project Owner approval |
 | Trigger | Governance adoption |
 
@@ -1131,6 +1131,8 @@ docs(archive): retire displaced legacy governance records
 
 Run: python3 ~/Documents/workspaces/nexora-audits/check-links.py
 The batch is complete only if no new broken links appear.
+
+Completed within Batches 3 and 5; archive register verified by prompt 19 on 2026-10-13.
 
 ## 9. Owner Decisions Still Open
 

@@ -8,7 +8,7 @@
 | Central repository | https://git.example.com/Nexora/governance |
 | Adopted version | 1.0.0 |
 | Release tag | `v1.0.0` |
-| Adoption date | 2026-10-12 |
+| Adoption date | 2026-10-13 |
 | Adoption state | Adoption in Progress |
 | Primary agent | codex |
 | Active Spec Kit integration | codex |
@@ -25,6 +25,7 @@ Review this record on: governance upgrade, ownership change, contributor-access 
 | Date | Version | Tag | State | Approval mode | Baseline commit |
 |---|---|---|---|---|---|
 | 2026-10-12 | 1.0.0 | `v1.0.0` | Adoption in Progress | owner-self-approval | Recorded after the adoption commit |
+| 2026-10-13 | 1.0.0 | `v1.0.0` | Adopted | owner-self-approval | Recorded after this commit |
 
 ## Notes
 
