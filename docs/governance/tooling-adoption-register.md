@@ -19,9 +19,9 @@ States: Planned, Pilot, Enabled, Disabled, Removed. Removed entries remain liste
 |---|---|
 | Purpose | SDD workflow owner |
 | Official source | github.com/github/spec-kit, PyPI `specify-cli` |
-| Version | `<SPEC_KIT_VERSION>` |
+| Version | `1.1.3` |
 | Installation scope | User tool install; project files under `.specify/` and integration directories |
-| Integration | `<SPEC_KIT_INTEGRATION_KEY>` |
+| Integration | `codex` |
 | Extensions enabled | None |
 | Data transmission | None during normal workflow beyond the agent's own model calls |
 | Credentials | None |
@@ -31,7 +31,7 @@ States: Planned, Pilot, Enabled, Disabled, Removed. Removed entries remain liste
 
 | Field | Value |
 |---|---|
-| Agent | `<PRIMARY_AGENT>` |
+| Agent | `codex` |
 | Version | Record installed version |
 | Project configuration | `opencode.json` or `.codex/config.toml` |
 | User configuration | Not committed |

@@ -5,7 +5,7 @@
 | Project name | ServiceHub |
 | Project Owner | George Li |
 | Governance mode | `solo` |
-| Central repository | `<CENTRAL_GOVERNANCE_REPOSITORY>` |
+| Central repository | https://git.example.com/Nexora/governance |
 | Adopted version | 1.0.0 |
 | Release tag | `v1.0.0` |
 | Adoption date | 2026-10-12 |
@@ -30,5 +30,4 @@ Review this record on: governance upgrade, ownership change, contributor-access 
 
 Record here any customization marker that cannot yet be resolved and why. Remove resolved notes.
 
-- The Forgejo URL will be supplied later.
 - Governance adoption plan: `docs/architecture/delivery-plan-governance-adoption.md`.

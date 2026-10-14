@@ -1,4 +1,4 @@
-# AGENTS.md - <PROJECT_NAME>
+# AGENTS.md - ServiceHub
 
 Operational instructions for AI coding agents. This file is concise by design and does not replace any governed artifact.
 
@@ -43,9 +43,10 @@ The specification is wrong, ambiguous, or conflicts with other authority; scope 
 
 ## Validation
 
-- Test: `<PROJECT_TEST_COMMAND>`
-- Build: `<PROJECT_BUILD_COMMAND>`
-- Lint: `<PROJECT_LINT_COMMAND>`
+- Test: `<PROJECT_TEST_COMMAND>` (No automated test suite yet; see docs/testing/TEST-001-platform-baseline-validation.md)
+- Build: `docker compose config --quiet`
+- Lint: `shellcheck scripts/*.sh`
+- Docs check: `python3 ~/Documents/workspaces/nexora-audits/check-links.py`
 
 Report which commands ran and their results. Never claim a check passed that was not run.
 

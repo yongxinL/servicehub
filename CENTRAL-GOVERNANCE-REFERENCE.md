@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Governance | Nexora Governance |
-| Central repository | `<CENTRAL_GOVERNANCE_REPOSITORY>` |
+| Central repository | https://git.example.com/Nexora/governance |
 | Adopted version | 1.0.0 |
 | Immutable release tag | `v1.0.0` |
 

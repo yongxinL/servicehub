@@ -30,10 +30,10 @@ Proposed, Accepted, Rejected, Deprecated, Superseded. Accepted ADRs are immutabl
 | ADR-009 | Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries | Accepted | 2026-10-08 | 2026-10-05 | Supersedes ADR-008 in part; defers observability to ADR-010 |
 | ADR-010 | Collect OCI Logs and Integrate Service Telemetry with Oracle APM | Proposed | 2026-10-05 | 2026-10-05 | Split from ADR-009; pending owner decision |
 
-No project artifacts have yet been created in this area. Next available identifier: ADR-011.
+Next available identifier: ADR-011.
 
 ## Relationship to other artifacts
 RFC outcomes may produce ADRs; specifications and plans reference ADRs. Template: [../../templates/adr-template.md](../../templates/adr-template.md).
 
 ## Current scaffold state
-Empty index.
+ADR-001 through ADR-010 are recorded; next available identifier is ADR-011.

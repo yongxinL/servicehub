@@ -1,4 +1,4 @@
-# <PROJECT_NAME> Documentation
+# ServiceHub Documentation
 
 Root index of governed project documentation under Nexora Governance (adopted release: see [governance/governance-adoption.md](governance/governance-adoption.md)).
 
