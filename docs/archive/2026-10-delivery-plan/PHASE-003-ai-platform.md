@@ -44,12 +44,12 @@ Provide local and cloud AI routing through LiteLLM with privacy-sensitive local 
 
 ## Deliverables
 
-- [AI Compose domain](../../compose/aiserv.yml) (Rename note 2026-10-12: formerly compose/aiagn.yml.)
-- [Open WebUI service](../../compose/webapp.yml) (Rename note 2026-10-12: formerly compose/wbapp.yml.)
-- [LiteLLM configuration](../../shared/litellm/config.default.yaml)
-- [Smart router](../../shared/litellm/smartrouter.py)
-- [Hermes image and profile configuration](../../shared/hermesagent/)
-- [llama.cpp service](../../shared/llamacpp/)
+- [AI Compose domain](../../../compose/aiserv.yml) (Rename note 2026-10-12: formerly compose/aiagn.yml.)
+- [Open WebUI service](../../../compose/webapp.yml) (Rename note 2026-10-12: formerly compose/wbapp.yml.)
+- [LiteLLM configuration](../../../shared/litellm/config.default.yaml)
+- [Smart router](../../../shared/litellm/smartrouter.py)
+- [Hermes image and profile configuration](../../../shared/hermesagent/)
+- [llama.cpp service](../../../shared/llamacpp/)
 
 ## Requirements Addressed
 
@@ -114,6 +114,6 @@ Provide local and cloud AI routing through LiteLLM with privacy-sensitive local 
 
 ## Follow-up Work
 
-- Execute AI portions of [TEST-001](../../../testing/TEST-001-platform-baseline-validation.md).
+- Execute AI portions of [TEST-001](../../testing/TEST-001-platform-baseline-validation.md).
 - Review direct port protections.
 - Add privacy-routing regression tests.

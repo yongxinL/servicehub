@@ -45,12 +45,12 @@ Establish a reviewable Compose platform with a shared network, ingress, relation
 
 ## Deliverables
 
-- [docker-compose.yml](../../docker-compose.yml)
-- Domain files under [compose/](../../compose/)
-- [Traefik configuration](../../shared/traefik/)
-- [PostgreSQL](../../shared/postgresql/) and [MariaDB](../../shared/mariadb/) images
-- [Environment template](../../env.example)
-- [Setup script](../../scripts/setup.sh)
+- [docker-compose.yml](../../../docker-compose.yml)
+- Domain files under [compose/](../../../compose/)
+- [Traefik configuration](../../../shared/traefik/)
+- [PostgreSQL](../../../shared/postgresql/) and [MariaDB](../../../shared/mariadb/) images
+- [Environment template](../../../env.example)
+- [Setup script](../../../scripts/setup.sh)
 - Deployment and backup workflows
 
 ## Requirements Addressed
@@ -117,7 +117,7 @@ No such execution record is present in this documentation set.
 
 ## Follow-up Work
 
-- Execute the foundation portion of [TEST-001](../../../testing/TEST-001-platform-baseline-validation.md).
+- Execute the foundation portion of [TEST-001](../../testing/TEST-001-platform-baseline-validation.md).
 - Document rollback.
 - Review privileged and direct network exposure.
 

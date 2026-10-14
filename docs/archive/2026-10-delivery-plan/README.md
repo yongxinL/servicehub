@@ -37,5 +37,5 @@ Implementation may exist for several phases, but repository evidence does not co
 | PHASE-003 | AI Platform | Draft | Implementation present; retrospective validation required | [Phase 3](PHASE-003-ai-platform.md) |
 | PHASE-004 | Observability and Operational Hardening | Draft | Partial implementation; restoration and release controls incomplete | [Phase 4](PHASE-004-observability-and-operational-hardening.md) |
 
-Use [PHASE-TEMPLATE.md](../archive/2026-10-legacy-templates/PHASE-TEMPLATE.md) for new phases. Mark a phase `Completed` only when acceptance evidence is linked and accepted.
+Use [PHASE-TEMPLATE.md](../../archive/2026-10-legacy-templates/PHASE-TEMPLATE.md) for new phases. Mark a phase `Completed` only when acceptance evidence is linked and accepted.
 
