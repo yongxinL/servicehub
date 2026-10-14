@@ -1,0 +1,35 @@
+# EXAMPLE ONLY - Nexora Governance v1.0 project configuration for Codex (verified 2026-10-12).
+# Copy to .codex/config.toml. Codex loads project .codex/ layers only when the project is trusted;
+# trust the project only after reviewing this file, hooks, and rules.
+#
+# Precedence (highest first): CLI flags and --config, project .codex/config.toml (closest wins),
+# --profile files, ~/.codex/config.toml, cloud-managed defaults, /etc/codex/config.toml, built-in defaults.
+#
+# User-specific settings (model, provider, personal credentials, notification preferences) belong in
+# ~/.codex/config.toml and must not be committed here.
+# Verify key names against the installed Codex version before enabling any server.
+
+# Conservative defaults for governed work.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+# Context7 - approved after project data-handling acceptance. Disabled until registered.
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+bearer_token_env_var = "CONTEXT7_API_KEY"
+enabled = false
+
+# OpenAI Developer Documentation MCP - read-only; enable only when OpenAI/Codex work is relevant.
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+enabled = false
+
+# Playwright MCP - disabled initially; isolated profile mandatory; pin the version.
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@<PLAYWRIGHT_MCP_VERSION>", "--isolated", "--headless"]
+enabled = false
+
+# codebase-memory-mcp, Ponytail, Forgejo write, deployment, and infrastructure integrations are
+# intentionally absent. Add them only after tool adoption review and a register entry.
+# Never place secret values in this file; reference environment variable names only.

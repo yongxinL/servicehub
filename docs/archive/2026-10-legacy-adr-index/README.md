@@ -1,0 +1,44 @@
+---
+project: ServiceHub
+project_code: SVCHUB
+document_type: ADR-INDEX
+document_id: ADR-INDEX
+title: ServiceHub Architecture Decision Register
+version: "1.1"
+status: Active
+lifecycle_stage: Design
+owner: George Li
+maintainer: George Li
+created: 2026-10-01
+updated: 2026-10-10
+tags:
+  - servicehub
+  - architecture
+  - adr
+  - index
+related_documents:
+  - ARCHITECTURE
+  - PRD-001
+---
+
+> **Retired 2026-10-12.** This index is no longer maintained. The authoritative
+> ADR index is [../../architecture/adr/README.md](../../architecture/adr/README.md).
+
+# ServiceHub Architecture Decision Register
+
+These ADRs record both retrospective decisions inferred from the current implementation and accepted forward-looking design decisions. Each record states whether supporting implementation evidence exists; `status: Accepted` records the decision, not successful runtime validation.
+
+| ID | Title | Status | Date | Related implementation | Supersedes | Link |
+|---|---|---|---|---|---|---|
+| ADR-001 | Use Docker Compose for Orchestration | Accepted | 2026-10-01 | `docker-compose.yml`, `compose/*.yml` | None | [ADR-001](../../architecture/adr/ADR-001-use-docker-compose.md) |
+| ADR-002 | Use Traefik as the Single HTTP Ingress | Accepted | 2026-10-01 | `compose/route.yml`, Traefik labels | None | [ADR-002](../../architecture/adr/ADR-002-use-traefik-as-ingress.md) |
+| ADR-003 | Use PostgreSQL as the Primary Relational Platform | Accepted | 2026-10-01 | `compose/infra.yml`, PostgreSQL consumers | None | [ADR-003](../../architecture/adr/ADR-003-use-postgresql-as-primary-database.md) |
+| ADR-004 | Use Authentik for Central Identity | Accepted | 2026-10-01 | `compose/infra.yml`, forward-auth and LDAP configuration | None | [ADR-004](../../architecture/adr/ADR-004-use-authentik-for-central-identity.md) |
+| ADR-005 | Use LiteLLM for AI Workload Routing | Accepted | 2026-10-01 | `compose/aiserv.yml`, `shared/litellm/` | None | [ADR-005](../../architecture/adr/ADR-005-use-litellm-for-ai-routing.md) |
+| ADR-006 | Adopt oCIS with Local Filesystem Storage | Accepted | 2026-10-03 | `compose/webapp.yml`, `env.example`, `compose/route.yml`, `shared/owncloud/`; runtime validation pending | None | [ADR-006](../../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md) |
+| ADR-007 | Adopt Dual-Target Backup and Disaster Recovery | Accepted | 2026-10-03 | `.forgejo/workflows/71-backup.yml` and `shared/forgejo/actions/`; shared runner revision recorded; Rclone-for-both-targets revision and workflow refactor recorded 2026-10-08; backup cadence revision recorded 2026-10-10; runtime validation pending | None | [ADR-007](../../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md) |
+| ADR-008 | Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables | Accepted | 2026-10-05 | `compose/*.yml`, `env.example`, `scripts/setup.sh`, workflows, and storage layout applied on `service-renaming`; runtime validation pending | None | [ADR-008](../../architecture/adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md) |
+| ADR-009 | Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries | Accepted | 2026-10-12 | `docker-compose.yml`, `compose/{aiserv,obsvce,webapp,route,mailsv}.yml`, `61-deploy.yml`, `env.example`, `scripts/egress-guard.sh` and `scripts/egress-policies.conf`, and living documentation updated on `adr-009`; container egress enforced by a host firewall rule with a global block, the local `aiserv` deployment entrypoint pending — see ADR-009 follow-up actions; Oracle telemetry configuration moved to ADR-010 | None | [ADR-009](../../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) |
+| ADR-010 | Collect OCI Logs and Integrate Service Telemetry with Oracle APM | Proposed | 2026-10-05 | None — design recorded for approval; no collector, credential, or agent configuration exists yet — see ADR-010 follow-up actions | None | [ADR-010](../../architecture/adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) |
+
+New records must use the next unused `ADR-NNN` ID, add a row here, and use [ADR-TEMPLATE.md](../../archive/2026-10-legacy-templates/ADR-TEMPLATE.md).

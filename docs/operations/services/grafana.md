@@ -1,0 +1,97 @@
+# Grafana — ServiceHub
+
+> Dashboards for visualizing metrics and logs.
+
+## Overview
+
+[Grafana](https://grafana.com/) is the visualization layer of the observability stack (`obsvce`). It reads metrics from [VictoriaMetrics](victoriametrics.md) and logs from [VictoriaLogs](victorialogs.md). The `obsvcegrafana` service is defined in [`compose/obsvce.yml`](../../../compose/obsvce.yml) and built from [`shared/grafana/Dockerfile`](../../../shared/grafana/Dockerfile) (`FROM grafana/grafana:latest`). A one-shot `obsvcegrafanainit` container fixes data-directory ownership before Grafana starts.
+
+## Service details
+
+| Detail | Value |
+|---|---|
+| Service name | `obsvcegrafana` (+ one-shot `obsvcegrafanainit`) |
+| URL | `https://${OBSERVABILITY_DOMAIN}` |
+| Internal port | 3000 |
+| Database | SQLite (embedded, persisted to `${APPS_DATA}/obsvce/grafana`) |
+| Data sources | VictoriaMetrics (`obsvcevm:8428`), VictoriaLogs (`obsvcevlogs:9428`) |
+| Auth | Authentik forward-auth (`authentik-forwardauth@file`) |
+| Plugin | `victoriametrics-logs-datasource` |
+| Depends on | `routetraefik`, `obsvcegrafanainit`, `obsvcealloy` |
+
+## Configuration
+
+Set in `.env` (see [`env.example`](../../../env.example)):
+
+| Variable | Description |
+|---|---|
+| `OBSERVABILITY_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
+| `OBSERVABILITY_ADMIN_USER` | Grafana admin username |
+| `OBSERVABILITY_ADMIN_PASSWORD` | Grafana admin password |
+
+Grafana settings applied by the compose file:
+
+| Setting | Value | Purpose |
+|---|---|---|
+| `GF_SECURITY_ADMIN_USER` / `GF_SECURITY_ADMIN_PASSWORD` | `${OBSERVABILITY_ADMIN_USER}` / `${OBSERVABILITY_ADMIN_PASSWORD}` | Local admin account |
+| `GF_SERVER_DOMAIN` / `GF_SERVER_ROOT_URL` | `${OBSERVABILITY_DOMAIN}` | Correct URLs behind Traefik |
+| `GF_USERS_ALLOW_SIGN_UP` | `false` | No self-registration |
+| `GF_INSTALL_PLUGINS` | `victoriametrics-logs-datasource` | Logs datasource |
+
+## Provisioning
+
+Both provisioning files are mounted read-only from [`provisioning/`](../../../shared/grafana/provisioning):
+
+| File | Purpose |
+|---|---|
+| [`provisioning/datasources/datasources.yml`](../../../shared/grafana/provisioning/datasources/datasources.yml) | VictoriaMetrics (default) and VictoriaLogs data sources |
+| [`provisioning/dashboards/dashboards.yml`](../../../shared/grafana/provisioning/dashboards/dashboards.yml) | Loads dashboards from `/var/lib/grafana/dashboards` |
+
+Pre-built dashboards in [`dashboards/`](../../../shared/grafana/dashboards) are mounted at `/var/lib/grafana/dashboards/observability` and include:
+
+- Node Exporter Full
+- Docker Dashboard / Docker Containers Overview
+- cAdvisor Explorer / cAdvisor Dashboard
+- Traefik Dashboard / Traefik Observability
+- VictoriaMetrics Overview
+- LiteLLM Proxy
+- VictoriaLogs Explorer / VictoriaLogs Internal State
+
+## Data & persistence
+
+| Container path | Host path | Purpose |
+|---|---|---|
+| `/var/lib/grafana` | `${APPS_DATA}/obsvce/grafana` | SQLite database, users, settings, local dashboard edits |
+
+`obsvcegrafanainit` runs as root and normalizes ownership to UID/GID `472` (the Grafana user) and permissions to `775` on every boot, so the bind mount stays writable.
+
+## Operations
+
+```bash
+# Start / restart
+docker compose up -d obsvcegrafana
+
+# Follow logs
+docker compose logs -f obsvcegrafana
+
+# Re-run the ownership fix
+docker compose up obsvcegrafanainit
+```
+
+## Files
+
+| Path | Purpose |
+|---|---|
+| [`Dockerfile`](../../../shared/grafana/Dockerfile) | Image build (`FROM grafana/grafana:latest`) |
+| [`provisioning/`](../../../shared/grafana/provisioning) | Data source and dashboard provisioning |
+| [`dashboards/`](../../../shared/grafana/dashboards) | Pre-built dashboard JSON |
+| [`alloy/`](../../../shared/grafana/alloy) | Grafana Alloy collector — see [alloy/README.md](../../../shared/grafana/alloy/README.md) |
+| [`geoip/`](../../../shared/grafana/geoip) | GeoIP database used by Alloy log enrichment |
+
+## See also
+
+- [VictoriaMetrics](victoriametrics.md) — metrics data source
+- [VictoriaLogs](victorialogs.md) — logs data source
+- [Grafana Alloy](../../../shared/grafana/alloy/README.md) — collector
+- [Authentik](authentik.md) — forward-auth
+- [Root README — Observability](../../../README.md#observability-stack-obsvce)

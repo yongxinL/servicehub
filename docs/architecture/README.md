@@ -1,54 +1,40 @@
----
-project: ServiceHub
-project_code: SVCHUB
-document_type: ARCHITECTURE
-document_id: ARCHITECTURE-INDEX
-title: ServiceHub Architecture Index
-version: "1.1"
-status: Active
-lifecycle_stage: Design
-owner: George Li
-maintainer: George Li
-created: 2026-10-01
-updated: 2026-10-03
-tags:
-  - servicehub
-  - architecture
-  - index
-related_documents:
-  - ARCHITECTURE
-  - ADR-INDEX
----
+# Architecture
 
-# ServiceHub Architecture Index
+## Purpose
+Summarizes the current architecture of ServiceHub and links the decisions that shape it. Also indexes cross-specification delivery plans.
 
-The architecture documents explain the current repository implementation. Claims are marked as repository evidence, inference, proposal, or TBD; they do not replace the Compose files and service configuration.
+## Authority
+This overview is authoritative for the current architectural summary. Detailed decisions are authoritative in ADRs ([adr/README.md](adr/README.md)). Owning chapters: central manual 09 and 12.
 
-## Documents
+## Artifact triggers
+Update the overview when an ADR is accepted or superseded, or when a structural change is released. Create a delivery plan only for work spanning multiple specifications, releases, or systems, migrations, infrastructure transitions, coordinated deprecations, or governance adoption.
 
-- [Architecture overview](ARCHITECTURE.md) — principles, subsystems, boundaries, platforms, and open concerns.
-- [System context](SYSTEM-CONTEXT.md) — users, external systems, ingress, remote targets, DNS, certificates, and AI providers.
-- [Component catalogue](COMPONENT-CATALOGUE.md) — service-by-service Compose inventory.
-- [Data flow](DATA-FLOW.md) — request, identity, deployment, AI, telemetry, database, and backup flows.
-- [Deployment architecture](DEPLOYMENT-ARCHITECTURE.md) — local, staging, production, runner, SSH, TLS, environment, and rollback model.
+## Naming and identifiers
+Delivery plans: `delivery-plan-<kebab-title>.md` (no governed identifier). ADRs: see the ADR index.
 
-## Decision Records
+## Status expectations
+Delivery plans use the specification status vocabulary (Draft, In Review, Approved, In Implementation, Implemented, Verified, Superseded, Withdrawn), per central manual chapter 16.
 
-- [ADR register](../adr/README.md)
-- [ADR-001 Use Docker Compose for Orchestration](../adr/ADR-001-use-docker-compose.md)
-- [ADR-002 Use Traefik as the Single HTTP Ingress](../adr/ADR-002-use-traefik-as-ingress.md)
-- [ADR-003 Use PostgreSQL as the Primary Relational Platform](../adr/ADR-003-use-postgresql-as-primary-database.md)
-- [ADR-004 Use Authentik for Central Identity](../adr/ADR-004-use-authentik-for-central-identity.md)
-- [ADR-005 Use LiteLLM for AI Workload Routing](../adr/ADR-005-use-litellm-for-ai-routing.md)
-- [ADR-006 Adopt oCIS with Local Filesystem Storage](../adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
-- [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
-- [ADR-008 Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables](../adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md)
-- [ADR-009 Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries](../adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)
+## Architecture overview
 
-## Primary Evidence
+| Document | Type | Status | Updated |
+|---|---|---|---|
+| [ARCHITECTURE](ARCHITECTURE.md) | Architecture overview | Draft | 2026-10-08 |
+| [COMPONENT-CATALOGUE](COMPONENT-CATALOGUE.md) | Component catalogue | Draft | 2026-10-07 |
+| [DATA-FLOW](DATA-FLOW.md) | Data-flow diagram | Draft | 2026-10-10 |
+| [DEPLOYMENT-ARCHITECTURE](DEPLOYMENT-ARCHITECTURE.md) | Deployment architecture | Draft | 2026-10-09 |
+| [SYSTEM-CONTEXT](SYSTEM-CONTEXT.md) | System-context diagram | Draft | 2026-10-08 |
+| [ADR index](adr/README.md) | ADR index | Not recorded | Not recorded |
 
-- [Root Compose definition](../../docker-compose.yml)
-- [Compose domain files](../../compose/)
-- [Forgejo workflows](../../.forgejo/workflows/)
-- [Environment template](../../env.example)
-- [Service configuration and README files](../../shared/)
+## Cross-specification delivery plans
+
+| Plan | Status | Participating specifications | Updated |
+|---|---|---|---|
+| [Governance adoption](delivery-plan-governance-adoption.md) | Approved | Not recorded | 2026-10-12 |
+| [ServiceHub platform](delivery-plan-servicehub-platform.md) | Draft | PHASE-001, PHASE-002, PHASE-003, PHASE-004 (archived) | 2026-10-13 |
+
+## Relationship to other artifacts
+Native feature plans in `specs/` are not indexed here. Template: [../templates/cross-specification-delivery-plan-template.md](../templates/cross-specification-delivery-plan-template.md).
+
+## Current scaffold state
+Five architecture documents, the canonical ADR index, the governance-adoption delivery plan, and the ServiceHub platform delivery plan are indexed; native feature plans are not initialized.

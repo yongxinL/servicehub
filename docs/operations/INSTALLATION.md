@@ -100,7 +100,7 @@ mkdir -p ${APPS_DATA}/mailsv/{stalwart,bulwark}
 chown -R 1000:1000 ${APPS_DATA}/devops/forgejo/{data,runner}
 ```
 
-Replace `${APPS_DATA}` with the actual path you set in `.env` (default: `~/Documents/containerd`). Homepage data lives under `${APPS_DATA}/webapp/confluence`; follow the [Confluence guide](../products/confluence.md) for directory ownership.
+Replace `${APPS_DATA}` with the actual path you set in `.env` (default: `~/Documents/containerd`). Homepage data lives under `${APPS_DATA}/webapp/confluence`; follow the [Confluence guide](services/confluence.md) for directory ownership.
 
 ## 6. Start the Stack
 
@@ -118,6 +118,6 @@ docker compose up -d devopsforgejo
 
 ## Next Steps
 
-- Day-to-day operations: [Runbook](RUNBOOK.md)
-- Remote deployment: [Deployment (Forgejo Actions)](DEPLOYMENT.md)
+- Day-to-day operations: [Runbook](runbooks/RUNBOOK.md)
+- Remote deployment: [Deployment (Forgejo Actions)](runbooks/DEPLOYMENT.md)
 - Encrypted certificate material: [Managing Encrypted Files (git-crypt)](DEVELOPMENT.md#managing-encrypted-files-git-crypt)

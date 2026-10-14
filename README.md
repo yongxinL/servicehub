@@ -9,50 +9,37 @@ ServiceHub is a self-hosted HomeLab services platform built on Docker Compose. I
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
 - [Core Services](#core-services)
-- [DevOps (Source Control + CI)](#devops-source-control--ci)
-- [AI Agent Platform (aiserv)](#ai-agent-platform-aiserv)
+- [Depot (Source Control + CI)](#depot-source-control--ci)
+- [AI Agent Platform (aiagn)](#ai-agent-platform-aiagn)
 - [Web Applications](#web-applications)
-- [Observability Stack (obsvce)](#observability-stack-obsvce)
-- [Email Stack (mailsv)](#email-stack-mailsv)
-- [Getting Started](#getting-started)
+- [Observability Stack (obsvc)](#observability-stack-obsvc)
+- [Email Stack (poste)](#email-stack-poste)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Managing Encrypted Files (git-crypt)](#managing-encrypted-files-git-crypt)
+- [Deployment (Forgejo Actions)](#deployment-forgejo-actions)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [License](#license)
 
 ---
 
-## Documentation
-
-Repository-backed project documentation is authoritative:
-
-- [Documentation home](docs/README.md)
-- [Architecture](docs/architecture/ARCHITECTURE.md)
-- [Architecture decisions](docs/adr/README.md)
-- [RFCs](docs/rfc/README.md)
-- [Development phases](docs/phases/README.md)
-- [Operations](docs/operations/README.md)
-- [Releases](docs/releases/README.md)
-
-Use the [documentation home](docs/README.md) for requirements, testing, investigations, lessons, and templates. The Forgejo Wiki and Confluence are not sources of truth.
-
----
-
 ## Architecture Overview
 
-All traffic enters through Traefik on ports 80/443. HTTP is redirected to HTTPS. Traefik routes requests to the appropriate service by hostname and terminates TLS using either Let's Encrypt (production) or a self-signed certificate (staging). All services communicate over an isolated Docker bridge network (`subnet`); Confluence's outbound traffic is further restricted to private destinations by a host firewall rule ([ADR-009 §5](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)). Databases are not exposed outside the network.
+All traffic enters through Traefik on ports 80/443. HTTP is redirected to HTTPS. Traefik routes requests to the appropriate service by hostname and terminates TLS using either Let's Encrypt (production) or a self-signed certificate (staging). All services communicate over an isolated Docker bridge network (`subnet`). Databases are not exposed outside the network.
 
 Compose files are split by functional domain:
 
 | File | Prefix | Purpose |
 |---|---|---|
 | `compose/route.yml` | `route*` | Edge routing + TLS termination (Traefik) |
-| `compose/infra.yml` | `infra*` | Relational databases (MariaDB + PostgreSQL) |
-| `compose/infra.yml` | `infra*` | Authentication / SSO (Authentik) |
-| `compose/devops.yml` | `devops*` | Source control, CI, and backups (Forgejo plus its Actions runner) |
-| `compose/webapp.yml` | `webapp*` | Homepage / CMS (Confluence) and oCIS cloud drive |
-| `compose/aiserv.yml` | `aiserv*` | AI platform (Open WebUI + Hermes + LiteLLM + llama.cpp) — hosted on local infrastructure, not deployed to OCI ([ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) |
-| `compose/obsvce.yml` | `obsvce*` | Observability (metrics + logs + Grafana) — retained in the repository, not deployed to OCI ([ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) |
-| `compose/mailsv.yml` | `mailsv*` | Email services (Stalwart mail server + Bulwark webmail) |
+| `compose/infra.yml` | `dbsvc*` | Relational databases (MariaDB + PostgreSQL) |
+| `compose/infra.yml` | `authn*` | Authentication / SSO (Authentik) |
+| `compose/devops.yml` | `depot*` | Source control + CI (Forgejo + Forgejo Actions runner) |
+| `compose/webapp.yml` | `wbapp*` | Homepage / CMS (Confluence) + Open WebUI |
+| `compose/aiserv.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
+| `compose/obsvce.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
+| `compose/mailsv.yml` | `poste*` | Email services (Stalwart mail server + Bulwark webmail) |
 
 ```mermaid
 graph TD
@@ -62,44 +49,36 @@ graph TD
     subgraph subnet[Docker Network: subnet]
         Traefik[routetraefik\nReverse Proxy + TLS]
         Traefik -->|traefik.domain| Dashboard[Traefik Dashboard]
-        Traefik -->|login.domain| Authentik[infraauth\nIdP / SSO]
-        Traefik -->|git.domain| Forgejo[devopsforgejo\nForgejo + Actions]
-        Traefik -->|www.domain + apex| Confluence[webappconf\nConfluence]
-        Traefik -->|chats.domain| OpenWebUI[aiservowui\nOpen WebUI]
-        Traefik -->|drive.domain| Cloud[webappocis\nownCloud Infinite Scale]
-        Traefik -->|space0.domain| Hermes[aiservhermes\nHermes Agent]
-        Traefik -->|stats.domain| Grafana[obsvcegrafana\nGrafana]
-        Traefik -->|mail.domain| Stalwart[mailsvstalwart\nStalwart Mail Server]
-        Traefik -->|webmail.domain| Bulwark[mailsvbulwark\nBulwark Webmail]
+        Traefik -->|login.domain| Authentik[authnservice\nIdP / SSO]
+        Traefik -->|git.domain| Forgejo[depotservice\nForgejo + Actions]
+        Traefik -->|www.domain + apex| Confluence[wbappcmshome\nConfluence]
+        Traefik -->|chats.domain| OpenWebUI[wbappwebchat\nOpen WebUI]
+        Traefik -->|space0.domain| Hermes[aiagnherm00\nHermes Agent]
+        Traefik -->|stats.domain| Grafana[obsvcgrafana\nGrafana]
+        Traefik -->|mail.domain| Stalwart[posteservice\nStalwart Mail Server]
+        Traefik -->|webmail.domain| Bulwark[postewebmail\nBulwark Webmail]
         Bulwark -->|JMAP via Docker DNS| Stalwart
         Authentik -.->|forward-auth| Grafana
-        Authentik -.->|OIDC| Cloud
-        Cloud --> CloudData[(Local filesystem)]
-        Forgejo -->|depends on| PostgreSQL[(infrapgsql\nPostgreSQL)]
+        Forgejo -->|depends on| PostgreSQL[(dbsvcpgsqldb\nPostgreSQL)]
         Authentik -->|depends on| PostgreSQL
         Confluence -->|depends on| Authentik
-        Forgejo -->|dispatches| Runner[devopsrunner\nForgejo Actions Runner]
-        Hermes -->|hermes| LiteLLM[aiservlitellm\nComplexity Router]
+        Forgejo -->|schedules| Runner[depotrunner\nForgejo Actions Runner]
+        Hermes -->|hermes| LiteLLM[aiagnlitellm\nComplexity Router]
         LiteLLM -->|depends on| PostgreSQL
-        LiteLLM -->|hephaestus| Gemma[aiservllamacpp\nllama.cpp Gemma-4 local]
+        LiteLLM -->|hephaestus| Gemma[aiagnchatllm\nllama.cpp Gemma-4 local]
         LiteLLM -->|prometheus| MiniMax[MiniMax 2.7\nCloud API]
-        Grafana -.->|metrics| VM[obsvcevm\nVictoriaMetrics]
-        Grafana -.->|logs| VL[obsvcevlogs\nVictoriaLogs]
-        VM -.->|scrapes| Alloy[obsvcealloy\nGrafana Alloy]
+        Grafana -.->|metrics| VM[obsvcvicmtrx\nVictoriaMetrics]
+        Grafana -.->|logs| VL[obsvcviclogs\nVictoriaLogs]
+        VM -.->|scrapes| Alloy[obsvcgrafaly\nGrafana Alloy]
         VL -.->|receives| Alloy
     end
 
-    Runner -->|executes| WPDeploy[deploy workflow\n.forgejo/workflows/61-deploy.yml]
-    Runner -->|executes| BackupFlow[backup workflow\n.forgejo/workflows/71-backup.yml]
-    WPDeploy -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
-    BackupFlow -->|SSH create archives| RemoteServer
-    BackupFlow -->|Rclone SFTP| Home[Home Server\nPlain archives]
-    BackupFlow -->|Rclone Crypt| Drive[Google Drive\nEncrypted archives]
+    WPDeploy[deploy workflow\n.forgejo/workflows/61-deploy.yml] -->|SSH deploy| RemoteServer[Remote Server\nStag / Prod]
 ```
 
 **TLS strategy:**
 - **Staging:** self-signed certificate from `shared/traefik/advanced/selfsigncert/` (git-crypt encrypted, referenced by `shared/traefik/advanced/certificates.yml`)
-- **Production:** Let's Encrypt ACME TLS challenge; `acme.json` is stored at `${APPS_DATA}/shared/certs/acme.json` and restored from an encrypted Actions secret on deploy
+- **Production:** Let's Encrypt ACME TLS challenge; `acme.json` is stored at `${APPS_DATA}/certs/acme.json` and restored from an encrypted Actions secret on deploy
 
 ---
 
@@ -109,17 +88,18 @@ graph TD
 servicehub/
 ├── .forgejo/
 │   └── workflows/
-│       ├── 61-deploy.yml                 # Forgejo Actions deployment workflow (self-contained)
-│       └── 71-backup.yml                 # Dual-target backup creation, transfer, integrity, and retention workflow
+│       ├── 61-deploy.yml   # Forgejo Actions deployment workflow (self-contained)
+│       ├── 30-prod-backup-services.yml   # Forgejo Actions backup workflow (daily DB dumps + weekly APPS_DATA archive)
+│       └── 50-test-remote-access.yml     # Forgejo Actions SSH/Docker prerequisite test workflow
 ├── compose/                    # Per-domain Docker Compose files
 │   ├── route.yml               # Traefik (routetraefik)
-│   ├── infra.yml               # MariaDB + PostgreSQL
-│   ├── infra.yml               # Authentik server + worker + init
-│   ├── webapp.yml               # Confluence + oCIS cloud drive
-│   ├── aiserv.yml               # Open WebUI + Hermes agents + LiteLLM + llama.cpp
-│   ├── devops.yml               # Forgejo + Forgejo Actions runner
-│   ├── obsvce.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana), not deployed to OCI
-│   └── mailsv.yml               # Email services (Stalwart mail server + Bulwark webmail)
+│   ├── dbsvc.yml               # MariaDB + PostgreSQL
+│   ├── authn.yml               # Authentik server + worker + init
+│   ├── wbapp.yml               # Homepage / CMS (Confluence) + Open WebUI
+│   ├── aiagn.yml               # Hermes agents + LiteLLM + llama.cpp
+│   ├── depot.yml               # Forgejo + Forgejo Actions runner
+│   ├── obsvc.yml               # Observability stack (VictoriaMetrics + VictoriaLogs + Grafana)
+│   └── poste.yml               # Email services (Stalwart mail server + Bulwark webmail)
 ├── shared/                     # Shared build contexts and static config
 │   ├── traefik/
 │   │   ├── README.md                     # Traefik service documentation
@@ -142,6 +122,7 @@ servicehub/
 │   │   └── plugins/
 │   ├── hermesagent/
 │   │   ├── README.md                     # Hermes Agent documentation
+│   │   ├── README.html                   # Full Hermes setup guide
 │   │   ├── Dockerfile
 │   │   ├── start-gateways.sh             # Entrypoint: seeds defaults, starts gateway + workspace
 │   │   ├── init-profile.sh               # One-shot profile seeder (run on first container exec)
@@ -161,24 +142,20 @@ servicehub/
 │   ├── openwebui/
 │   │   ├── README.md                     # Open WebUI service documentation
 │   │   └── Dockerfile
-│   ├── owncloud/
-│   │   ├── README.md                     # ownCloud Infinite Scale documentation
-│   │   ├── Dockerfile                    # webappocis image build
-│   │   └── entrypoint.sh                 # oCIS init and server startup
 │   ├── fastcrw/                          # Optional web-search stack (not included by default)
 │   │   ├── README.md                     # FastCRW + renderers + SearXNG documentation
-│   │   ├── Dockerfile                    # aiservfastcrw image build
-│   │   ├── compose.yml                   # aiservfastcrw
+│   │   ├── Dockerfile                    # aiagnfastcrw image build
+│   │   ├── compose.yml                   # aiagnfastcrw
 │   │   ├── config.docker.toml
 │   │   ├── entrypoint.sh
-│   │   ├── chromium/                     # aiservchromum — browserless stealth renderer
+│   │   ├── chromium/                     # aiagnchromum — browserless stealth renderer
 │   │   │   ├── compose.yml
 │   │   │   └── Dockerfile
-│   │   └── lightpanda/                   # aiservlighpda — LightPanda JS renderer
+│   │   └── lightpanda/                   # aiagnlighpda — LightPanda JS renderer
 │   │       ├── compose.yml
 │   │       └── Dockerfile
 │   ├── searxng/                          # Optional search backend
-│   │   ├── compose.yml                   # aiservsearxng
+│   │   ├── compose.yml                   # aiagnsearxng
 │   │   └── Dockerfile
 │   ├── grafana/
 │   │   ├── README.md                     # Grafana service documentation
@@ -202,13 +179,13 @@ servicehub/
 │   │   ├── README.md                     # PostgreSQL service documentation
 │   │   ├── Dockerfile
 │   │   └── create-multiple-databases.sh
-│   ├── stalwart/                          # Stalwart Mail Server (mailsvstalwart)
+│   ├── stalwart/                          # Stalwart Mail Server (posteservice)
 │   │   ├── README.md                      # Stalwart service documentation
 │   │   ├── Dockerfile
 │   │   ├── config.json                    # Stalwart PostgreSQL DataStore template (rendered at container start)
 │   │   ├── entrypoint.sh                  # Bootstrap cert + privilege drop
 │   │   └── acme-export.sh                 # Extracts certs from Traefik's acme.json
-│   ├── bulwark/                           # Bulwark Webmail (mailsvbulwark)
+│   ├── bulwark/                           # Bulwark Webmail (postewebmail)
 │   │   ├── README.md                      # Bulwark service documentation
 │   │   └── Dockerfile
 │   └── wordpress/                        # Optional alternative homepage (not included by default)
@@ -228,34 +205,33 @@ servicehub/
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Traefik v3 — edge router + TLS termination | `routetraefik` | [docs/products/traefik.md](docs/products/traefik.md) |
-| MariaDB 11.8 — MySQL-compatible database | `inframariadb` | [docs/products/mariadb.md](docs/products/mariadb.md) |
-| PostgreSQL 16 — primary database | `infrapgsql` | [docs/products/postgresql.md](docs/products/postgresql.md) |
+| Traefik v3 — edge router + TLS termination | `routetraefik` | [docs/operations/services/traefik.md](docs/operations/services/traefik.md) |
+| MariaDB 11.8 — MySQL-compatible database | `dbsvcmariadb` | [docs/operations/services/mariadb.md](docs/operations/services/mariadb.md) |
+| PostgreSQL 16 — primary database | `dbsvcpgsqldb` | [docs/operations/services/postgresql.md](docs/operations/services/postgresql.md) |
 
 > Service-specific configuration, data layout, first-boot steps and operations notes live in each service's own `README.md` under `shared/`.
 
 ---
 
-## DevOps (Source Control + CI)
+## Depot (Source Control + CI)
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Forgejo — self-hosted Git service + Actions | `devopsforgejo`, `devopsrunner` | [docs/products/forgejo.md](docs/products/forgejo.md) |
+| Forgejo — self-hosted Git service + Actions | `depotservice`, `depotrunner` (runner) | [docs/operations/services/forgejo.md](docs/operations/services/forgejo.md) |
 
-Setup, configuration, Actions runner registration and operations are documented in the service README. Forgejo Actions also deploys the application services (databases, Authentik, Forgejo and Traefik are foundational and deployed manually) — see [Deployment (Forgejo Actions)](docs/operations/DEPLOYMENT.md).
+Setup, configuration, Actions runner registration and operations are documented in the service README. Forgejo Actions also deploys the application services (databases, Authentik, Forgejo and Traefik are foundational and deployed manually) — see [Deployment (Forgejo Actions)](#deployment-forgejo-actions).
 
 ---
 
-## AI Agent Platform (aiserv)
+## AI Agent Platform (aiagn)
 
-Local and cloud LLM services power the Hermes AI agents. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers. All AI services live in [`compose/aiserv.yml`](compose/aiserv.yml). Per [ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) the AI platform runs on local infrastructure and is excluded from the OCI deployment.
+Local and cloud LLM services power the Hermes AI agents. The llama.cpp server provides fast, private on-device inference; LiteLLM acts as a unified API gateway and complexity router between local and cloud providers. All AI services live in [`compose/aiserv.yml`](compose/aiserv.yml).
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Open WebUI — AI platform chat interface | `aiservowui` | [docs/products/openwebui.md](docs/products/openwebui.md) |
-| Hermes Agent — single shared agent workspace + gateway | `aiservhermes` (+ one-shot `aiservhermesinit`) | [docs/products/hermesagent.md](docs/products/hermesagent.md) |
-| LiteLLM Proxy — unified API gateway + complexity router | `aiservlitellm` | [docs/products/litellm.md](docs/products/litellm.md) |
-| llama.cpp chat inference — local Gemma tier | `aiservllamacpp` | [docs/products/llamacpp.md](docs/products/llamacpp.md) |
+| Hermes Agent — single shared agent workspace + gateway | `aiagnherm00` (+ one-shot `aiagnhermint`) | [docs/operations/services/hermesagent.md](docs/operations/services/hermesagent.md) |
+| LiteLLM Proxy — unified API gateway + complexity router | `aiagnlitellm` | [docs/operations/services/litellm.md](docs/operations/services/litellm.md) |
+| llama.cpp chat inference — local Gemma tier | `aiagnchatllm` | [docs/operations/services/llamacpp.md](docs/operations/services/llamacpp.md) |
 
 **At a glance:**
 
@@ -276,23 +252,23 @@ Local and cloud LLM services power the Hermes AI agents. The llama.cpp server pr
 [e] translate this paragraph                       → hephaestus / Gemma (shorthand)
 ```
 
-See [docs/products/litellm.md](docs/products/litellm.md#routing-logic) for the full routing rules, and [docs/products/hermesagent.md](docs/products/hermesagent.md) for the workspace, overlay system and profiles.
+See [docs/operations/services/litellm.md](docs/operations/services/litellm.md#routing-logic) for the full routing rules, and [docs/operations/services/hermesagent.md](docs/operations/services/hermesagent.md) for the workspace, overlay system and profiles.
 
 ### Multi-user & scaling
 
-Hermes Agent is **single-user / single-tenant**: one container serves exactly one login and one agent identity. Everything under a Hermes home — sessions, `MEMORY.md`, `USER.md`, skills and `state.db` — is shared by anyone logged into that container. Upstream is explicit that profiles are *configuration, not a person* and that profile multiplexing "does not authenticate or authorize end users". See [docs/products/hermesagent.md](docs/products/hermesagent.md#multi-user-support) for the full findings.
+Hermes Agent is **single-user / single-tenant**: one container serves exactly one login and one agent identity. Everything under a Hermes home — sessions, `MEMORY.md`, `USER.md`, skills and `state.db` — is shared by anyone logged into that container. Upstream is explicit that profiles are *configuration, not a person* and that profile multiplexing "does not authenticate or authorize end users". See [docs/operations/services/hermesagent.md](docs/operations/services/hermesagent.md#multi-user-support) for the full findings.
 
-The stack therefore ships **one** Hermes Agent (`aiservhermes`) that acts as a shared team assistant. When more people need their **own** private agent, add another isolated container rather than sharing one login. To scale to N users, replicate the `aiservhermes` pattern in [`compose/aiserv.yml`](compose/aiserv.yml):
+The stack therefore ships **one** Hermes Agent (`aiagnherm00`) that acts as a shared team assistant. When more people need their **own** private agent, add another isolated container rather than sharing one login. To scale to N users, replicate the `aiagnherm00` pattern in [`compose/aiserv.yml`](compose/aiserv.yml):
 
-1. **Add a data volume + init entry** — extend `aiservhermesinit` with `/data0X`, or add a sibling init container, pointing at `${APPS_DATA}/aiserv/hermes/0X`.
-2. **Duplicate the `aiservhermes` service** as `aiservhermes0X`, with:
+1. **Add a data volume + init entry** — extend `aiagnhermint` with `/data0X`, or add a sibling init container, pointing at `${APPS_DATA}/hermesagent/0X`.
+2. **Duplicate the `aiagnherm00` service** as `aiagnherm0X`, with:
    - its own `${HERMES_DATA_0X}:/opt/data` volume,
    - its own `HERMES_WORKSPACE_PASSWD_0X` and (optionally) `HERMES_WORKSPACE_DOMAIN_0X`,
    - a unique host port (`1232X:12320`).
 3. **Add the matching `HERMES_WORKSPACE_PASSWD_0X`, `HERMES_DATA_0X` and `HERMES_WORKSPACE_DOMAIN_0X`** variables to `.env` / [`env.example`](env.example).
-4. **Recreate** with `docker compose up -d --build aiservhermes0X`.
+4. **Recreate** with `docker compose up -d --build aiagnherm0X`.
 
-All agents share the same `aiservlitellm` router and `aiservllamacpp` model, so GPU/RAM scaling is handled centrally there — only per-user data and the workspace need duplicating. For identity-aware routing you can front the agents with Authentik and map each user to a container, but do **not** point multiple people at a single Hermes login.
+All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so GPU/RAM scaling is handled centrally there — only per-user data and the workspace need duplicating. For identity-aware routing you can front the agents with Authentik and map each user to a container, but do **not** point multiple people at a single Hermes login.
 
 ---
 
@@ -300,40 +276,40 @@ All agents share the same `aiservlitellm` router and `aiservllamacpp` model, so 
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Authentik — IdP / SSO | `infraauth`, `infraauthwrk` (+ one-shot `infraauthinit`) | [docs/products/authentik.md](docs/products/authentik.md) |
-| Confluence Data Center — homepage / CMS | `webappconf` | [docs/products/confluence.md](docs/products/confluence.md) |
-| ownCloud Infinite Scale — family cloud drive | `webappocis` (+ one-shot `webappocisinit`) | [docs/products/owncloud.md](docs/products/owncloud.md) |
+| Authentik — IdP / SSO | `authnservice`, `authnworkers` (+ one-shot `authnsvcinit`) | [docs/operations/services/authentik.md](docs/operations/services/authentik.md) |
+| Confluence Data Center — homepage / CMS | `wbappcmshome` | [docs/operations/services/confluence.md](docs/operations/services/confluence.md) |
+| Open WebUI — browser LLM chat interface | `wbappwebchat` | [docs/operations/services/openwebui.md](docs/operations/services/openwebui.md) |
 
-Confluence serves `WORKSPACE_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WORKSPACE_DBNAME}`). Open WebUI (AI platform, `compose/aiserv.yml`) is served at `https://${CHAT_DOMAIN}`. oCIS is served at `https://${CLOUD_DOMAIN}`, authenticates through Authentik OIDC, and uses local filesystem paths without a dedicated PostgreSQL database.
+Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`.
 
-> **Database lists only initialize empty data directories.** Updating `POSTGRES_DATABASES` or `MARIADB_DATABASES` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
+> **Database lists only initialize empty data directories.** Updating `PGRSQL_DBLIST` or `MARIADB_DB_LIST` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
 >
-> An optional [WordPress homepage](docs/products/wordpress.md) can replace Confluence; the two must never run together.
+> An optional [WordPress homepage](docs/operations/services/wordpress.md) can replace Confluence; the two must never run together.
 
 ---
 
-## Observability Stack (obsvce)
+## Observability Stack (obsvc)
 
-A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy. All components live in [`compose/obsvce.yml`](compose/obsvce.yml). Per [ADR-009](docs/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) this stack is retained in the repository but is not deployed to OCI; [ADR-010](docs/adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) records the Oracle Cloud APM, Monitoring, and Logging replacement for OCI-hosted workloads, which is not yet configured.
+A full metrics and log observability stack built on Grafana, VictoriaMetrics, VictoriaLogs, and Grafana Alloy. All components live in [`compose/obsvce.yml`](compose/obsvce.yml).
 
 | Component | Runs as | Full documentation |
 |---|---|---|
-| VictoriaMetrics — time-series metrics store | `obsvcevm` | [docs/products/victoriametrics.md](docs/products/victoriametrics.md) |
-| VictoriaLogs — log aggregation | `obsvcevlogs` | [docs/products/victorialogs.md](docs/products/victorialogs.md) |
-| Grafana Alloy — host/container/metrics/log collector | `obsvcealloy` | [shared/grafana/alloy/README.md](shared/grafana/alloy/README.md) |
-| Grafana — dashboards for metrics and logs | `obsvcegrafana` (+ one-shot `obsvcegrafanainit`) | [docs/products/grafana.md](docs/products/grafana.md) |
+| VictoriaMetrics — time-series metrics store | `obsvcvicmtrx` | [docs/operations/services/victoriametrics.md](docs/operations/services/victoriametrics.md) |
+| VictoriaLogs — log aggregation | `obsvcviclogs` | [docs/operations/services/victorialogs.md](docs/operations/services/victorialogs.md) |
+| Grafana Alloy — host/container/metrics/log collector | `obsvcgrafaly` | [shared/grafana/alloy/README.md](shared/grafana/alloy/README.md) |
+| Grafana — dashboards for metrics and logs | `obsvcgrafana` (+ one-shot `obsvcgrafint`) | [docs/operations/services/grafana.md](docs/operations/services/grafana.md) |
 
 ```mermaid
 graph LR
     subgraph Collectors[Collection]
-        Alloy[obsvcealloy\nHost + Container + Traefik]
+        Alloy[obsvcgrafaly\nHost + Container + Traefik]
     end
     subgraph Storage[Storage]
-        VM[obsvcevm\nTime-series metrics]
-        VL[obsvcevlogs\nLog aggregation]
+        VM[obsvcvicmtrx\nTime-series metrics]
+        VL[obsvcviclogs\nLog aggregation]
     end
     subgraph Visualization[Visualization]
-        Grafana[obsvcegrafana\nDashboards]
+        Grafana[obsvcgrafana\nDashboards]
     end
     Alloy -->|metrics push| VM
     Alloy -->|logs push| VL
@@ -341,42 +317,343 @@ graph LR
     Grafana -->|query| VL
 ```
 
-Grafana is reachable at `https://${OBSERVABILITY_DOMAIN}` behind Authentik forward-auth and ships pre-built dashboards for node, Docker/cAdvisor, Traefik, VictoriaMetrics, LiteLLM and VictoriaLogs.
+Grafana is reachable at `https://${OBSVC_DOMAIN}` behind Authentik forward-auth and ships pre-built dashboards for node, Docker/cAdvisor, Traefik, VictoriaMetrics, LiteLLM and VictoriaLogs.
 
 ---
 
-## Email Stack (mailsv)
+## Email Stack (poste)
 
 A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. All services live in [`compose/mailsv.yml`](compose/mailsv.yml).
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `mailsvstalwart` | [docs/products/stalwart.md](docs/products/stalwart.md) |
-| Bulwark Webmail — JMAP webmail client | `mailsvbulwark` | [docs/products/bulwark.md](docs/products/bulwark.md) |
+| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `posteservice` | [docs/operations/services/stalwart.md](docs/operations/services/stalwart.md) |
+| Bulwark Webmail — JMAP webmail client | `postewebmail` | [docs/operations/services/bulwark.md](docs/operations/services/bulwark.md) |
 
 **At a glance:**
 
 | Detail | Value |
 |---|---|
 | Mail server (Stalwart admin) | `https://${EMAIL_HOST}` — reachable from trusted IPs only |
-| Webmail (Bulwark) | `https://${POSTOFFICE_DOMAIN}` |
+| Webmail (Bulwark) | `https://${WEBMAIL_DOMAIN}` |
 | Ports published to the host | 25 / 465 / 587 / 993 (SMTP server-to-server, submission ×2, IMAP) |
-| Storage | PostgreSQL (`${POSTOFFICE_DBNAME}` on `infrapgsql`) holds all mail data — accounts, messages, indexes, blobs |
+| Storage | PostgreSQL (`${POSTE_DBNAME}` on `dbsvcpgsqldb`) holds all mail data — accounts, messages, indexes, blobs |
 | TLS | Reused from Traefik's shared `acme.json` via an in-container certificate exporter |
-| Webmail → Stalwart | JMAP at `https://${EMAIL_HOST}` — browser-side, so Stalwart needs **Permissive CORS** (`usePermissiveCors`) and a trusted certificate (see [Bulwark — Login prerequisites](docs/products/bulwark.md#login-prerequisites-stalwart-side)) |
+| Webmail → Stalwart | JMAP at `https://${EMAIL_HOST}` — browser-side, so Stalwart needs **Permissive CORS** (`usePermissiveCors`) and a trusted certificate (see [Bulwark — Login prerequisites](docs/operations/services/bulwark.md#login-prerequisites-stalwart-side)) |
 | Single sign-on | Authentik serves the directory: webmail users log in with their Authentik password through the JMAP password form, IMAP/SMTP/JMAP logins bind against Authentik's LDAP outpost |
 
-The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration). Accounts come from Authentik over LDAP for every path — webmail, IMAP, SMTP, JMAP (webmail OIDC SSO is not used; it requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](docs/products/bulwark.md#sso--oidc-not-used)) — setup walkthrough in the [Stalwart README](docs/products/stalwart.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](docs/products/stalwart.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
+The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration). Accounts come from Authentik over LDAP for every path — webmail, IMAP, SMTP, JMAP (webmail OIDC SSO is not used; it requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](docs/operations/services/bulwark.md#sso--oidc-not-used)) — setup walkthrough in the [Stalwart README](docs/operations/services/stalwart.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](docs/operations/services/stalwart.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
 
 ---
 
-## Getting Started
+## Prerequisites
 
-New here? The full setup sequence — prerequisites, clone, initial `scripts/setup.sh` run, environment configuration, TLS preparation, data directories, and first stack start — lives in [Installation](docs/operations/INSTALLATION.md) under Operations.
+- **Docker** 24+ with **Compose 2.20+** (`docker compose` or standalone `docker-compose` v2) for `include` support
+- **python3** 3.8+ (required by `scripts/setup.sh`)
+- **Git** 2.x
+- **git-crypt** (macOS: `brew install git-crypt`) — required to encrypt/decrypt self-signed certificates stored in the repo. The remote deploy server installs it automatically via the workflow.
+- A domain name with DNS A records pointing to your server (for Let's Encrypt) **or** a local domain with a self-signed certificate (for staging)
+- A Linux server with SSH access (for remote deployment). The deploy user needs Docker access and **passwordless sudo** (`NOPASSWD`) — the workflow installs the root-owned ACME store (`${APPS_DATA}/certs/acme.json`, mode `600`, contains private keys) and installs `git-crypt` when missing:
 
-Staging certificates are encrypted with git-crypt; the one-time setup, key backup, and daily workflow for that live in [Managing Encrypted Files (git-crypt)](docs/operations/DEVELOPMENT.md#managing-encrypted-files-git-crypt) under Development.
+  ```bash
+  echo "deploy ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/servicehub-deploy
+  ```
+- `openssl` (used by `setup.sh` to generate database passwords)
 
-One-click staging/production deployment runs through the stack's own Forgejo Actions runner; its inputs, secrets and variables are documented in [Deployment (Forgejo Actions)](docs/operations/DEPLOYMENT.md), and the backup workflow (archives, schedules, retention, `BACKUP_*` secrets) in [Backup and restore](docs/operations/BACKUP-RESTORE.md), both under Operations.
+---
+
+## Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/yongxinL/servicehub.git
+cd servicehub
+```
+
+### 2. Initial Setup
+
+Run the setup script to create your `.env` from the template. It auto-generates strong passwords and API keys for all services:
+
+```bash
+bash scripts/setup.sh
+```
+
+If `.env` already exists (e.g., after pulling updates), the script merges new variables from `env.example` without overwriting existing values, and migrates renamed legacy variables (e.g. `SECOB_*` → `OBSVC_*`).
+
+### 3. Configure Environment Variables
+
+Edit `.env` to match your environment:
+
+```bash
+# Required — set these before first start
+DOMAIN_NAME=example.com          # Your primary domain
+TRAEFIK_DOMAIN=traefik.example.com
+AUTHN_DOMAIN=login.example.com   # Authentik hostname
+DEPOT_DOMAIN=git.example.com   # Forgejo hostname
+TRAEFIK_ACMEMAIL=you@example.com # Let's Encrypt registration email
+APPS_DATA=~/Documents/containerd # Default host path for persistent data
+TIME_ZONE=Australia/Sydney
+WBHOME_DOMAIN=www.${DOMAIN_NAME}
+WBHOME_DBNAME=svchubwbhome
+WBHOME_TAG=10.2
+```
+
+See [Configuration](#configuration) for the variable reference. For an existing installation, retain database names and credentials rather than copying new-install defaults.
+
+### 4. Prepare TLS
+
+For **production** (Let's Encrypt), Traefik creates `${APPS_DATA}/certs/acme.json` automatically on the first successful certificate issuance — no manual step is needed. Verify its permissions are restricted after it is created (Traefik refuses to use a world-readable file):
+
+```bash
+chmod 600 ${APPS_DATA}/certs/acme.json
+```
+
+For **staging** (self-signed), place your `.pem` and `.key` files in `shared/traefik/advanced/selfsigncert/` matching `shared/traefik/advanced/certificates.yml`. These are encrypted with git-crypt before committing. No `acme.json` is needed.
+
+For remote deployments via the Forgejo Actions workflow, `acme.json` is restored automatically from the `*_B64ENC_ACME` secret (gzip+base64 encoded via `setup.sh --encode`) with `install -m 600 -o root -g root`, so ownership and permissions are deterministic. The restore only overwrites the existing file if the secret is newer, preserving certificates renewed by Traefik since the last encode.
+
+### 5. Prepare Data Directories
+
+Service init containers (`authnsvcinit`, `depotsvcinit`, `aiagnhermint`, `obsvcgrafint`) fix ownership on every boot. To prepare directories ahead of time:
+
+```bash
+mkdir -p ${APPS_DATA}/databases/{mariadb,pgsqldb}
+mkdir -p ${APPS_DATA}/platform/authentik/{media,templates}
+mkdir -p ${APPS_DATA}/certs
+mkdir -p ${APPS_DATA}/platform/{repos,buildexec}
+mkdir -p ${APPS_DATA}/hermesagent/00
+mkdir -p ${APPS_DATA}/platform/{mailbox,webmail}
+chown -R 1000:1000 ${APPS_DATA}/platform/{repos,buildexec}
+```
+
+Replace `${APPS_DATA}` with the actual path you set in `.env` (default: `~/Documents/containerd`). Homepage data lives under `${APPS_DATA}/webapps/confluence`; follow the service README for directory ownership.
+
+### 6. Start the Stack
+
+Start the base services and the default homepage (Confluence).
+
+```bash
+docker compose up -d
+```
+
+Or start a specific service:
+
+```bash
+docker compose up -d depotservice
+```
+
+---
+
+## Managing Encrypted Files (git-crypt)
+
+Self-signed certificates for staging are stored **encrypted** in `shared/traefik/advanced/selfsigncert/` using [git-crypt](https://github.com/AGWA/git-crypt). They appear as binary blobs to anyone without the key, making it safe to commit them. The deploy workflow decrypts them automatically on the remote server.
+
+### One-time Setup (new repository)
+
+```bash
+# 1. Initialise git-crypt in the repo (only needed once)
+git-crypt init
+
+# 2. Export the symmetric key — back this up securely (password manager, etc.)
+#    Losing this key means losing access to all encrypted files permanently.
+git-crypt export-key ./servicehub.key
+
+# 3. Verify .gitattributes is present (already included in this repo)
+cat .gitattributes
+```
+
+`.gitattributes` encrypts every certificate file under the self-signed cert directory:
+
+```
+shared/traefik/advanced/selfsigncert/*.pem filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.key filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.crt filter=git-crypt diff=git-crypt
+shared/traefik/advanced/selfsigncert/*.pfx filter=git-crypt diff=git-crypt
+```
+
+### Add Your Staging Certificates
+
+Place your self-signed files in `shared/traefik/advanced/selfsigncert/` matching the names in `shared/traefik/advanced/certificates.yml`, then commit normally:
+
+```bash
+cp /path/to/selfcert.pem    shared/traefik/advanced/selfsigncert/
+cp /path/to/selfcert.key    shared/traefik/advanced/selfsigncert/
+cp /path/to/selfcertCA.crt  shared/traefik/advanced/selfsigncert/
+git add shared/traefik/advanced/selfsigncert/
+git commit -m "add staging self-signed certificates (encrypted)"
+```
+
+git-crypt encrypts the files transparently on commit. Verify with:
+```bash
+# Should print non-text (encrypted) output — not your cert content
+git show HEAD:shared/traefik/advanced/selfsigncert/selfcert.pem | file -
+```
+
+### Encode the Key for Forgejo Actions
+
+The deploy workflow needs the key as a Forgejo Actions secret:
+
+```bash
+# Encode the binary key as base64 (single line, no trailing newline)
+base64 -i servicehub.key | tr -d '\n'   # macOS / BSD
+base64 -w0 servicehub.key               # Linux (GNU coreutils)
+```
+
+Copy the output into Forgejo → Repository → Settings → Actions → Secrets as **`GIT_CRYPT_KEY`**.
+
+### Unlock on a New Machine
+
+```bash
+git-crypt unlock ./servicehub.key
+```
+
+---
+
+## Deployment (Forgejo Actions)
+
+The Forgejo Actions workflow at [.forgejo/workflows/61-deploy.yml](.forgejo/workflows/61-deploy.yml) provides a one-click deployment to staging or production over SSH. It is self-contained: inputs, secrets and variables are declared at the top and the deploy steps run inline. Jobs run in the stack's own Forgejo Actions runner (`depotrunner`). A companion workflow (`.forgejo/workflows/50-test-remote-access.yml`) verifies SSH, Docker and sudo access to the target without deploying anything.
+
+| Trigger | Behaviour |
+|---|---|
+| **Run workflow** button (workflow_dispatch) | Deploys a chosen **service** (`all` or a single compose service), to a chosen **environment** (`stag` or `prod`) from a chosen **branch** — the same inputs as the previous Gitea Actions workflow |
+
+### How It Works
+
+1. Selects the `STAG_*` or `PROD_*` secrets from the **environment** input, defaulting to staging
+2. Configures SSH known hosts from a stored secret (or falls back to `ssh-keyscan`)
+3. On the remote server: clones the repo on first deploy (from the `DEPOT_PUBLIC_URL` variable), or pulls the branch on subsequent runs
+4. Installs git-crypt on the remote server if needed, then decrypts encrypted files (e.g. staging certs)
+5. Restores `.env` from the `*_B64ENC_ENVS` secret if the secret is newer than the existing file
+6. Runs `scripts/setup.sh` to merge any new variables from `env.example` into `.env`
+7. Restores `acme.json` from the `*_B64ENC_ACME` secret if the secret is newer than the existing file
+8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to every app service)
+
+> **Deploy scope:** databases (`dbsvc*`), Authentik (`authn*`), Depot / Forgejo + runner (`depot*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
+>
+> **Timestamp-based restore:** Both `.env` and `acme.json` are gzip-compressed before base64-encoding, which preserves the file's original mtime in the gzip header. On deploy, the workflow compares that mtime against the existing file on the server — the newer file always wins. This prevents a stale secret from overwriting a `.env` edited directly on the server or an `acme.json` renewed by Traefik since the last encode.
+
+### Encoding Secrets for Forgejo Actions
+
+Before triggering the workflow, encode your local `.env` and `acme.json` into Forgejo Actions secrets using the helper:
+
+```bash
+# For staging
+bash scripts/setup.sh --encode STAG
+
+# For production
+bash scripts/setup.sh --encode PROD
+```
+
+The script outputs `.b64` files and prints instructions for copying their content into Forgejo Actions secrets.
+
+### Required Actions Secrets and Variables
+
+Stored workflow configuration lives in two separate stores, both under **Forgejo → Repository → Settings → Actions**. Use this table to decide where each item goes:
+
+| Where | Used for | Items |
+|---|---|---|
+| **Secrets** (Settings → Actions → **Secrets**) | Credentials, private keys and encoded `.env` / `acme.json` — encrypted and masked in logs | `DEPOT_DEPLOY_TOKEN`, `GIT_CRYPT_KEY`, and every `STAG_*` / `PROD_*` entry below |
+| **Variables** (Settings → Actions → **Variables**) | Non-sensitive configuration — plaintext, readable by anyone with repository access | `DEPOT_PUBLIC_URL` |
+| **Neither** — selected per run in the **Run workflow** dialog | Per-deployment choices | `service`, `environment`, `branch` |
+
+#### Variables (Settings → Actions → Variables)
+
+Set these in **Forgejo → Repository → Settings → Actions → Variables**:
+
+| Variable | Example value | Description |
+|---|---|---|
+| `DEPOT_PUBLIC_URL` | `https://git.example.com` | Public Forgejo base URL, reachable from the staging/production servers. Used to build the clone URL the remote server pulls from (`github.server_url` is the runner's internal `http://depotservice:3000` and cannot be reached from the deploy servers). |
+
+#### Secrets (Settings → Actions → Secrets)
+
+Set these in **Forgejo → Repository → Settings → Actions → Secrets**.
+
+> Forgejo secrets are available to every workflow of the repository — no per-event enablement is needed. Create **all** secrets listed below; leave unused ones (e.g. `STAG_B64ENC_ACME` on staging) empty.
+
+##### Shared (both environments)
+
+| Secret | How to obtain | Description |
+|---|---|---|
+| `DEPOT_DEPLOY_TOKEN` | Forgejo → Settings → Applications → Access Token (repo read scope) | Forgejo access token used by the deploy step to clone/pull the repository on the remote server. |
+| `GIT_CRYPT_KEY` | `base64 -i servicehub.key \| tr -d '\n'` | Base64-encoded git-crypt symmetric key used to decrypt self-signed certificates on the remote server after git clone/pull. Generate with `git-crypt init && git-crypt export-key ./servicehub.key`. |
+
+##### Staging (`STAG_*`)
+
+| Secret | Example value | Description |
+|---|---|---|
+| `STAG_SERVER_HOST` | `192.168.1.10` or `stag.example.com` | IP address or hostname of the staging server. Used for SSH connection. |
+| `STAG_SERVER_USER` | `deploy` | SSH login username on the staging server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
+| `STAG_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `STAG_SERVER_KEY` must be set** — not both required. Ignored if `STAG_SERVER_KEY` is also set. |
+| `STAG_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `STAG_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the staging server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
+| `STAG_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the staging server where the repo is cloned. Must include the repo directory name — git clones **into** this path. |
+| `STAG_BACKUP_ROOT` | `/mnt/backup` | Directory on the staging server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. Only needed if you run the backup workflow for staging. |
+| `STAG_BACKUP_EXCLUDE` | `webapps/confluence/logs,platform/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from staging backups. `*` and `?` globs are allowed; leave unset to archive everything. |
+| `STAG_DB_BACKUP_RETENTION_DAYS` | `182` | Optional retention for the database dumps under `STAG_BACKUP_ROOT`: dumps older than this many days are deleted on each run. Defaults to `182` (~6 months) when unset. |
+| `STAG_B64ENC_ENVS` | *(output of `setup.sh --encode STAG`)* | Gzip+base64-encoded `.env` file. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
+| `STAG_B64ENC_ACME` | *(leave the value empty for staging)* | Gzip+base64-encoded `acme.json` (Let's Encrypt certificates). For staging, create the secret with an **empty value** — Traefik uses the self-signed cert from `shared/traefik/advanced/selfsigncert/` instead. |
+| `STAG_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The staging server's public SSH host key. Prevents man-in-the-middle attacks by verifying the server identity before connecting. **Optional** — if unset the deploy script falls back to `ssh-keyscan` at runtime with a warning. |
+
+##### Production (`PROD_*`)
+
+| Secret | Example value | Description |
+|---|---|---|
+| `PROD_SERVER_HOST` | `203.0.113.10` or `prod.example.com` | IP address or hostname of the production server. |
+| `PROD_SERVER_USER` | `deploy` | SSH login username on the production server. Needs Docker access and passwordless sudo — see [Prerequisites](#prerequisites). |
+| `PROD_SERVER_PASS` | `••••••••` | SSH password for the above user. **Either this or `PROD_SERVER_KEY` must be set** — not both required. Ignored if `PROD_SERVER_KEY` is also set. |
+| `PROD_SERVER_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | SSH private key for passwordless login. Alternative to `PROD_SERVER_PASS`. The matching public key must already be in `~/.ssh/authorized_keys` on the production server. Use a passphrase-less key (the workflow runs non-interactively). Newlines are preserved as-is. |
+| `PROD_DEPLOY_PATH` | `/home/username/servicehub` | Absolute path on the production server where the repo is cloned. |
+| `PROD_BACKUP_ROOT` | `/mnt/backup` | Directory on the production server where the `APPS_DATA` archives are written; `<YYYY>/<YYYYMM>` subdirectories are created automatically. Required by the `backup-data` workflow. |
+| `PROD_BACKUP_EXCLUDE` | `webapps/confluence/logs,platform/workspace` | Optional comma-separated paths, relative to `APPS_DATA`, to exclude from production backups. `*` and `?` globs are allowed; leave unset to archive everything. |
+| `PROD_DB_BACKUP_RETENTION_DAYS` | `182` | Optional retention for the database dumps under `PROD_BACKUP_ROOT`: dumps older than this many days are deleted on each run. Defaults to `182` (~6 months) when unset. |
+| `PROD_B64ENC_ENVS` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded production `.env`. Restored on deploy only if the secret is newer than the existing `.env` on the server. |
+| `PROD_B64ENC_ACME` | *(output of `setup.sh --encode PROD`)* | Gzip+base64-encoded `acme.json` containing your Let's Encrypt certificates. Generated by `setup.sh --encode PROD` when `acme.json` is larger than 1 KB (i.e. after Traefik has issued real certificates). Restored only if the secret is newer than the existing file. |
+| `PROD_SSHKWN_KEYS` | *(output of `ssh-keyscan <host>`)* | The production server's public SSH host key. Strongly recommended for production. Run `ssh-keyscan <prod-host>` locally to get the value. |
+
+### Triggering a Deployment
+
+1. Open the repository in Forgejo (`https://${DEPOT_DOMAIN}`) → **Actions**
+2. Select the **deploy** workflow and click **Run workflow**
+3. Set the inputs:
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`wbappcmshome`, `wbappwebchat`, `aiagnlitellm`, `aiagnchatllm`, `aiagnherm00`, `obsvcvicmtrx`, `obsvcviclogs`, `obsvcgrafaly`, `obsvcgrafana`, `posteservice`, `postewebmail`). Foundational services are not listed — see [Deploy scope](#how-it-works).
+   - **environment** — `stag` (default) or `prod`
+   - **branch** — branch to deploy (default `main`)
+4. Click the green **Run workflow** button — progress and logs appear in the workflow run page
+
+> Deployments are serialised: the workflow declares a `concurrency` group so two deploys never run at the same time, and a running deployment is never cancelled by a newer trigger.
+
+### Data Backups (Forgejo Actions)
+
+The `30-prod-backup-services.yml` workflow backs up the target server under the `*_BACKUP_ROOT` secret in two layers:
+
+**Database dumps (daily)** — one transaction-consistent `pg_dump` per PostgreSQL database (custom format, restored with `pg_restore`) plus a role-globals SQL dump, taken through the `dbsvcpgsqldb` container while the services keep running, then packed into a single daily archive so each day has exactly one database backup file:
+
+```
+<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-dbBK-<YYYYMMDD>.tar.gz
+#  contents:
+#    <domain>-dbBK-<db>-<YYYYMMDD>.dump   (one per database)
+#    <domain>-dbBK-globals-<YYYYMMDD>.sql
+```
+
+Dumps older than `*_DB_BACKUP_RETENTION_DAYS` (default `182` days ≈ 6 months) are deleted by the same run — only files matching `*-dbBK-*` are pruned (the full archives are kept), and empty `<YYYY>/<YYYYMM>` directories are removed too.
+
+**Full archive (weekly, Sunday)** — the whole persistent data volume, the `APPS_DATA` path read from the server's `.env`:
+
+```
+<BACKUP_ROOT>/<YYYY>/<YYYYMM>/<domain>-webapps-fullBK-<YYYYMMDD>.tar.gz
+```
+
+`<domain>` is the first label of `DOMAIN_NAME` from the server's `.env` (`oneLijia.com` → `oneLijia`), so the backup names match the deployment. The workflow runs **daily at 02:30 server time** — database dumps every day, the full archive additionally on Sundays — and can also be started manually from **Actions → backup-data**: `environment` defaults to `prod`, and `backup` selects `auto` (daily db dumps, Sunday full archive), `db`, or `full`. All files are written to a `.part` file first and renamed only on success; they are owned by `root` with mode `600` because the dumps contain mail and identity data and the archive contains `.env` secrets and ACME private keys. The workflow uses the same server secrets as the deploy workflow and requires passwordless sudo — see [Prerequisites](#prerequisites).
+
+Paths can be excluded from the **full archive** with the optional `STAG_BACKUP_EXCLUDE` / `PROD_BACKUP_EXCLUDE` secrets — a comma-separated list relative to `APPS_DATA`, with `*` and `?` globs allowed. For example, to skip Confluence logs/caches and the runner workspace:
+
+```
+webapps/confluence/logs,webapps/confluence/temp,webapps/confluence/plugins-temp,platform/workspace
+```
+
+A leading `./` or `/` is ignored; leave the secret unset to archive everything.
+
+> **Consistency:** the weekly archive is taken while containers are running, so `databases/` inside it is crash-consistent rather than transaction-consistent — the daily `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](docs/operations/services/stalwart.md#database-management-create--delete--backup--restore)). A long-running backup also queues deployments, because the runner has capacity 1.
 
 ---
 
@@ -384,7 +661,7 @@ One-click staging/production deployment runs through the stack's own Forgejo Act
 
 ### Security baseline
 
-Every inbound route is fronted by Traefik with the `secure-chain` middleware — security headers (HSTS, nosniff, referrer policy) and a per-client-IP rate limit (20 req/s, burst 50) — defined in [`shared/traefik/advanced/middlewares-security.yml`](shared/traefik/advanced/middlewares-security.yml) and documented in [Traefik — Security middlewares](docs/products/traefik.md#security-middlewares). Admin surfaces (Traefik dashboard, Stalwart admin) additionally carry IP allowlists built from `TRUSTED_IP` and Host rules built from `TRAEFIK_DOMAIN` / `EMAIL_HOST` / `IDENTITY_DOMAIN` (themselves `${DOMAIN_NAME}` references), generated into [`shared/traefik/advanced/admin-routers.yml`](shared/traefik/advanced/admin-routers.yml) and hot-reloaded by Traefik — edit `.env` (including `DOMAIN_NAME`), re-run `scripts/setup.sh`, no restart. Per-service hardening steps (Authentik MFA, Confluence anonymous access, Forgejo registration/OIDC, Stalwart auto-ban, Bulwark dashboard) live in each service's README under **Security hardening**.
+Every inbound route is fronted by Traefik with the `secure-chain` middleware — security headers (HSTS, nosniff, referrer policy) and a per-client-IP rate limit (20 req/s, burst 50) — defined in [`shared/traefik/advanced/middlewares-security.yml`](shared/traefik/advanced/middlewares-security.yml) and documented in [Traefik — Security middlewares](docs/operations/services/traefik.md#security-middlewares). Admin surfaces (Traefik dashboard, Stalwart admin) additionally carry IP allowlists built from `TRUSTED_IP`. Per-service hardening steps (Authentik MFA, Confluence anonymous access, Forgejo registration/OIDC, Stalwart auto-ban, Bulwark dashboard) live in each service's README under **Security hardening**.
 
 ### Start / Stop Services
 
@@ -396,16 +673,16 @@ docker compose up -d
 docker compose down
 
 # Restart a single service
-docker compose restart devopsforgejo
+docker compose restart depotservice
 
 # View logs
-docker compose logs -f devopsforgejo
+docker compose logs -f depotservice
 ```
 
 ### Rebuild After a Config Change
 
 ```bash
-docker compose up -d --build devopsforgejo
+docker compose up -d --build depotservice
 ```
 
 ### Update All Images
@@ -420,7 +697,7 @@ docker compose pull && docker compose up -d
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
 
-> Services with a dedicated README ([Traefik](docs/products/traefik.md), [Authentik](docs/products/authentik.md), [MariaDB](docs/products/mariadb.md), [PostgreSQL](docs/products/postgresql.md), [Forgejo + Actions](docs/products/forgejo.md), [Confluence](docs/products/confluence.md), [oCIS](docs/products/owncloud.md), [Hermes Agent](docs/products/hermesagent.md), [LiteLLM](docs/products/litellm.md), [llama.cpp](docs/products/llamacpp.md), [Open WebUI](docs/products/openwebui.md), [VictoriaMetrics](docs/products/victoriametrics.md), [VictoriaLogs](docs/products/victorialogs.md), [Grafana](docs/products/grafana.md), [Stalwart](docs/products/stalwart.md), [Bulwark](docs/products/bulwark.md)) also document their own variables there.
+> Services with a dedicated README ([Traefik](docs/operations/services/traefik.md), [Authentik](docs/operations/services/authentik.md), [MariaDB](docs/operations/services/mariadb.md), [PostgreSQL](docs/operations/services/postgresql.md), [Forgejo + Actions](docs/operations/services/forgejo.md), [Confluence](docs/operations/services/confluence.md), [Hermes Agent](docs/operations/services/hermesagent.md), [LiteLLM](docs/operations/services/litellm.md), [llama.cpp](docs/operations/services/llamacpp.md), [Open WebUI](docs/operations/services/openwebui.md), [VictoriaMetrics](docs/operations/services/victoriametrics.md), [VictoriaLogs](docs/operations/services/victorialogs.md), [Grafana](docs/operations/services/grafana.md), [Stalwart](docs/operations/services/stalwart.md), [Bulwark](docs/operations/services/bulwark.md)) also document their own variables there.
 
 ### General
 
@@ -433,82 +710,77 @@ All settings are controlled via `.env`. The template [`env.example`](env.example
 
 | Variable | Description |
 |---|---|
-| `DOMAIN_NAME` | Primary domain (e.g. `example.com`); the derived hosts (`TRAEFIK_DOMAIN`, `EMAIL_HOST`, `IDENTITY_DOMAIN`, …) reference it as `${DOMAIN_NAME}`, and re-running `scripts/setup.sh` after changing it regenerates `admin-routers.yml` with the new Host rules |
-| `TRUSTED_IP` | CIDR ranges for forwarded-header trust and the admin allow lists (re-run `scripts/setup.sh` after changing to regenerate `admin-routers.yml`) |
+| `DOMAIN_NAME` | Primary domain (e.g. `example.com`) |
+| `TRUSTED_IP` | CIDR ranges Traefik trusts for forwarded headers |
 
 ### TLS / Traefik (route)
 
 | Variable | Description |
 |---|---|
-| `TRAEFIK_DOMAIN` | Traefik dashboard hostname (default: `traefik.${DOMAIN_NAME}`); one of the hosts generated into `admin-routers.yml` |
+| `TRAEFIK_DOMAIN` | Traefik dashboard hostname |
 | `TRAEFIK_ACMEMAIL` | Let's Encrypt registration email |
 | `TRAEFIK_BAAUTH` | Dashboard basic-auth credentials (htpasswd format) |
 | `CERTRESOLVER` | Set to `letsencrypt` for ACME; leave empty for self-signed |
 
-### Authentik (infra)
+### Authentik (authn)
 
 | Variable | Description |
 |---|---|
-| `IDENTITY_TAG` | Authentik image tag (e.g. `2026.8`) |
-| `IDENTITY_DOMAIN` | Authentik hostname (e.g. `login.example.com`) |
-| `IDENTITY_DBNAME` | PostgreSQL database name for Authentik (default: `svchub_identity`) |
-| `IDENTITY_PASSWORD` | Auto-generated by `setup.sh`; Authentik DB password |
-| `IDENTITY_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
+| `AUTHN_TAG` | Authentik image tag (e.g. `2026.8`) |
+| `AUTHN_DOMAIN` | Authentik hostname (e.g. `login.example.com`) |
+| `AUTHN_DBNAME` | PostgreSQL database name for Authentik (default: `svchubauthtk`) |
+| `AUTHN_PASSWD` | Auto-generated by `setup.sh`; Authentik DB password |
+| `AUTHN_SECRET` | Auto-generated by `setup.sh`; Authentik secret key |
 
-### Web Applications (webapp)
-
-| Variable | Description |
-|---|---|
-| `WORKSPACE_DOMAIN` | Shared homepage hostname (default: `www.${DOMAIN_NAME}`); the apex is served as well |
-| `WORKSPACE_DBNAME` | Workspace database name (default: `svchub_workspace`) |
-| `WORKSPACE_TAG` | Confluence image tag (default: `10.2`) |
-| `CLOUD_DOMAIN` | oCIS cloud-drive hostname (default: `drive.${DOMAIN_NAME}`) |
-| `CLOUD_TAG` | Pinned oCIS image tag (default: `8.2.0`) |
-| `CLOUD_OIDC_ISSUER` | Authentik OIDC issuer for the `ocis` application |
-| `CLOUD_OIDC_CLIENT_ID` | Public Authentik OIDC client ID |
-| `CLOUD_INSECURE` | `true` only when Authentik uses a self-signed certificate |
-
-### AI Agent Platform (aiserv)
-
-The agent platform variables are documented in the service READMEs — see [Hermes Agent](docs/products/hermesagent.md#configuration-in-env), [LiteLLM](docs/products/litellm.md#configuration) and [llama.cpp](docs/products/llamacpp.md#configuration). In short:
+### Web Applications (wbapp)
 
 | Variable | Description |
 |---|---|
-| `CHAT_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
+| `WBHOME_DOMAIN` | Shared homepage hostname (default: `www.${DOMAIN_NAME}`); the apex is served as well |
+| `WBHOME_DBNAME` | Homepage database name (default: `svchubwbhome`) |
+| `WBHOME_TAG` | Confluence image tag (default: `10.2`) |
+| `OWEBUI_DOMAIN` | Open WebUI hostname (e.g. `chats.example.com`) |
+
+### AI Agent Platform (aiagn)
+
+The agent platform variables are documented in the service READMEs — see [Hermes Agent](docs/operations/services/hermesagent.md#configuration-in-env), [LiteLLM](docs/operations/services/litellm.md#configuration) and [llama.cpp](docs/operations/services/llamacpp.md#configuration). In short:
+
+| Variable | Description |
+|---|---|
 | `HERMES_WORKSPACE_PASSWD_00` | Workspace web UI password (port 12320) |
-| `HERMES_DATA_00` | Agent data directory (default `${APPS_DATA}/aiserv/hermes/00`) |
+| `HERMES_DATA_00` | Agent data directory (default `${APPS_DATA}/hermesagent/00`) |
 | `HERMES_WORKSPACE_DOMAIN_00` | Optional Traefik domain (empty = IP:port only) |
-| `AIGATE_API_KEY` | LiteLLM master API key, shared by Hermes and other in-stack clients |
-| `AIGATE_*` | LiteLLM proxy, admin UI and provider routing settings |
+| `LITEM_API_KEY` | LiteLLM master API key, shared by Hermes and other in-stack clients |
+| `LITEM_*` | LiteLLM proxy, admin UI and provider routing settings |
 | `LLAMA_CHTMDL` / `LLAMA_CHTARG` / `HF_TOKEN` | llama.cpp model, server flags, HuggingFace token |
 
-### Observability (obsvce)
+### Observability (obsvc)
 
 | Variable | Description |
 |---|---|
-| `OBSERVABILITY_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
-| `OBSERVABILITY_ADMIN_USER` | Grafana admin username |
-| `OBSERVABILITY_ADMIN_PASSWORD` | Grafana admin password |
+| `OBSVC_DOMAIN` | Grafana hostname (e.g. `stats.example.com`) |
+| `OBSVC_ADMUSR` | Grafana admin username |
+| `OBSVC_ADMPWD` | Grafana admin password |
 
 ### Databases
 
 | Variable | Description |
 |---|---|
-| `DB_ADMIN_USER` | Shared DB username for both MariaDB and PostgreSQL |
-| `DB_ADMIN_PASSWORD` | Auto-generated by `setup.sh`; store securely |
-| `MARIADB_HOST` / `MARIADB_PORT` | MariaDB hostname / port (internal) |
-| `POSTGRES_HOST` / `POSTGRES_PORT` | PostgreSQL hostname / port (internal) |
-| `MARIADB_DATABASES` | Comma-separated MariaDB databases to initialize (default: `${WORKSPACE_DBNAME}`) |
-| `POSTGRES_DATABASES` | Comma-separated PostgreSQL databases to initialize, including `${AIGATE_DBNAME}` |
+| `SQLDB_USER` | Shared DB username for both MariaDB and PostgreSQL |
+| `SQLDB_PASS` | Auto-generated by `setup.sh`; store securely |
+| `MySQL_HOST` / `MySQL_PORT` | MariaDB hostname / port (internal) |
+| `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL hostname / port (internal) |
+| `MARIADB_DB_LIST` | Comma-separated MariaDB databases to initialize (default: `${WBHOME_DBNAME}`) |
+| `PGRSQL_DBLIST` | Comma-separated PostgreSQL databases to initialize, including `${LITEM_DBNAME}` |
 
 For new installations:
 
 ```bash
-MARIADB_DATABASES="${WORKSPACE_DBNAME}"
-POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${WORKSPACE_DBNAME},${POSTOFFICE_DBNAME}"
+MARIADB_DB_LIST="${WBHOME_DBNAME}"
+PGRSQL_DBLIST="${AUTHN_DBNAME},${DEPOT_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME},${POSTE_DBNAME}"
 ```
 
-These lists only initialize empty database data directories. Preserve existing database names and passwords; create missing databases and grants explicitly on existing installations. See the [PostgreSQL](docs/products/postgresql.md) and [MariaDB](docs/products/mariadb.md) READMEs.
+These lists only initialize empty database data directories. Preserve existing database names and passwords; create missing databases and grants explicitly on existing installations. See the [PostgreSQL](docs/operations/services/postgresql.md) and [MariaDB](docs/operations/services/mariadb.md) READMEs.
 
 ### Email (SMTP)
 
@@ -519,15 +791,15 @@ These lists only initialize empty database data directories. Preserve existing d
 | `EMAIL_USER` / `EMAIL_PASS` | SMTP credentials used by stack components to send mail through Stalwart |
 | `EMAIL_FROM` | From address for outbound email (display name + address) |
 
-### Email Services (mailsv)
+### Email Services (poste)
 
-The webmail variables are documented in the service READMEs — see [Bulwark](docs/products/bulwark.md#configuration-env) and [Stalwart](docs/products/stalwart.md#configuration-env). In short:
+The webmail variables are documented in the service READMEs — see [Bulwark](docs/operations/services/bulwark.md#configuration-env) and [Stalwart](docs/operations/services/stalwart.md#configuration-env). In short:
 
 | Variable | Description |
 |---|---|
-| `POSTOFFICE_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) |
+| `WEBMAIL_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) |
 | `WEBMAIL_SESSION_SECRET` | Session cookie encryption; auto-generated by `setup.sh` |
-| `POSTOFFICE_DBNAME` | PostgreSQL database holding all Stalwart mail data (must be in `POSTGRES_DATABASES`) |
+| `POSTE_DBNAME` | PostgreSQL database holding all Stalwart mail data (must be in `PGRSQL_DBLIST`) |
 | `STALWART_ADMIN_USER` / `STALWART_ADMIN_PASS` | Stalwart recovery admin (`STALWART_RECOVERY_ADMIN`); pass auto-generated by `setup.sh`, empty disables |
 
 ---

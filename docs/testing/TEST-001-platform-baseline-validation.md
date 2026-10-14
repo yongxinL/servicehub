@@ -96,6 +96,6 @@ This document is a test plan, not a test result.
 ## Related Documents
 
 - [Architecture](../architecture/ARCHITECTURE.md)
-- [Runbook](../operations/RUNBOOK.md)
-- [Backup and restore](../operations/BACKUP-RESTORE.md)
+- [Runbook](../operations/runbooks/RUNBOOK.md)
+- [Backup and restore](../operations/runbooks/BACKUP-RESTORE.md)
 - [Release governance](../releases/README.md)
