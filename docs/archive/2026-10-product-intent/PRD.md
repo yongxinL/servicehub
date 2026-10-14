@@ -23,6 +23,11 @@ related_documents:
   - ADR-007
 ---
 
+> **Archived 2026-10-12.** Superseded by [<new document>](../../product/requirements.md).
+> Kept for history; not authoritative.
+
+
+
 # ServiceHub Product Requirements
 
 ## Product Vision

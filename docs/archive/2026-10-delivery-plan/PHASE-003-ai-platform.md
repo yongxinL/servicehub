@@ -23,6 +23,11 @@ related_documents:
   - TEST-001
 ---
 
+> **Archived 2026-10-12.** Superseded by [<new document>](../../architecture/delivery-plan-servicehub-platform.md).
+> Kept for history; not authoritative.
+
+
+
 # PHASE-003: AI Platform
 
 ## Objective
@@ -109,6 +114,6 @@ Provide local and cloud AI routing through LiteLLM with privacy-sensitive local 
 
 ## Follow-up Work
 
-- Execute AI portions of [TEST-001](../testing/TEST-001-platform-baseline-validation.md).
+- Execute AI portions of [TEST-001](../../../testing/TEST-001-platform-baseline-validation.md).
 - Review direct port protections.
 - Add privacy-routing regression tests.

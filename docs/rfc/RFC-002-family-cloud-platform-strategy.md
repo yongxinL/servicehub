@@ -17,9 +17,9 @@ tags:
   - files
   - strategy
 related_documents:
-  - CHARTER-001
+  - vision.md
   - ARCHITECTURE
-  - ROADMAP-001
+  - delivery-plan-servicehub-platform
   - ADR-006
   - ADR-007
   - BACKUP-RESTORE
@@ -120,8 +120,9 @@ The `wbappmydrive` oCIS service and its local filesystem paths now exist in repo
 
 ## Related Documents
 
-- [Product requirements](../requirements/PRD.md)
-- [Roadmap](../requirements/ROADMAP.md)
+- [Product vision](../product/vision.md)
+- [Product requirements](../product/requirements.md)
+- [ServiceHub platform delivery plan](../architecture/delivery-plan-servicehub-platform.md)
 - [Architecture](../architecture/ARCHITECTURE.md)
 - [ADR-006 Adopt oCIS with Local Filesystem Storage](../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md)
 - [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md)

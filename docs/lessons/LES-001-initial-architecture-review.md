@@ -19,7 +19,7 @@ tags:
 related_documents:
   - ARCHITECTURE
   - INV-001
-  - ROADMAP-001
+  - delivery-plan-servicehub-platform
 ---
 
 # LES-001: Initial Architecture Review
@@ -88,5 +88,6 @@ All due dates are `TBD` because the repository does not provide a schedule.
 ## Related Documents
 
 - [Investigation INV-001](../investigations/INV-001-architecture-and-documentation-gap-analysis.md)
-- [Roadmap](../requirements/ROADMAP.md)
-- [Phase register](../phases/README.md)
+- [ServiceHub platform delivery plan](../architecture/delivery-plan-servicehub-platform.md)
+- [Product vision](../product/vision.md)
+- [Product requirements](../product/requirements.md)

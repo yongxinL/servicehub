@@ -20,8 +20,8 @@ related_documents:
   - ARCHITECTURE
   - BACKUP-RESTORE
   - TEST-001
-  - PHASE-004
   - ADR-007
+  - delivery-plan-servicehub-platform
 ---
 
 # RFC-001: ServiceHub Reliability and Recovery Baseline
@@ -140,4 +140,4 @@ Accepted on 2026-10-03 through [ADR-007](../architecture/adr/ADR-007-adopt-dual-
 - [Forgejo runner and backup workflow runtime](../operations/services/forgejo.md#backup-workflow-runtime)
 - [Monitoring and alerting](../operations/MONITORING-ALERTING.md)
 - [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
-- [Observability and hardening phase](../phases/PHASE-004-observability-and-operational-hardening.md)
+- [ServiceHub platform delivery plan](../architecture/delivery-plan-servicehub-platform.md)

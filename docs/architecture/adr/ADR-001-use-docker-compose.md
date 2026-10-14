@@ -18,7 +18,7 @@ tags:
   - docker
 related_documents:
   - ARCHITECTURE
-  - PRD-001
+  - PRD-001 (archived)
   - DEPLOYMENT-ARCHITECTURE
 ---
 

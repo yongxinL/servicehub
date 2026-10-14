@@ -20,7 +20,7 @@ tags:
 related_documents:
   - ARCHITECTURE
   - ADR-002
-  - PHASE-002
+  - PHASE-002 (archived)
 ---
 
 # ADR-004: Use Authentik for Central Identity

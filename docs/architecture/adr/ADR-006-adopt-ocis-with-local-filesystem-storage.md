@@ -23,7 +23,7 @@ related_documents:
   - ADR-004
   - ADR-007
   - RFC-002
-  - ROADMAP-001
+  - ROADMAP-001 (archived)
   - BACKUP-RESTORE
 ---
 
@@ -168,7 +168,7 @@ This is configuration evidence only. The container, Authentik OIDC flow, account
 - [ADR-004 Use Authentik for Central Identity](ADR-004-use-authentik-for-central-identity.md)
 - [ADR-007 Adopt Dual-Target Backup and Disaster Recovery](ADR-007-adopt-dual-target-backup-and-recovery.md)
 - [RFC-002 Family Cloud Platform Strategy](../../rfc/RFC-002-family-cloud-platform-strategy.md)
-- [ServiceHub Roadmap](../../requirements/ROADMAP.md)
+- [ServiceHub Roadmap (archived)](../../archive/2026-10-delivery-plan/ROADMAP.md)
 - [Backup and restore](../../operations/runbooks/BACKUP-RESTORE.md)
 
 ## Follow-up Actions

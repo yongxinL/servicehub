@@ -22,9 +22,9 @@ related_documents:
   - ADR-006
   - RFC-001
   - BACKUP-RESTORE
-  - PHASE-004
+  - PHASE-004 (archived)
   - TEST-001
-  - ROADMAP-001
+  - ROADMAP-001 (archived)
 ---
 
 # ADR-007: Adopt Dual-Target Backup and Disaster Recovery
@@ -74,9 +74,9 @@ The o…24879 chars truncated…n-numeric: each produced the expected warning, e
 - [ADR-006 Adopt oCIS with Local Filesystem Storage](ADR-006-adopt-ocis-with-local-filesystem-storage.md)
 - [RFC-001 Reliability and Recovery Baseline](../../rfc/RFC-001-reliability-and-recovery-baseline.md)
 - [Backup and restore](../../operations/runbooks/BACKUP-RESTORE.md)
-- [PHASE-004 Observability and Operational Hardening](../../phases/PHASE-004-observability-and-operational-hardening.md)
+- [PHASE-004 Observability and Operational Hardening (archived)](../../archive/2026-10-delivery-plan/PHASE-004-observability-and-operational-hardening.md)
 - [Baseline test plan](../../testing/TEST-001-platform-baseline-validation.md)
-- [ServiceHub Roadmap](../../requirements/ROADMAP.md)
+- [ServiceHub Roadmap (archived)](../../archive/2026-10-delivery-plan/ROADMAP.md)
 
 ## Follow-up Actions
 

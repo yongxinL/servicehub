@@ -31,9 +31,10 @@ Delivery plans use the specification status vocabulary (Draft, In Review, Approv
 | Plan | Status | Participating specifications | Updated |
 |---|---|---|---|
 | [Governance adoption](delivery-plan-governance-adoption.md) | Approved | Not recorded | 2026-10-12 |
+| [ServiceHub platform](delivery-plan-servicehub-platform.md) | Draft | PHASE-001, PHASE-002, PHASE-003, PHASE-004 (archived) | 2026-10-13 |
 
 ## Relationship to other artifacts
 Native feature plans in `specs/` are not indexed here. Template: [../templates/cross-specification-delivery-plan-template.md](../templates/cross-specification-delivery-plan-template.md).
 
 ## Current scaffold state
-Five architecture documents, the canonical ADR index, and the governance-adoption delivery plan are indexed; native feature plans are not initialized.
+Five architecture documents, the canonical ADR index, the governance-adoption delivery plan, and the ServiceHub platform delivery plan are indexed; native feature plans are not initialized.

@@ -27,9 +27,17 @@ Archived items carry no lifecycle status.
 | [RFC-TEMPLATE.md](2026-10-legacy-templates/RFC-TEMPLATE.md) | `docs/templates/RFC-TEMPLATE.md` | 2026-10-12 | Legacy upper-case template | [rfc-template.md](../templates/rfc-template.md) |
 | [TEST-TEMPLATE.md](2026-10-legacy-templates/TEST-TEMPLATE.md) | `docs/templates/TEST-TEMPLATE.md` | 2026-10-12 | Legacy upper-case template | [test-plan-template.md](../templates/test-plan-template.md) |
 | [RELEASE-TEMPLATE-from-releases.md](2026-10-legacy-templates/RELEASE-TEMPLATE-from-releases.md) | `docs/releases/RELEASE-TEMPLATE.md` | 2026-10-12 | Legacy upper-case release template | [release-template.md](../templates/release-template.md) |
+| [CHARTER.md](2026-10-product-intent/CHARTER.md) | `docs/charter/CHARTER.md` | 2026-10-12 | Product intent restructured into vision.md and requirements.md | [vision.md](../product/vision.md), [requirements.md](../product/requirements.md) |
+| [PRD.md](2026-10-product-intent/PRD.md) | `docs/requirements/PRD.md` | 2026-10-12 | Product intent restructured into vision.md and requirements.md | [vision.md](../product/vision.md), [requirements.md](../product/requirements.md) |
+| [ROADMAP.md](2026-10-delivery-plan/ROADMAP.md) | `docs/requirements/ROADMAP.md` | 2026-10-12 | Delivery plan consolidated into delivery-plan-servicehub-platform.md | [delivery-plan-servicehub-platform.md](../architecture/delivery-plan-servicehub-platform.md) |
+| [README.md](2026-10-delivery-plan/README.md) | `docs/phases/README.md` | 2026-10-12 | Phase register consolidated into delivery-plan-servicehub-platform.md | [delivery-plan-servicehub-platform.md](../architecture/delivery-plan-servicehub-platform.md) |
+| [PHASE-001-platform-foundation.md](2026-10-delivery-plan/PHASE-001-platform-foundation.md) | `docs/phases/PHASE-001-platform-foundation.md` | 2026-10-12 | Phase consolidated into delivery-plan-servicehub-platform.md | [delivery-plan-servicehub-platform.md](../architecture/delivery-plan-servicehub-platform.md) |
+| [PHASE-002-identity-and-developer-services.md](2026-10-delivery-plan/PHASE-002-identity-and-developer-services.md) | `docs/phases/PHASE-002-identity-and-developer-services.md` | 2026-10-12 | Phase consolidated into delivery-plan-servicehub-platform.md | [delivery-plan-servicehub-platform.md](../architecture/delivery-plan-servicehub-platform.md) |
+| [PHASE-003-ai-platform.md](2026-10-delivery-plan/PHASE-003-ai-platform.md) | `docs/phases/PHASE-003-ai-platform.md` | 2026-10-12 | Phase consolidated into delivery-plan-servicehub-platform.md | [delivery-plan-servicehub-platform.md](../architecture/delivery-plan-servicehub-platform.md) |
+| [PHASE-004-observability-and-operational-hardening.md](2026-10-delivery-plan/PHASE-004-observability-and-operational-hardening.md) | `docs/phases/PHASE-004-observability-and-operational-hardening.md` | 2026-10-12 | Phase consolidated into delivery-plan-servicehub-platform.md | [delivery-plan-servicehub-platform.md](../architecture/delivery-plan-servicehub-platform.md) |
 
 ## Relationship to other artifacts
 Every archived item links to its replacement where one exists.
 
 ## Current scaffold state
-Eight legacy templates are indexed.
+Eight legacy templates and eight product/planning documents are indexed.

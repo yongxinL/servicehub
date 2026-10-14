@@ -21,6 +21,11 @@ related_documents:
   - TEST-001
 ---
 
+> **Archived 2026-10-12.** Superseded by [<new document>](../../architecture/delivery-plan-servicehub-platform.md).
+> Kept for history; not authoritative.
+
+
+
 # ServiceHub Phase Register
 
 Implementation may exist for several phases, but repository evidence does not constitute formal phase acceptance. Each record therefore remains `Draft` with `Retrospective validation required`.
