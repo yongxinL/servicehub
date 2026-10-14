@@ -8,12 +8,8 @@ LABEL org.opencontainers.image.authors="yongxinL@outlook.com"
 # environments
 ENV CONF_HOME=/opt/atlassian/confluence
 
-# Define build-time arguments for plugin URLs
-# This value is passed from the docker-compose file during the build process.
-ARG SAML_SSO_PLUGIN_URL="https://marketplace.atlassian.com/download/app/com.resolution.atlasplugins.samlsso.Confluence/202608271001/DATACENTER/artifact"
-ARG TABLE_FILTER_PLUGIN_URL="https://marketplace.atlassian.com/download/app/com.stiltsoft.confluence.plugin.tablefilter.tablefilter/53107670/DATACENTER/artifact"
-ARG QUESTION_PLUGIN_URL="https://marketplace.atlassian.com/download/app/com.atlassian.confluence.plugins.confluence-questions/1088000102/DATACENTER/artifact"
-ARG FORMAT_PLUGIN_URL="https://marketplace.atlassian.com/download/app/com.adaptavist.confluence.contentFormattingMacros/900002501/DATACENTER/artifact"
+# Semicolon-separated plugin-file=url entries passed from compose/webapp.yml.
+ARG WEBAPP_CONF_PLUGINS
 
 # add addiontal plugins from local
 COPY ./plugins/*.tar.gz $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/
@@ -22,10 +18,27 @@ COPY ./plugins/*.tar.gz $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/
 RUN set -eux; \
     tar -xzf $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/com.custom.confluence.mcp.connector.tar.gz -C $CONF_HOME/bin/; \
     rm -rf $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/com.custom.confluence.mcp.connector.tar.gz; \
-    curl -Lso $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/com.resolution.atlasplugins.samlsso.Confluence.jar ${SAML_SSO_PLUGIN_URL}; \
-    curl -Lso $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/com.stiltsoft.confluence.plugin.tablefilter.tablefilter.jar ${TABLE_FILTER_PLUGIN_URL}; \
-    curl -Lso $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/com.atlassian.confluence.plugins.confluence-questions.jar ${QUESTION_PLUGIN_URL}; \
-    curl -Lso $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/com.atlassin.confluence.plugins.adaptavist-mosaic.jar ${FORMAT_PLUGIN_URL}; \
+    old_ifs="$IFS"; \
+    IFS=';'; \
+    set -f; \
+    set -- ${WEBAPP_CONF_PLUGINS}; \
+    set +f; \
+    IFS="$old_ifs"; \
+    [ "$#" -eq 4 ]; \
+    for plugin; do \
+        case "$plugin" in \
+            *=*) ;; \
+            *) echo "Invalid Confluence plugin entry: $plugin" >&2; exit 1 ;; \
+        esac; \
+        plugin_file="${plugin%%=*}"; \
+        plugin_url="${plugin#*=}"; \
+        case "$plugin_file" in \
+            ""|*/*) echo "Invalid Confluence plugin filename: $plugin_file" >&2; exit 1 ;; \
+        esac; \
+        curl --fail --location --show-error --progress-bar \
+            --output "$CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/$plugin_file" \
+            "$plugin_url"; \
+    done; \
     chown confluence:root $CONF_HOME/bin/com.custom.confluence.mcp.connector.jar $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/*.jar; \
     chmod 550 $CONF_HOME/bin/com.custom.confluence.mcp.connector.jar $CONF_HOME/confluence/WEB-INF/atlassian-bundled-plugins/*.jar;
 
