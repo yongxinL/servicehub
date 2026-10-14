@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | Title | Product Vision |
-| Status | Draft |
+| Status | Approved |
 | Owner | project-owner |
 | Created | 2026-10-13 |
 | Updated | 2026-10-13 |
-| Approved by / mode / date | |
+| Approved by project-owner / owner-self-approval / 2026-10-13 | |
 
 ## 1. Problem statement
 
@@ -45,7 +45,7 @@ This vision provides a coherent, reviewable, and recoverable service platform wh
 
 - Designing or silently changing application or infrastructure behaviour through documentation.
 - A dedicated family file-cloud platform at this stage.
-- Guaranteed production availability, security, recovery, or compliance outcomes.
+- Guaranteed production availability, security, recovery, or compliance outcomes. (Clarified 2026-10-13: this does not exclude defining and testing recovery objectives; RPO/RTO remain required by requirements.md PR-027, R-043, PR-044.)
 - Confluence or Forgejo Wiki content as the authoritative documentation store.
 - Ownership, staffing, budget, approval, or completion claims not present in repository evidence.
 - Arbitrary access to real secrets, private keys, recovery material, or production hostnames.

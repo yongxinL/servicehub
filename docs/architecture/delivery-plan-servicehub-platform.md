@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | Title | Delivery Plan: ServiceHub Platform |
-| Status | Draft |
+| Status | Approved |
 | Owner | project-owner |
 | Created | 2026-10-13 |
 | Updated | 2026-10-13 |
-| Approved by / mode / date | |
+| Approved by project-owner / owner-self-approval / 2026-10-13 | |
 | Trigger | Governance adoption |
 
 ## 1. Objective
@@ -16,11 +16,11 @@ Deliver the ServiceHub self-hosted HomeLab services platform through a governed 
 
 ## 2. Participating work
 
-| Item | Type | Native plan location | Status |
+| Item | Type | Plan record | Status |
 |---|---|---|---|
-| PHASE-001 Platform Foundation | Phase | docs/archive/2026-10-delivery-plan/PHASE-001-platform-foundation.md | Repository implementation present; retrospective validation required |
-| PHASE-002 Identity and Developer Services | Phase | docs/archive/2026-10-delivery-plan/PHASE-002-identity-and-developer-services.md | Repository implementation present; retrospective validation required |
-| PHASE-003 AI Platform | Phase | docs/archive/2026-10-delivery-plan/PHASE-003-ai-platform.md | Repository implementation present; retrospective validation required |
+| PHASE-001 Platform Foundation | Phase | docs/archive/2026-10-delivery-plan/PHASE-001-platform-foundation.md | Implemented (owner-confirmed 2026-10-13); validation evidence pending (TEST-001) |
+| PHASE-002 Identity and Developer Services | Phase | docs/archive/2026-10-delivery-plan/PHASE-002-identity-and-developer-services.md | Implemented (owner-confirmed 2026-10-13); oCIS Authentik OIDC configuration pending (requirements.md open question 1); validation evidence pending (TEST-001) |
+| PHASE-003 AI Platform | Phase | docs/archive/2026-10-delivery-plan/PHASE-003-ai-platform.md | Implemented (owner-confirmed 2026-10-13); validation evidence pending (TEST-001) |
 | PHASE-004 Observability and Operational Hardening | Phase | docs/archive/2026-10-delivery-plan/PHASE-004-observability-and-operational-hardening.md | Partial implementation; restoration and release controls incomplete |
 
 ## 3. Dependencies and order
@@ -48,7 +48,7 @@ Not recorded in source documents.
 
 ## 6. Risks
 
-- Restores are not documented or validated in the repository.
+- Restore procedures exist (docs/operations/runbooks/BACKUP-RESTORE.md) but have not been exercised; recovery capability is unproven (requirements.md open question 2).
 - Runtime health, TLS issuance, authentication, AI routing, and monitoring are not evidenced by a full test report.
 - Dynamic host exposure exists for several AI and observability APIs and requires review.
 - High-privilege mounts expose Docker or host filesystem state to platform containers.
@@ -66,7 +66,6 @@ Not recorded in source documents.
 - Optional web-search components are not in the default stack.
 - Telemetry exists without confirmed data or alert delivery.
 - Dual-target configuration exists but transfers and encryption controls are not runtime-validated.
-- Restore is untested.
 - Privileged and host-mounted collectors increase blast radius.
 
 **Evidence gaps from the phases (carried as risks, not completed items):**
