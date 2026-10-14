@@ -5,6 +5,7 @@ services:
             context: ../shared/confluence/
             args:
                 - IMAGE_TAG=${WORKSPACE_TAG}
+                - WEBAPP_CONF_PLUGINS=${WEBAPP_CONF_PLUGINS}
         depends_on:
             infraauth:
                 condition: service_healthy
