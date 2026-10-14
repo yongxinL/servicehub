@@ -1,33 +1,31 @@
----
-project: ServiceHub
-project_code: SVCHUB
-document_type: RFC-INDEX
-document_id: RFC-INDEX
-title: ServiceHub RFC Register
-version: "1.1"
-status: Active
-lifecycle_stage: Design
-owner: George Li
-maintainer: George Li
-created: 2026-10-01
-updated: 2026-10-04
-tags:
-  - servicehub
-  - rfc
-  - proposals
-  - index
-related_documents:
-  - ARCHITECTURE
-  - ROADMAP-001
----
+# Requests for Comments
 
-# ServiceHub RFC Register
+## Purpose
+Index of material proposals and their outcomes.
 
-RFCs record significant cross-cutting proposals before implementation or formal acceptance.
+## Authority
+This index is authoritative for RFC identity, status, and supersession. Each RFC is authoritative for its evaluation and outcome. An accepted RFC does not specify behaviour or prove implementation. Owning chapter: central manual 10.
 
-| ID | Title | Status | Owner | Created date | Decision | Link |
-|---|---|---|---|---|---|---|
-| RFC-001 | ServiceHub Reliability and Recovery Baseline | Accepted | George Li | 2026-10-01 | Accepted through ADR-007: database-native dumps, persistent-data archives, a Home Server primary target, and a Google Drive off-site copy; repository configuration added, runtime and recovery evidence pending | [RFC-001](RFC-001-reliability-and-recovery-baseline.md) |
-| RFC-002 | Family Cloud Platform Strategy | Accepted | George Li | 2026-10-01 | Accepted through ADR-006: oCIS with Authentik OIDC and local filesystem storage; repository configuration present and runtime validation pending | [RFC-002](RFC-002-family-cloud-platform-strategy.md) |
+## Artifact triggers
+Proposals that are cross-cutting, costly, difficult to reverse, operationally or security significant, vendor-locking, data-architecture or public-interface changing, standard-changing, or dependent on evaluating credible alternatives.
 
-Use [RFC-TEMPLATE.md](../templates/RFC-TEMPLATE.md) for new records and add the next unused `RFC-NNN` ID here.
+## Naming and identifiers
+`RFC-NNN-<kebab-title>.md`, allocated here, never reused.
+
+## Status expectations
+Draft, In Review, Accepted, Rejected, Deferred, Withdrawn, Superseded.
+
+## Index
+
+| ID | Title | Status | Updated | Outcome date | Resulting artifacts |
+|---|---|---|---|---|---|
+| [RFC-001](RFC-001-reliability-and-recovery-baseline.md) | ServiceHub Reliability and Recovery Baseline | Accepted | 2026-10-10 | 2026-10-03 | [ADR-007](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md) |
+| [RFC-002](RFC-002-family-cloud-platform-strategy.md) | Family Cloud Platform Strategy | Accepted | 2026-10-04 | 2026-10-03 | [ADR-006](../architecture/adr/ADR-006-adopt-ocis-with-local-filesystem-storage.md), [ADR-007](../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md) |
+
+Next available identifier: RFC-003.
+
+## Relationship to other artifacts
+Accepted RFCs typically lead to ADRs and specifications. Template: [../templates/rfc-template.md](../templates/rfc-template.md).
+
+## Current scaffold state
+Two RFCs are indexed.

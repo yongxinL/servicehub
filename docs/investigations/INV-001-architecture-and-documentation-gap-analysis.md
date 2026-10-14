@@ -18,7 +18,7 @@ tags:
   - documentation
 related_documents:
   - ARCHITECTURE
-  - LESSON-001
+  - LES-001
   - TEST-001
 ---
 
@@ -126,7 +126,7 @@ This is an inferred process cause from repository structure, not an owner-approv
 ## Related Documents
 
 - [Architecture](../architecture/ARCHITECTURE.md)
-- [Lessons](../lessons/LESSON-001-initial-architecture-review.md)
+- [Lessons](../lessons/LES-001-initial-architecture-review.md)
 - [Baseline test plan](../testing/TEST-001-platform-baseline-validation.md)
 - [RFC-001](../rfc/RFC-001-reliability-and-recovery-baseline.md)
 
