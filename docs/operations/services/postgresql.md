@@ -43,7 +43,7 @@ Set in `.env` (see [`env.example`](../../../env.example)):
 The default `POSTGRES_DATABASES` creates every service database:
 
 ```bash
-POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${WORKSPACE_DBNAME}"
+POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${WORKSPACE_DBNAME},${POSTOFFICE_DBNAME}"
 ```
 
 ## Multiple databases

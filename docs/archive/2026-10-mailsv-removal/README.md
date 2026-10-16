@@ -10,13 +10,17 @@ unblocking it requires a manual support request that is not guaranteed to be
 approved. Self-hosted outbound email is therefore not viable on the OCI
 deployment. An external email provider is used instead.
 
+For notification email only, OCI Email Delivery can also be used directly on
+its `587` SMTP submission endpoint; opening outbound port `25` is not required.
+
 ## What changed
 
 - `docker-compose.yml`: the `compose/mailsv.yml` include was removed.
 - `scripts/gen-admin-rules.py`: the `mailsvstalwart-*` Traefik routers are
   generated only when `ENABLE_MAILSV="true"` (default: `false`).
-- `env.example`: `ENABLE_MAILSV="false"` added; email service variables
-  commented out.
+- `env.example`: `ENABLE_MAILSV="false"` added. Mail-only settings remain
+  configured, and `setup.sh` generates their secrets, so the disabled stack is
+  ready to enable later.
 
 ## Archived files
 
