@@ -31,12 +31,11 @@ The service runs `victoria-metrics` with:
 
 ## Scrape targets
 
-VictoriaMetrics scrapes two endpoints itself (in addition to metrics pushed by Alloy):
+VictoriaMetrics scrapes the following endpoint itself (in addition to metrics pushed by Alloy):
 
 | Job | Target | Path |
 |---|---|---|
 | `alloy` | `obsvcealloy:9080` | `/metrics` |
-| `litellm` | `aiservlitellm:12380` | `/metrics` |
 
 Alloy pushes host, container and Traefik metrics through `/api/v1/write` (see [`../grafana/alloy/config.alloy`](../../../shared/grafana/alloy/config.alloy)), so most metrics arrive by remote write rather than scrape.
 
@@ -64,7 +63,7 @@ curl -s 'http://localhost:8428/api/v1/query?query=up' | jq .
 | Path | Purpose |
 |---|---|
 | [`Dockerfile`](../../../shared/victoriametrics/Dockerfile) | Image build (`FROM victoriametrics/victoria-metrics:latest`) + curl for health checks |
-| [`scrape.yaml`](../../../shared/victoriametrics/scrape.yaml) | Prometheus scrape configuration for Alloy and LiteLLM |
+| [`scrape.yaml`](../../../shared/victoriametrics/scrape.yaml) | Prometheus scrape configuration for Alloy |
 
 ## See also
 

@@ -26,7 +26,6 @@
 | Host metrics | built-in `unix` exporter (procfs/sysfs; rootfs-based collectors disabled per ADR-008) | VictoriaMetrics |
 | Container metrics | built-in cAdvisor (`docker_only=true`) | VictoriaMetrics |
 | Traefik metrics | scrape `routetraefik:8080` | VictoriaMetrics |
-| LiteLLM metrics | scrape `aiservlitellm:12380/metrics/` | VictoriaMetrics |
 | Alloy self-metrics | scrape `localhost:9080` | VictoriaMetrics (log-derived counters) |
 | Container logs | Docker socket discovery | VictoriaLogs (GeoIP-enriched) |
 
