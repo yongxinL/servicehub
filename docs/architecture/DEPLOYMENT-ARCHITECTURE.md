@@ -30,7 +30,7 @@ related_documents:
 
 | Scope | Compose includes | Where it runs |
 |---|---|---|
-| OCI deployment | `route`, `infra`, `devops`, `webapp`, `mailsv` | Oracle Cloud Infrastructure |
+| OCI deployment | `route`, `infra`, `devops`, `webapp` | Oracle Cloud Infrastructure (mailsv excluded; OCI blocks port 25) |
 | Local infrastructure | `aiserv` (Hermes, LiteLLM, llama.cpp, Open WebUI) | Local infrastructure; entrypoint for local deployment is an open follow-up |
 | Retained, not deployed | `obsvce` (VictoriaMetrics, VictoriaLogs, Grafana Alloy, Grafana) | Not deployed to any environment; OCI workloads use Oracle Cloud native monitoring per [ADR-010](adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md), which is not yet configured |
 
@@ -70,7 +70,7 @@ The repository does not contain evidence that a production deployment, certifica
 6. Restore `.env` only when it is missing on the target (bootstrap-only; an existing file is never overwritten).
 7. Run `scripts/setup.sh` to merge new variables and regenerate the admin rules.
 8. On production only, restore `acme.json` only when it is missing on the target (bootstrap-only), to `${APPS_DATA}/shared/certs/acme.json` with root ownership and mode `600`.
-9. Validate the service input against a fixed allowlist (`webappconf`, `webappocis`, `mailsvstalwart`, `mailsvbulwark`, plus `all`), then run `docker compose up -d --build --no-deps` for it — `all` expands to that fixed list with `webappocisinit` first, not to a service-name prefix filter (`aiserv*` and `obsvce*` are excluded). Production deploys are additionally restricted to the `main` branch.
+9. Validate the service input against a fixed allowlist (`webappconf`, `webappocis`, plus `all`), then run `docker compose up -d --build --no-deps` for it — `all` expands to that fixed list with `webappocisinit` first, not to a service-name prefix filter (`aiserv*`, `obsvce*`, and `mailsv*` are excluded). Production deploys are additionally restricted to the `main` branch.
 
 The workflow validates SSH and rsync availability and target inputs, but it does not perform post-deployment application checks.
 

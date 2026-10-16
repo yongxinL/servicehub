@@ -79,7 +79,7 @@ Authentik has a dedicated server, worker, initialiser, persistent media and temp
 - [Authentik README](../../operations/services/authentik.md)
 - [forward-auth middleware](../../../shared/traefik/advanced/middlewares-authentik.yml)
 - [Grafana route](../../../compose/obsvce.yml) (Rename note 2026-10-12: formerly compose/obsvc.yml.)
-- [Stalwart directory documentation](../../operations/services/stalwart.md)
+- [Stalwart directory documentation](../../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md) (archived 2026-10; mailsv disabled — OCI blocks port 25)
 
 ## Related Documents
 

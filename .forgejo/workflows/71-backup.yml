@@ -15,7 +15,7 @@ on:
           - stag
           - prod
       backup:
-        description: 'auto: scheduled cadence (DB daily, full weekly by default, per db_backup_interval_days/full_backup_interval_days; config every run); db: DB/config now; full: full/config now'
+        description: 'auto: scheduled (DB daily, full weekly); db: DB/config now; full: full/config now'
         required: true
         default: 'auto'
         type: choice

@@ -43,8 +43,6 @@ on:
           - all
           - webappconf
           - webappocis
-          - mailsvstalwart
-          - mailsvbulwark
       environment:
         description: 'Target environment'
         required: true
@@ -92,8 +90,9 @@ jobs:
         #
         #   DEPLOY_TARGET        stag|prod (default: stag)
         #   DEPLOY_TASK          app service name, or "all"/empty for the full
-        #                        app allowlist (webappconf, webappocis,
-        #                        mailsvstalwart, mailsvbulwark). Foundational
+        #                        app allowlist (webappconf, webappocis).
+        #                        mailsv services are excluded (OCI blocks
+        #                        outbound port 25). Foundational
         #                        services (infra*, devops*, route*) are never
         #                        deployed here. Values outside the allowlist
         #                        fail before any SSH connection.
@@ -135,7 +134,7 @@ jobs:
           # above. Keeps deployable services explicit instead of relying on
           # service-name prefixes (e.g. a new webapp* one-shot container).
           case "$DEPLOY_TASK" in
-            all|webappconf|webappocis|mailsvstalwart|mailsvbulwark) ;;
+            all|webappconf|webappocis) ;;
             *) fail "unsupported deployment task '$DEPLOY_TASK'" ;;
           esac
 
@@ -400,7 +399,7 @@ jobs:
             all)
               \$COMPOSE build webappocisinit
               \$COMPOSE run --rm --no-deps webappocisinit
-              \$COMPOSE up -d --build --no-deps webappconf webappocis mailsvstalwart mailsvbulwark
+              \$COMPOSE up -d --build --no-deps webappconf webappocis
               ;;
             webappocis)
               \$COMPOSE build webappocisinit

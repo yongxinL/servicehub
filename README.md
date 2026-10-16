@@ -39,7 +39,7 @@ Compose files are split by functional domain:
 | `compose/webapp.yml` | `wbapp*` | Homepage / CMS (Confluence) + Open WebUI |
 | `compose/aiserv.yml` | `aiagn*` | AI agents + LLM inference (Hermes + LiteLLM + llama.cpp) |
 | `compose/obsvce.yml` | `obsvc*` | Observability (metrics + logs + Grafana) |
-| `compose/mailsv.yml` | `poste*` | Email services (Stalwart mail server + Bulwark webmail) |
+| `compose/mailsv.yml` | `poste*` | Email services (Stalwart + Bulwark) — **disabled by default** (OCI blocks port 25) |
 
 ```mermaid
 graph TD
@@ -321,28 +321,33 @@ Grafana is reachable at `https://${OBSVC_DOMAIN}` behind Authentik forward-auth 
 
 ---
 
-## Email Stack (poste)
+## Email Stack (poste) — Disabled by Default
 
-A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. All services live in [`compose/mailsv.yml`](compose/mailsv.yml).
+**Note:** This stack is disabled by default because OCI blocks outbound port 25 (SMTP). 
+To re-enable, set `ENABLE_MAILSV="true"` in `.env` (requires port 25 unblocked via OCI support ticket).
+
+A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. Configurations are archived in [`docs/archive/2026-10-mailsv-removal/`](docs/archive/2026-10-mailsv-removal/). The compose file [`compose/mailsv.yml`](compose/mailsv.yml) remains in the repo but is excluded from `docker-compose.yml`.
 
 | Service | Runs as | Full documentation |
 |---|---|---|
-| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `posteservice` | [docs/operations/services/stalwart.md](docs/operations/services/stalwart.md) |
-| Bulwark Webmail — JMAP webmail client | `postewebmail` | [docs/operations/services/bulwark.md](docs/operations/services/bulwark.md) |
+| Stalwart Mail Server — SMTP / IMAP / JMAP + web admin | `posteservice` | [Archived](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md) |
+| Bulwark Webmail — JMAP webmail client | `postewebmail` | [Archived](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md) |
 
 **At a glance:**
 
 | Detail | Value |
 |---|---|
-| Mail server (Stalwart admin) | `https://${EMAIL_HOST}` — reachable from trusted IPs only |
+| Mail server (Stalwart admin) | `https://${EMAIL_HOST}` — reachable from trusted IPs only (when enabled) |
 | Webmail (Bulwark) | `https://${WEBMAIL_DOMAIN}` |
 | Ports published to the host | 25 / 465 / 587 / 993 (SMTP server-to-server, submission ×2, IMAP) |
 | Storage | PostgreSQL (`${POSTE_DBNAME}` on `dbsvcpgsqldb`) holds all mail data — accounts, messages, indexes, blobs |
 | TLS | Reused from Traefik's shared `acme.json` via an in-container certificate exporter |
-| Webmail → Stalwart | JMAP at `https://${EMAIL_HOST}` — browser-side, so Stalwart needs **Permissive CORS** (`usePermissiveCors`) and a trusted certificate (see [Bulwark — Login prerequisites](docs/operations/services/bulwark.md#login-prerequisites-stalwart-side)) |
+| Webmail → Stalwart | JMAP at `https://${EMAIL_HOST}` — browser-side, so Stalwart needs **Permissive CORS** (`usePermissiveCors`) and a trusted certificate (see [archived Bulwark doc](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md#login-prerequisites-stalwart-side)) |
 | Single sign-on | Authentik serves the directory: webmail users log in with their Authentik password through the JMAP password form, IMAP/SMTP/JMAP logins bind against Authentik's LDAP outpost |
 
-The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration). Accounts come from Authentik over LDAP for every path — webmail, IMAP, SMTP, JMAP (webmail OIDC SSO is not used; it requires an OIDC-backed Stalwart directory — see [Bulwark — SSO/OIDC](docs/operations/services/bulwark.md#sso--oidc-not-used)) — setup walkthrough in the [Stalwart README](docs/operations/services/stalwart.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](docs/operations/services/stalwart.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
+The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration). Accounts come from Authentik over LDAP for every path — webmail, IMAP, SMTP, JMAP (webmail OIDC SSO is not used; it requires an OIDC-backed Stalwart directory — see [archived Bulwark doc](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md#sso--oidc-not-used)) — setup walkthrough in the [archived Stalwart README](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
+
+**Current status:** This stack is disabled. External email provider is used instead.
 
 ---
 
@@ -653,7 +658,7 @@ webapps/confluence/logs,webapps/confluence/temp,webapps/confluence/plugins-temp,
 
 A leading `./` or `/` is ignored; leave the secret unset to archive everything.
 
-> **Consistency:** the weekly archive is taken while containers are running, so `databases/` inside it is crash-consistent rather than transaction-consistent — the daily `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](docs/operations/services/stalwart.md#database-management-create--delete--backup--restore)). A long-running backup also queues deployments, because the runner has capacity 1.
+> **Consistency:** the weekly archive is taken while containers are running, so `databases/` inside it is crash-consistent rather than transaction-consistent — the daily `pg_dump` files are the transaction-consistent layer and the ones to restore from (worked example: [Stalwart — Database management](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#database-management-create--delete--backup--restore)). A long-running backup also queues deployments, because the runner has capacity 1.
 
 ---
 
@@ -697,7 +702,7 @@ docker compose pull && docker compose up -d
 
 All settings are controlled via `.env`. The template [`env.example`](env.example) documents every variable. Key sections:
 
-> Services with a dedicated README ([Traefik](docs/operations/services/traefik.md), [Authentik](docs/operations/services/authentik.md), [MariaDB](docs/operations/services/mariadb.md), [PostgreSQL](docs/operations/services/postgresql.md), [Forgejo + Actions](docs/operations/services/forgejo.md), [Confluence](docs/operations/services/confluence.md), [Hermes Agent](docs/operations/services/hermesagent.md), [LiteLLM](docs/operations/services/litellm.md), [llama.cpp](docs/operations/services/llamacpp.md), [Open WebUI](docs/operations/services/openwebui.md), [VictoriaMetrics](docs/operations/services/victoriametrics.md), [VictoriaLogs](docs/operations/services/victorialogs.md), [Grafana](docs/operations/services/grafana.md), [Stalwart](docs/operations/services/stalwart.md), [Bulwark](docs/operations/services/bulwark.md)) also document their own variables there.
+> Services with a dedicated README ([Traefik](docs/operations/services/traefik.md), [Authentik](docs/operations/services/authentik.md), [MariaDB](docs/operations/services/mariadb.md), [PostgreSQL](docs/operations/services/postgresql.md), [Forgejo + Actions](docs/operations/services/forgejo.md), [Confluence](docs/operations/services/confluence.md), [Hermes Agent](docs/operations/services/hermesagent.md), [LiteLLM](docs/operations/services/litellm.md), [llama.cpp](docs/operations/services/llamacpp.md), [Open WebUI](docs/operations/services/openwebui.md), [VictoriaMetrics](docs/operations/services/victoriametrics.md), [VictoriaLogs](docs/operations/services/victorialogs.md), [Grafana](docs/operations/services/grafana.md)) also document their own variables there. [Stalwart](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md) and [Bulwark](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md) are archived.
 
 ### General
 
@@ -786,18 +791,18 @@ These lists only initialize empty database data directories. Preserve existing d
 
 | Variable | Description |
 |---|---|
-| `EMAIL_HOST` | SMTP server hostname — also the Stalwart mail server hostname and its container hostname |
-| `EMAIL_PORT` | SMTP port (465 by default, Stalwart's implicit-TLS submission port) |
-| `EMAIL_USER` / `EMAIL_PASS` | SMTP credentials used by stack components to send mail through Stalwart |
-| `EMAIL_FROM` | From address for outbound email (display name + address) |
+| `EMAIL_HOST` | SMTP server hostname — also the Stalwart mail server hostname and its container hostname (when enabled) |
+| `EMAIL_PORT` | SMTP port (465 by default, Stalwart's implicit-TLS submission port) (when enabled) |
+| `EMAIL_USER` / `EMAIL_PASS` | SMTP credentials used by stack components to send mail through Stalwart (when enabled) |
+| `EMAIL_FROM` | From address for outbound email (display name + address) (when enabled) |
 
 ### Email Services (poste)
 
-The webmail variables are documented in the service READMEs — see [Bulwark](docs/operations/services/bulwark.md#configuration-env) and [Stalwart](docs/operations/services/stalwart.md#configuration-env). In short:
+The webmail variables are documented in the archived service READMEs — see [Bulwark](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md#configuration-env) and [Stalwart](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#configuration-env). In short (when enabled):
 
 | Variable | Description |
 |---|---|
-| `WEBMAIL_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) |
+| `WEBMAIL_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) (when enabled) |
 | `WEBMAIL_SESSION_SECRET` | Session cookie encryption; auto-generated by `setup.sh` |
 | `POSTE_DBNAME` | PostgreSQL database holding all Stalwart mail data (must be in `PGRSQL_DBLIST`) |
 | `STALWART_ADMIN_USER` / `STALWART_ADMIN_PASS` | Stalwart recovery admin (`STALWART_RECOVERY_ADMIN`); pass auto-generated by `setup.sh`, empty disables |

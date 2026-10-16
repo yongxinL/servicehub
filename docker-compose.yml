@@ -40,4 +40,5 @@ include:
     - compose/webapp.yml
 
     # --> email services: mail server + webmail (mailsv)
-    - compose/mailsv.yml
+    # Removed: OCI blocks outbound port 25; using external email provider instead.
+    # See docs/archive/2026-10-mailsv-removal/ for archived configs.
