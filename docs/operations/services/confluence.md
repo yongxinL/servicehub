@@ -32,7 +32,7 @@ Set in `.env` (see [`env.example`](../../../env.example)):
 | `WORKSPACE_DOMAIN` | Homepage hostname (default `www.${DOMAIN_NAME}`) |
 | `WORKSPACE_DBNAME` | PostgreSQL database name (must be in `POSTGRES_DATABASES`) |
 | `WORKSPACE_TAG` | Confluence image tag passed to the Dockerfile as `IMAGE_TAG` |
-| `WEBAPP_CONF_PLUGINS` | Four semicolon-separated `plugin-file=url` Marketplace download entries |
+| `WEBAPP_CONF_PLUGINS` | Variable-length `plugin-file=url` Marketplace download entries, one per line |
 | `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` | Shared PostgreSQL credentials |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | PostgreSQL connection target (`infrapgsql:5432`) |
 | `APPS_DATA` | Host path for the data bind mount |
