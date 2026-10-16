@@ -28,7 +28,7 @@ Proposed, Accepted, Rejected, Deprecated, Superseded. Accepted ADRs are immutabl
 | [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) | Adopt Dual-Target Backup and Disaster Recovery | Accepted | 2026-10-04 | 2026-10-04 | |
 | [ADR-008](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) | Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables | Accepted | 2026-10-06 | 2026-10-04 | Partially superseded by ADR-009 (Open WebUI relocation) |
 | [ADR-009](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) | Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries | Accepted | 2026-10-08 | 2026-10-05 | Supersedes ADR-008 in part; defers observability to ADR-010 |
-| [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) | Collect OCI Logs and Integrate Service Telemetry with Oracle APM | Proposed | 2026-10-05 | 2026-10-05 | Split from ADR-009; pending owner decision |
+| [ADR-010](ADR-010-establish-servicehub-observability-platform.md) | Establish the ServiceHub Observability Platform with Grafana, VictoriaMetrics, VictoriaLogs, Alloy, and Oracle APM | Proposed | 2026-10-16 | 2026-10-05 | Supersedes OCI-native-only proposal; hybrid self-hosted + Oracle APM design |
 
 Next available identifier: ADR-011.
 
