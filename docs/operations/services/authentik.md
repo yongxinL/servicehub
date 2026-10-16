@@ -49,6 +49,8 @@ Set in `.env` (see [`env.example`](../../../env.example)):
 | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_USER` / `EMAIL_PASS` / `EMAIL_FROM` | Outbound email for invitations and recovery |
 | `TRUSTED_IP` | Trusted proxy CIDRs (`AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS`) |
 
+The default port `465` uses implicit TLS (`AUTHENTIK_EMAIL__USE_SSL=true` and `AUTHENTIK_EMAIL__USE_TLS=false`). For port `587` STARTTLS, reverse those two values in `compose/infra.yml`.
+
 `IDENTITY_DBNAME` must be listed in `POSTGRES_DATABASES` so the PostgreSQL init script creates it on first start.
 
 ## Data & persistence

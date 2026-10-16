@@ -282,7 +282,7 @@ All agents share the same `aiagnlitellm` router and `aiagnchatllm` model, so GPU
 
 Confluence serves `WBHOME_DOMAIN` (default `www.${DOMAIN_NAME}`) and the apex `${DOMAIN_NAME}` through Traefik, backed by PostgreSQL (`${WBHOME_DBNAME}`). Open WebUI is served at `https://${OWEBUI_DOMAIN}`.
 
-> **Database lists only initialize empty data directories.** Updating `PGRSQL_DBLIST` or `MARIADB_DB_LIST` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
+> **Database lists only initialize empty data directories.** Updating `POSTGRES_DATABASES` or `MARIADB_DATABASES` does not create databases or change credentials in an existing installation; provision any missing database and grants explicitly without resetting existing data.
 >
 > An optional [WordPress homepage](docs/operations/services/wordpress.md) can replace Confluence; the two must never run together.
 
@@ -324,7 +324,7 @@ Grafana is reachable at `https://${OBSVC_DOMAIN}` behind Authentik forward-auth 
 ## Email Stack (poste) — Disabled by Default
 
 **Note:** This stack is disabled by default because OCI blocks outbound port 25 (SMTP). 
-To re-enable, set `ENABLE_MAILSV="true"` in `.env` (requires port 25 unblocked via OCI support ticket).
+To re-enable, set `ENABLE_MAILSV="true"` in `.env` and restore the `compose/mailsv.yml` include in `docker-compose.yml` (requires port 25 unblocked via OCI support ticket).
 
 A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. Configurations are archived in [`docs/archive/2026-10-mailsv-removal/`](docs/archive/2026-10-mailsv-removal/). The compose file [`compose/mailsv.yml`](compose/mailsv.yml) remains in the repo but is excluded from `docker-compose.yml`.
 
@@ -338,14 +338,14 @@ A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) 
 | Detail | Value |
 |---|---|
 | Mail server (Stalwart admin) | `https://${EMAIL_HOST}` — reachable from trusted IPs only (when enabled) |
-| Webmail (Bulwark) | `https://${WEBMAIL_DOMAIN}` |
+| Webmail (Bulwark) | `https://${POSTOFFICE_DOMAIN}` |
 | Ports published to the host | 25 / 465 / 587 / 993 (SMTP server-to-server, submission ×2, IMAP) |
-| Storage | PostgreSQL (`${POSTE_DBNAME}` on `dbsvcpgsqldb`) holds all mail data — accounts, messages, indexes, blobs |
+| Storage | PostgreSQL (`${POSTOFFICE_DBNAME}`) holds all mail data — accounts, messages, indexes, blobs |
 | TLS | Reused from Traefik's shared `acme.json` via an in-container certificate exporter |
 | Webmail → Stalwart | JMAP at `https://${EMAIL_HOST}` — browser-side, so Stalwart needs **Permissive CORS** (`usePermissiveCors`) and a trusted certificate (see [archived Bulwark doc](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md#login-prerequisites-stalwart-side)) |
 | Single sign-on | Authentik serves the directory: webmail users log in with their Authentik password through the JMAP password form, IMAP/SMTP/JMAP logins bind against Authentik's LDAP outpost |
 
-The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. Other stack components send mail through Stalwart using the `EMAIL_*` variables documented in [Configuration](#configuration). Accounts come from Authentik over LDAP for every path — webmail, IMAP, SMTP, JMAP (webmail OIDC SSO is not used; it requires an OIDC-backed Stalwart directory — see [archived Bulwark doc](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md#sso--oidc-not-used)) — setup walkthrough in the [archived Stalwart README](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
+The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. With the self-hosted stack disabled, other components use the `EMAIL_*` external SMTP provider documented in [Configuration](#configuration). Accounts come from Authentik over LDAP for every path — webmail, IMAP, SMTP, JMAP (webmail OIDC SSO is not used; it requires an OIDC-backed Stalwart directory — see [archived Bulwark doc](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md#sso--oidc-not-used)) — setup walkthrough in the [archived Stalwart README](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
 
 **Current status:** This stack is disabled. External email provider is used instead.
 
@@ -775,26 +775,28 @@ The agent platform variables are documented in the service READMEs — see [Herm
 | `SQLDB_PASS` | Auto-generated by `setup.sh`; store securely |
 | `MySQL_HOST` / `MySQL_PORT` | MariaDB hostname / port (internal) |
 | `PGRSQL_HOST` / `PGRSQL_PORT` | PostgreSQL hostname / port (internal) |
-| `MARIADB_DB_LIST` | Comma-separated MariaDB databases to initialize (default: `${WBHOME_DBNAME}`) |
-| `PGRSQL_DBLIST` | Comma-separated PostgreSQL databases to initialize, including `${LITEM_DBNAME}` |
+| `MARIADB_DATABASES` | Comma-separated MariaDB databases to initialize (default: `${WORKSPACE_DBNAME}`) |
+| `POSTGRES_DATABASES` | Comma-separated PostgreSQL databases to initialize |
 
 For new installations:
 
 ```bash
-MARIADB_DB_LIST="${WBHOME_DBNAME}"
-PGRSQL_DBLIST="${AUTHN_DBNAME},${DEPOT_DBNAME},${LITEM_DBNAME},${WBHOME_DBNAME},${POSTE_DBNAME}"
+MARIADB_DATABASES="${WORKSPACE_DBNAME}"
+POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${WORKSPACE_DBNAME}"
 ```
 
 These lists only initialize empty database data directories. Preserve existing database names and passwords; create missing databases and grants explicitly on existing installations. See the [PostgreSQL](docs/operations/services/postgresql.md) and [MariaDB](docs/operations/services/mariadb.md) READMEs.
+
+When upgrading an existing `.env` after disabling the self-hosted mail stack, remove `${POSTOFFICE_DBNAME}` and its trailing comma from `POSTGRES_DATABASES`; add it back only when re-enabling mailsv.
 
 ### Email (SMTP)
 
 | Variable | Description |
 |---|---|
 | `EMAIL_HOST` | SMTP server hostname — also the Stalwart mail server hostname and its container hostname (when enabled) |
-| `EMAIL_PORT` | SMTP port (465 by default, Stalwart's implicit-TLS submission port) (when enabled) |
-| `EMAIL_USER` / `EMAIL_PASS` | SMTP credentials used by stack components to send mail through Stalwart (when enabled) |
-| `EMAIL_FROM` | From address for outbound email (display name + address) (when enabled) |
+| `EMAIL_PORT` | SMTP submission port; prefer `465` (implicit TLS), use `587` only if the provider requires STARTTLS |
+| `EMAIL_USER` / `EMAIL_PASS` | SMTP credentials used by stack components to send mail |
+| `EMAIL_FROM` | From address for outbound email (display name + address) |
 
 ### Email Services (poste)
 
@@ -802,9 +804,9 @@ The webmail variables are documented in the archived service READMEs — see [Bu
 
 | Variable | Description |
 |---|---|
-| `WEBMAIL_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) (when enabled) |
+| `POSTOFFICE_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) (when enabled) |
 | `WEBMAIL_SESSION_SECRET` | Session cookie encryption; auto-generated by `setup.sh` |
-| `POSTE_DBNAME` | PostgreSQL database holding all Stalwart mail data (must be in `PGRSQL_DBLIST`) |
+| `POSTOFFICE_DBNAME` | PostgreSQL database holding all Stalwart mail data (must be added to `POSTGRES_DATABASES` before enabling mailsv) |
 | `STALWART_ADMIN_USER` / `STALWART_ADMIN_PASS` | Stalwart recovery admin (`STALWART_RECOVERY_ADMIN`); pass auto-generated by `setup.sh`, empty disables |
 
 ---
