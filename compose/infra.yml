@@ -81,7 +81,8 @@ services:
             - AUTHENTIK_EMAIL__PORT=${EMAIL_PORT}
             - AUTHENTIK_EMAIL__USERNAME=${EMAIL_USER}
             - AUTHENTIK_EMAIL__PASSWORD=${EMAIL_PASS}
-            - AUTHENTIK_EMAIL__USE_TLS=true
+            - AUTHENTIK_EMAIL__USE_TLS=false
+            - AUTHENTIK_EMAIL__USE_SSL=true
             - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM}
             # PostgreSQL settings
             - AUTHENTIK_POSTGRESQL__HOST=${POSTGRES_HOST}
@@ -149,7 +150,8 @@ services:
             - AUTHENTIK_EMAIL__PORT=${EMAIL_PORT}
             - AUTHENTIK_EMAIL__USERNAME=${EMAIL_USER}
             - AUTHENTIK_EMAIL__PASSWORD=${EMAIL_PASS}
-            - AUTHENTIK_EMAIL__USE_TLS=true
+            - AUTHENTIK_EMAIL__USE_TLS=false
+            - AUTHENTIK_EMAIL__USE_SSL=true
             - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM}
             # PostgreSQL settings
             - AUTHENTIK_POSTGRESQL__HOST=${POSTGRES_HOST}

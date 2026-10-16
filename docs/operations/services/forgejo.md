@@ -34,6 +34,8 @@ Set in `.env` (see [`env.example`](../../../env.example)):
 | `SOURCECODE_TAG` | Forgejo image tag passed to the Dockerfile as `IMAGE_TAG` |
 | `DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` | Shared PostgreSQL credentials |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | PostgreSQL connection target (`infrapgsql:5432`) |
+| `EMAIL_HOST` / `EMAIL_PORT` | Outbound SMTP endpoint |
+| `EMAIL_USER` / `EMAIL_PASS` / `EMAIL_FROM` | Outbound SMTP credentials and sender |
 | `APPS_DATA` | Host path for the `/data` bind mount |
 | `TIME_ZONE` | Container timezone |
 
@@ -47,8 +49,12 @@ Container settings applied by the compose file:
 | `FORGEJO__database__DB_TYPE` | `postgres` | PostgreSQL backend |
 | `FORGEJO__openid__ENABLE_OPENID_SIGNIN` / `SIGNUP` | `false` | Local accounts only |
 | `FORGEJO__actions__ENABLED` | `true` | Enable the Forgejo Actions CI/CD unit |
+| `FORGEJO__mailer__ENABLED` / `SMTP_ADDR` / `SMTP_PORT` | `true` / `${EMAIL_HOST}` / `${EMAIL_PORT}` | Outbound SMTP |
+| `FORGEJO__mailer__PROTOCOL` / `FROM` / `USER` / `PASSWD` | `smtps` / `${EMAIL_FROM}` / `${EMAIL_USER}` / `${EMAIL_PASS}` | SMTP transport and sender |
 
 > Forgejo environment variables use the `FORGEJO__<section>__<key>` form (for example `FORGEJO__actions__ENABLED` maps to `[actions] ENABLED` in `app.ini`).
+
+The mailer uses `smtps` for the preferred implicit-TLS submission port `465`. If switching to port `587`, change `FORGEJO__mailer__PROTOCOL` to `smtp+starttls` in `compose/devops.yml`.
 
 ## Forgejo Actions runner
 
