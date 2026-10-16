@@ -25,7 +25,7 @@
 | Forgejo (`devopsforgejo`) | `SOURCECODE_DBNAME` |
 | LiteLLM (`aiservlitellm`) | `AIGATE_DBNAME` |
 | Confluence (`webappconf`, default homepage) | `WORKSPACE_DBNAME` |
-| Stalwart (`mailsvstalwart`) | `POSTOFFICE_DBNAME` — sole mail data store (accounts, messages, indexes, blobs) |
+| Stalwart (`mailsvstalwart`) | `POSTOFFICE_DBNAME` — sole mail data store (accounts, messages, indexes, blobs) (disabled; OCI blocks port 25) |
 
 `webappocis` (oCIS) is **not** a PostgreSQL consumer. It uses local configuration and file storage under `${APPS_DATA}/webapp/ocis`; PostgreSQL still holds the Authentik identity data used by the oCIS OIDC flow.
 
@@ -105,6 +105,6 @@ docker compose up -d infrapgsql
 ## See also
 
 - [Backup and restore](../runbooks/BACKUP-RESTORE.md) — the scheduled Forgejo backup workflow takes `pg_dump` backups of every database every `db_backup_interval_days` days (default 1, daily; 6-month retention) and a full `APPS_DATA` archive every `full_backup_interval_days` days (default 7, weekly)
-- [Stalwart — Database management](stalwart.md#database-management-create--delete--backup--restore) — worked create/drop/`pg_dump`/`pg_restore` example
+- [Stalwart — Database management](../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#database-management-create--delete--backup--restore) — worked create/drop/`pg_dump`/`pg_restore` example (archived)
 - [MariaDB](mariadb.md) — MySQL-compatible alternative (unused by default)
 - [Root README — Configuration](../../../README.md#configuration)

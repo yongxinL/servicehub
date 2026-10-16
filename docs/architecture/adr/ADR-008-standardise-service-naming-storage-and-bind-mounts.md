@@ -66,7 +66,7 @@ Adopt domain-based compose files:
 | `webapp.yml` | Confluence, Open WebUI, oCIS |
 | `aiserv.yml` | Hermes, LiteLLM, llama.cpp |
 | `obsvce.yml` | VictoriaMetrics, VictoriaLogs, Grafana Alloy, Grafana |
-| `mailsv.yml` | Stalwart, Bulwark |
+| `mailsv.yml` | Stalwart, Bulwark (disabled 2026-10; OCI blocks port 25 — compose file retained, archived docs in `docs/archive/2026-10-mailsv-removal/`) |
 
 ### 2. Service naming convention
 

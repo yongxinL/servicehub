@@ -51,7 +51,7 @@ The ServiceHub platform has been migrated to Oracle Cloud Infrastructure (OCI). 
 | `infra` | Authentik, PostgreSQL, MariaDB |
 | `devops` | Forgejo, Forgejo Runner |
 | `webapp` | Confluence, oCIS, Open WebUI |
-| `mailsv` | Stalwart, Bulwark |
+| `mailsv` | Stalwart, Bulwark (disabled 2026-10; OCI blocks outbound port 25 — external email provider used instead) |
 | `obsvce` | VictoriaMetrics, VictoriaLogs, Alloy, Grafana |
 | `aiserv` | LiteLLM, Hermes, llama.cpp |
 
@@ -61,7 +61,7 @@ Observations from operation on OCI:
 - AI workloads consume significant CPU, memory, and storage.
 - OCI provides managed APM, Monitoring, Logging, and Tracing capabilities that the platform does not yet use; the self-hosted observability stack duplicates them.
 - Open WebUI is deployed under the `webapp` domain even though it is part of the AI platform rather than a business application.
-- Administrative endpoints are protected by IP allow lists (`compose/route.yml` `dashboard-whitelist`, `compose/mailsv.yml` `mailsvstalwart-whitelist`) and return HTTP 403 to unauthorised callers.
+- Administrative endpoints are protected by IP allow lists (`compose/route.yml` `dashboard-whitelist`, `compose/mailsv.yml` `mailsvstalwart-whitelist` — mailsv disabled) and return HTTP 403 to unauthorised callers.
 - Confluence Data Center does not require routine communication with Atlassian services for normal operation, but no outbound restriction is currently defined.
 
 These forces affect deployment scope, resource allocation, and the security boundary of the platform, so they are decided together rather than as independent changes.
@@ -76,7 +76,7 @@ All AI-related services SHALL be hosted on local infrastructure and SHALL NOT be
 
 | | Domains |
 |---|---|
-| OCI deployment | `route`, `infra`, `devops`, `webapp`, `mailsv` |
+| OCI deployment | `route`, `infra`, `devops`, `webapp` (mailsv excluded 2026-10; OCI blocks port 25) |
 | Local AI platform | `aiserv` — Open WebUI, LiteLLM, Hermes, Ollama, and future AI services |
 
 Benefits:
@@ -130,7 +130,7 @@ route    Traefik
 infra    Authentik, PostgreSQL, MariaDB
 devops   Forgejo, Forgejo Runner
 webapp   Confluence, oCIS
-mailsv   Stalwart, Bulwark
+mailsv   Stalwart, Bulwark (disabled 2026-10; OCI blocks port 25)
 ```
 
 Principle: OCI SHALL host business-critical platform services; resource-intensive AI workloads SHALL be hosted on local infrastructure.

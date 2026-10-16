@@ -41,7 +41,7 @@ flowchart LR
     Traefik --> Cloud[webappocis (oCIS)]
     Traefik --> AI[Open WebUI and Hermes]
     Traefik --> Grafana[Grafana]
-    Traefik --> Email[Stalwart and Bulwark]
+    Traefik -.-> Email[Stalwart and Bulwark (disabled)]
     AI --> LiteLLM[LiteLLM]
     LiteLLM --> Local[llama.cpp]
     LiteLLM --> CloudProvider[Configured cloud provider]
@@ -51,7 +51,7 @@ flowchart LR
     Cloud --> CloudData[(Local filesystem)]
     LiteLLM --> PostgreSQL
     Web --> PostgreSQL
-    Email --> PostgreSQL
+    Email -.-> PostgreSQL
     Runner[Forgejo Actions runner] --> SSH[Staging or production SSH]
     Runner --> SourceSSH[Backup source SSH]
     Runner --> Home[Home Server via Rclone SFTP]
@@ -87,7 +87,7 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 | Web applications | `compose/webapp.yml` | `webappconf`, `webappocis`, `webappocisinit` |
 | AI platform (local infrastructure, not deployed to OCI — ADR-009) | `compose/aiserv.yml` | `aiservowui`, `aiservhermes`, `aiservlitellm`, `aiservllamacpp`, `aiservhermesinit` |
 | Observability (retained in the repository, not deployed to OCI — ADR-009) | `compose/obsvce.yml` | `obsvcealloy`, `obsvcevm`, `obsvcevlogs`, `obsvcegrafana`, `obsvcegrafanainit` |
-| Email | `compose/mailsv.yml` | `mailsvstalwart`, `mailsvbulwark`, `mailsvbulwarkinit` |
+| Email (disabled) | `compose/mailsv.yml` | `mailsvstalwart`, `mailsvbulwark`, `mailsvbulwarkinit` (OCI blocks port 25) |
 
 ## Security Boundaries
 
@@ -116,7 +116,7 @@ Grafana alerting is enabled with `render_only_panels=true`. No notification chan
 
 ## Deployment Architecture
 
-The root Compose project deploys the OCI scope only (`route`, `infra`, `devops`, `webapp`, `mailsv`); the AI platform runs on local infrastructure and the self-hosted observability stack is retained but not deployed, per [ADR-009](adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md).
+The root Compose project deploys the OCI scope only (`route`, `infra`, `devops`, `webapp`); `mailsv` is excluded (OCI blocks port 25). The AI platform runs on local infrastructure and the self-hosted observability stack is retained but not deployed, per [ADR-009](adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md).
 
 Forgejo Actions deployment workflows run on the host-mode `ssh-deploy` runner. Deployment SSHes to a staging or production target, updates a Git checkout, restores git-crypt and environment material when configured, and rebuilds application services with `--no-deps`. Foundational services are excluded from CI deployment.
 
@@ -135,7 +135,7 @@ The default stack uses host bind mounts rather than named Docker volumes:
 - Cloud drive: `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data`
 - AI: `${APPS_DATA}/aiserv/openwebui`, `${APPS_DATA}/aiserv/litellm`, `${APPS_DATA}/aiserv/llamacpp`, and `${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}`
 - Observability: `${APPS_DATA}/obsvce/victoriametrics`, `.../victorialogs`, and `.../grafana`
-- Email: `${APPS_DATA}/mailsv/stalwart` and `${APPS_DATA}/mailsv/bulwark/...`
+- Email: `${APPS_DATA}/mailsv/stalwart` and `${APPS_DATA}/mailsv/bulwark/...` (disabled; external provider used)
 - Certificates: `${APPS_DATA}/shared/certs`
 - Egress policy (host firewall state, not a mount): `${APPS_DATA}/shared/gateway/egress-policies.conf`
 
