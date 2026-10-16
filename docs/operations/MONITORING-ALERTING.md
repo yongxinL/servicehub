@@ -28,7 +28,7 @@ related_documents:
 
 # ServiceHub Monitoring and Alerting
 
-> **Status note (ADR-009 and ADR-010).** [ADR-009](../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) keeps this self-hosted observability stack in the repository but excludes it from the OCI deployment. [ADR-010](../architecture/adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) records how OCI-hosted workloads are to be observed with Oracle Cloud APM, Monitoring, and Logging; that configuration is **not yet implemented** and no log collection or APM credential exists in the repository. The monitoring strategy for locally hosted `aiserv` services is an open ADR-009 follow-up. The sections below describe the retained self-hosted stack.
+> **Status note (ADR-009 and ADR-010).** [ADR-010](../architecture/adr/ADR-010-establish-servicehub-observability-platform.md), now Accepted, partially supersedes ADR-009's observability retirement. The self-hosted observability stack is included in OCI scope, but Phase 1 deployment and runtime verification are pending. LiteLLM, local `aiserv` services, Stalwart, Bulwark, and other relocated mail-platform telemetry are outside ADR-010.
 
 ## Monitoring Objectives
 
@@ -48,13 +48,12 @@ flowchart LR
     H[Host exporter] --> A[Grafana Alloy]
     C[cAdvisor] --> A
     T[Traefik] --> A
-    L[LiteLLM] --> A
     A --> V[(VictoriaMetrics)]
     V --> G[(Grafana)]
 ```
 
-- Alloy collects host, container, Traefik, LiteLLM, and self metrics.
-- `shared/victoriametrics/scrape.yaml` also scrapes Alloy and LiteLLM.
+- Alloy collects host, container, Traefik, and self metrics.
+- `shared/victoriametrics/scrape.yaml` also scrapes Alloy.
 - VictoriaMetrics publishes port 8428 to the host.
 - Grafana uses the provisioned VictoriaMetrics data source.
 
@@ -75,7 +74,6 @@ Grafana provisions JSON files from `shared/grafana/dashboards/` into the `observ
 | `14282_cadvisor-explorter.json` | cAdvisor container metrics |
 | `16151_victoriametric-overview.json` | VictoriaMetrics overview |
 | `16152_traefik-observability-dashboard.json` | Traefik observability |
-| `16153_litellm-proxy-dashboard.json` | LiteLLM proxy |
 | `17346_traefik-dashboard.json` | Traefik general metrics |
 | `1860_node-exporter-full.json` | Host metrics |
 | `19724_docker-dashboard.json` | Docker engine metrics |
@@ -108,15 +106,12 @@ Dashboard titles, queries, and datasource compatibility are `Requires runtime va
 | Confluence | `/status`, JVM or database errors |
 | Open WebUI | Route and container logs |
 | Hermes | `/health`, API errors, workspace errors |
-| LiteLLM | `/health/liveliness`, `/metrics`, routing and provider errors |
 | llama.cpp | `/health`, model-load and resource errors |
 | PostgreSQL | `pg_isready`, connection and storage errors |
 | MariaDB | MariaDB health, connection and storage errors |
 | VictoriaMetrics | `/health`, storage and ingestion errors |
 | VictoriaLogs | `/health`, ingestion and storage errors |
 | Grafana | `/api/health`, datasource query failures |
-| Stalwart | `/healthz/live`, mail, LDAP, certificate, and database errors |
-| Bulwark | `/api/health`, JMAP login and backend errors |
 
 Candidate signals are not configured alerts unless repository evidence says otherwise.
 

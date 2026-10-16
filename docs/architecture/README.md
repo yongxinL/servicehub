@@ -19,10 +19,10 @@ Delivery plans use the specification status vocabulary (Draft, In Review, Approv
 
 | Document | Type | Status | Updated |
 |---|---|---|---|
-| [ARCHITECTURE](ARCHITECTURE.md) | Architecture overview | Draft | 2026-10-08 |
+| [ARCHITECTURE](ARCHITECTURE.md) | Architecture overview | Draft | 2026-10-17 |
 | [COMPONENT-CATALOGUE](COMPONENT-CATALOGUE.md) | Component catalogue | Draft | 2026-10-07 |
 | [DATA-FLOW](DATA-FLOW.md) | Data-flow diagram | Draft | 2026-10-10 |
-| [DEPLOYMENT-ARCHITECTURE](DEPLOYMENT-ARCHITECTURE.md) | Deployment architecture | Draft | 2026-10-09 |
+| [DEPLOYMENT-ARCHITECTURE](DEPLOYMENT-ARCHITECTURE.md) | Deployment architecture | Draft | 2026-10-17 |
 | [SYSTEM-CONTEXT](SYSTEM-CONTEXT.md) | System-context diagram | Draft | 2026-10-08 |
 | [ADR index](adr/README.md) | ADR index | Not recorded | Not recorded |
 

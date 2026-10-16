@@ -6,11 +6,3 @@ scrape_configs:
     - job_name: 'alloy'
       static_configs:
           - targets: ['obsvcealloy:9080']
-
-    # Scrape LiteLLM Proxy metrics (Prometheus format on UI port)
-    - job_name: 'litellm'
-      metrics_path: '/metrics'
-      static_configs:
-          - targets: ['aiservlitellm:12380']
-            labels:
-              service: litellm

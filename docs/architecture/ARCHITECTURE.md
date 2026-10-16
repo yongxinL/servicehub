@@ -10,7 +10,7 @@ lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-08
+updated: 2026-10-17
 tags:
   - servicehub
   - architecture
@@ -29,7 +29,7 @@ related_documents:
 
 ## Architecture Overview
 
-ServiceHub is a Docker Compose project named `servicehub`. The root file includes eight domain Compose files for routing, databases, identity, developer services, web applications, AI, observability, and email. All included services join the `subnet` bridge network; `webappconf` additionally has its non-private egress dropped by a host firewall rule ([ADR-009 §5](adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)).
+ServiceHub is a Docker Compose project named `servicehub`. The root file includes six domain Compose files for routing, databases, identity, developer services, web applications, and observability. The AI platform remains on local infrastructure and the mail platform is excluded from OCI under ADR-009. All included services join the `subnet` bridge network; `webappconf` additionally has its non-private egress dropped by a host firewall rule ([ADR-009 §5](adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)).
 
 ```mermaid
 flowchart LR
@@ -39,19 +39,11 @@ flowchart LR
     Traefik --> Forgejo[Forgejo]
     Traefik --> Web[Confluence]
     Traefik --> Cloud[webappocis (oCIS)]
-    Traefik --> AI[Open WebUI and Hermes]
     Traefik --> Grafana[Grafana]
-    Traefik -.-> Email[Stalwart and Bulwark (disabled)]
-    AI --> LiteLLM[LiteLLM]
-    LiteLLM --> Local[llama.cpp]
-    LiteLLM --> CloudProvider[Configured cloud provider]
     Forgejo --> PostgreSQL[(PostgreSQL)]
     Authentik --> PostgreSQL
     Authentik -.->|OIDC| Cloud
     Cloud --> CloudData[(Local filesystem)]
-    LiteLLM --> PostgreSQL
-    Web --> PostgreSQL
-    Email -.-> PostgreSQL
     Runner[Forgejo Actions runner] --> SSH[Staging or production SSH]
     Runner --> SourceSSH[Backup source SSH]
     Runner --> Home[Home Server via Rclone SFTP]
@@ -85,9 +77,7 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 | Identity | `compose/infra.yml` | `infraauth`, `infraauthwrk`, `infraauthinit` |
 | Developer services | `compose/devops.yml` | `devopsforgejo`, `devopsrunner`, `devopsforgejoinit` |
 | Web applications | `compose/webapp.yml` | `webappconf`, `webappocis`, `webappocisinit` |
-| AI platform (local infrastructure, not deployed to OCI — ADR-009) | `compose/aiserv.yml` | `aiservowui`, `aiservhermes`, `aiservlitellm`, `aiservllamacpp`, `aiservhermesinit` |
-| Observability (retained in the repository, not deployed to OCI — ADR-009) | `compose/obsvce.yml` | `obsvcealloy`, `obsvcevm`, `obsvcevlogs`, `obsvcegrafana`, `obsvcegrafanainit` |
-| Email (disabled) | `compose/mailsv.yml` | `mailsvstalwart`, `mailsvbulwark`, `mailsvbulwarkinit` (OCI blocks port 25) |
+| Observability (OCI — partially restored by ADR-010) | `compose/obsvce.yml` | `obsvcealloy`, `obsvcevm`, `obsvcevlogs`, `obsvcegrafana`, `obsvcegrafanainit` |
 
 ## Security Boundaries
 
@@ -97,26 +87,15 @@ This diagram is an architectural summary, not a complete dependency graph. Exact
 - **Privileged boundary:** Traefik, Authentik's worker, and Alloy have Docker socket access; Alloy is privileged and mounts host filesystem paths.
 - **Administrative endpoint boundary:** the Traefik dashboard and mail admin paths accept only t…2230 chars truncated…e Traefik dashboard uses basic authentication and an IP allowlist.
 
-## AI Architecture
-
-Hermes calls LiteLLM using the virtual model `hermes`. LiteLLM routes to:
-
-- `hephaestus`: local llama.cpp Gemma service by default and for privacy-sensitive content.
-- `prometheus`: configured cloud provider for explicit cloud tags, large inputs, complexity signals, unhealthy local inference, and configured fallback conditions.
-
-Open WebUI (`aiservowui`) is the AI platform client surface and moved from `webapp` to `aiserv` under ADR-009. FastCRW, SearXNG, LightPanda, and Chromium are optional and excluded from the default root include.
-
-The routing configuration is Confirmed; provider availability, privacy enforcement at runtime, and fallback outcomes are `Requires runtime validation`.
-
 ## Observability Architecture
 
-Grafana Alloy collects host metrics, container metrics, Traefik metrics, LiteLLM metrics, Alloy metrics, and Docker container logs. It remote-writes metrics to VictoriaMetrics and pushes logs to VictoriaLogs. Grafana provisions both data sources and repository dashboards.
+Grafana Alloy collects host metrics, container metrics, Traefik metrics, Alloy metrics, and Docker container logs for the OCI-hosted scope. It remote-writes metrics to VictoriaMetrics and pushes logs to VictoriaLogs. Grafana provisions both data sources and repository dashboards. LiteLLM, `aiserv`, Stalwart, Bulwark, and other relocated mail-platform telemetry are outside ADR-010.
 
 Grafana alerting is enabled with `render_only_panels=true`. No notification channel, severity model, ownership list, or alert test evidence is present in the repository.
 
 ## Deployment Architecture
 
-The root Compose project deploys the OCI scope only (`route`, `infra`, `devops`, `webapp`); `mailsv` is excluded (OCI blocks port 25). The AI platform runs on local infrastructure and the self-hosted observability stack is retained but not deployed, per [ADR-009](adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md).
+The root Compose project deploys the OCI scope (`route`, `infra`, `devops`, `webapp`, `obsvce`); `mailsv` is excluded (OCI blocks port 25). The AI platform runs on local infrastructure. ADR-010 partially supersedes ADR-009's observability retirement and restores the self-hosted `obsvce` stack to OCI scope.
 
 Forgejo Actions deployment workflows run on the host-mode `ssh-deploy` runner. Deployment SSHes to a staging or production target, updates a Git checkout, restores git-crypt and environment material when configured, and rebuilds application services with `--no-deps`. Foundational services are excluded from CI deployment.
 
@@ -133,9 +112,7 @@ The default stack uses host bind mounts rather than named Docker volumes:
 - Repositories and runner state: `${APPS_DATA}/devops/forgejo/data`, `.../runner`, and `.../workspace`
 - Web applications: `${APPS_DATA}/webapp/confluence`
 - Cloud drive: `${APPS_DATA}/webapp/ocis/config` and `${APPS_DATA}/webapp/ocis/data`
-- AI: `${APPS_DATA}/aiserv/openwebui`, `${APPS_DATA}/aiserv/litellm`, `${APPS_DATA}/aiserv/llamacpp`, and `${HERMES_DATA_00:-${APPS_DATA}/aiserv/hermes/00}`
 - Observability: `${APPS_DATA}/obsvce/victoriametrics`, `.../victorialogs`, and `.../grafana`
-- Email: `${APPS_DATA}/mailsv/stalwart` and `${APPS_DATA}/mailsv/bulwark/...` (disabled; external provider used)
 - Certificates: `${APPS_DATA}/shared/certs`
 - Egress policy (host firewall state, not a mount): `${APPS_DATA}/shared/gateway/egress-policies.conf`
 
@@ -164,4 +141,3 @@ Configuration files under `shared/` are mostly read-only mounts. Off-host durabi
 - Runtime validation of the configured family file-cloud service and its recovery path.
 
 Related records: [system context](SYSTEM-CONTEXT.md), [data flow](DATA-FLOW.md), [ADR register](adr/README.md), and [baseline test plan](../testing/TEST-001-platform-baseline-validation.md).
-

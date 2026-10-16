@@ -10,7 +10,7 @@ lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-09
+updated: 2026-10-17
 tags:
   - servicehub
   - architecture
@@ -30,9 +30,11 @@ related_documents:
 
 | Scope | Compose includes | Where it runs |
 |---|---|---|
-| OCI deployment | `route`, `infra`, `devops`, `webapp` | Oracle Cloud Infrastructure (mailsv excluded; OCI blocks port 25) |
+| OCI deployment | `route`, `infra`, `devops`, `webapp`, `obsvce` | Oracle Cloud Infrastructure (mailsv excluded; OCI blocks port 25) |
 | Local infrastructure | `aiserv` (Hermes, LiteLLM, llama.cpp, Open WebUI) | Local infrastructure; entrypoint for local deployment is an open follow-up |
-| Retained, not deployed | `obsvce` (VictoriaMetrics, VictoriaLogs, Grafana Alloy, Grafana) | Not deployed to any environment; OCI workloads use Oracle Cloud native monitoring per [ADR-010](adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md), which is not yet configured |
+| Relocated mail platform | `mailsv` (Stalwart and Bulwark) | Outside the OCI deployment and ADR-010 observability scope |
+
+[ADR-010](adr/ADR-010-establish-servicehub-observability-platform.md), now Accepted, partially supersedes ADR-009's observability retirement and restores the self-hosted `obsvce` stack to OCI scope. Its Phase 1 deployment and runtime verification remain pending.
 
 The root [docker-compose.yml](../../docker-compose.yml) include set and the `61-deploy.yml` workflow options both reflect this scope. The AI platform compose definition stays in source control so it can be started locally with `docker compose up -d`.
 
@@ -70,7 +72,7 @@ The repository does not contain evidence that a production deployment, certifica
 6. Restore `.env` only when it is missing on the target (bootstrap-only; an existing file is never overwritten).
 7. Run `scripts/setup.sh` to merge new variables and regenerate the admin rules.
 8. On production only, restore `acme.json` only when it is missing on the target (bootstrap-only), to `${APPS_DATA}/shared/certs/acme.json` with root ownership and mode `600`.
-9. Validate the service input against a fixed allowlist (`webappconf`, `webappocis`, plus `all`), then run `docker compose up -d --build --no-deps` for it — `all` expands to that fixed list with `webappocisinit` first, not to a service-name prefix filter (`aiserv*`, `obsvce*`, and `mailsv*` are excluded). Production deploys are additionally restricted to the `main` branch.
+9. Validate the service input against a fixed allowlist (`webappconf`, `webappocis`, plus `all`), then run `docker compose up -d --build --no-deps` for it — `all` expands to that fixed list with `webappocisinit` first, not to a service-name prefix filter (`aiserv*` and `mailsv*` are excluded; `obsvce*` is deployed manually for Phase 1). Production deploys are additionally restricted to the `main` branch.
 
 The workflow validates SSH and rsync availability and target inputs, but it does not perform post-deployment application checks.
 

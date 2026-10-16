@@ -5,13 +5,13 @@ document_type: ADR
 document_id: ADR-010
 title: Establish the ServiceHub Observability Platform with Grafana, VictoriaMetrics, VictoriaLogs, Alloy, and Oracle APM
 version: "1.0"
-status: Proposed
+status: Accepted
 decision_basis: Supersedes the initial OCI-native-only observability proposal after review of the existing ServiceHub Grafana observability implementation, Oracle APM Always Free limitations, long-term retention requirements, security monitoring requirements, and the need for vendor-neutral telemetry collection
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-05
-updated: 2026-10-16
+updated: 2026-10-17
 tags:
   - servicehub
   - architecture

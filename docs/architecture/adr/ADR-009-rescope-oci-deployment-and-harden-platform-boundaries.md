@@ -41,6 +41,8 @@ related_documents:
 
 <!-- Allowed status: Draft, Proposed, In Review, Accepted, Rejected, Superseded, Deprecated, Archived -->
 
+> **Partial supersession (2026-10-17):** [ADR-010](ADR-010-establish-servicehub-observability-platform.md), now Accepted, supersedes only this decision's removal of the self-hosted `obsvce` stack from OCI and its OCI-native-only observability replacement. The `obsvce` stack is restored to OCI scope to implement ADR-010. All ADR-009 decisions unrelated to observability remain binding. ADR-010 also supersedes the relevant ADR-008 bind-mount and Docker-access restrictions only to the extent required by the approved observability collector's minimum read-only host mounts and controlled Docker access.
+
 ## Context
 
 The ServiceHub platform has been migrated to Oracle Cloud Infrastructure (OCI). The current compose domains and their services are:
@@ -98,7 +100,7 @@ The move follows the [ADR-008](ADR-008-standardise-service-naming-storage-and-bi
 
 Oracle Cloud native observability services SHALL replace the self-hosted observability stack for OCI-hosted workloads.
 
-The services selected, their credentials, and the log collection and APM integration design are recorded in [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md); this ADR only retires the self-hosted deployment.
+The services selected, their credentials, and the log collection and APM integration design were originally recorded in [ADR-010](ADR-010-establish-servicehub-observability-platform.md). See the partial-supersession notice above: ADR-010 now retains and extends the self-hosted deployment.
 
 This decision applies only to workloads hosted within the OCI ServiceHub environment.
 
@@ -258,7 +260,7 @@ Option 2 satisfies every driver in a single, coherent rescope. Option 1 leaves A
 - [ADR-004 Use Authentik for Central Identity](ADR-004-use-authentik-for-central-identity.md) — identity endpoint targeted by the redirect and an approved Confluence dependency.
 - [ADR-005 Use LiteLLM for AI Workload Routing](ADR-005-use-litellm-for-ai-routing.md) — AI routing platform moved to local infrastructure.
 - [ADR-008 Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) — naming, storage, and backup tier conventions applied when Open WebUI moves.
-- [ADR-010 Collect OCI Logs and Integrate Service Telemetry with Oracle APM](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) — replacement for the retired self-hosted observability stack, split out of this decision.
+- [ADR-010 Establish the ServiceHub Observability Platform with Grafana, VictoriaMetrics, VictoriaLogs, Alloy, and Oracle APM](ADR-010-establish-servicehub-observability-platform.md) — partially supersedes this decision's observability retirement.
 - [Deployment architecture](../DEPLOYMENT-ARCHITECTURE.md) — deployment targets and environment model rescope by this decision.
 - [Architecture](../ARCHITECTURE.md) — system and component boundaries.
 - [Monitoring and alerting](../../operations/MONITORING-ALERTING.md) — self-hosted stack replaced by Oracle Cloud native services.
@@ -273,7 +275,7 @@ Option 2 satisfies every driver in a single, coherent rescope. Option 1 leaves A
 | Move Open WebUI from `webapp` to `aiserv` (compose placement, `aiservowui` name, Traefik labels, storage path, variables, backup tier) | ServiceHub Architecture | 2026-10-05 | Implemented in source control — backup tier update recorded, runtime verification pending |
 | Review and update backup, recovery, and retention coverage for `${APPS_DATA}/aiserv/openwebui` following the Open WebUI relocation | George Li | TBD | Open — path updated in source control, local backup/restore scope not re-scoped |
 | Remove `compose/obsvce.yml` and its `docker-compose.yml` `include` from the OCI deployment; retain the file in source control | ServiceHub Architecture | 2026-10-05 | Implemented in source control — include removed, file retained |
-| Configure Oracle APM, Monitoring, Logging, and Tracing for OCI-hosted workloads and record the configuration | ServiceHub Architecture | TBD | Moved to [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) |
+| Configure OCI observability and record the configuration | ServiceHub Architecture | TBD | Moved to [ADR-010](ADR-010-establish-servicehub-observability-platform.md) |
 | Define and document the observability strategy for locally hosted `aiserv` services after removal of the OCI `obsvce` deployment | ServiceHub Architecture | TBD | Proposed |
 | Define the Confluence outbound allow list (PostgreSQL, Authentik, SMTP, DNS, NTP) and a time-boxed exception procedure | George Li | 2026-10-05 | Implemented in source control — enforced by [scripts/egress-guard.sh](../../../scripts/egress-guard.sh) from [scripts/egress-policies.conf](../../../scripts/egress-policies.conf) (`webappconf` restricted: RFC1918 and host-public-IP return, log then drop, in the Docker `DOCKER-USER` chain) plus a global block of Atlassian CIDRs via ipset; install, verification, and exception procedure recorded in [Container egress controls](../../operations/EGRESS-CONTROLS.md); rule logic verified by offline selftest plus a 21-check integration test; applied on the OCI host by the owner (2026-10-06) |
 | Replace the HTTP 403 response on `traefik.<domain>` and `mail.<domain>` with a redirect to `https://login.<domain>` while retaining the IP allow list | ServiceHub Architecture | 2026-10-05 | Implemented in source control — rules generated from `.env` and hot-reloaded via the file provider; `docker compose config` verified; allowed/disallowed address test pending on a deployed target |
