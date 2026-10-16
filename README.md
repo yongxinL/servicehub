@@ -324,7 +324,7 @@ Grafana is reachable at `https://${OBSVC_DOMAIN}` behind Authentik forward-auth 
 ## Email Stack (poste) — Disabled by Default
 
 **Note:** This stack is disabled by default because OCI blocks outbound port 25 (SMTP). 
-To re-enable, set `ENABLE_MAILSV="true"` in `.env` and restore the `compose/mailsv.yml` include in `docker-compose.yml` (requires port 25 unblocked via OCI support ticket).
+Mail-only settings remain configured in `.env`, and `setup.sh` generates their secrets. To re-enable, set `ENABLE_MAILSV="true"` and restore the `compose/mailsv.yml` include in `docker-compose.yml` (requires port 25 unblocked via OCI support ticket). On an existing PostgreSQL cluster, create `${POSTOFFICE_DBNAME}` before starting Stalwart. For notification email only, use OCI Email Delivery as described in [OCI Email Delivery](#oci-email-delivery) — the self-hosted mail server is not required.
 
 A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) provides SMTP, IMAP and JMAP in one server; [Bulwark](https://github.com/bulwarkmail/webmail) provides the JMAP webmail UI. Configurations are archived in [`docs/archive/2026-10-mailsv-removal/`](docs/archive/2026-10-mailsv-removal/). The compose file [`compose/mailsv.yml`](compose/mailsv.yml) remains in the repo but is excluded from `docker-compose.yml`.
 
@@ -348,6 +348,35 @@ A self-hosted email stack: [Stalwart](https://github.com/stalwartlabs/stalwart) 
 The SMTP/IMAP ports are reachable directly (bypassing Traefik); DNS `MX`/`A` records for `${EMAIL_HOST}` must point at the host. With the self-hosted stack disabled, other components use the `EMAIL_*` external SMTP provider documented in [Configuration](#configuration). Accounts come from Authentik over LDAP for every path — webmail, IMAP, SMTP, JMAP (webmail OIDC SSO is not used; it requires an OIDC-backed Stalwart directory — see [archived Bulwark doc](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md#sso--oidc-not-used)) — setup walkthrough in the [archived Stalwart README](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#initial-provisioning-walkthrough), with the full [Authentik LDAP directory setup](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) (provider, service account, outpost) documented there as well.
 
 **Current status:** This stack is disabled. External email provider is used instead.
+
+### OCI Email Delivery
+
+OCI blocks outbound port 25, but Authentik and Forgejo can submit notification email directly to **OCI Email Delivery** on SMTP submission port `587`. This does not require the disabled Stalwart stack or an OCI support request to open port 25.
+
+Before enabling it:
+
+1. Approve the sending identity or domain in OCI Email Delivery.
+2. Create an OCI SMTP credential.
+3. Set `EMAIL_FROM` to an address allowed by that approved sender configuration.
+
+Configure the shared SMTP variables with the OCI endpoint:
+
+```bash
+EMAIL_HOST="smtp.email.<region>.oci.oraclecloud.com"
+EMAIL_PORT="587"
+EMAIL_USER="<OCI_SMTP_CREDENTIAL_USERNAME>"
+EMAIL_PASS="<OCI_SMTP_CREDENTIAL_PASSWORD>"
+EMAIL_FROM="<APPROVED_SENDER@${DOMAIN_NAME}>"
+```
+
+Port `587` uses STARTTLS. Unlike the default port `465` implicit-TLS settings, update the consumers in Compose:
+
+| Consumer | Setting |
+|---|---|
+| Authentik (`infraauth` and `infraauthwrk`) | `AUTHENTIK_EMAIL__USE_TLS=true`, `AUTHENTIK_EMAIL__USE_SSL=false` |
+| Forgejo (`devopsforgejo`) | `FORGEJO__mailer__PROTOCOL=smtp+starttls` |
+
+After changing `.env`, run `bash scripts/setup.sh` to merge variables and regenerate generated configuration; recreate the affected containers so their environment variables update.
 
 ---
 
@@ -782,12 +811,12 @@ For new installations:
 
 ```bash
 MARIADB_DATABASES="${WORKSPACE_DBNAME}"
-POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${WORKSPACE_DBNAME}"
+POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${WORKSPACE_DBNAME},${POSTOFFICE_DBNAME}"
 ```
 
 These lists only initialize empty database data directories. Preserve existing database names and passwords; create missing databases and grants explicitly on existing installations. See the [PostgreSQL](docs/operations/services/postgresql.md) and [MariaDB](docs/operations/services/mariadb.md) READMEs.
 
-When upgrading an existing `.env` after disabling the self-hosted mail stack, remove `${POSTOFFICE_DBNAME}` and its trailing comma from `POSTGRES_DATABASES`; add it back only when re-enabling mailsv.
+Keep `${POSTOFFICE_DBNAME}` in `POSTGRES_DATABASES` so a new installation is ready for mailsv. Existing PostgreSQL clusters do not run database bootstrap again; create the database manually before enabling mailsv.
 
 ### Email (SMTP)
 
@@ -798,6 +827,8 @@ When upgrading an existing `.env` after disabling the self-hosted mail stack, re
 | `EMAIL_USER` / `EMAIL_PASS` | SMTP credentials used by stack components to send mail |
 | `EMAIL_FROM` | From address for outbound email (display name + address) |
 
+On OCI, see [OCI Email Delivery](#oci-email-delivery) for the notification-email relay used by Authentik and Forgejo.
+
 ### Email Services (poste)
 
 The webmail variables are documented in the archived service READMEs — see [Bulwark](docs/archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md#configuration-env) and [Stalwart](docs/archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#configuration-env). In short (when enabled):
@@ -806,7 +837,7 @@ The webmail variables are documented in the archived service READMEs — see [Bu
 |---|---|
 | `POSTOFFICE_DOMAIN` | Bulwark hostname (must differ from `${EMAIL_HOST}`) (when enabled) |
 | `WEBMAIL_SESSION_SECRET` | Session cookie encryption; auto-generated by `setup.sh` |
-| `POSTOFFICE_DBNAME` | PostgreSQL database holding all Stalwart mail data (must be added to `POSTGRES_DATABASES` before enabling mailsv) |
+| `POSTOFFICE_DBNAME` | PostgreSQL database holding all Stalwart mail data (included in `POSTGRES_DATABASES` by default) |
 | `STALWART_ADMIN_USER` / `STALWART_ADMIN_PASS` | Stalwart recovery admin (`STALWART_RECOVERY_ADMIN`); pass auto-generated by `setup.sh`, empty disables |
 
 ---

@@ -51,6 +51,8 @@ Set in `.env` (see [`env.example`](../../../env.example)):
 
 The default port `465` uses implicit TLS (`AUTHENTIK_EMAIL__USE_SSL=true` and `AUTHENTIK_EMAIL__USE_TLS=false`). For port `587` STARTTLS, reverse those two values in `compose/infra.yml`.
 
+On OCI, [OCI Email Delivery](../../../README.md#oci-email-delivery) can supply `EMAIL_*` directly for invitations and recovery email. Its `587` submission endpoint uses STARTTLS, so use `AUTHENTIK_EMAIL__USE_TLS=true` and `AUTHENTIK_EMAIL__USE_SSL=false`.
+
 `IDENTITY_DBNAME` must be listed in `POSTGRES_DATABASES` so the PostgreSQL init script creates it on first start.
 
 ## Data & persistence

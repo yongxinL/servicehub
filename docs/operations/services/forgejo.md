@@ -56,6 +56,8 @@ Container settings applied by the compose file:
 
 The mailer uses `smtps` for the preferred implicit-TLS submission port `465`. If switching to port `587`, change `FORGEJO__mailer__PROTOCOL` to `smtp+starttls` in `compose/devops.yml`.
 
+On OCI, [OCI Email Delivery](../../../README.md#oci-email-delivery) can supply the shared `EMAIL_*` settings directly for notification email. Its `587` submission endpoint uses STARTTLS, so set `EMAIL_PORT="587"` and `FORGEJO__mailer__PROTOCOL=smtp+starttls`.
+
 ## Forgejo Actions runner
 
 All Forgejo Actions workflows are executed by `devopsrunner`, built from [`shared/forgejo/actions/Dockerfile`](../../../shared/forgejo/actions/Dockerfile). The existing image also contains the PostgreSQL client and Rclone required by the backup workflow.
