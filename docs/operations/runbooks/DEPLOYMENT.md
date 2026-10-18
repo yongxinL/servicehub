@@ -10,7 +10,7 @@ lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-09
-updated: 2026-10-10
+updated: 2026-10-18
 tags:
   - servicehub
   - operations
@@ -41,9 +41,9 @@ The Forgejo Actions workflow at [`61-deploy.yml`](../../../.forgejo/workflows/61
 5. Restores `.env` from the `*_B64ENC_ENVS` secret only when `.env` is missing on the server (bootstrap-only; an existing file is never overwritten)
 6. Runs `scripts/setup.sh` to merge any new variables from `env.example` into `.env`
 7. On production only, restores `acme.json` from the `*_B64ENC_ACME` secret only when it is missing on the server (bootstrap-only)
-8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to the fixed app allowlist — `webappconf`, `webappocis` — with `webappocisinit` first (mailsvstalwart/mailsvbulwark excluded; OCI blocks port 25); `aiserv*` and `obsvce*` are never deployed by CI)
+8. Runs `docker compose up -d --build --no-deps <service>` on the remote (`all` expands to the fixed app allowlist — `webappconf`, `webappocis` — with `webappocisinit` first (mailsvstalwart/mailsvbulwark excluded; OCI blocks port 25); `aiserv*` is local-only and `obsvce*` is deployed manually)
 
-> **Deploy scope:** databases (`infra*`), Authentik (`infra*`), DevOps / Forgejo + runner (`devops*`) and Traefik (`route*`) are foundational and deployed manually — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deployment altogether per [ADR-009](../../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md): the AI platform runs on local infrastructure and the observability stack is retained in source control only. Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
+> **Deploy scope:** databases (`infra*`), Authentik (`infra*`), DevOps / Forgejo + runner (`devops*`), Traefik (`route*`), and observability (`obsvce*`) are foundational/manual scope — they are never selected, started or recreated by the workflow (deploying Forgejo would kill the runner mid-deploy). The AI platform (`aiserv*`) runs on local infrastructure per [ADR-009](../../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md); observability is restored to OCI scope by [ADR-010](../../architecture/adr/ADR-010-establish-servicehub-observability-platform.md) and remains a manual Phase 5 deployment decision. Traefik needs no restart when other services are deployed: its Docker provider watches the socket and picks up new containers/labels automatically.
 >
 > **Bootstrap-only restore:** `.env` and `acme.json` are restored from their secrets only when the file is missing on the server; an existing file is never overwritten. After the first deploy, `scripts/setup.sh` owns `.env` (it merges new `env.example` keys in place) and Traefik owns `acme.json` (it renews certificates in place), so neither needs a timestamp comparison to stay current.
 
@@ -125,7 +125,7 @@ ssh-keyscan -p 2222 -H 203.0.113.10 | grep -v '^#'
 1. Open the repository in Forgejo (`https://${SOURCECODE_DOMAIN}`) → **Actions**
 2. Select the **Deploy** workflow and click **Run workflow**
 3. Set the inputs:
-   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`webappconf`, `webappocis`) (mailsv excluded; OCI blocks port 25). Foundational services are not listed, and AI platform (`aiserv*`) and observability (`obsvce*`) services are outside the OCI deploy scope ([ADR-009](../../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md)) — see [How It Works](#how-it-works).
+   - **service** — `all` (default) to deploy every app service, or one from the dropdown (`webappconf`, `webappocis`) (mailsv excluded; OCI blocks port 25). Foundational and observability services are not listed; AI platform (`aiserv*`) is local-only per [ADR-009](../../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) — see [How It Works](#how-it-works).
    - **environment** — `stag` (default) or `prod`
    - **branch** — branch to deploy (default `main`; production accepts only `main`)
 4. Click the green **Run workflow** button — progress and logs appear in the workflow run page

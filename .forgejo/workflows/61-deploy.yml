@@ -12,10 +12,9 @@
 #
 # Inputs (same as the previous Gitea Actions workflow):
 #   - service:     app service to deploy, or "all" (default). Foundational
-#                  services (infra*, devops*, route*) are never deployed
-#                  by CI. AI platform (aiserv*) and observability (obsvce*)
-#                  services are outside the OCI deploy scope (ADR-009) and
-#                  are not offered here.
+#                  services (infra*, devops*, route*) and observability
+#                  (obsvce*) are deployed manually. AI platform (aiserv*)
+#                  is local-only per ADR-009 and is not offered here.
 #   - environment: deploy target, stag (default) or prod
 #   - branch:      branch to deploy (default main)
 #
@@ -92,9 +91,10 @@ jobs:
         #   DEPLOY_TASK          app service name, or "all"/empty for the full
         #                        app allowlist (webappconf, webappocis).
         #                        mailsv services are excluded (OCI blocks
-        #                        outbound port 25). Foundational
-        #                        services (infra*, devops*, route*) are never
-        #                        deployed here. Values outside the allowlist
+        #                        outbound port 25). Foundational services
+        #                        (infra*, devops*, route*) and observability
+        #                        services (obsvce*) are deployed manually.
+        #                        Values outside the allowlist
         #                        fail before any SSH connection.
         #   BRANCH               branch to deploy (default: main; production
         #                        is restricted to main)
@@ -383,8 +383,8 @@ jobs:
           # deployed manually: deploying Forgejo would kill the runner
           # mid-deploy, and Traefik picks up new containers automatically via its
           # Docker provider. --no-deps guarantees a deploy never starts or
-          # recreates them either. aiserv* and obsvce* are excluded per
-          # ADR-009 even if the local include set ever lists them again.
+          # recreates them either. aiserv* is local-only and obsvce* remains
+          # a manual ADR-010 deployment decision pending Phase 5 approval.
           REMOTE_CMD="
           set -eu
           if command -v docker-compose >/dev/null 2>&1; then

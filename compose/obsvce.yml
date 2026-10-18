@@ -6,8 +6,6 @@ services:
         command:
             - "--storageDataPath=/storage"
             - "--httpListenAddr=:8428"
-            - "--promscrape.config=/etc/vm/scrape.yaml"
-            - "--promscrape.config.strictParse=false"
             - "--enableTCP6=true"
         healthcheck:
             test: [ "CMD-SHELL", "curl -fsS http://localhost:8428/health || exit 1" ]
@@ -23,7 +21,6 @@ services:
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/obsvce/victoriametrics:/storage
-            - ../shared/victoriametrics/scrape.yaml:/etc/vm/scrape.yaml:ro
 
     # obsvcevlogs — VictoriaLogs log aggregation. Docs: docs/operations/services/victorialogs.md
     obsvcevlogs:

@@ -23,10 +23,10 @@
 
 | Pipeline | Source | Destination |
 |---|---|---|
-| Host metrics | built-in `unix` exporter (procfs/sysfs; rootfs-based collectors disabled per ADR-008) | VictoriaMetrics |
+| Host metrics | built-in `unix` exporter (procfs/sysfs; host filesystem collection is expanded under ADR-010) | VictoriaMetrics |
 | Container metrics | built-in cAdvisor (`docker_only=true`) | VictoriaMetrics |
 | Traefik metrics | scrape `routetraefik:8080` | VictoriaMetrics |
-| Alloy self-metrics | scrape `localhost:9080` | VictoriaMetrics (log-derived counters) |
+| Alloy self-metrics | scrape `localhost:9080` | VictoriaMetrics (single authoritative ingestion path) |
 | Container logs | Docker socket discovery | VictoriaLogs (GeoIP-enriched) |
 
 GeoIP enrichment uses [`../geoip/GeoLite2-City.mmdb`](../geoip/GeoLite2-City.mmdb) and generates `traefik_access_client_ip_requests_total` and `traefik_country_requests_total` counters. Private RFC-1918 IPs are assigned a fixed internal location since the GeoIP database has no entry for them.

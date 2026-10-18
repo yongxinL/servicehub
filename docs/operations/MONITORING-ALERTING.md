@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: OPS
 document_id: MONITORING-ALERTING
 title: ServiceHub Monitoring and Alerting
-version: "1.1"
+version: "1.2"
 status: Draft
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-05
+updated: 2026-10-18
 tags:
   - servicehub
   - operations
@@ -29,6 +29,12 @@ related_documents:
 # ServiceHub Monitoring and Alerting
 
 > **Status note (ADR-009 and ADR-010).** [ADR-010](../architecture/adr/ADR-010-establish-servicehub-observability-platform.md), now Accepted, partially supersedes ADR-009's observability retirement. The self-hosted observability stack is included in OCI scope, but Phase 1 deployment and runtime verification are pending. LiteLLM, local `aiserv` services, Stalwart, Bulwark, and other relocated mail-platform telemetry are outside ADR-010.
+
+## Baseline Topology
+
+The baseline observability services are Grafana Alloy, VictoriaMetrics, VictoriaLogs, and Grafana. Alloy is the single authoritative metrics ingestion path: it collects host, container, Traefik, and Alloy self-metrics and remote-writes them to VictoriaMetrics. VictoriaMetrics has no direct scrape configuration. Alloy also discovers Docker container logs, enriches Traefik access logs with GeoIP, and pushes them to VictoriaLogs. Grafana queries both stores over the internal Docker network.
+
+VictoriaMetrics and VictoriaLogs retain loopback-only host ports for host-side validation. They are not routed through Traefik. Grafana and Alloy use internal Docker DNS names. The deploy workflow does not deploy `obsvce*`; deployment remains manual pending the Phase 5 decision. LiteLLM, `aiserv`, Stalwart, Bulwark, `mailsv`, and all relocated mail-platform telemetry have no active OCI observability pipeline.
 
 ## Monitoring Objectives
 
@@ -53,7 +59,7 @@ flowchart LR
 ```
 
 - Alloy collects host, container, Traefik, and self metrics.
-- `shared/victoriametrics/scrape.yaml` also scrapes Alloy.
+- VictoriaMetrics has no direct scrape configuration; Alloy remote-writes all metrics.
 - VictoriaMetrics publishes port 8428 to the host.
 - Grafana uses the provisioned VictoriaMetrics data source.
 

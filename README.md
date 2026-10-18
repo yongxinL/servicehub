@@ -167,7 +167,6 @@ servicehub/
 │   ├── victoriametrics/
 │   │   ├── README.md                     # VictoriaMetrics documentation
 │   │   ├── Dockerfile
-│   │   └── scrape.yaml                   # Metrics scrape configuration
 │   ├── victorialogs/
 │   │   ├── README.md                     # VictoriaLogs documentation
 │   │   └── Dockerfile

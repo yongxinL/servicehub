@@ -25,7 +25,7 @@ related_documents:
 
 # ServiceHub Service Inventory
 
-Per [ADR-009](../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) the `aiserv*` services run on local infrastructure and the `obsvce*` services are retained in the repository; neither is deployed to OCI. Criticality is `Requires owner review` for every service because the repository does not define service ownership or business criticality. Monitoring and backup entries describe repository configuration, not proven runtime coverage.
+Per [ADR-009](../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) the `aiserv*` services run on local infrastructure. The `obsvce*` services are restored to OCI scope by [ADR-010](../architecture/adr/ADR-010-establish-servicehub-observability-platform.md) and are intended for manual deployment; repository configuration is not runtime verified until Phase 5. Criticality is `Requires owner review` for every service because the repository does not define service ownership or business criticality. Monitoring and backup entries describe repository configuration, not proven runtime coverage.
 
 ## Default Services
 
