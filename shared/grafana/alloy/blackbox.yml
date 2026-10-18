@@ -1,0 +1,17 @@
+modules:
+    http_internal_2xx:
+        prober: http
+        timeout: 5s
+        http:
+            preferred_ip_protocol: ip4
+            valid_status_codes:
+                - 200
+    https_public_2xx:
+        prober: http
+        timeout: 10s
+        http:
+            preferred_ip_protocol: ip4
+            valid_status_codes:
+                - 200
+            tls_config:
+                insecure_skip_verify: false

@@ -46,6 +46,14 @@ services:
             - run
             - --server.http.listen-addr=0.0.0.0:9080
             - /etc/alloy/config.alloy
+        environment:
+            - ENVIRONMENT=${ENVIRONMENT:-unknown}
+            - DOMAIN_NAME=${DOMAIN_NAME}
+            - IDENTITY_DOMAIN=${IDENTITY_DOMAIN}
+            - WORKSPACE_DOMAIN=${WORKSPACE_DOMAIN}
+            - SOURCECODE_DOMAIN=${SOURCECODE_DOMAIN}
+            - CLOUD_DOMAIN=${CLOUD_DOMAIN}
+            - OBSERVABILITY_DOMAIN=${OBSERVABILITY_DOMAIN}
         depends_on:
             obsvcevlogs:
                 condition: service_started
@@ -65,10 +73,14 @@ services:
         volumes:
             - ../shared/grafana/geoip/GeoLite2-City.mmdb:/geoip/GeoLite2-City.mmdb:ro # GeoLite2 City database for GeoIP enrichment
             - ../shared/grafana/alloy:/etc/alloy:ro # Alloy config files
+            - /:/host/root:ro,rslave # Host filesystem and inode collection; privileged read boundary
             - /var/run/docker.sock:/var/run/docker.sock # Docker API — cAdvisor + Loki log discovery (writable required for cAdvisor)
             - /proc:/host/proc:ro # unix exporter — procfs_path (CPU, memory, network)
             - /sys:/host/sys:ro # unix exporter — sysfs_path (disk I/O, hardware info)
             - /sys/fs/cgroup:/sys/fs/cgroup:ro # cAdvisor — cgroup stats (standard in-container path)
+            - /var/log/journal:/var/log/journal:ro # selective systemd-journald collection
+            - /run/log/journal:/run/log/journal:ro # volatile systemd-journald collection
+            - /etc/machine-id:/etc/machine-id:ro # journal location identifier
 
     # obsvcegrafana — Grafana dashboards. Docs: docs/operations/services/grafana.md
     obsvcegrafana:

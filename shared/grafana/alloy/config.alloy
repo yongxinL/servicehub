@@ -3,15 +3,19 @@
 
 // =============================================
 // HOST METRICS — built-in unix/node_exporter
-// procfs/sysfs paths point to bind-mounted host paths.
-// The host rootfs is not mounted (ADR-008), so rootfs-based
-// collectors (filesystem) are disabled rather than mis-reporting
-// the container's own filesystem.
+// procfs/sysfs/rootfs paths point to read-only host mounts.
 // =============================================
 prometheus.exporter.unix "host" {
-    disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs", "filesystem"]
+    disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs"]
     procfs_path        = "/host/proc"
     sysfs_path         = "/host/sys"
+    rootfs_path        = "/host/root"
+
+    filesystem {
+        fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|tmpfs|fuse.*|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|ramfs|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
+        mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys)($|/)"
+        mount_timeout        = "5s"
+    }
 }
 
 discovery.relabel "host" {
@@ -24,6 +28,14 @@ discovery.relabel "host" {
     rule {
         target_label = "instance"
         replacement  = constants.hostname
+    }
+    rule {
+        target_label = "project"
+        replacement  = "servicehub"
+    }
+    rule {
+        target_label = "environment"
+        replacement  = sys.env("ENVIRONMENT")
     }
 }
 
@@ -46,6 +58,14 @@ discovery.relabel "containers" {
     rule {
         target_label = "instance"
         replacement  = constants.hostname
+    }
+    rule {
+        target_label = "project"
+        replacement  = "servicehub"
+    }
+    rule {
+        target_label = "environment"
+        replacement  = sys.env("ENVIRONMENT")
     }
 }
 
@@ -93,9 +113,167 @@ prometheus.remote_write "vm" {
 }
 
 // =============================================
+// AVAILABILITY AND TLS PROBES
+// Internal targets use documented readiness endpoints. Public targets verify
+// DNS, HTTPS, TLS handshake, certificate validity, and response duration.
+// =============================================
+prometheus.exporter.blackbox "internal" {
+    config_file = "/etc/alloy/blackbox.yml"
+
+    target {
+        name    = "traefik"
+        address = "http://routetraefik:8080/ping"
+        module  = "http_internal_2xx"
+    }
+
+    target {
+        name    = "authentik-server"
+        address = "http://infraauth:9000/-/health/ready/"
+        module  = "http_internal_2xx"
+    }
+
+    target {
+        name    = "authentik-worker"
+        address = "http://infraauthwrk:9000/-/health/ready/"
+        module  = "http_internal_2xx"
+    }
+
+    target {
+        name    = "confluence"
+        address = "http://webappconf:8090/status"
+        module  = "http_internal_2xx"
+    }
+
+    target {
+        name    = "forgejo"
+        address = "http://devopsforgejo:3000/api/healthz"
+        module  = "http_internal_2xx"
+    }
+
+    target {
+        name    = "ocis"
+        address = "http://webappocis:9200/status.php"
+        module  = "http_internal_2xx"
+    }
+
+    target {
+        name    = "grafana"
+        address = "http://obsvcegrafana:3000/api/health"
+        module  = "http_internal_2xx"
+    }
+
+    target {
+        name    = "victoriametrics"
+        address = "http://obsvcevm:8428/health"
+        module  = "http_internal_2xx"
+    }
+
+    target {
+        name    = "victorialogs"
+        address = "http://obsvcevlogs:9428/health"
+        module  = "http_internal_2xx"
+    }
+}
+
+discovery.relabel "internal_probe_labels" {
+    targets = prometheus.exporter.blackbox.internal.targets
+
+    rule {
+        source_labels = ["name"]
+        target_label  = "service"
+    }
+    rule {
+        target_label = "component"
+        replacement  = "probe"
+    }
+    rule {
+        target_label = "project"
+        replacement  = "servicehub"
+    }
+    rule {
+        target_label = "environment"
+        replacement  = sys.env("ENVIRONMENT")
+    }
+}
+
+prometheus.scrape "internal_probes" {
+    targets         = discovery.relabel.internal_probe_labels.output
+    forward_to      = [prometheus.remote_write.vm.receiver]
+    scrape_interval = "30s"
+    scrape_timeout  = "10s"
+}
+
+prometheus.exporter.blackbox "public" {
+    config_file = "/etc/alloy/blackbox.yml"
+
+    target {
+        name    = "traefik-public"
+        address = "https://" + sys.env("DOMAIN_NAME")
+        module  = "https_public_2xx"
+    }
+
+    target {
+        name    = "authentik-public"
+        address = "https://" + sys.env("IDENTITY_DOMAIN")
+        module  = "https_public_2xx"
+    }
+
+    target {
+        name    = "confluence-public"
+        address = "https://" + sys.env("WORKSPACE_DOMAIN")
+        module  = "https_public_2xx"
+    }
+
+    target {
+        name    = "forgejo-public"
+        address = "https://" + sys.env("SOURCECODE_DOMAIN")
+        module  = "https_public_2xx"
+    }
+
+    target {
+        name    = "ocis-public"
+        address = "https://" + sys.env("CLOUD_DOMAIN")
+        module  = "https_public_2xx"
+    }
+
+    target {
+        name    = "grafana-public"
+        address = "https://" + sys.env("OBSERVABILITY_DOMAIN")
+        module  = "https_public_2xx"
+    }
+}
+
+discovery.relabel "public_probe_labels" {
+    targets = prometheus.exporter.blackbox.public.targets
+
+    rule {
+        source_labels = ["name"]
+        target_label  = "service"
+    }
+    rule {
+        target_label = "component"
+        replacement  = "public-probe"
+    }
+    rule {
+        target_label = "project"
+        replacement  = "servicehub"
+    }
+    rule {
+        target_label = "environment"
+        replacement  = sys.env("ENVIRONMENT")
+    }
+}
+
+prometheus.scrape "public_probes" {
+    targets         = discovery.relabel.public_probe_labels.output
+    forward_to      = [prometheus.remote_write.vm.receiver]
+    scrape_interval = "60s"
+    scrape_timeout  = "15s"
+}
+
+// =============================================
 // SCRAPE — Alloy self-metrics
-// Exposes log-derived counters (e.g. traefik_access_client_ip_requests_total)
-// generated by stage.metrics inside loki.process pipelines
+// Covers pipeline, remote-write, scrape, and component health.
 // =============================================
 prometheus.scrape "alloy_self" {
     targets = [{
@@ -128,6 +306,175 @@ discovery.relabel "logs" {
         target_label = "instance"
         replacement  = constants.hostname
     }
+    rule {
+        target_label = "project"
+        replacement  = "servicehub"
+    }
+    rule {
+        target_label = "environment"
+        replacement  = sys.env("ENVIRONMENT")
+    }
+}
+
+// =============================================
+// SELECTIVE HOST JOURNAL
+// Journald match filters limit collection to SSH, sudo, logind, kernel,
+// Docker, systemd, and firewall events. PIDs, usernames, paths, commands,
+// and message text remain journal fields, not Prometheus metric labels.
+// Journal group membership is a Phase 5 host prerequisite.
+// =============================================
+loki.relabel "journal" {
+    forward_to = []
+
+    rule {
+        source_labels = ["__journal__systemd_unit"]
+        target_label  = "systemd_unit"
+    }
+    rule {
+        source_labels = ["__journal__comm"]
+        target_label  = "process_name"
+    }
+    rule {
+        source_labels = ["__journal_priority"]
+        target_label  = "priority"
+    }
+    rule {
+        source_labels = ["__journal_priority_keyword"]
+        target_label  = "priority_name"
+    }
+    rule {
+        source_labels = ["__journal__hostname"]
+        target_label  = "journal_host"
+    }
+}
+
+loki.source.journal "ssh" {
+    format_as_json = true
+    max_age        = "24h"
+    matches        = "_COMM=sshd"
+    relabel_rules  = loki.relabel.journal.rules
+    labels = {
+        project     = "servicehub",
+        environment = sys.env("ENVIRONMENT"),
+        instance    = constants.hostname,
+        service     = "linux-host",
+        component   = "security",
+        source      = "journal",
+    }
+    forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "sudo" {
+    format_as_json = true
+    max_age        = "24h"
+    matches        = "_COMM=sudo"
+    relabel_rules  = loki.relabel.journal.rules
+    labels = {
+        project     = "servicehub",
+        environment = sys.env("ENVIRONMENT"),
+        instance    = constants.hostname,
+        service     = "linux-host",
+        component   = "security",
+        source      = "journal",
+    }
+    forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "authentication" {
+    format_as_json = true
+    max_age        = "24h"
+    matches        = "_SYSTEMD_UNIT=systemd-logind.service"
+    relabel_rules  = loki.relabel.journal.rules
+    labels = {
+        project     = "servicehub",
+        environment = sys.env("ENVIRONMENT"),
+        instance    = constants.hostname,
+        service     = "linux-host",
+        component   = "security",
+        source      = "journal",
+    }
+    forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "kernel" {
+    format_as_json = true
+    max_age        = "24h"
+    matches        = "_TRANSPORT=kernel"
+    relabel_rules  = loki.relabel.journal.rules
+    labels = {
+        project     = "servicehub",
+        environment = sys.env("ENVIRONMENT"),
+        instance    = constants.hostname,
+        service     = "linux-host",
+        component   = "system",
+        source      = "journal",
+    }
+    forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "docker" {
+    format_as_json = true
+    max_age        = "24h"
+    matches        = "_SYSTEMD_UNIT=docker.service"
+    relabel_rules  = loki.relabel.journal.rules
+    labels = {
+        project     = "servicehub",
+        environment = sys.env("ENVIRONMENT"),
+        instance    = constants.hostname,
+        service     = "docker",
+        component   = "runtime",
+        source      = "journal",
+    }
+    forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "systemd" {
+    format_as_json = true
+    max_age        = "24h"
+    matches        = "_COMM=systemd"
+    relabel_rules  = loki.relabel.journal.rules
+    labels = {
+        project     = "servicehub",
+        environment = sys.env("ENVIRONMENT"),
+        instance    = constants.hostname,
+        service     = "linux-host",
+        component   = "systemd",
+        source      = "journal",
+    }
+    forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "firewall" {
+    format_as_json = true
+    max_age        = "24h"
+    matches        = "SYSLOG_IDENTIFIER=firewalld"
+    relabel_rules  = loki.relabel.journal.rules
+    labels = {
+        project     = "servicehub",
+        environment = sys.env("ENVIRONMENT"),
+        instance    = constants.hostname,
+        service     = "linux-host",
+        component   = "firewall",
+        source      = "journal",
+    }
+    forward_to = [loki.process.journal.receiver]
+}
+
+loki.process "journal" {
+    stage.static_labels {
+        values = {
+            event_source = "journald",
+        }
+    }
+
+    forward_to = [loki.secretfilter.host.receiver]
+}
+
+loki.secretfilter "host" {
+    drop_on_timeout = true
+    label_timed_out = true
+    redact_with     = "<REDACTED:$SECRET_NAME>"
+    forward_to      = [loki.write.vlogs.receiver]
 }
 
 // =============================================
@@ -143,26 +490,11 @@ loki.process "geoip_enrichment" {
         }
     }
 
-    // Promote client_ip to a stream label so stage.match can filter on it
-    // and stage.metrics includes it in the counter label set
-    stage.labels {
+    // Keep the TCP source address in structured metadata. It is searchable for
+    // investigation but is not promoted to VictoriaMetrics labels.
+    stage.structured_metadata {
         values = {
             client_ip = "",
-        }
-    }
-
-    // Generate a Prometheus counter from real client IPs (non-spoofable TCP source).
-    // prefix="" disables Alloy's default "loki_process_custom_" prefix.
-    // match_all=false (default) means the counter only increments when client_ip
-    // is present in the extracted map — so non-Traefik logs are silently skipped.
-    stage.metrics {
-        metric.counter {
-            name        = "access_client_ip_requests_total"
-            prefix      = "traefik_"
-            description = "Requests per client IP from Traefik access logs (ClientHost / TCP source)"
-            source      = "client_ip"
-            action      = "inc"
-            match_all   = false
         }
     }
 
@@ -177,45 +509,24 @@ loki.process "geoip_enrichment" {
     // Labels from GeoIP-enriched values (for VictoriaLogs / log queries)
     stage.labels {
         values = {
-            geoip_country_name       = "",
             geoip_country_code       = "",
+        }
+    }
+
+    // Keep city and coordinate details in structured metadata for investigation.
+    stage.structured_metadata {
+        values = {
+            geoip_country_name       = "",
             geoip_city_name          = "",
             geoip_location_latitude  = "",
             geoip_location_longitude = "",
         }
     }
 
-    // Override geo labels for RFC-1918 private IP ranges.
-    // GeoIP databases return empty values for these addresses, so we assign
-    // a fixed internal location. Covers:
-    //   10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-    stage.match {
-        selector = `{client_ip=~"^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.).*"}`
-
-        stage.static_labels {
-            values = {
-                geoip_country_name       = "Sixtyone Republic",
-                geoip_country_code       = "QX",
-                geoip_city_name          = "Pentagon",
-                geoip_location_latitude  = "0.000",
-                geoip_location_longitude = "0.000",
-            }
-        }
-    }
-
-    // Country-level counter — runs after both GeoIP enrichment and the private IP
-    // override above, so geoip_country_name always has a value for matched entries.
-    // Selector skips non-Traefik logs (no country set) automatically.
-    stage.match {
-        selector = `{geoip_country_name=~".+"}`
-
-        stage.metrics {
-            metric.counter {
-                name      = "country_requests_total"
-                prefix    = "traefik_"
-                action    = "inc"
-                match_all = true
-            }
+    stage.static_labels {
+        values = {
+            project     = "servicehub",
+            environment = sys.env("ENVIRONMENT"),
         }
     }
 }
@@ -226,7 +537,14 @@ loki.process "geoip_enrichment" {
 loki.source.docker "container_logs" {
     host          = "unix:///var/run/docker.sock"
     targets       = discovery.relabel.logs.output
-    forward_to    = [loki.process.geoip_enrichment.receiver]
+    forward_to    = [loki.secretfilter.container.receiver]
+}
+
+loki.secretfilter "container" {
+    drop_on_timeout = true
+    label_timed_out = true
+    redact_with     = "<REDACTED:$SECRET_NAME>"
+    forward_to      = [loki.process.geoip_enrichment.receiver]
 }
 
 loki.write "vlogs" {

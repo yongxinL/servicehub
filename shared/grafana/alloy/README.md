@@ -27,9 +27,12 @@
 | Container metrics | built-in cAdvisor (`docker_only=true`) | VictoriaMetrics |
 | Traefik metrics | scrape `routetraefik:8080` | VictoriaMetrics |
 | Alloy self-metrics | scrape `localhost:9080` | VictoriaMetrics (single authoritative ingestion path) |
-| Container logs | Docker socket discovery | VictoriaLogs (GeoIP-enriched) |
+| Host journal | selective SSH, sudo, logind, kernel, Docker, systemd, and firewalld matches | VictoriaLogs |
+| Container logs | Docker socket discovery, secret filtering, GeoIP | VictoriaLogs |
+| Internal probes | documented readiness endpoints | VictoriaMetrics |
+| Public probes | HTTPS, DNS, and TLS | VictoriaMetrics |
 
-GeoIP enrichment uses [`../geoip/GeoLite2-City.mmdb`](../geoip/GeoLite2-City.mmdb) and generates `traefik_access_client_ip_requests_total` and `traefik_country_requests_total` counters. Private RFC-1918 IPs are assigned a fixed internal location since the GeoIP database has no entry for them.
+GeoIP enrichment uses [`../geoip/GeoLite2-City.mmdb`](../geoip/GeoLite2-City.mmdb) and retains client IP, city, and coordinate detail as structured metadata. Only country code is retained as a bounded VictoriaLogs stream label; individual client IPs are not promoted to metric labels.
 
 ## Mounts
 
@@ -37,11 +40,14 @@ GeoIP enrichment uses [`../geoip/GeoLite2-City.mmdb`](../geoip/GeoLite2-City.mmd
 |---|---|---|
 | `/etc/alloy` | [`shared/grafana/alloy`](.) | Alloy configuration |
 | `/geoip/GeoLite2-City.mmdb` | [`shared/grafana/geoip`](../geoip) | GeoIP database |
+| `/host/root` | host `/` (ro) | filesystem and inode metrics; broad read boundary |
 | `/var/run/docker.sock` | host Docker socket (rw) | cAdvisor + log discovery |
 | `/host/proc`, `/host/sys` | host (ro) | unix exporter paths |
 | `/sys/fs/cgroup` | host (ro) | cAdvisor cgroup stats |
+| `/var/log/journal`, `/run/log/journal` | host journal (ro) | selective journald sources |
+| `/etc/machine-id` | host machine ID (ro) | journal discovery |
 
-The host root filesystem, `/var/lib/docker`, and the containerd socket are deliberately **not** mounted (ADR-008 bind mount review); rootfs-dependent host metrics such as filesystem usage are therefore disabled.
+ADR-010 supersedes the relevant ADR-008 mount restriction for this observability collector. The host root is mounted read-only; `/var/lib/docker` and the containerd socket are not separately mounted.
 
 ## Operations
 

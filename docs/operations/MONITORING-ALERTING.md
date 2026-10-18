@@ -36,6 +36,18 @@ The baseline observability services are Grafana Alloy, VictoriaMetrics, Victoria
 
 VictoriaMetrics and VictoriaLogs retain loopback-only host ports for host-side validation. They are not routed through Traefik. Grafana and Alloy use internal Docker DNS names. The deploy workflow does not deploy `obsvce*`; deployment remains manual pending the Phase 5 decision. LiteLLM, `aiserv`, Stalwart, Bulwark, `mailsv`, and all relocated mail-platform telemetry have no active OCI observability pipeline.
 
+## Foundational Collection
+
+Host, container, Traefik, blackbox, and Alloy self-metrics are implemented in configuration; runtime verification pending. The Unix exporter uses read-only `/host/root`, `/host/proc`, and `/host/sys` mounts. Filesystem and inode collectors exclude pseudo-filesystems while retaining actual host filesystem capacity and read-only state. The root mount is read-only but exposes broad host-readable content to Alloy; it remains a privileged read boundary.
+
+Journald sources are filtered to SSH, sudo, logind, kernel, Docker, systemd, and firewalld events for 24 hours. Journald collection is implemented in configuration; runtime verification pending. The host must add the Alloy container's runtime identity to the `systemd-journal` group on OCI before Phase 5; the group ID is not guessed in Git.
+
+Container logs pass through Alloy's secret filter before GeoIP processing. Sensitive-value redaction is implemented in configuration; runtime verification pending. Traefik access-log `ClientHost` is treated as the TCP source for log investigation. Traefik's former Prometheus `X-Forwarded-For` header label remains disabled in Alloy; individual client IPs are not promoted to metric labels. A trusted-proxy chain review is a Phase 5 prerequisite before making any stronger source-trust claim.
+
+Internal blackbox probes use Traefik `/ping`, Authentik `/-/health/ready/`, Confluence `/status`, Forgejo `/api/healthz`, oCIS `/status.php`, Grafana `/api/health`, VictoriaMetrics `/health`, and VictoriaLogs `/health`. Public HTTPS probes verify DNS, TLS handshake, certificate validity, and response duration. Probes are implemented in configuration; runtime verification pending. Self-monitoring covers scrape/remote-write failures and service availability. Grafana cannot reliably report its own total failure; OCI Monitoring is the required external watchdog and remains a manual Phase 5 action.
+
+Docker local log rotation is not established by repository authority. Confirm or configure the OCI Docker daemon rotation policy during Phase 5.
+
 ## Monitoring Objectives
 
 - Detect unavailable services and failed health checks.
