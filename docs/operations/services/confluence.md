@@ -88,12 +88,12 @@ docker compose logs -f webappconf
 
 ## Outbound egress policy
 
-[ADR-009 §5](../../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) treats Confluence as independent of Atlassian-hosted services. Confluence stays on the single `subnet` network; its egress is restricted on the host by the `restricted` policy entry in [`scripts/egress-policies.conf`](../../../scripts/egress-policies.conf), enforced in the Docker `DOCKER-USER` chain by [`scripts/egress-guard.sh`](../../../scripts/egress-guard.sh).
+[ADR-009 §5](../../architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) treats Confluence as independent of Atlassian-hosted services. Confluence stays on the single `subnet` network; its egress is restricted on the host by the `restricted` policy entry in [`scripts/egress-policies.conf`](../../../scripts/egress-policies.conf), enforced in the Docker `DOCKER-USER` chain by [`scripts/firewall.sh`](../../../scripts/firewall.sh).
 
 | Destination | Treatment |
 |---|---|
 | `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (PostgreSQL, Authentik, Stalwart SMTP, Traefik, Docker DNS, the host) | Allowed |
-| The host's own public IP — hairpin back into Traefik when public names (`login.<domain>`, …) resolve to it; auto-detected by `egress-guard.sh apply` (`EGRESS_SELF_IP=<ipv4>` overrides) | Allowed |
+| The host's own public IP — hairpin back into Traefik when public names (`login.<domain>`, …) resolve to it; auto-detected by `firewall.sh apply` (`EGRESS_SELF_IP=<ipv4>` overrides) | Allowed |
 | Everything else: Atlassian Marketplace, Atlassian Cloud Services, migration services, application tunnels, general internet, link-local/metadata (`169.254.0.0/16`) | Logged (`egress-restricted: ` prefix) then dropped |
 
 DNS resolution is unaffected (the Docker resolver sits on a private address), so external names may still resolve; the connection is what gets dropped.

@@ -54,16 +54,16 @@ Both log prefixes are rate-limited to 20 lines per minute.
 Temporary outbound access MAY be granted for marketplace app install/upgrade, data migration, or approved maintenance, and SHALL be revoked as soon as the activity completes:
 
 ```bash
-scripts/egress-guard.sh allow webappconf 192.0.2.10/32        # grant one destination
-scripts/egress-guard.sh allow webappconf updates.example.com  # or a hostname: every A record
-scripts/egress-guard.sh revoke webappconf 192.0.2.10/32       # remove it (revoke takes a hostname too)
+scripts/firewall.sh allow webappconf 192.0.2.10/32        # grant one destination
+scripts/firewall.sh allow webappconf updates.example.com  # or a hostname: every A record
+scripts/firewall.sh revoke webappconf 192.0.2.10/32       # remove it (revoke takes a hostname too)
 ```
 
 Rules for exceptions:
 
 - Record the requestor, destination, start time, and revoke time in the change record; set a revoke deadline before granting.
 - Exceptions sit above every other rule in the chain and survive `apply`, but they are keyed to the container's current address, so they are void after a recreate — grant again rather than relying on a stale rule.
-- **`allow` is not saved anywhere.** It writes the rule straight into `iptables` and nothing else, so it survives `apply` but **not a host reboot** — on boot the chain is empty and `apply` rebuilds only what `${APPS_DATA}/shared/gateway/egress-policies.conf` describes. `scripts/egress-guard.sh remove` deletes it too. Re-grant after a reboot, or use the standing form below.
+- **`allow` is not saved anywhere.** It writes the rule straight into `iptables` and nothing else, so it survives `apply` but **not a host reboot** — on boot the chain is empty and `apply` rebuilds only what `${APPS_DATA}/shared/gateway/egress-policies.conf` describes. `scripts/firewall.sh remove` deletes it too. Re-grant after a reboot, or use the standing form below.
 - `allow`/`revoke` resolve a hostname at call time only. If the name's addresses change between grant and revoke, revoke by explicit CIDR/IPv4 instead of the name, so no rule is left behind.
 - A single `allow` covers the service's first running replica; grant per address if the service is scaled.
 - For a permanent dependency, do not keep re-granting: add `<service> allow-domain <name>` to `${APPS_DATA}/shared/gateway/egress-policies.conf` instead — it is rebuilt with current addresses on every `apply` (e.g. `devopsrunner allow-domain data.forgejo.org`). That file, not `allow`, is what survives a reboot: `watch` re-reads it at boot. Despite the name, the argument goes through the same resolver as `allow`, so a bare IPv4 address or a CIDR works as well (e.g. `webappconf allow-domain 192.0.2.10/32`) — record permanent IP allowances there, not as repeated `allow` calls. The file is runtime state rather than tracked in git, so keep a copy in the daily `cfgBK` backup ([backup and restore](runbooks/BACKUP-RESTORE.md)) and note significant changes in the change record.
@@ -71,7 +71,7 @@ Rules for exceptions:
 
 ## Evidence and limitations
 
-- `scripts/egress-guard.sh selftest` — offline check of the produced rules (restricted jump and helper chain, global block DROP/LOG, `allow-blocked` exception, standing-exception preservation, host-public-IP allowance and its unknown-IP fallback, full `remove` including exceptions, atomic set swap, refusal to refresh without `EGRESS_BLOCK_URL`, the `.env` fallback for `EGRESS_BLOCK_URL`, multiple feeds merged into one set, `block-domain` dropping every address of a name, `remove` stripping those rules, no set rules when the set is absent, hostname `allow`/`revoke` resolving to one rule per A record, and `allow-domain` rebuilt as a top-of-chain standing exception with the stale rule removed first).
+- `scripts/firewall.sh selftest` — offline check of the produced rules (restricted jump and helper chain, global block DROP/LOG, `allow-blocked` exception, standing-exception preservation, host-public-IP allowance and its unknown-IP fallback, full `remove` including exceptions, atomic set swap, refusal to refresh without `EGRESS_BLOCK_URL`, the `.env` fallback for `EGRESS_BLOCK_URL`, multiple feeds merged into one set, `block-domain` dropping every address of a name, `remove` stripping those rules, no set rules when the set is absent, hostname `allow`/`revoke` resolving to one rule per A record, and `allow-domain` rebuilt as a top-of-chain standing exception with the stale rule removed first).
 - Stale-jump incident on the OCI host (2026-10-06): a one-shot `apply` with no `watch` unit installed left a `restricted` jump keyed to Confluence's address; after a stack recreate the Forgejo runner inherited that address, and kernel logs show `egress-restricted:` drops of the runner's HTTPS to `data.forgejo.org` (the `actions/checkout` download), breaking deploy workflows. An `allow` granted against the wrong service name had no effect; `remove` restored the runner. `servicehub-egress-guard` was never installed (`not-found`) and `ipset` is absent on the host, so only layer 1 was ever active. Remediation: install `watch` before using `apply`, and a standing `allow-domain` entry for the runner.
 - Integration test through a real iptables-forwarded path (two network namespaces on a bridge, Linux VM): 21 checks covering label-based resolution, restricted blocking with private destinations open, the default `internet` policy staying open, kernel log output, exception grant/re-apply/revoke with correct rule ordering, flush when containers are gone, and egress restoration.
 - Installation on the OCI host is owner-run (2026-10-06): enabling the guard broke Confluence login, and granting the host's own public IP (`allow webappconf <ip>/32`) restored it — which demonstrates live enforcement on that host. Kernel-log and counter verification are not yet recorded.

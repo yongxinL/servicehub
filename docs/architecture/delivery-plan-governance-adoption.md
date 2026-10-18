@@ -350,7 +350,7 @@ docs/products/bulwark.md:102 -> ../../../README.md#email-stack-mailsv (archived)
 docs/products/confluence.md:7 -> ../../../compose/webapp.yml
 docs/products/confluence.md:7 -> ../../../shared/confluence/Dockerfile
 docs/products/confluence.md:28 -> ../../../env.example
-docs/products/confluence.md:90 -> ../../../scripts/egress-guard.sh
+docs/products/confluence.md:90 -> ../../../scripts/firewall.sh
 docs/products/confluence.md:90 -> ../../../scripts/egress-policies.conf
 docs/products/confluence.md:100 -> ../EGRESS-CONTROLS.md
 docs/products/confluence.md:114 -> ../../../shared/confluence/Dockerfile
@@ -730,7 +730,7 @@ docs/architecture/adr/ADR-008-standardise-service-naming-storage-and-bind-mounts
 docs/architecture/adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md:414 -> ../../operations/runbooks/BACKUP-RESTORE.md
 docs/architecture/adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md:415 -> ../ARCHITECTURE.md
 docs/architecture/adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md:427 -> ../../operations/runbooks/BACKUP-RESTORE.md
-docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../../scripts/egress-guard.sh
+docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../../scripts/firewall.sh
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../../scripts/egress-policies.conf
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../operations/EGRESS-CONTROLS.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../operations/services/confluence.md#outbound-egress-policy
@@ -754,7 +754,7 @@ docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundar
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:264 -> ../../operations/SERVICE-INVENTORY.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:264 -> ../../operations/MONITORING-ALERTING.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:264 -> ../../operations/runbooks/BACKUP-RESTORE.md
-docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../../scripts/egress-guard.sh
+docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../../scripts/firewall.sh
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../../scripts/egress-policies.conf
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../operations/EGRESS-CONTROLS.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../operations/services/confluence.md
@@ -769,7 +769,7 @@ docs/architecture/adr/009-rescope-oci-deployment-and-harden-platform-boundaries.
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:278 -> ../../operations/EGRESS-CONTROLS.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:279 -> ../../operations/SERVICE-INVENTORY.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:289 -> ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md
-docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:291 -> ../../../scripts/egress-guard.sh
+docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:291 -> ../../../scripts/firewall.sh
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:291 -> ../../../scripts/egress-policies.conf
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:291 -> ../../operations/EGRESS-CONTROLS.md
 docs/architecture/adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md:35 -> ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md
@@ -1237,7 +1237,7 @@ No tracked .env or servicehub.key was found.
 These files contain comments or configuration notes that record implementation decisions and should be retained unchanged unless a later governed artifact requires otherwise:
 
 - compose/aiserv.yml, compose/devops.yml, compose/infra.yml, compose/mailsv.yml (archived), compose/obsvce.yml, compose/webapp.yml
-- scripts/egress-guard.sh, scripts/egress-policies.conf, scripts/gen-admin-rules.py, scripts/setup.sh
+- scripts/firewall.sh, scripts/egress-policies.conf, scripts/gen-admin-rules.py, scripts/setup.sh
 - shared/fastcrw/chromium/compose.yml, shared/fastcrw/config.docker.toml
 - shared/forgejo/actions/entrypoint.sh
 - shared/hermesagent/start-gateways.sh
@@ -1247,7 +1247,7 @@ These files contain comments or configuration notes that record implementation d
 - shared/traefik/advanced/admin-routers.yml, shared/traefik/advanced/middlewares-security.yml
 - shared/wordpress/etc/nginx/nginx.conf
 
-Examples include scripts/egress-guard.sh:2, scripts/egress-policies.conf:1, shared/litellm/smartrouter.py:10, shared/hermesagent/start-gateways.sh:10, shared/stalwart/entrypoint.sh:5 (archived), and compose/aiserv.yml:2.
+Examples include scripts/firewall.sh:2, scripts/egress-policies.conf:1, shared/litellm/smartrouter.py:10, shared/hermesagent/start-gateways.sh:10, shared/stalwart/entrypoint.sh:5 (archived), and compose/aiserv.yml:2.
 
 ### Planning and Task Stores
 
