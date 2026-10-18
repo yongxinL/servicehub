@@ -52,6 +52,19 @@ POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${W
 
 > The script only runs when `${APPS_DATA}/infra/postgresql` is empty. To re-run it on an existing cluster, you must reset the data directory (see below).
 
+## Least-privilege monitoring role
+
+Create the role manually on the OCI host during Phase 5 and store the password only in `.env` or the approved secret mechanism. Replace the placeholders and do not commit generated credentials.
+
+```sql
+CREATE ROLE svc_metrics WITH LOGIN PASSWORD :'monitor_password';
+GRANT CONNECT ON DATABASE postgres TO svc_metrics;
+GRANT pg_monitor TO svc_metrics;
+ALTER ROLE svc_metrics SET default_transaction_read_only = on;
+```
+
+`compose/obsvce.yml` passes `POSTGRES_EXPORTER_HOST`, `POSTGRES_EXPORTER_PORT`, `POSTGRES_EXPORTER_DATABASE`, `POSTGRES_EXPORTER_USER`, and `POSTGRES_EXPORTER_PASSWORD` from runtime environment values into Alloy's embedded exporter. If the password contains URL-reserved characters, percent-encode it in the DSN at deployment time. This configuration is `Implemented in configuration`; runtime verification pending.
+
 ## Connecting from another container
 
 Other services on the `subnet` network connect with the hostname and port. The standard DSN form is:

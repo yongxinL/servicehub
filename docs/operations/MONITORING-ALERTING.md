@@ -52,6 +52,12 @@ Docker local log rotation is not established by repository authority. Confirm or
 
 Authentik server and worker metrics are scraped on internal port 9300; the stack has no applicable external outpost configured. oCIS proxy metrics are scraped on internal debug port 9205. Both scrape paths are implemented in configuration; runtime verification pending. Container logs are normalized with bounded `service` and `component` labels. Authentik `level` is promoted only when its JSON source emits it; usernames, request IDs, provider details, and diagnostic text remain fields.
 
+## Database and Deeper Application Telemetry
+
+Alloy's embedded PostgreSQL exporter connects through runtime-only `POSTGRES_EXPORTER_*` values. No credential is committed. The role creation instructions are in the PostgreSQL service guide. Telemetry covers availability, connections, transactions, locks, deadlocks, long-running transactions, database size, cache, temporary data, and WAL indicators. It is implemented in configuration; runtime verification pending.
+
+Confluence JMX monitoring is deferred pending an approved exporter version and binary supply decision. No exporter binary, checksum, or arbitrary release is committed. The integration point remains the `webappconf` container with an internal-only endpoint; Phase 5 must not deploy an unapproved JMX exporter. Forgejo server and runner logs are normalized as `service="forgejo"` with `component="server"` or `component="runner"`, and runner absence uses cAdvisor's last-seen metric. This is implemented in configuration; runtime verification pending.
+
 ## Monitoring Objectives
 
 - Detect unavailable services and failed health checks.
@@ -180,6 +186,7 @@ Grafana-managed rules are provisioned from `shared/grafana/provisioning/alerting
 | `servicehub-container-restart-loop` | Critical | Container restarted more than twice in 10m | NoData |
 | `servicehub-container-oom` | Critical | Container OOM increase | NoData |
 | `servicehub-telemetry-ingestion` | Critical | Alloy remote-write failures | Alerting |
+| `servicehub-postgresql-critical` | Critical | `pg_up` unavailable | Alerting |
 | `servicehub-fs-warning` | Warning | Filesystem above 85% | NoData |
 | `servicehub-cpu-pressure` | Warning | Sustained CPU PSI | NoData |
 | `servicehub-memory-pressure` | Warning | Sustained memory PSI | NoData |
@@ -187,6 +194,7 @@ Grafana-managed rules are provisioned from `shared/grafana/provisioning/alerting
 | `servicehub-tls-expiry` | Warning | Public certificate expires within 14 days | NoData |
 | `servicehub-traefik-5xx` | Warning | Sustained 5xx ratio above 5% | NoData |
 | `servicehub-traefik-latency` | Warning | Traefik p95 latency above 2s | NoData |
+| `servicehub-runner-warning` | Warning | Forgejo Actions Runner absent from cAdvisor last-seen | Alerting |
 
 Metric names for node_exporter, cAdvisor, Traefik, and Alloy remote-write counters are based on current collection configuration and exporter conventions. Label values and exact series require runtime verification. There is no backup-success telemetry rule because the current backup implementation does not yet provide a reliable repository-defined metric.
 

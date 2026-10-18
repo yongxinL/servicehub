@@ -33,6 +33,7 @@
 | Public probes | HTTPS, DNS, and TLS | VictoriaMetrics |
 | Authentik metrics | server and worker on internal port 9300 | VictoriaMetrics |
 | oCIS metrics | proxy on internal debug port 9205 | VictoriaMetrics |
+| PostgreSQL metrics | embedded exporter using runtime-only role credentials | VictoriaMetrics |
 
 GeoIP enrichment uses [`../geoip/GeoLite2-City.mmdb`](../geoip/GeoLite2-City.mmdb) and retains client IP, city, and coordinate detail as structured metadata. Only country code is retained as a bounded VictoriaLogs stream label; individual client IPs are not promoted to metric labels.
 
