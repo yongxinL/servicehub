@@ -48,6 +48,10 @@ Internal blackbox probes use Traefik `/ping`, Authentik `/-/health/ready/`, Conf
 
 Docker local log rotation is not established by repository authority. Confirm or configure the OCI Docker daemon rotation policy during Phase 5.
 
+## Native Application Telemetry
+
+Authentik server and worker metrics are scraped on internal port 9300; the stack has no applicable external outpost configured. oCIS proxy metrics are scraped on internal debug port 9205. Both scrape paths are implemented in configuration; runtime verification pending. Container logs are normalized with bounded `service` and `component` labels. Authentik `level` is promoted only when its JSON source emits it; usernames, request IDs, provider details, and diagnostic text remain fields.
+
 ## Monitoring Objectives
 
 - Detect unavailable services and failed health checks.

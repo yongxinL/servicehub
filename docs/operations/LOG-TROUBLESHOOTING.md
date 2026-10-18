@@ -145,13 +145,13 @@ Status: Runtime verification pending. Traefik JSON field names and duration unit
 Authentik authentication and provider failures:
 
 ```logsql
-{project="servicehub"} | container_name=~"infraauth|infraauthwrk" | level~="error|warn"
+{project="servicehub",service="authentik"} | level~="error|warn"
 ```
 
 OIDC and database-connectivity investigation:
 
 ```logsql
-{project="servicehub"} | container_name=~"infraauth|infraauthwrk" | msg~="(?i)oidc|provider|database|postgres"
+{project="servicehub",service="authentik"} | msg~="(?i)oidc|provider|database|postgres"
 ```
 
 Status: Runtime verification pending.
@@ -177,19 +177,19 @@ Status: Runtime verification pending.
 Forgejo server errors:
 
 ```logsql
-{project="servicehub"} | container_name="devopsforgejo" | level~="error|warn"
+{project="servicehub",service="forgejo",component="server"} | level~="error|warn"
 ```
 
 Forgejo Actions runner errors:
 
 ```logsql
-{project="servicehub"} | container_name="devopsrunner" | level~="error|warn"
+{project="servicehub",service="forgejo",component="runner"} | level~="error|warn"
 ```
 
 Git, webhook, SSH, database, and job-infrastructure errors:
 
 ```logsql
-{project="servicehub"} | container_name=~"devopsforgejo|devopsrunner" | msg~="(?i)git|webhook|ssh|database|clone|checkout|docker|resource"
+{project="servicehub",service="forgejo"} | msg~="(?i)git|webhook|ssh|database|clone|checkout|docker|resource"
 ```
 
 Status: Runtime verification pending.
@@ -199,13 +199,13 @@ Status: Runtime verification pending.
 Upload, download, WebDAV, authorization, and storage errors:
 
 ```logsql
-{project="servicehub"} | container_name="webappocis" | msg~="(?i)upload|download|webdav|authorize|authoriz|storage|quota"
+{project="servicehub",service="ocis",component="proxy"} | msg~="(?i)upload|download|webdav|authorize|authoriz|storage|quota"
 ```
 
 All oCIS errors and warnings:
 
 ```logsql
-{project="servicehub"} | container_name="webappocis" | level~="error|warn"
+{project="servicehub",service="ocis",component="proxy"} | level~="error|warn"
 ```
 
 Status: Runtime verification pending.

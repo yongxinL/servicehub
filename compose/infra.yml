@@ -91,6 +91,7 @@ services:
             - AUTHENTIK_POSTGRESQL__NAME=${IDENTITY_DBNAME}
             # listen settings
             - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
+            - AUTHENTIK_LISTEN__METRICS=0.0.0.0:9300
         image: infraauth:latest
         labels:
             # Enable Traefik for this container
@@ -160,6 +161,7 @@ services:
             - AUTHENTIK_POSTGRESQL__NAME=${IDENTITY_DBNAME}
             # listen settings
             - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
+            - AUTHENTIK_LISTEN__METRICS=0.0.0.0:9300
         image: infraauth:latest
         networks:
             - subnet

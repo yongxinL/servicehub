@@ -272,6 +272,57 @@ prometheus.scrape "public_probes" {
 }
 
 // =============================================
+// NATIVE APPLICATION METRICS
+// Authentik documents port 9300 for server, worker, and outpost metrics.
+// oCIS documents proxy metrics on the debug port 9205. Neither is routed
+// through Traefik.
+// =============================================
+prometheus.scrape "authentik_server" {
+    targets = [{
+        __address__  = "infraauth:9300",
+        job          = "authentik_server",
+        project      = "servicehub",
+        environment  = sys.env("ENVIRONMENT"),
+        instance     = constants.hostname,
+        service      = "authentik",
+        component    = "server",
+    }]
+    forward_to      = [prometheus.remote_write.vm.receiver]
+    scrape_interval = "30s"
+    scrape_timeout  = "15s"
+}
+
+prometheus.scrape "authentik_worker" {
+    targets = [{
+        __address__  = "infraauthwrk:9300",
+        job          = "authentik_worker",
+        project      = "servicehub",
+        environment  = sys.env("ENVIRONMENT"),
+        instance     = constants.hostname,
+        service      = "authentik",
+        component    = "worker",
+    }]
+    forward_to      = [prometheus.remote_write.vm.receiver]
+    scrape_interval = "30s"
+    scrape_timeout  = "15s"
+}
+
+prometheus.scrape "ocis_proxy" {
+    targets = [{
+        __address__  = "webappocis:9205",
+        job          = "ocis_proxy",
+        project      = "servicehub",
+        environment  = sys.env("ENVIRONMENT"),
+        instance     = constants.hostname,
+        service      = "ocis",
+        component    = "proxy",
+    }]
+    forward_to      = [prometheus.remote_write.vm.receiver]
+    scrape_interval = "30s"
+    scrape_timeout  = "15s"
+}
+
+// =============================================
 // SCRAPE — Alloy self-metrics
 // Covers pipeline, remote-write, scrape, and component health.
 // =============================================
@@ -489,7 +540,6 @@ loki.process "geoip_enrichment" {
             client_ip = "ClientHost",
         }
     }
-
     // Keep the TCP source address in structured metadata. It is searchable for
     // investigation but is not promoted to VictoriaMetrics labels.
     stage.structured_metadata {
@@ -532,6 +582,84 @@ loki.process "geoip_enrichment" {
 }
 
 // =============================================
+// SECURITY AND SERVICE NORMALIZATION
+// Level is bounded when JSON source logs provide it. High-cardinality
+// security values remain in structured metadata or message fields.
+// =============================================
+loki.process "security_normalization" {
+    stage.match {
+        selector = `{container_name=~"infraauth|infraauthwrk"}`
+
+        stage.static_labels {
+            values = {
+                service   = "authentik",
+                component = "identity",
+            }
+        }
+
+        stage.json {
+            expressions = {
+                level = "",
+                event = "",
+                provider = "",
+            }
+        }
+
+        stage.labels {
+            values = {
+                level = "",
+            }
+        }
+    }
+
+    stage.match {
+        selector = `{container_name="devopsforgejo"}`
+
+        stage.static_labels {
+            values = {
+                service   = "forgejo",
+                component = "server",
+            }
+        }
+    }
+
+    stage.match {
+        selector = `{container_name="devopsrunner"}`
+
+        stage.static_labels {
+            values = {
+                service   = "forgejo",
+                component = "runner",
+            }
+        }
+    }
+
+    stage.match {
+        selector = `{container_name="webappocis"}`
+
+        stage.static_labels {
+            values = {
+                service   = "ocis",
+                component = "proxy",
+            }
+        }
+    }
+
+    stage.match {
+        selector = `{container_name="routetraefik"}`
+
+        stage.static_labels {
+            values = {
+                service   = "traefik",
+                component = "edge",
+            }
+        }
+    }
+
+    forward_to = [loki.process.geoip_enrichment.receiver]
+}
+
+// =============================================
 // LOGS — container logs via Docker socket with GeoIP
 // =============================================
 loki.source.docker "container_logs" {
@@ -544,7 +672,7 @@ loki.secretfilter "container" {
     drop_on_timeout = true
     label_timed_out = true
     redact_with     = "<REDACTED:$SECRET_NAME>"
-    forward_to      = [loki.process.geoip_enrichment.receiver]
+    forward_to      = [loki.process.security_normalization.receiver]
 }
 
 loki.write "vlogs" {
