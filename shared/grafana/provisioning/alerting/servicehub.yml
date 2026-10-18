@@ -1,0 +1,662 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: servicehub-infrastructure-critical
+    folder: ServiceHub Alerts
+    interval: 60s
+    rules:
+      - uid: servicehub-fs-critical
+        title: Filesystem critically full
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "100 * (1 - node_filesystem_avail_bytes / node_filesystem_size_bytes)"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [95], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 5m
+        noDataState: Alerting
+        execErrState: Error
+        labels: {severity: critical, service: host}
+        annotations:
+          summary: "A filesystem is above 95% capacity"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-inode-critical
+        title: Inode exhaustion imminent
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "100 * (1 - node_filesystem_files_free / node_filesystem_files)"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [95], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 5m
+        noDataState: Alerting
+        execErrState: Error
+        labels: {severity: critical, service: host}
+        annotations:
+          summary: "A filesystem is above 95% inode utilization"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-fs-readonly
+        title: Filesystem became read-only
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "node_filesystem_readonly"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [0.5], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 1m
+        noDataState: Alerting
+        execErrState: Error
+        labels: {severity: critical, service: host}
+        annotations:
+          summary: "A monitored filesystem is read-only"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-traefik-critical
+        title: Traefik unavailable
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "probe_success{service=\"traefik\"}"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [1], type: lt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: {severity: critical, service: traefik}
+        annotations:
+          summary: "Traefik readiness probe failed"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-authentik-critical
+        title: Authentik unavailable
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "min(probe_success{service=~\"authentik-server|authentik-worker\"})"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [1], type: lt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: {severity: critical, service: authentik}
+        annotations:
+          summary: "Authentik server or worker readiness probe failed"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-confluence-critical
+        title: Confluence unavailable
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "probe_success{service=\"confluence\"}"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [1], type: lt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: {severity: critical, service: confluence}
+        annotations:
+          summary: "Confluence readiness probe failed"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-forgejo-critical
+        title: Forgejo unavailable
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "probe_success{service=\"forgejo\"}"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [1], type: lt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: {severity: critical, service: forgejo}
+        annotations:
+          summary: "Forgejo readiness probe failed"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-ocis-critical
+        title: ownCloud Infinite Scale unavailable
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "probe_success{service=\"ocis\"}"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [1], type: lt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: {severity: critical, service: ocis}
+        annotations:
+          summary: "oCIS readiness probe failed"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-container-restart-loop
+        title: Container restart loop
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "changes(container_start_time_seconds{name!=\"\"}[10m])"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [2], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 5m
+        noDataState: NoData
+        execErrState: Error
+        labels: {severity: critical, service: docker}
+        annotations:
+          summary: "A container started more than twice in ten minutes"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-container-oom
+        title: Container OOM event
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "increase(container_oom_events_total{name!=\"\"}[5m])"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [0.5], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 0s
+        noDataState: NoData
+        execErrState: Error
+        labels: {severity: critical, service: docker}
+        annotations:
+          summary: "A container recorded an out-of-memory event"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-telemetry-ingestion
+        title: Telemetry remote-write failed
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "sum(increase(prometheus_remote_storage_samples_failed_total[5m]))"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [0.5], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: {severity: critical, service: observability}
+        annotations:
+          summary: "Alloy recorded failed samples in the last five minutes"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+
+  - orgId: 1
+    name: servicehub-capacity-warning
+    folder: ServiceHub Alerts
+    interval: 60s
+    rules:
+      - uid: servicehub-fs-warning
+        title: Filesystem approaching capacity
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "100 * (1 - node_filesystem_avail_bytes / node_filesystem_size_bytes)"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [85], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 15m
+        noDataState: NoData
+        execErrState: Error
+        labels: {severity: warning, service: host}
+        annotations:
+          summary: "A filesystem is above 85% capacity"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-cpu-pressure
+        title: Sustained CPU pressure
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "rate(node_pressure_cpu_waiting_seconds_total[5m])"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [0.2], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 10m
+        noDataState: NoData
+        execErrState: Error
+        labels: {severity: warning, service: host}
+        annotations:
+          summary: "CPU pressure-stall waiting time is sustained"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-memory-pressure
+        title: Sustained memory pressure
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "rate(node_pressure_memory_waiting_seconds_total[5m])"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [0.2], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 10m
+        noDataState: NoData
+        execErrState: Error
+        labels: {severity: warning, service: host}
+        annotations:
+          summary: "Memory pressure-stall waiting time is sustained"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-io-pressure
+        title: Sustained I/O pressure
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "rate(node_pressure_io_waiting_seconds_total[5m])"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [0.2], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 10m
+        noDataState: NoData
+        execErrState: Error
+        labels: {severity: warning, service: host}
+        annotations:
+          summary: "I/O pressure-stall waiting time is sustained"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-tls-expiry
+        title: TLS certificate approaching expiry
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "min by (service) (probe_ssl_earliest_cert_expiry{component=\"public-probe\"} - time())"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [1209600], type: lt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 1h
+        noDataState: NoData
+        execErrState: Error
+        labels: {severity: warning, service: edge}
+        annotations:
+          summary: "A public HTTPS certificate expires in 14 days or less"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-traefik-5xx
+        title: Sustained Traefik HTTP 5xx rate
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m])) / clamp_min(sum(rate(traefik_service_requests_total[5m])), 1)"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [0.05], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 10m
+        noDataState: NoData
+        execErrState: Error
+        labels: {severity: warning, service: edge}
+        annotations:
+          summary: "Traefik 5xx responses exceed 5% for ten minutes"
+          runtime_status: "Implemented in configuration; runtime verification pending"
+      - uid: servicehub-traefik-latency
+        title: Sustained Traefik latency degradation
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: victoriametrics
+            model:
+              datasource: {type: prometheus, uid: victoriametrics}
+              expr: "histogram_quantile(0.95, sum by (le) (rate(traefik_service_request_duration_seconds_bucket[5m])))"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator: {params: [2], type: gt}
+                  operator: {type: and}
+                  query: {params: ["A"]}
+                  reducer: {params: [], type: last}
+                  type: query
+              datasource: {type: __expr__, uid: "-100"}
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: classic_conditions
+        for: 10m
+        noDataState: NoData
+        execErrState: Error
+        labels: {severity: warning, service: edge}
+        annotations:
+          summary: "Traefik p95 response latency exceeds two seconds"
+          runtime_status: "Implemented in configuration; runtime verification pending"

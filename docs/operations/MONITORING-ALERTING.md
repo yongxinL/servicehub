@@ -85,20 +85,19 @@ VictoriaLogs publishes port 9428 to the host. Grafana uses the provisioned Victo
 
 ## Dashboards
 
-Grafana provisions JSON files from `shared/grafana/dashboards/` into the `observability` folder.
+Grafana provisions JSON files from `shared/grafana/dashboards/`. ServiceHub-owned dashboards are in the root directory; retained community and vendor dashboards are under `reference/` and are not the authoritative operational interface. All dashboard queries are `Runtime verification pending` unless a panel explicitly says otherwise.
 
 | Dashboard file | Intended signal |
 |---|---|
-| `14282_cadvisor-explorter.json` | cAdvisor container metrics |
-| `16151_victoriametric-overview.json` | VictoriaMetrics overview |
-| `16152_traefik-observability-dashboard.json` | Traefik observability |
-| `17346_traefik-dashboard.json` | Traefik general metrics |
-| `1860_node-exporter-full.json` | Host metrics |
-| `19724_docker-dashboard.json` | Docker engine metrics |
-| `19792_cadvisor-dashboard.json` | cAdvisor metrics |
-| `21743_docker-containers-overview.json` | Container overview |
-| `22759-victorialogs-explorer.json` | VictoriaLogs exploration |
-| `24585-victorialogs-internal-state.json` | VictoriaLogs internal state |
+| `servicehub-overview.json` / UID `servicehub-overview` | Operational overview |
+| `servicehub-infrastructure.json` / UID `servicehub-infrastructure` | Host resource capacity and pressure |
+| `servicehub-docker-containers.json` / UID `servicehub-docker-containers` | Container state, resources, lifecycle, and logs |
+| `servicehub-traffic-edge.json` / UID `servicehub-traffic-edge` | Traefik traffic, latency, TLS, and bounded GeoIP |
+| `servicehub-security.json` / UID `servicehub-security` | Host, edge, identity, and Forgejo security views |
+| `servicehub-applications.json` / UID `servicehub-applications` | Application availability, requests, resources, and logs |
+| `servicehub-database.json` / UID `servicehub-database` | PostgreSQL health and capacity |
+| `servicehub-observability-health.json` / UID `servicehub-observability-health` | Collector, stores, datasource, ingestion, and alert state |
+| `reference/*.json` | Reference dashboards only |
 
 Dashboard titles, queries, and datasource compatibility are `Requires runtime validation`.
 
@@ -160,6 +159,33 @@ No severity thresholds or response targets are committed.
 - Backup missing, failed, too old, too small, or unreadable.
 - Restore test overdue once RFC-001 is decided.
 
+## Alert Inventory
+
+Grafana-managed rules are provisioned from `shared/grafana/provisioning/alerting/servicehub.yml` into the `ServiceHub Alerts` folder. Alert evaluation is implemented in configuration; runtime verification pending. Notification delivery is deferred pending owner-selected contact point.
+
+| Rule UID | Severity | Signal | No-data state |
+|---|---|---|---|
+| `servicehub-fs-critical` | Critical | Filesystem above 95% | Alerting |
+| `servicehub-inode-critical` | Critical | Inodes above 95% | Alerting |
+| `servicehub-fs-readonly` | Critical | Filesystem read-only | Alerting |
+| `servicehub-traefik-critical` | Critical | Traefik probe failed | Alerting |
+| `servicehub-authentik-critical` | Critical | Authentik server or worker probe failed | Alerting |
+| `servicehub-confluence-critical` | Critical | Confluence probe failed | Alerting |
+| `servicehub-forgejo-critical` | Critical | Forgejo probe failed | Alerting |
+| `servicehub-ocis-critical` | Critical | oCIS probe failed | Alerting |
+| `servicehub-container-restart-loop` | Critical | Container restarted more than twice in 10m | NoData |
+| `servicehub-container-oom` | Critical | Container OOM increase | NoData |
+| `servicehub-telemetry-ingestion` | Critical | Alloy remote-write failures | Alerting |
+| `servicehub-fs-warning` | Warning | Filesystem above 85% | NoData |
+| `servicehub-cpu-pressure` | Warning | Sustained CPU PSI | NoData |
+| `servicehub-memory-pressure` | Warning | Sustained memory PSI | NoData |
+| `servicehub-io-pressure` | Warning | Sustained I/O PSI | NoData |
+| `servicehub-tls-expiry` | Warning | Public certificate expires within 14 days | NoData |
+| `servicehub-traefik-5xx` | Warning | Sustained 5xx ratio above 5% | NoData |
+| `servicehub-traefik-latency` | Warning | Traefik p95 latency above 2s | NoData |
+
+Metric names for node_exporter, cAdvisor, Traefik, and Alloy remote-write counters are based on current collection configuration and exporter conventions. Label values and exact series require runtime verification. There is no backup-success telemetry rule because the current backup implementation does not yet provide a reliable repository-defined metric.
+
 ## Notification and Ownership
 
 | Item | Value |
@@ -196,6 +222,21 @@ A future test must:
 | VictoriaLogs | No retention option in Compose | TBD |
 | Grafana database | Persisted indefinitely under `APPS_DATA` | Review growth |
 | Audit and access logs | Collected if containers emit them | Retention and access policy TBD |
+
+Retention remains undecided and must be finalized only after measured Phase 5 ingestion and storage growth.
+
+## Phase 5 Evidence Checklist
+
+- OCI checkout and container state inspected and preserved before deployment.
+- `docker compose config --quiet`, image builds, product/version capture, and startup logs recorded.
+- VictoriaMetrics, VictoriaLogs, Grafana, and Alloy health checks recorded.
+- Host, filesystem, inode, cAdvisor, probe, application, and database metrics queried.
+- Journald, Docker, Traefik, GeoIP, application, and observability logs queried.
+- Every dashboard and provisioned alert rendered or evaluated.
+- Alert firing, recovery, no-data, execution-error, and notification behavior recorded.
+- Excluded-service metrics, probes, dashboards, and log pipelines verified absent.
+- Docker log rotation, retention, and storage growth recorded.
+- Rollback procedure rehearsed or documented and validated.
 
 ## Related Documents
 
