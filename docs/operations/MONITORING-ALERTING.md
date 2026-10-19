@@ -30,6 +30,8 @@ related_documents:
 
 > **Status note (ADR-009 and ADR-010).** [ADR-010](../architecture/adr/ADR-010-establish-servicehub-observability-platform.md), now Accepted, partially supersedes ADR-009's observability retirement. The self-hosted observability stack is included in OCI scope, but Phase 1 deployment and runtime verification are pending. LiteLLM, local `aiserv` services, Stalwart, Bulwark, and other relocated mail-platform telemetry are outside ADR-010.
 
+The Project Owner approved local Phase 5 static validation on 2026-10-20. Implementation through Phase 3 is complete in repository at `6eb4c1e96cab58ba3f819c3b24e629b52fa4876d`; the approved validation revision is `58c8c6d4d606ee93dc43521b6deaef29fbbfa9fc`. Integrated OCI runtime validation, OCI APM, notification delivery, and Confluence JMX remain deferred or pending as defined in [ADR-010 Phase 5 OCI Validation](runbooks/ADR-010-PHASE-5-OCI-VALIDATION.md). ADR-010 is not runtime verified.
+
 ## Baseline Topology
 
 The baseline observability services are Grafana Alloy, VictoriaMetrics, VictoriaLogs, and Grafana. Alloy is the single authoritative metrics ingestion path: it collects host, container, Traefik, and Alloy self-metrics and remote-writes them to VictoriaMetrics. VictoriaMetrics has no direct scrape configuration. Alloy also discovers Docker container logs, enriches Traefik access logs with GeoIP, and pushes them to VictoriaLogs. Grafana queries both stores over the internal Docker network.

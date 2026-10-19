@@ -103,7 +103,7 @@ The email stack uses Authentik as its mail-account directory: Stalwart validates
 
 That integration belongs to the email stack, so the full walkthrough lives in the Stalwart README — provider fields, Bind/Unbind flows, bind/search modes, service account role and permissions, outpost, Stalwart-side directory settings, domain binding and bind troubleshooting:
 
-- [Stalwart — Directory: Authentik LDAP (SSO)](../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) (archived)
+- [Stalwart — Directory: Authentik LDAP (SSO)](../../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) (archived)
 
 ## Operations
 
@@ -141,6 +141,6 @@ Do these in the Authentik admin UI (one-time):
 
 - [Root README — Architecture](../../../README.md#architecture-overview)
 - [Root README — Security Observability Stack](../../../README.md#security-observability-stack) — Grafana is an example forward-auth–protected service
-- [Stalwart Mail Server](../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) — consumes this IdP as its LDAP mail directory (archived; walkthrough consolidated there)
+- [Stalwart Mail Server](../../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) — consumes this IdP as its LDAP mail directory (archived; walkthrough consolidated there)
 - [Traefik](traefik.md) — forward-auth middleware and routing
 - [oCIS](owncloud.md) — Authentik OIDC cloud-drive integration

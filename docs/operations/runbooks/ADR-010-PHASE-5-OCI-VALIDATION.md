@@ -4,13 +4,13 @@ project_code: SVCHUB
 document_type: RUNBOOK
 document_id: RUNBOOK-ADR-010-PHASE-5
 title: ADR-010 Phase 5 OCI Validation
-version: "2.0"
+version: "2.1"
 status: Planned
 lifecycle_stage: Operations
 owner: George Li
 maintainer: George Li
 created: 2026-10-18
-updated: 2026-10-19
+updated: 2026-10-20
 tags:
   - servicehub
   - runbook
@@ -155,34 +155,56 @@ Core acceptance may proceed only if:
 
 Permitted deferred items are notification delivery pending a contact point, Confluence JMX pending an approved exporter dependency, Oracle APM, final retention tuning, final threshold tuning, and capacity forecasting. Confluence JMX deferral must not block core acceptance.
 
+## Pre-runtime validation record
+
+The Project Owner approved the current Phase 5 validation revision on 2026-10-20.
+
+| Capability | Status |
+|---|---|
+| Repository implementation through Phase 3 | Complete in repository |
+| Local static validation | Passed with documented tool limitations |
+| Integrated OCI runtime validation | Runtime verification pending |
+| OCI APM | Deferred and excluded from Phase 5 core acceptance |
+| Notification delivery | Deferred pending owner-approved contact point |
+| Confluence JMX | Deferred pending approved exporter dependency |
+| Archived/legacy mail documentation links | Corrected; five current-document references to archived mail documentation now resolve |
+
+The implementation baseline is `6eb4c1e96cab58ba3f819c3b24e629b52fa4876d`. The approved validation revision is `58c8c6d4d606ee93dc43521b6deaef29fbbfa9fc`. The actual deployed commit remains to be recorded when Phase 5 starts on OCI. This record does not mark ADR-010 runtime verified.
+
 ---
 
 ## G01 — Preparation and clean Forgejo checkout
 
-**Purpose:** establish the exact approved revision without touching an unrelated checkout.
+**Purpose:** establish the approved implementation baseline, approved validation revision, and clean Forgejo checkout without touching an unrelated checkout.
 
-**Prerequisites:** OCI SSH access; approved commit `6eb4c1e96cab58ba3f819c3b24e629b52fa4876d`; Forgejo read access; approved clean checkout location.
+**Prerequisites:** OCI SSH access; implementation baseline commit `6eb4c1e96cab58ba3f819c3b24e629b52fa4876d`; approved validation revision `58c8c6d4d606ee93dc43521b6deaef29fbbfa9fc` or an explicitly approved later correction commit; Forgejo read access; approved clean checkout location.
 
 **Commands:**
 
 ```bash
 test ! -e "${HOME:?}/servicehub-adr010-phase5" || { echo 'BLOCKED: target exists'; exit 1; }
+IMPLEMENTATION_COMMIT="6eb4c1e96cab58ba3f819c3b24e629b52fa4876d"
+VALIDATION_COMMIT="58c8c6d4d606ee93dc43521b6deaef29fbbfa9fc"
+APPROVED_REMOTE="https://git.lifamy.com/nexora/servicehub.git"
 git clone --branch adr-010 https://git.lifamy.com/nexora/servicehub.git "${HOME}/servicehub-adr010-phase5"
 cd "${HOME}/servicehub-adr010-phase5"
 git status --short
 git branch --show-current
-git remote -v
+git remote get-url origin
 git rev-parse HEAD
-test "$(git rev-parse HEAD)" = "6eb4c1e96cab58ba3f819c3b24e629b52fa4876d"
+test "$(git remote get-url origin)" = "${APPROVED_REMOTE}"
+test "$(git rev-parse HEAD)" = "${VALIDATION_COMMIT}"
+git merge-base --is-ancestor "${IMPLEMENTATION_COMMIT}" HEAD
+git log --oneline "${IMPLEMENTATION_COMMIT}..HEAD"
 ```
 
 Use an existing credential helper or deploy credential. Never embed or print credentials.
 
-**Expected/pass:** clean checkout on `adr-010` at the approved commit.
+**Expected/pass:** clean checkout on `adr-010` at the approved validation revision; the approved Forgejo remote is configured; `6eb4c1e96cab58ba3f819c3b24e629b52fa4876d` is an ancestor of `HEAD`; every later change is reviewed; and the actual deployed commit is recorded in the Phase 5 evidence. If the owner approves a later correction commit, update `VALIDATION_COMMIT` to that commit before validation.
 
-**Failure/stop:** clone failure, dirty checkout, or commit mismatch.
+**Failure/stop:** clone failure, dirty checkout, remote mismatch, commit mismatch, missing implementation baseline ancestor, unreviewed implementation change after the approved validation revision, or missing deployed-commit record.
 
-**Evidence:** checkout path, branch, commit, Git status, timestamp.
+**Evidence:** checkout path, branch, actual commit, implementation-baseline ancestor check, later-commit list, remote URL, Git status, timestamp.
 
 **Recovery:** remove only the newly created failed checkout. Do not alter an existing deployment checkout.
 

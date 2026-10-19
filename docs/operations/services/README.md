@@ -28,7 +28,7 @@ Project-specific service guides cover build, configuration, and setup. Each guid
 ## Documents
 
 - [Authentik](authentik.md) — IdP / SSO, LDAP directory, and OIDC provider.
-- [Bulwark Webmail](../archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md) — JMAP webmail client (archived; OCI blocks port 25).
+- [Bulwark Webmail](../../archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md) — JMAP webmail client (archived; OCI blocks port 25).
 - [Confluence](confluence.md) — homepage / CMS (Data Center).
 - [FastCRW](fastcrw.md) — optional web-search stack for Hermes Agent.
 - [Forgejo](forgejo.md) — source control host and Actions runner.
@@ -40,7 +40,7 @@ Project-specific service guides cover build, configuration, and setup. Each guid
 - [oCIS](owncloud.md) — ownCloud Infinite Scale cloud drive.
 - [Open WebUI](openwebui.md) — AI platform chat interface.
 - [PostgreSQL](postgresql.md) — primary database.
-- [Stalwart Mail Server](../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md) — SMTP / IMAP / JMAP and web admin (archived; OCI blocks port 25).
+- [Stalwart Mail Server](../../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md) — SMTP / IMAP / JMAP and web admin (archived; OCI blocks port 25).
 - [Traefik](traefik.md) — edge router and TLS termination.
 - [VictoriaLogs](victorialogs.md) — log aggregation.
 - [VictoriaMetrics](victoriametrics.md) — time-series metrics store.
