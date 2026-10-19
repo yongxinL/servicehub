@@ -593,7 +593,7 @@ groups:
         condition: B
         data:
           - refId: A
-            relativeTimeRange: {from: 0, to: 0}
+            relativeTimeRange: {from: 300, to: 0}
             datasourceUid: victoriametrics
             model:
               datasource: {type: prometheus, uid: victoriametrics}
