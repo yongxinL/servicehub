@@ -42,10 +42,19 @@ services:
     obsvcealloy:
         build:
             context: ../shared/grafana/alloy/
+        entrypoint: /bin/sh
         command:
-            - run
-            - --server.http.listen-addr=0.0.0.0:9080
-            - /etc/alloy/config.alloy
+            - -ec
+            - |
+                if [ "$${POSTGRES_EXPORTER_ENABLED:-false}" = "true" ]; then
+                    : "$${POSTGRES_EXPORTER_HOST:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_HOST}"
+                    : "$${POSTGRES_EXPORTER_PORT:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_PORT}"
+                    : "$${POSTGRES_EXPORTER_DATABASE:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_DATABASE}"
+                    : "$${POSTGRES_EXPORTER_USER:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_USER}"
+                    : "$${POSTGRES_EXPORTER_PASSWORD:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_PASSWORD}"
+                    exec /bin/alloy run --server.http.listen-addr=0.0.0.0:9080 /etc/alloy
+                fi
+                exec /bin/alloy run --server.http.listen-addr=0.0.0.0:9080 /etc/alloy/config.alloy
         environment:
             - ENVIRONMENT=${ENVIRONMENT:-unknown}
             - DOMAIN_NAME=${DOMAIN_NAME}
@@ -54,6 +63,7 @@ services:
             - SOURCECODE_DOMAIN=${SOURCECODE_DOMAIN}
             - CLOUD_DOMAIN=${CLOUD_DOMAIN}
             - OBSERVABILITY_DOMAIN=${OBSERVABILITY_DOMAIN}
+            - POSTGRES_EXPORTER_ENABLED=${POSTGRES_EXPORTER_ENABLED:-false}
             - POSTGRES_EXPORTER_HOST=${POSTGRES_EXPORTER_HOST}
             - POSTGRES_EXPORTER_PORT=${POSTGRES_EXPORTER_PORT}
             - POSTGRES_EXPORTER_DATABASE=${POSTGRES_EXPORTER_DATABASE}

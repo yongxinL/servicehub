@@ -323,37 +323,6 @@ prometheus.scrape "ocis_proxy" {
 }
 
 // =============================================
-// POSTGRESQL METRICS
-// Credentials arrive through runtime environment only. Set
-// POSTGRES_EXPORTER_DATABASE to an approved monitoring entrypoint.
-// =============================================
-prometheus.exporter.postgres "primary" {
-    data_source_names = [
-        "postgresql://" + sys.env("POSTGRES_EXPORTER_USER") + ":" + sys.env("POSTGRES_EXPORTER_PASSWORD") + "@" + sys.env("POSTGRES_EXPORTER_HOST") + ":" + sys.env("POSTGRES_EXPORTER_PORT") + "/" + sys.env("POSTGRES_EXPORTER_DATABASE") + "?sslmode=disable",
-    ]
-    enabled_collectors = [
-        "database",
-        "locks",
-        "replication_slot",
-        "replication",
-        "roles",
-        "stat_bgwriter",
-        "stat_database",
-        "stat_progress_vacuum",
-        "stat_user_tables",
-        "statio_user_tables",
-        "wal",
-    ]
-}
-
-prometheus.scrape "postgres" {
-    targets         = prometheus.exporter.postgres.primary.targets
-    forward_to      = [prometheus.remote_write.vm.receiver]
-    scrape_interval = "30s"
-    scrape_timeout  = "15s"
-}
-
-// =============================================
 // SCRAPE — Alloy self-metrics
 // Covers pipeline, remote-write, scrape, and component health.
 // =============================================

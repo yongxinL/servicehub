@@ -63,7 +63,7 @@ GRANT pg_monitor TO svc_metrics;
 ALTER ROLE svc_metrics SET default_transaction_read_only = on;
 ```
 
-`compose/obsvce.yml` passes `POSTGRES_EXPORTER_HOST`, `POSTGRES_EXPORTER_PORT`, `POSTGRES_EXPORTER_DATABASE`, `POSTGRES_EXPORTER_USER`, and `POSTGRES_EXPORTER_PASSWORD` from runtime environment values into Alloy's embedded exporter. If the password contains URL-reserved characters, percent-encode it in the DSN at deployment time. This configuration is `Implemented in configuration`; runtime verification pending.
+PostgreSQL telemetry is `Implemented in configuration`; runtime verification pending. Set `POSTGRES_EXPORTER_ENABLED=true` only when all runtime prerequisites are present: a least-privilege PostgreSQL monitoring role, a runtime secret supplied outside Git, and network access from Alloy. `compose/obsvce.yml` passes `POSTGRES_EXPORTER_HOST`, `POSTGRES_EXPORTER_PORT`, `POSTGRES_EXPORTER_DATABASE`, `POSTGRES_EXPORTER_USER`, and `POSTGRES_EXPORTER_PASSWORD` from runtime environment values into Alloy's embedded exporter. If the password contains URL-reserved characters, percent-encode it in the DSN at deployment time. Phase 5 connectivity and metric validation remain pending.
 
 ## Connecting from another container
 
