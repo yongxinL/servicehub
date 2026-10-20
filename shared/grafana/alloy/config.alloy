@@ -724,7 +724,7 @@ loki.process "geoip_enrichment" {
 // =============================================
 loki.process "security_normalization" {
     stage.match {
-        selector = `{container_name=~"infraauth|infraauthwrk"}`
+        selector = `{container_name=~"^servicehub-(infraauth|infraauthwrk)-\\d+$"}`
 
         stage.static_labels {
             values = {
@@ -750,7 +750,7 @@ loki.process "security_normalization" {
     }
 
     stage.match {
-        selector = `{container_name="devopsforgejo"}`
+        selector = `{container_name=~"^servicehub-devopsforgejo-\\d+$"}`
 
         stage.static_labels {
             values = {
@@ -762,7 +762,7 @@ loki.process "security_normalization" {
     }
 
     stage.match {
-        selector = `{container_name="devopsrunner"}`
+        selector = `{container_name=~"^servicehub-devopsrunner-\\d+$"}`
 
         stage.static_labels {
             values = {
@@ -773,7 +773,7 @@ loki.process "security_normalization" {
     }
 
     stage.match {
-        selector = `{container_name="webappocis"}`
+        selector = `{container_name=~"^servicehub-webappocis-\\d+$"}`
 
         stage.static_labels {
             values = {
@@ -785,7 +785,7 @@ loki.process "security_normalization" {
     }
 
     stage.match {
-        selector = `{container_name="routetraefik"}`
+        selector = `{container_name=~"^servicehub-routetraefik-\\d+$"}`
 
         stage.static_labels {
             values = {
@@ -797,7 +797,7 @@ loki.process "security_normalization" {
     }
 
     stage.match {
-        selector = `{container_name="webappconf"}`
+        selector = `{container_name=~"^servicehub-webappconf-\\d+$"}`
 
         stage.static_labels {
             values = {
@@ -809,7 +809,7 @@ loki.process "security_normalization" {
     }
 
     stage.match {
-        selector = `{container_name="obsvcegrafana"}`
+        selector = `{container_name=~"^servicehub-obsvcegrafana-\\d+$"}`
 
         stage.static_labels {
             values = {
@@ -821,7 +821,7 @@ loki.process "security_normalization" {
     }
 
     stage.match {
-        selector = `{container_name="obsvcevm"}`
+        selector = `{container_name=~"^servicehub-obsvcevm-\\d+$"}`
 
         stage.static_labels {
             values = {
@@ -833,7 +833,7 @@ loki.process "security_normalization" {
     }
 
     stage.match {
-        selector = `{container_name="obsvcevlogs"}`
+        selector = `{container_name=~"^servicehub-obsvcevlogs-\\d+$"}`
 
         stage.static_labels {
             values = {
