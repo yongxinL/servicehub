@@ -1,13 +1,4 @@
 // =============================================
-// REMOTE WRITE — VictoriaMetrics
-// =============================================
-prometheus.remote_write "vm" {
-    endpoint {
-        url = "http://obsvcevm:8428/api/v1/write"
-    }
-}
-
-// =============================================
 // POSTGRESQL METRICS
 // Loaded only when POSTGRES_EXPORTER_ENABLED=true. Credentials arrive
 // through runtime environment only.
