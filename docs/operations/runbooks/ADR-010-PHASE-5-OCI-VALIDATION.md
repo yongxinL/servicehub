@@ -829,6 +829,19 @@ query_vm 'sum(rate(pg_stat_database_blks_hit[5m]))'
 query_vm 'sum(rate(pg_stat_database_blks_read[5m]))'
 ```
 
+### WAL collector runtime disposition (2026-10-20, OCI host)
+
+Runtime verification recorded during Phase 5 continuation:
+
+- `pg_catalog.pg_ls_waldir()` is owned by `dbservice`. Its ACL is `{dbservice=X/dbservice,pg_monitor=X/dbservice,svc_metrics=X/dbservice}`.
+- `svc_metrics` is already an explicit ACL entry via its `pg_monitor` membership, so **no additional grant was applied**. `has_function_privilege('svc_metrics','pg_catalog.pg_ls_waldir()','EXECUTE')` returns `true`.
+- Direct execution as `svc_metrics` succeeds: 3 WAL files, 50331648 aggregate bytes. No WAL filenames were recorded.
+- The `wal` collector reports `pg_scrape_collector_success{collector="wal"} == 1`, and no `permission denied for function pg_ls_waldir` error appears in Alloy logs.
+- WAL metrics confirmed present: `pg_wal_segments` and `pg_wal_size_bytes` (labels `instance="postgresql://infrapgsql:5432/postgres"`, `job="integrations/postgres"`).
+- `pg_wal_lsn_diff` does **not** exist in this deployment. The Database dashboard WAL panel (refId C, `rate(pg_wal_lsn_diff[5m])`) is therefore incompatible with the deployed exporter. The panel was left unchanged pending an owner-approved, evidence-based replacement.
+- `pg_stat_user_tables` and `pg_stat_progress_vacuum` return zero series while their collectors report success; this is expected while the monitored database has no qualifying activity.
+- Database size is exposed as `pg_database_size_bytes`, not `pg_stat_database_size`.
+
 Discover additional PostgreSQL exporter metric names before assuming a family exists:
 
 ```bash
@@ -915,9 +928,33 @@ docker compose ps -a | grep -Ei 'litellm|aiserv|stalwart|bulwark|mailsv' && { ec
 docker ps --format '{{.Names}}' | grep -Ei 'litellm|aiserv|stalwart|bulwark|mailsv' && { echo 'FAIL: excluded container present'; exit 1; } || true
 for token in litellm aiserv stalwart bulwark mailsv; do
   curl -fsSG 'http://127.0.0.1:8428/api/v1/query' --data-urlencode "query={job=~\".*${token}.*\"}" | jq -e '.data.result | length == 0'
-  curl -fsS 'http://127.0.0.1:9428/select/logsql/query' --data-urlencode "query={project=\"servicehub\"} |~ \"(?i)${token}\"" --data-urlencode 'limit=1' | jq -e 'length == 0'
+  curl -fsS 'http://127.0.0.1:9428/select/logsql/query' --data-urlencode "query={project=\"servicehub\",container_name!=\"servicehub-obsvcevlogs-1\"} | filter message:~\"(?i)${token}\"" --data-urlencode 'limit=1' | jq -e 'length == 0'
 done
 ```
+
+**Runtime correction recorded 2026-10-20.** The previous VictoriaLogs query
+`{project="servicehub"} |~ "(?i)${token}"` is invalid LogsQL and returns HTTP 400
+(`cannot parse 'filter' pipe: missing ':' in front of "~"`). It never executed.
+
+The approved correction named `_msg` as the search field, but `_msg` does not exist
+in runtime data: VictoriaLogs returns a synthetic `missing _msg field` placeholder, and
+`filter _msg:~"authenticated"` matches 0 records. The field that actually carries log
+text is `message` (`filter message:~"authenticated"` matches). The validated correction
+therefore uses `message`:
+
+```text
+{project="servicehub",container_name!="servicehub-obsvcevlogs-1"} | filter message:~"(?i)${token}"
+```
+
+Runtime verification of that form:
+
+- HTTP 200;
+- excludes the VictoriaLogs container's own validation messages via `container_name`;
+- still returns other ServiceHub containers (for example `servicehub-webappocis-1`);
+- returns zero matches for excluded-service tokens;
+- uses runtime field names (`container_name`, `message`).
+
+Keep this query on one line in the committed file if command or URL encoding requires it.
 
 In Grafana, verify no excluded service appears in active dashboards, variables, alerts, or notification text.
 

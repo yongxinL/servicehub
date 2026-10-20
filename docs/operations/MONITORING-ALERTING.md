@@ -56,7 +56,26 @@ Authentik server and worker metrics are scraped on internal port 9300; the stack
 
 ## Database and Deeper Application Telemetry
 
-Alloy's embedded PostgreSQL exporter connects through runtime-only `POSTGRES_EXPORTER_*` values. No credential is committed. The role creation instructions are in the PostgreSQL service guide. Telemetry covers availability, connections, transactions, locks, deadlocks, long-running transactions, database size, cache, temporary data, and WAL indicators. It is implemented in configuration; runtime verification pending.
+Alloy's embedded PostgreSQL exporter connects through runtime-only `POSTGRES_EXPORTER_*` values. No credential is committed. The role creation instructions are in the PostgreSQL service guide.
+
+PostgreSQL telemetry status, runtime verified on the OCI host:
+
+| Category | Status |
+|---|---|
+| Availability (`pg_up`) | Runtime verified |
+| Activity and connections (`pg_stat_database_numbackends`, `pg_stat_activity_count`) | Runtime verified |
+| Commits and rollbacks (`pg_stat_database_xact_commit`, `xact_rollback`) | Runtime verified |
+| Locks (locks collector) | Runtime verified |
+| Deadlocks (`pg_stat_database_deadlocks`) | Runtime verified |
+| Database size (`pg_database_size_bytes`) | Runtime verified |
+| Cache and block statistics (`pg_stat_database_blks_hit`, `blks_read`) | Runtime verified |
+| Temporary files and bytes (`pg_stat_database_temp_files`, `temp_bytes`) | Runtime verified |
+| Exporter health (`pg_up`, `pg_scrape_collector_success`) | Runtime verified |
+| WAL (`pg_wal_segments`, `pg_wal_size_bytes`) | Runtime verified |
+| User-table metrics (`pg_stat_user_tables`, `pg_statio_user_tables`) | Collector healthy; zero samples |
+| Vacuum progress (`pg_stat_progress_vacuum`) | Collector healthy; zero samples |
+
+A collector health metric of `1` confirms the collector ran, not that it produced samples. User-table and vacuum-progress collectors report success while currently returning no series, because the monitored database has no qualifying activity. The exporter does not emit `pg_wal_lsn_diff`; the WAL indicators available are `pg_wal_segments` and `pg_wal_size_bytes`.
 
 Confluence JMX monitoring is deferred pending an approved exporter version and binary supply decision. No exporter binary, checksum, or arbitrary release is committed. The integration point remains the `webappconf` container with an internal-only endpoint; Phase 5 must not deploy an unapproved JMX exporter. Forgejo server and runner logs are normalized as `service="forgejo"` with `component="server"` or `component="runner"`, and runner absence uses cAdvisor's last-seen metric. This is implemented in configuration; runtime verification pending.
 
