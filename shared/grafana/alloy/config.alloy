@@ -44,8 +44,9 @@ discovery.relabel "host" {
 // docker_only=true skips host-level cgroup (avoids duplication with host metrics)
 // =============================================
 prometheus.exporter.cadvisor "containers" {
-    docker_host = "unix:///var/run/docker.sock"
-    docker_only = true
+    docker_host     = "unix:///var/run/docker.sock"
+    docker_only     = true
+    containerd_host = "/host/root/run/containerd/containerd.sock"
 }
 
 discovery.relabel "containers" {
