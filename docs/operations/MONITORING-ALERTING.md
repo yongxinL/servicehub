@@ -77,6 +77,15 @@ PostgreSQL telemetry status, runtime verified on the OCI host:
 
 A collector health metric of `1` confirms the collector ran, not that it produced samples. User-table and vacuum-progress collectors report success while currently returning no series, because the monitored database has no qualifying activity. The exporter does not emit `pg_wal_lsn_diff`; the WAL indicators available are `pg_wal_segments` and `pg_wal_size_bytes`.
 
+**Phase 5 acceptance evidence (2026-10-20).**
+
+- PostgreSQL telemetry is runtime verified, and the WAL collector is runtime verified.
+- The WAL metrics available from the deployed exporter are `pg_wal_size_bytes` and `pg_wal_segments`. `pg_wal_lsn_diff` is not emitted and must not be queried.
+- The Database dashboard WAL panel now uses `pg_wal_size_bytes` (gauge, not wrapped in `rate()`); all 12 Database dashboard query targets return data.
+- The PostgreSQL alert `servicehub-postgresql-critical` is Normal. `noDataState: Alerting` is retained by owner decision, so an unexpected absence of `pg_up` is treated as a monitoring failure. The accepted tradeoff is that an intentional exporter disablement, an Alloy outage, an Alloy recreation exceeding the pending duration, or a PostgreSQL scrape failure may fire the alert.
+- Credentials are stored outside Git, in the server-side `.env` at mode 600 only. No password, hash, or DSN is committed to the repository, documentation, dashboards, or evidence files.
+- The monitoring-role password was rotated after transcript exposure of the previous value. The rotation preserved all role attributes, `pg_monitor` membership, `CONNECT`, and the existing function ACLs. No secret value is recorded in this repository.
+
 Confluence JMX monitoring is deferred pending an approved exporter version and binary supply decision. No exporter binary, checksum, or arbitrary release is committed. The integration point remains the `webappconf` container with an internal-only endpoint; Phase 5 must not deploy an unapproved JMX exporter. Forgejo server and runner logs are normalized as `service="forgejo"` with `component="server"` or `component="runner"`, and runner absence uses cAdvisor's last-seen metric. This is implemented in configuration; runtime verification pending.
 
 ## Monitoring Objectives

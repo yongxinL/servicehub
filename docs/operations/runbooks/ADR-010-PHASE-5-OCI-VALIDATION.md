@@ -842,6 +842,56 @@ Runtime verification recorded during Phase 5 continuation:
 - `pg_stat_user_tables` and `pg_stat_progress_vacuum` return zero series while their collectors report success; this is expected while the monitored database has no qualifying activity.
 - Database size is exposed as `pg_database_size_bytes`, not `pg_stat_database_size`.
 
+### Phase 5 final acceptance evidence (2026-10-20)
+
+WAL function privilege:
+
+- No WAL function grant was required. The pre-existing function ACL already allowed
+  `svc_metrics` to execute `pg_catalog.pg_ls_waldir()`.
+- The pre-existing privilege was verified with
+  `has_function_privilege('svc_metrics','pg_catalog.pg_ls_waldir()','EXECUTE')`.
+- WAL function execution succeeded under `svc_metrics`: 3 WAL files, 50331648 aggregate
+  bytes. No WAL filenames were recorded.
+- No WAL privilege rollback is required, because no privilege change was made. The
+  documented `REVOKE EXECUTE` is an intentional decommissioning action for a future
+  collector disablement, not a Phase 5 rollback.
+
+Database dashboard:
+
+- The WAL panel query was corrected using runtime evidence, from
+  `rate(pg_wal_lsn_diff[5m])` to `pg_wal_size_bytes`, with panel title
+  `Current WAL Size` and unit `bytes`.
+- Final status: all 12 Database dashboard query targets return data, with no query
+  errors. Dashboard UID `servicehub-database` is unchanged.
+
+Sensitive credential:
+
+- The `svc_metrics` monitoring password was rotated after exposure in retained
+  transcript output. No secret value is recorded in this repository.
+- Rotation preserved LOGIN, NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOINHERIT,
+  NOREPLICATION, NOBYPASSRLS, connection limit 5, `pg_monitor` membership, `CONNECT`,
+  and the existing function ACL.
+- After recreating only `obsvcealloy`: `pg_up == 1`, `pg_exporter_last_scrape_error == 0`,
+  all 11 collectors report success, and no authentication, timeout, remote-write, or
+  credential-leakage log entries were recorded.
+
+Final runtime status:
+
+- cAdvisor: `containerd_host` configured through the existing read-only mount;
+  per-container series present with real container `name` labels.
+- Alerts: `servicehub-postgresql-critical` Normal with `noDataState: Alerting` retained.
+  `servicehub-fs-readonly` no longer fires because the intentional `/cdrom` mount is
+  excluded.
+
+Remaining deferred items:
+
+- `servicehub-runner-warning` fires because `devopsrunner` is an in-scope service in
+  `compose/devops.yml` with no deployed container. It is classified as an in-scope
+  required service awaiting deployment, not an intentionally disabled optional runner.
+- OCI APM, Confluence JMX, notification delivery pending an approved contact point,
+  external whole-host watchdog, final retention tuning, and final threshold tuning
+  remain deferred per ADR-010.
+
 Discover additional PostgreSQL exporter metric names before assuming a family exists:
 
 ```bash

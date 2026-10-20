@@ -175,7 +175,9 @@ GRANT EXECUTE ON FUNCTION pg_catalog.pg_ls_waldir() TO svc_metrics;
 
 This grant permits reading WAL directory metadata only. It does not grant filesystem writes, table writes, `pg_read_server_files`, or replication. It requires no PostgreSQL restart.
 
-Review this access if the `wal` collector is disabled later. It can be revoked independently, without removing the monitoring role:
+**No WAL privilege rollback is required, because no privilege change was made in Phase 5.** The function ACL already allowed `svc_metrics` to execute `pg_catalog.pg_ls_waldir()` before Phase 5 began.
+
+The statement below is an **intentional decommissioning action**, to be run only if the `wal` collector is disabled in the future. It is not a Phase 5 rollback and must not be run to reverse Phase 5 work, because it would remove a pre-existing privilege:
 
 ```sql
 REVOKE EXECUTE ON FUNCTION pg_catalog.pg_ls_waldir() FROM svc_metrics;
@@ -269,7 +271,7 @@ REVOKE EXECUTE ON FUNCTION pg_catalog.pg_ls_waldir() FROM svc_metrics;
 DROP ROLE svc_metrics;
 ```
 
-Run the `REVOKE EXECUTE` statement only if the WAL function grant was applied. Do not drop application roles, databases, owners, or data as part of monitoring-role removal.
+The `REVOKE EXECUTE` statement above is part of decommissioning the `wal` collector, not a Phase 5 rollback; no WAL privilege was granted during Phase 5. Do not drop application roles, databases, owners, or data as part of monitoring-role removal.
 
 ### Security considerations
 
@@ -285,7 +287,7 @@ Run the `REVOKE EXECUTE` statement only if the WAL function grant was applied. D
 To roll back monitoring configuration:
 
 1. Restore the previous server-side `POSTGRES_EXPORTER_*` values without printing them.
-2. Restore the previous `svc_metrics` password if it was rotated.
+2. Restore the previous `svc_metrics` password if it was rotated. No WAL function privilege rollback is required, because Phase 5 applied no privilege change.
 3. Recreate only `obsvcealloy`.
 4. Verify `pg_up`, collector health, remote-write status, dashboard data, and alert state.
 5. If the role itself must be rolled back, restore only the documented monitoring grants.
