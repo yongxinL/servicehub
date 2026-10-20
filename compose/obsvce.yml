@@ -79,7 +79,7 @@ services:
             interval: 30s
             timeout: 10s
             retries: 5
-        hostname: ${DOMAIN_NAME}
+        hostname: obsvcealloy
         image: obsvcealloy:latest
         networks:
             - subnet
