@@ -109,6 +109,8 @@ services:
             - OCIS_ADMIN_USER_ID=admin
             - PROXY_ENABLE_BASIC_AUTH=false
             - IDM_CREATE_DEMO_USERS=false
+            # Expose proxy metrics to Alloy on the internal Docker network only.
+            - PROXY_DEBUG_ADDR=0.0.0.0:9205
             # Set true only when Authentik uses a self-signed certificate.
             - OCIS_INSECURE=${CLOUD_INSECURE}
         healthcheck:
