@@ -15,9 +15,24 @@
 | Internal port | 3000 |
 | Database | SQLite (embedded, persisted to `${APPS_DATA}/obsvce/grafana`) |
 | Data sources | VictoriaMetrics (`obsvcevm:8428`), VictoriaLogs (`obsvcevlogs:9428`) |
-| Auth | Authentik forward-auth (`authentik-forwardauth@file`) |
+| Auth | Traefik IP allowlist (`dashboard-whitelist@file`) + Grafana native authentication |
 | Plugin | `victoriametrics-logs-datasource` |
 | Depends on | `routetraefik`, `obsvcegrafanainit`, `obsvcealloy` |
+
+## Access control
+
+Grafana is an administrative interface. Public access is protected by the
+Traefik `dashboard-whitelist` IP allowlist middleware (shared with the Traefik
+dashboard). Grafana's own native authentication (username/password) is retained
+behind the allowlist. Authentik forward-auth is **not** used for Grafana by
+owner decision.
+
+External monitoring verifies TLS and accepts either `200` (allowlisted source)
+or `403` (denied source) as a healthy restricted-endpoint response. Certificate
+expiry is tracked via `probe_ssl_earliest_cert_expiry`.
+
+External access depends on the approved IP ranges in the Traefik dashboard
+allowlist middleware. The Grafana container port is not published directly.
 
 ## Configuration
 
@@ -93,5 +108,4 @@ docker compose up obsvcegrafanainit
 - [VictoriaMetrics](victoriametrics.md) — metrics data source
 - [VictoriaLogs](victorialogs.md) — logs data source
 - [Grafana Alloy](../../../shared/grafana/alloy/README.md) — collector
-- [Authentik](authentik.md) — forward-auth
 - [Root README — Observability](../../../README.md#observability-stack-obsvce)
