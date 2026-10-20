@@ -31,3 +31,16 @@ modules:
             fail_if_not_ssl: true
             tls_config:
                 insecure_skip_verify: false
+    https_admin_restricted:
+        prober: http
+        timeout: 10s
+        http:
+            method: GET
+            preferred_ip_protocol: ip4
+            valid_status_codes:
+                - 200
+                - 403
+            follow_redirects: false
+            fail_if_not_ssl: true
+            tls_config:
+                insecure_skip_verify: false

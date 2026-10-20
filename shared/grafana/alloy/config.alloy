@@ -235,7 +235,7 @@ prometheus.exporter.blackbox "public" {
     target {
         name    = "grafana-public"
         address = "https://" + sys.env("OBSERVABILITY_DOMAIN")
-        module  = "https_public_2xx"
+        module  = "https_admin_restricted"
     }
 }
 
