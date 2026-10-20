@@ -75,7 +75,7 @@ discovery.relabel "containers" {
 // =============================================
 prometheus.scrape "host" {
     targets         = discovery.relabel.host.output
-    forward_to      = [prometheus.remote_write.vm.receiver]
+    forward_to      = [prometheus.relabel.cadvisor_logical_service.receiver]
     scrape_interval = "30s"
     scrape_timeout  = "15s"
 }
@@ -85,7 +85,7 @@ prometheus.scrape "host" {
 // =============================================
 prometheus.scrape "containers" {
     targets         = discovery.relabel.containers.output
-    forward_to      = [prometheus.remote_write.vm.receiver]
+    forward_to      = [prometheus.relabel.cadvisor_logical_service.receiver]
     scrape_interval = "30s"
     scrape_timeout  = "15s"
 }
@@ -99,7 +99,7 @@ prometheus.scrape "traefik" {
         job         = "traefik",
         instance    = constants.hostname,
     }]
-    forward_to      = [prometheus.remote_write.vm.receiver]
+    forward_to      = [prometheus.relabel.traefik_logical_service.receiver]
     scrape_interval = "30s"
     scrape_timeout  = "15s"
 }
@@ -110,6 +110,94 @@ prometheus.scrape "traefik" {
 prometheus.remote_write "vm" {
     endpoint {
         url = "http://obsvcevm:8428/api/v1/write"
+    }
+}
+
+prometheus.relabel "cadvisor_logical_service" {
+    forward_to = [prometheus.remote_write.vm.receiver]
+
+    rule {
+        source_labels = ["container_label_com_docker_compose_service"]
+        regex         = "infraauth|infraauthwrk"
+        target_label  = "logical_service"
+        replacement   = "authentik"
+    }
+    rule {
+        source_labels = ["container_label_com_docker_compose_service"]
+        regex         = "webappconf"
+        target_label  = "logical_service"
+        replacement   = "confluence"
+    }
+    rule {
+        source_labels = ["container_label_com_docker_compose_service"]
+        regex         = "devopsforgejo"
+        target_label  = "logical_service"
+        replacement   = "forgejo"
+    }
+    rule {
+        source_labels = ["container_label_com_docker_compose_service"]
+        regex         = "webappocis"
+        target_label  = "logical_service"
+        replacement   = "ocis"
+    }
+    rule {
+        source_labels = ["container_label_com_docker_compose_service"]
+        regex         = "routetraefik"
+        target_label  = "logical_service"
+        replacement   = "traefik"
+    }
+    rule {
+        source_labels = ["container_label_com_docker_compose_service"]
+        regex         = "obsvcegrafana"
+        target_label  = "logical_service"
+        replacement   = "grafana"
+    }
+    rule {
+        source_labels = ["container_label_com_docker_compose_service"]
+        regex         = "obsvcevm"
+        target_label  = "logical_service"
+        replacement   = "victoriametrics"
+    }
+    rule {
+        source_labels = ["container_label_com_docker_compose_service"]
+        regex         = "obsvcevlogs"
+        target_label  = "logical_service"
+        replacement   = "victorialogs"
+    }
+}
+
+prometheus.relabel "traefik_logical_service" {
+    forward_to = [prometheus.remote_write.vm.receiver]
+
+    rule {
+        source_labels = ["service"]
+        regex         = "infraauth@docker|infraauthwrk@docker"
+        target_label  = "logical_service"
+        replacement   = "authentik"
+    }
+    rule {
+        source_labels = ["service"]
+        regex         = "webappconf@docker"
+        target_label  = "logical_service"
+        replacement   = "confluence"
+    }
+    rule {
+        source_labels = ["service"]
+        regex         = "devopsforgejo@docker"
+        target_label  = "logical_service"
+        replacement   = "forgejo"
+    }
+    rule {
+        source_labels = ["service"]
+        regex         = "webappocis@docker"
+        target_label  = "logical_service"
+        replacement   = "ocis"
+    }
+    rule {
+        source_labels = ["service"]
+        regex         = "obsvcegrafana@docker"
+        target_label  = "logical_service"
+        replacement   = "grafana"
     }
 }
 
@@ -309,6 +397,12 @@ prometheus.relabel "probe_service_labels" {
         regex         = "integrations/blackbox/.+-public"
         target_label  = "target_class"
         replacement   = "external"
+    }
+    rule {
+        source_labels = ["service"]
+        regex         = "authentik|confluence|forgejo|grafana|ocis|traefik|victoriametrics|victorialogs"
+        target_label  = "logical_service"
+        replacement   = "$1"
     }
 }
 
@@ -633,8 +727,9 @@ loki.process "security_normalization" {
 
         stage.static_labels {
             values = {
-                service   = "authentik",
-                component = "identity",
+                service         = "authentik",
+                logical_service = "authentik",
+                component       = "identity",
             }
         }
 
@@ -658,8 +753,9 @@ loki.process "security_normalization" {
 
         stage.static_labels {
             values = {
-                service   = "forgejo",
-                component = "server",
+                service         = "forgejo",
+                logical_service = "forgejo",
+                component       = "server",
             }
         }
     }
@@ -680,8 +776,9 @@ loki.process "security_normalization" {
 
         stage.static_labels {
             values = {
-                service   = "ocis",
-                component = "proxy",
+                service         = "ocis",
+                logical_service = "ocis",
+                component       = "proxy",
             }
         }
     }
@@ -691,8 +788,57 @@ loki.process "security_normalization" {
 
         stage.static_labels {
             values = {
-                service   = "traefik",
-                component = "edge",
+                service         = "traefik",
+                logical_service = "traefik",
+                component       = "edge",
+            }
+        }
+    }
+
+    stage.match {
+        selector = `{container_name="webappconf"}`
+
+        stage.static_labels {
+            values = {
+                service         = "confluence",
+                logical_service = "confluence",
+                component       = "workspace",
+            }
+        }
+    }
+
+    stage.match {
+        selector = `{container_name="obsvcegrafana"}`
+
+        stage.static_labels {
+            values = {
+                service         = "grafana",
+                logical_service = "grafana",
+                component       = "dashboards",
+            }
+        }
+    }
+
+    stage.match {
+        selector = `{container_name="obsvcevm"}`
+
+        stage.static_labels {
+            values = {
+                service         = "victoriametrics",
+                logical_service = "victoriametrics",
+                component       = "metrics",
+            }
+        }
+    }
+
+    stage.match {
+        selector = `{container_name="obsvcevlogs"}`
+
+        stage.static_labels {
+            values = {
+                service         = "victorialogs",
+                logical_service = "victorialogs",
+                component       = "logs",
             }
         }
     }
