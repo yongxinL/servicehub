@@ -286,13 +286,6 @@
         "uid": "victorialogs"
       },
       "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {}
-        },
-        "overrides": []
-      },
       "gridPos": {
         "h": 8,
         "w": 6,
@@ -545,13 +538,6 @@
         "uid": "victorialogs"
       },
       "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {}
-        },
-        "overrides": []
-      },
       "gridPos": {
         "h": 8,
         "w": 6,
