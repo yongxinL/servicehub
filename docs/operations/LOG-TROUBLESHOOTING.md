@@ -55,19 +55,19 @@ All logs:
 Logs for one container:
 
 ```logsql
-{project="servicehub"} | container_name="routetraefik"
+{project="servicehub",container_name="servicehub-routetraefik-1"}
 ```
 
 Errors and warnings:
 
 ```logsql
-{project="servicehub"} | level~="error|warn"
+{project="servicehub"} | filter level:~"error|warn"
 ```
 
 Known incident window (replace RFC 3339 values before use):
 
 ```logsql
-{project="servicehub"} | time >= 2026-10-18T00:00:00Z | time <= 2026-10-18T01:00:00Z
+{project="servicehub"} _time:[2026-10-18T00:00:00Z, 2026-10-18T01:00:00Z]
 ```
 
 Status: Runtime verification pending.
@@ -83,7 +83,7 @@ Host security journal:
 Kernel, storage, and Docker stability events:
 
 ```logsql
-{project="servicehub",source="journal"} | component~="system|runtime"
+{project="servicehub",source="journal"} | filter component:~"system|runtime"
 ```
 
 Systemd failures:
@@ -105,53 +105,53 @@ Status: Runtime verification pending.
 Traefik logs:
 
 ```logsql
-{project="servicehub"} | container_name="routetraefik"
+{project="servicehub",container_name="servicehub-routetraefik-1"}
 ```
 
 HTTP 5xx responses:
 
 ```logsql
-{project="servicehub"} | container_name="routetraefik" | DownstreamStatus~="^5..$"
+{project="servicehub",container_name="servicehub-routetraefik-1"} | filter DownstreamStatus:~"^5..$"
 ```
 
 Authentication, authorization, missing-resource, and rate-limit responses:
 
 ```logsql
-{project="servicehub"} | container_name="routetraefik" | DownstreamStatus~="^(401|403|404|429)$"
+{project="servicehub",container_name="servicehub-routetraefik-1"} | filter DownstreamStatus:="^(401|403|404|429)$"
 ```
 
 Slow requests:
 
 ```logsql
-{project="servicehub"} | container_name="routetraefik" | Duration > 2000000000
+{project="servicehub",container_name="servicehub-routetraefik-1"} | filter Duration:>2000000000
 ```
 
 Activity from a source IP:
 
 ```logsql
-{project="servicehub"} | container_name="routetraefik" | client_ip="203.0.113.10"
+{project="servicehub",container_name="servicehub-routetraefik-1"} | filter client_ip:=203.0.113.10
 ```
 
 Activity from a country:
 
 ```logsql
-{project="servicehub"} | container_name="routetraefik" | geoip_country_code="US"
+{project="servicehub",container_name="servicehub-routetraefik-1"} | filter geoip_country_code:=US
 ```
 
-Status: Runtime verification pending. Traefik JSON field names and duration units must be verified in Phase 5.
+Status: Runtime verified in DEV on 2026-10-20. All LogsQL queries in this guide were executed against the live VictoriaLogs endpoint and return HTTP 200. Traefik field names (`ClientHost`, `ClientAddr`, `DownstreamStatus`, `Duration`, `RequestHost`, `geoip_country_code`) and the nanosecond `Duration` unit were confirmed from observed records. Queries use `| filter field:="value"` or `| filter field:~"regex"`; alternation regexes require the `=(...)` form, and log text is matched in the `message` field because `_msg` does not exist in this deployment.
 
 ### Authentik
 
 Authentik authentication and provider failures:
 
 ```logsql
-{project="servicehub",service="authentik"} | level~="error|warn"
+{project="servicehub",service="authentik"} | filter level:~"error|warn"
 ```
 
 OIDC and database-connectivity investigation:
 
 ```logsql
-{project="servicehub",service="authentik"} | msg~="(?i)oidc|provider|database|postgres"
+{project="servicehub",service="authentik"} | filter message:~"(?i)oidc|provider|database|postgres"
 ```
 
 Status: Runtime verification pending.
@@ -161,13 +161,13 @@ Status: Runtime verification pending.
 Confluence startup and runtime errors:
 
 ```logsql
-{project="servicehub"} | container_name="webappconf" | level~="error|warn"
+{project="servicehub",container_name="servicehub-webappconf-1"} | filter level:~"error|warn"
 ```
 
 JVM, database, and timeout events:
 
 ```logsql
-{project="servicehub"} | container_name="webappconf" | msg~="(?i)jvm|heap|garbage|database|timeout|connection"
+{project="servicehub",container_name="servicehub-webappconf-1"} | filter message:~"(?i)jvm|heap|garbage|database|timeout|connection"
 ```
 
 Status: Runtime verification pending.
@@ -177,19 +177,19 @@ Status: Runtime verification pending.
 Forgejo server errors:
 
 ```logsql
-{project="servicehub",service="forgejo",component="server"} | level~="error|warn"
+{project="servicehub",service="forgejo",component="server"} | filter level:~"error|warn"
 ```
 
 Forgejo Actions runner errors:
 
 ```logsql
-{project="servicehub",service="forgejo",component="runner"} | level~="error|warn"
+{project="servicehub",service="forgejo",component="runner"} | filter level:~"error|warn"
 ```
 
 Git, webhook, SSH, database, and job-infrastructure errors:
 
 ```logsql
-{project="servicehub",service="forgejo"} | msg~="(?i)git|webhook|ssh|database|clone|checkout|docker|resource"
+{project="servicehub",service="forgejo"} | filter message:~"(?i)git|webhook|ssh|database|clone|checkout|docker|resource"
 ```
 
 Status: Runtime verification pending.
@@ -199,13 +199,13 @@ Status: Runtime verification pending.
 Upload, download, WebDAV, authorization, and storage errors:
 
 ```logsql
-{project="servicehub",service="ocis",component="proxy"} | msg~="(?i)upload|download|webdav|authorize|authoriz|storage|quota"
+{project="servicehub",service="ocis",component="proxy"} | filter message:~"(?i)upload|download|webdav|authorize|authoriz|storage|quota"
 ```
 
 All oCIS errors and warnings:
 
 ```logsql
-{project="servicehub",service="ocis",component="proxy"} | level~="error|warn"
+{project="servicehub",service="ocis",component="proxy"} | filter level:~"error|warn"
 ```
 
 Status: Runtime verification pending.
@@ -215,13 +215,13 @@ Status: Runtime verification pending.
 PostgreSQL container errors and connection failures:
 
 ```logsql
-{project="servicehub"} | container_name="infrapgsql" | level~="error|fatal|panic|warn"
+{project="servicehub",container_name="servicehub-infrapgsql-1"} | filter level:~"error|fatal|panic|warn"
 ```
 
 Database lock, timeout, and long-transaction evidence:
 
 ```logsql
-{project="servicehub"} | container_name="infrapgsql" | msg~="(?i)lock|timeout|connection|deadlock|transaction"
+{project="servicehub",container_name="servicehub-infrapgsql-1"} | filter message:~"(?i)lock|timeout|connection|deadlock|transaction"
 ```
 
 Status: Runtime verification pending.
@@ -237,7 +237,7 @@ Alloy, VictoriaMetrics, VictoriaLogs, and Grafana logs:
 Pipeline failures:
 
 ```logsql
-{project="servicehub",container_name=~"obsvcealloy|obsvcevm|obsvcevlogs|obsvcegrafana"} | level~="error|warn"
+{project="servicehub",container_name=~"servicehub-obsvce(alloy|vm|vlogs|grafana)-1"} | filter level:~"error|warn"
 ```
 
 Remote-write and scrape failures visible in Alloy metrics are documented in [Monitoring and Alerting](MONITORING-ALERTING.md).

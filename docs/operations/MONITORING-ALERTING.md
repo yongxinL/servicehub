@@ -77,7 +77,99 @@ PostgreSQL telemetry status, runtime verified on the OCI host:
 
 A collector health metric of `1` confirms the collector ran, not that it produced samples. User-table and vacuum-progress collectors report success while currently returning no series, because the monitored database has no qualifying activity. The exporter does not emit `pg_wal_lsn_diff`; the WAL indicators available are `pg_wal_segments` and `pg_wal_size_bytes`.
 
-**Phase 5 acceptance evidence (2026-10-20).**
+## DEV follow-up status (2026-10-20)
+
+| Area | Status | Notes |
+|---|---|---|
+| Forgejo Actions Runner | Runtime verified | Registered as `devopsrunner`, label `ssh-deploy:host`, matching `runs-on: ssh-deploy` |
+| Runner alert recovery | Runtime verified | `servicehub-runner-warning` evaluates Normal |
+| Confluence JMX | Blocked | No approved exporter artifact or checksum exists; owner decision required |
+| Notification delivery | Blocked | No approved contact point or credential exists |
+| External watchdog | Blocked | No approved external provider or endpoint exists |
+| Retention | Deferred | Both stores are unlimited; DEV sizing needs an owner observation window |
+| Alert thresholds | Validated and retained | All thresholds have headroom on observed DEV data; none changed |
+| OCI APM | Deferred (disabled) | Scaffolding is inert; logs disabled by policy |
+
+**Forgejo Actions Runner.** The runner is deployed and registered. Registration was
+confirmed from the runner's own record: name `devopsrunner`, internal address
+`http://devopsforgejo:3000`, labels `["ssh-deploy:host"]`, and a stored token. The
+runner declared itself successfully and is polling the `nexora/servicehub` repository.
+Both repository workflows (`61-deploy.yml`, `71-backup.yml`) declare `runs-on: ssh-deploy`,
+which matches the advertised label, so job pickup is compatible.
+
+The runner alert previously fired because its selector matched the short service name
+`devopsrunner` while cAdvisor reports the Compose container name
+`servicehub-devopsrunner-1`, so the query returned no series and the rule fired on
+`noDataState`. The selector now uses the stable Compose service label
+`container_label_com_docker_compose_service="devopsrunner"`, which is correct across
+container renames. The alert evaluates Normal.
+
+**Runner security boundaries (reviewed, unchanged).** The runner is not privileged, has
+no added capabilities, no Docker socket mount, no host PID or IPC namespace, no host
+network namespace, and no published ports. It runs as root inside its own container with
+four mounts, all scoped to Forgejo data: read-only runner config, the runner data
+directory, the host-mode workspace, and the `/data` volume. Capacity is 1, jobs run in
+host mode rather than in job containers, and cache is enabled. Because the runner shares
+the `subnet` network it can reach PostgreSQL, Grafana, and VictoriaMetrics by service
+name; this is inherent to host-mode execution and is recorded rather than changed. No
+privilege, mount, network, or scope was widened.
+
+**Runner workflow execution test — Blocked.** A controlled job could not be dispatched
+because no Forgejo API or administrative credential is available in this environment:
+unauthenticated API access returns 403 and `.env` holds no Forgejo admin token. Both
+existing workflows deploy to remote hosts over SSH and are not DEV-safe to dispatch, so
+neither was run. Job pickup, checkout, action retrieval, log upload, and cleanup therefore
+remain **Runtime verification pending**. This is a credential dependency, not a runner
+defect; the runner is registered and polling.
+
+**Log ingestion (Runtime verified).** All twelve running containers deliver logs to
+VictoriaLogs. Highest volume is Traefik access logs, then Grafana and Authentik; the
+runner has produced only startup lines, consistent with no job having run.
+
+**Alert thresholds (validated and retained).** Every threshold was compared with observed
+DEV values and none were changed, because no threshold is firing and all have headroom:
+filesystem usage peaked at 67.9% against an 85% warning and 95% critical; inode usage
+9.5% against 95% critical; CPU, memory and I/O pressure at 0.042, 0.0007 and 0.0116
+against a 0.2 threshold; Traefik p95 latency 0.675 s against 2 s; telemetry ingestion
+failures 0; PostgreSQL backends 23 against a pool maximum of 125; TLS certificates 78 to
+87 days remaining against a 14-day threshold. Thresholds were not changed to silence
+anything, and a ten-hour DEV window is too short to justify retuning.
+
+**Retention (Deferred).** Neither VictoriaMetrics nor VictoriaLogs has a retention period
+configured, so both are unlimited and constrained only by disk. Observed after roughly
+ten hours: VictoriaMetrics 12 MB with 13,519 active series and about 217 samples/s
+ingestion; VictoriaLogs 30 MB. Grafana storage is 326 MB. Host disk is 67% used with
+25 GB available. Because the observation window is a single DEV day, production retention
+must not be inferred from it. Setting retention would begin deleting existing telemetry
+and therefore needs explicit owner approval.
+
+**Alert selector defects corrected.** The Traffic Edge "TLS state and certificate expiry"
+panel queried `component="public-probe"`, which exists in no series, so both targets were
+empty. It now uses the observed external HTTPS selector and returns six series, matching
+the correction already applied to `servicehub-tls-expiry`.
+
+**Known dashboard data gap.** On the Applications dashboard, the `$service` template
+variable is populated from `probe_success`, so it holds short names such as `traefik`.
+Several panels then query `container_*` and `traefik_service_requests_total` labels that
+use different forms (`servicehub-routetraefik-1` and `webappconf@docker`), so those panels
+stay empty. This is a pre-existing label-namespace inconsistency. It was not redesigned
+here because the approved DEV scope covers runner, Confluence JMX, notification delivery,
+watchdog, retention, thresholds, OCI APM scaffolding and evidence; correcting the
+dashboard label model is a separate change.
+
+**OCI APM (Deferred, disabled).** Scaffolding exists and is inert. While
+`OCI_APM_ENABLED=false` no exporter component is instantiated, because no OTLP or
+OpenTelemetry component exists in any Alloy configuration; no DNS lookup or connection to
+an OCI APM endpoint is attempted; Alloy starts normally; and the VictoriaMetrics and
+VictoriaLogs pipelines are unaffected. Enabling it without an endpoint or data key fails
+preflight naming only the missing variable, without printing values and without falling
+back to an anonymous endpoint. **OCI APM log export is disabled by policy**:
+`OCI_APM_LOGS_ENABLED=true` is rejected at preflight and must remain `false`. Endpoint and
+data key are supplied only through the server-side `.env`. Traces are the only intended
+future signal, and **no ServiceHub application currently emits OTLP traces**, so trace
+validation is additionally blocked on application instrumentation.
+
+## Phase 5 acceptance evidence (2026-10-20)
 
 - PostgreSQL telemetry is runtime verified, and the WAL collector is runtime verified.
 - The WAL metrics available from the deployed exporter are `pg_wal_size_bytes` and `pg_wal_segments`. `pg_wal_lsn_diff` is not emitted and must not be queried.
@@ -86,7 +178,7 @@ A collector health metric of `1` confirms the collector ran, not that it produce
 - Credentials are stored outside Git, in the server-side `.env` at mode 600 only. No password, hash, or DSN is committed to the repository, documentation, dashboards, or evidence files.
 - The monitoring-role password was rotated after transcript exposure of the previous value. The rotation preserved all role attributes, `pg_monitor` membership, `CONNECT`, and the existing function ACLs. No secret value is recorded in this repository.
 
-Confluence JMX monitoring is deferred pending an approved exporter version and binary supply decision. No exporter binary, checksum, or arbitrary release is committed. The integration point remains the `webappconf` container with an internal-only endpoint; Phase 5 must not deploy an unapproved JMX exporter. Forgejo server and runner logs are normalized as `service="forgejo"` with `component="server"` or `component="runner"`, and runner absence uses cAdvisor's last-seen metric. This is implemented in configuration; runtime verification pending.
+Confluence JMX monitoring remains **Blocked** in DEV. Atlassian JMX and App Monitoring are enabled in the Confluence administration UI, but no JMX-to-Prometheus exporter is installed. The repository defines no approved exporter artifact or checksum; ADR-010 states only that such an exporter "SHOULD be added in a later implementation phase". Selecting and committing an exporter version is an owner decision and was not made. Observed runtime facts for that decision: Confluence 24.04, Temurin Java 21, no `jmxremote` system property (Atlassian JMX is in-process, not RMI), internal port 8060 free, and `JVM_SUPPORT_RECOMMENDED_ARGS` is the supported hook for adding a `-javaagent` argument. No exporter binary, checksum, or arbitrary release is committed. Forgejo server and runner logs are normalized as `service="forgejo"` with `component="server"` or `component="runner"`, and runner absence uses cAdvisor's last-seen metric. This is implemented in configuration; runtime verification pending.
 
 ## Monitoring Objectives
 
@@ -224,7 +316,7 @@ Grafana-managed rules are provisioned from `shared/grafana/provisioning/alerting
 | `servicehub-tls-expiry` | Warning | Public certificate expires within 14 days | NoData |
 | `servicehub-traefik-5xx` | Warning | Sustained 5xx ratio above 5% | NoData |
 | `servicehub-traefik-latency` | Warning | Traefik p95 latency above 2s | NoData |
-| `servicehub-runner-warning` | Warning | Forgejo Actions Runner absent from cAdvisor last-seen | Alerting |
+| `servicehub-runner-warning` | Warning | Forgejo Actions Runner absent from cAdvisor last-seen | Normal |
 
 Metric names for node_exporter, cAdvisor, Traefik, and Alloy remote-write counters are based on current collection configuration and exporter conventions. Label values and exact series require runtime verification. There is no backup-success telemetry rule because the current backup implementation does not yet provide a reliable repository-defined metric.
 

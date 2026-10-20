@@ -892,6 +892,94 @@ Remaining deferred items:
   external whole-host watchdog, final retention tuning, and final threshold tuning
   remain deferred per ADR-010.
 
+## DEV follow-up validation (2026-10-20)
+
+Recorded against the DEV host, which is not assumed to match OCI or production.
+
+Runner:
+
+- `devopsrunner` is deployed and registered. Confirmed from the runner's own record:
+  name `devopsrunner`, address `http://devopsforgejo:3000`, labels `["ssh-deploy:host"]`.
+  Version v13.2.0, non-privileged, root inside its container, no Docker socket, no added
+  capabilities, no host PID or network namespace, no published ports, restart count 0.
+- Labels match both repository workflows, which declare `runs-on: ssh-deploy`.
+- `servicehub-runner-warning` was firing because its selector used the short service name
+  while cAdvisor reports the Compose container name. Corrected to
+  `container_label_com_docker_compose_service="devopsrunner"`; the alert evaluates Normal.
+- A controlled workflow test is **Blocked**: dispatching requires a Forgejo API or admin
+  credential that this environment does not have, and both existing workflows deploy to
+  remote hosts over SSH and are not DEV-safe. Job pickup, checkout, log upload and cleanup
+  remain Runtime verification pending.
+
+Confluence JMX:
+
+- Confluence 24.04 on Temurin Java 21. Atlassian JMX and App Monitoring are enabled in the
+  administration UI, but no JMX-to-Prometheus exporter is installed and no
+  `jmxremote` property is set; Atlassian JMX is in-process rather than RMI.
+- **Blocked**: the repository defines no approved exporter artifact or checksum. Selecting
+  and committing a version is an owner decision and was not made. No exporter binary or
+  checksum was downloaded or committed.
+- Implementation facts recorded for that decision: internal port 8060 is free;
+  `JVM_SUPPORT_RECOMMENDED_ARGS` is the supported hook for a `-javaagent` argument; the
+  container already runs a separate `javaagent` (the MCP connector), so a second agent is
+  technically feasible. No port was published and no route was added.
+
+Notification delivery:
+
+- **Blocked**. Grafana has zero contact points; the only policy is the default
+  `{"receiver":"empty"}`. No credential or webhook exists and none was invented. Alert
+  evaluation is unaffected and notification absence does not block startup.
+
+External watchdog:
+
+- **Blocked**. No approved external provider, endpoint, or credential exists, so no
+  watchdog was deployed and none was selected.
+
+Retention:
+
+- Neither VictoriaMetrics nor VictoriaLogs sets a retention period; both are unlimited and
+  disk-constrained only. Observed after about ten hours: VictoriaMetrics 12 MB,
+  13,519 series, about 217 samples/s; VictoriaLogs 30 MB; Grafana 326 MB; host disk 67%
+  used with 25 GB free. Retention was **not** changed, because it would delete existing
+  telemetry and the DEV window is too short to justify a value.
+
+Thresholds:
+
+- All thresholds compared with observed DEV data; all have headroom and none fire, so
+  **no threshold was changed**. Values are recorded in `docs/operations/MONITORING-ALERTING.md`.
+
+OCI APM:
+
+- Scaffolding is disabled and inert. No OTLP component exists in any Alloy configuration,
+  so no exporter is instantiated; no DNS lookup or connection to an OCI endpoint is
+  attempted; Alloy starts normally; VictoriaMetrics and VictoriaLogs are unaffected.
+- Enabled-but-incomplete preflight was verified statically: it fails before Alloy starts,
+  names only the missing variable, prints no values, and never falls back to an anonymous
+  endpoint.
+- OCI APM log export is disabled by policy: `OCI_APM_LOGS_ENABLED=true` is rejected at
+  preflight. No endpoint, data key, or credential is committed, and no test span was sent.
+- Trace validation additionally requires application OTLP instrumentation, which no
+  ServiceHub application currently provides.
+
+Alert selector defects corrected:
+
+- Traffic Edge TLS panel used the non-existent `component="public-probe"`; corrected to
+  the observed external HTTPS selector, returning six series.
+
+Remaining deferred items:
+
+- OCI APM enablement pending endpoint, data key, owner authorization, and application
+  instrumentation.
+- Confluence JMX pending an approved exporter version and checksum.
+- Notification delivery pending an owner-selected contact point.
+- External whole-host watchdog pending an approved provider.
+- Retention configuration pending an owner observation window and approval, since setting
+  it deletes existing telemetry.
+- Threshold retuning pending a longer DEV history.
+- Runner end-to-end workflow execution pending a Forgejo dispatch credential.
+- Applications dashboard label-model inconsistency (`$service` short names versus
+  `container_*` and `traefik_service_*` label forms) is a separate change.
+
 Discover additional PostgreSQL exporter metric names before assuming a family exists:
 
 ```bash
