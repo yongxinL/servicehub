@@ -1,5 +1,7 @@
 {
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "description": "Docker and container telemetry. Queries use cAdvisor Docker-only collection; Runtime verification pending.",
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -7,21 +9,453 @@
   "links": [],
   "liveNow": false,
   "panels": [
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Last-seen container state; Runtime verification pending.", "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"text": "Missing"}, "1": {"text": "Seen"}}, "type": "value"}]}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0}, "id": 1, "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "asc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "(time() - container_last_seen{name!=\"\"}) < 90", "legendFormat": "{{name}}", "refId": "A"}], "title": "Container state", "type": "stat"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "cAdvisor CPU rate; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 8, "y": 0}, "id": 2, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(container_cpu_usage_seconds_total{name!=\"\"}[5m]) * 100", "legendFormat": "{{name}}", "refId": "A"}], "title": "CPU usage", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "cAdvisor CFS throttling; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 16, "y": 0}, "id": 3, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "100 * rate(container_cpu_cfs_throttled_periods_total{name!=\"\"}[5m]) / clamp_min(rate(container_cpu_cfs_periods_total{name!=\"\"}[5m]), 1)", "legendFormat": "{{name}}", "refId": "A"}], "title": "CPU throttling", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "cAdvisor memory usage and working set; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 0, "y": 6}, "id": 4, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "container_memory_usage_bytes{name!=\"\"}", "legendFormat": "{{name}} usage", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "container_memory_working_set_bytes{name!=\"\"}", "legendFormat": "{{name}} working set", "refId": "B"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "container_spec_memory_limit_bytes{name!=\"\"}", "legendFormat": "{{name}} limit", "refId": "C"}], "title": "Memory and limits", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "cAdvisor network throughput; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 8, "y": 6}, "id": 5, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(container_network_receive_bytes_total{name!=\"\"}[5m])", "legendFormat": "{{name}} receive", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(container_network_transmit_bytes_total{name!=\"\"}[5m])", "legendFormat": "{{name}} transmit", "refId": "B"}], "title": "Container network", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "cAdvisor filesystem I/O; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 16, "y": 6}, "id": 6, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(container_fs_reads_bytes_total{name!=\"\"}[5m])", "legendFormat": "{{name}} read", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(container_fs_writes_bytes_total{name!=\"\"}[5m])", "legendFormat": "{{name}} write", "refId": "B"}], "title": "Container disk I/O", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "cAdvisor start time and last-seen state; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}, "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12}, "id": 7, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "container_start_time_seconds{name!=\"\"}", "legendFormat": "{{name}} started", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "container_last_seen{name!=\"\"}", "legendFormat": "{{name}} last seen", "refId": "B"}], "title": "Lifecycle timestamps", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "cAdvisor restart and OOM indicators; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 6, "w": 12, "x": 12, "y": 12}, "id": 8, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "changes(container_start_time_seconds{name!=\"\"}[15m])", "legendFormat": "{{name}} restarts", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "increase(container_oom_events_total{name!=\"\"}[15m])", "legendFormat": "{{name}} OOM", "refId": "B"}], "title": "Restart and OOM indicators", "type": "timeseries"},
-    {"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "description": "Container log stream; VictoriaLogs query is Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 8, "w": 24, "x": 0, "y": 18}, "id": 9, "options": {"showTime": true, "sortOrder": "Descending", "wrapLogMessage": true}, "targets": [{"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "expr": "{project=\"servicehub\"} | filter container_name:~\"$container\"", "queryType": "range", "refId": "A"}], "title": "Container logs", "type": "logs"}
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Last-seen container state; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "Missing"
+                },
+                "1": {
+                  "text": "Seen"
+                }
+              },
+              "type": "value"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "asc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "(time() - container_last_seen{name!=\"\"}) < 90",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Container state",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "cAdvisor CPU rate; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(container_cpu_usage_seconds_total{name!=\"\"}[5m]) * 100",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "grafana"
+      },
+      "description": "CPU throttling metrics are unavailable from the current cAdvisor runtime. No throttling value is inferred from general CPU utilization; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "content": "CPU throttling metrics are unavailable from the current cAdvisor runtime. No throttling value is inferred from general CPU utilization.",
+        "mode": "markdown"
+      },
+      "targets": [],
+      "title": "CPU throttling",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "cAdvisor memory usage and working set; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 6
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "container_memory_usage_bytes{name!=\"\"}",
+          "legendFormat": "{{name}} usage",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "container_memory_working_set_bytes{name!=\"\"}",
+          "legendFormat": "{{name}} working set",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "container_spec_memory_limit_bytes{name!=\"\"}",
+          "legendFormat": "{{name}} limit",
+          "refId": "C"
+        }
+      ],
+      "title": "Memory and limits",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "grafana"
+      },
+      "description": "Per-container network metrics are unavailable from the current cAdvisor runtime. Only an unlabelled root-cgroup network series is present; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 6
+      },
+      "id": 5,
+      "options": {
+        "content": "Per-container network metrics are unavailable from the current cAdvisor runtime. Only an unlabelled root-cgroup network series is present.",
+        "mode": "markdown"
+      },
+      "targets": [],
+      "title": "Container network",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "cAdvisor filesystem I/O; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 6
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(container_fs_reads_bytes_total{name!=\"\"}[5m])",
+          "legendFormat": "{{name}} read",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(container_fs_writes_bytes_total{name!=\"\"}[5m])",
+          "legendFormat": "{{name}} write",
+          "refId": "B"
+        }
+      ],
+      "title": "Container disk I/O",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "cAdvisor start time and last-seen state; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "container_start_time_seconds{name!=\"\"}",
+          "legendFormat": "{{name}} started",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "container_last_seen{name!=\"\"}",
+          "legendFormat": "{{name}} last seen",
+          "refId": "B"
+        }
+      ],
+      "title": "Lifecycle timestamps",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "cAdvisor restart and OOM indicators; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "changes(container_start_time_seconds{name!=\"\"}[15m])",
+          "legendFormat": "{{name}} restarts",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "increase(container_oom_events_total{name!=\"\"}[15m])",
+          "legendFormat": "{{name}} OOM",
+          "refId": "B"
+        }
+      ],
+      "title": "Restart and OOM indicators",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Container log stream; VictoriaLogs query is Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 9,
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\"} | filter container_name:~\"$container\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Container logs",
+      "type": "logs"
+    }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["servicehub", "adr-010", "docker"],
-  "templating": {"list": [{"current": {}, "datasource": {"type": "prometheus", "uid": "victoriametrics"}, "definition": "label_values(container_last_seen{name!=\"\"},name)", "includeAll": true, "label": "Container", "multi": true, "name": "container", "query": {"query": "label_values(container_last_seen{name!=\"\"},name)", "refId": "container-variable"}, "type": "query"}]},
-  "time": {"from": "now-6h", "to": "now"},
+  "tags": [
+    "servicehub",
+    "adr-010",
+    "docker"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "definition": "label_values(container_last_seen{name!=\"\"},name)",
+        "includeAll": true,
+        "label": "Container",
+        "multi": true,
+        "name": "container",
+        "query": {
+          "query": "label_values(container_last_seen{name!=\"\"},name)",
+          "refId": "container-variable"
+        },
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timezone": "browser",
   "title": "ServiceHub Docker and Containers",
   "uid": "servicehub-docker-containers",

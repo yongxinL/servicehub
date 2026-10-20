@@ -1,5 +1,7 @@
 {
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "description": "Security investigation views for host, edge, identity, and Forgejo. Queries are Runtime verification pending.",
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -7,18 +9,270 @@
   "links": [],
   "liveNow": false,
   "panels": [
-    {"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "description": "Linux SSH journal events; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 7, "w": 12, "x": 0, "y": 0}, "id": 1, "options": {"showTime": true, "sortOrder": "Descending", "wrapLogMessage": true}, "targets": [{"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "expr": "{project=\"servicehub\",component=\"security\",source=\"journal\"}", "queryType": "range", "refId": "A"}], "title": "SSH and sudo journal", "type": "logs"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Traefik authentication and authorization responses; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}, "gridPos": {"h": 7, "w": 12, "x": 12, "y": 0}, "id": 2, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum by (code) (rate(traefik_service_requests_total{code=~\"401|403|404|429\"}[5m]))", "legendFormat": "{{code}}", "refId": "A"}], "title": "Traefik 401/403/404/429", "type": "timeseries"},
-    {"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "description": "Normalized Authentik failure events; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 7, "w": 12, "x": 0, "y": 7}, "id": 3, "options": {"showTime": true, "sortOrder": "Descending", "wrapLogMessage": true}, "targets": [{"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "expr": "{project=\"servicehub\",service=\"authentik\"} | filter level:~\"error|warn\"", "queryType": "range", "refId": "A"}], "title": "Authentik failures", "type": "logs"},
-    {"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "description": "Normalized Forgejo server and runner failure events; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 7, "w": 12, "x": 12, "y": 7}, "id": 4, "options": {"showTime": true, "sortOrder": "Descending", "wrapLogMessage": true}, "targets": [{"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "expr": "{project=\"servicehub\",service=\"forgejo\"} | filter component:~\"server|runner\" | filter level:~\"error|warn\"", "queryType": "range", "refId": "A"}], "title": "Forgejo failures", "type": "logs"},
-    {"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "description": "Bounded country-code traffic; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 7, "w": 12, "x": 0, "y": 14}, "id": 5, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "expr": "{project=\"servicehub\"} | filter geoip_country_code:!=\"\" | stats by (geoip_country_code) count()", "queryType": "range", "refId": "A"}], "title": "Country-level traffic", "type": "timeseries"},
-    {"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "description": "Recent security-relevant logs; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 7, "w": 12, "x": 12, "y": 14}, "id": 6, "options": {"showTime": true, "sortOrder": "Descending", "wrapLogMessage": true}, "targets": [{"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "expr": "{project=\"servicehub\"} | filter container_name:~\"infraauth|infraauthwrk|devopsforgejo|devopsrunner|routetraefik\" | filter level:~\"error|warn\"", "queryType": "range", "refId": "A"}], "title": "Recent security logs", "type": "logs"}
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "SSH and sudo journal events. Query is unchanged; matching events exist outside the default six-hour dashboard time range. Empty state shown when nothing matches the selected range; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",component=\"security\",source=\"journal\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "SSH and sudo journal",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Traefik authentication and authorization responses; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (code) (rate(traefik_service_requests_total{code=~\"401|403|404|429\"}[5m]))",
+          "legendFormat": "{{code}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Traefik 401/403/404/429",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Authentik failure events filtered by logical_service and observed level field values. The previous non-existent logical service filter is removed.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "id": 3,
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",logical_service=\"authentik\"} | filter level=~\"error|warn\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Authentik failures",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Forgejo container log events matched by bounded failure keywords in the _msg field. Forgejo logs do not reliably set a level field; runner polling, successful HTTP, and normal startup messages are not classified as failures. Empty result is legitimate.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "id": 4,
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",logical_service=\"forgejo\"} | filter _msg=~\"(?i)(panic|error|fatal|failed|fail:|failed to)\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Forgejo failures",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Bounded country-code traffic; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 5,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\"} | filter geoip_country_code!=\"\" | stats by (geoip_country_code) count() as requests",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Country-level traffic",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Recent security-relevant logs; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 6,
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\"} | filter container_name:~\"infraauth|infraauthwrk|devopsforgejo|devopsrunner|routetraefik\" | filter level:~\"error|warn\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent security logs",
+      "type": "logs"
+    }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["servicehub", "adr-010", "security"],
-  "templating": {"list": []},
-  "time": {"from": "now-6h", "to": "now"},
+  "tags": [
+    "servicehub",
+    "adr-010",
+    "security"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timezone": "browser",
   "title": "ServiceHub Security",
   "uid": "servicehub-security",

@@ -1,5 +1,7 @@
 {
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "description": "Application availability, edge requests, resources, and logs. Metric and label mapping is Runtime verification pending.",
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -7,19 +9,392 @@
   "links": [],
   "liveNow": false,
   "panels": [
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Alloy probe availability; Runtime verification pending.", "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"text": "Down"}, "1": {"text": "Ready"}}, "type": "value"}], "max": 1, "min": 0}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0}, "id": 1, "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "asc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "probe_success{service=~\"$service\"}", "legendFormat": "{{service}}", "refId": "A"}], "title": "Application readiness", "type": "stat"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Traefik request and 5xx rate; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 8, "y": 0}, "id": 2, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum by (service) (rate(traefik_service_requests_total{service=~\"$service\"}[5m]))", "legendFormat": "{{service}} requests", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum by (service) (rate(traefik_service_requests_total{service=~\"$service\",code=~\"5..\"}[5m]))", "legendFormat": "{{service}} 5xx", "refId": "B"}], "title": "Requests and errors", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Traefik latency quantiles; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 16, "y": 0}, "id": 3, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "histogram_quantile(0.50, sum by (le) (rate(traefik_service_request_duration_seconds_bucket{service=~\"$service\"}[5m])))", "legendFormat": "{{service}} p50", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "histogram_quantile(0.95, sum by (le) (rate(traefik_service_request_duration_seconds_bucket{service=~\"$service\"}[5m])))", "legendFormat": "{{service}} p95", "refId": "B"}], "title": "Request latency", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "cAdvisor CPU by selected container names; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 0, "y": 6}, "id": 4, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(container_cpu_usage_seconds_total{name=~\"$service\"}[5m]) * 100", "legendFormat": "{{name}}", "refId": "A"}], "title": "Container CPU", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "cAdvisor memory by selected container names; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 8, "y": 6}, "id": 5, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "container_memory_working_set_bytes{name=~\"$service\"}", "legendFormat": "{{name}}", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "container_spec_memory_limit_bytes{name=~\"$service\"}", "legendFormat": "{{name}} limit", "refId": "B"}], "title": "Container memory", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Authentik queue metric documented by upstream; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 6, "w": 8, "x": 16, "y": 6}, "id": 6, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum by (queue_name, actor_name) (authentik_tasks_queued)", "legendFormat": "{{queue_name}}/{{actor_name}}", "refId": "A"}], "title": "Authentik task queue", "type": "timeseries"},
-    {"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "description": "Application logs for selected services; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}, "id": 7, "options": {"showTime": true, "sortOrder": "Descending", "wrapLogMessage": true}, "targets": [{"datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"}, "expr": "{project=\"servicehub\",container_name=~\"$service\"}", "queryType": "range", "refId": "A"}], "title": "Application logs", "type": "logs"}
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Alloy blackbox probe results for the selected logical service. Logical selector preserved; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "Down"
+                },
+                "1": {
+                  "text": "Ready"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "asc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "probe_success{logical_service=~\"\",instance=\"prometheus.exporter.blackbox.internal\"}",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Application readiness",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Traefik service request rate and 5xx rate for the selected logical service. Uses bounded Traefik `service` label mapping; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (service) (rate(traefik_service_requests_total{logical_service=~\"$service\"}[5m]))",
+          "legendFormat": "{{service}} requests",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (service) (rate(traefik_service_requests_total{logical_service=~\"$service\",code=~\"5..\"}[5m]))",
+          "legendFormat": "{{service}} 5xx",
+          "refId": "B"
+        }
+      ],
+      "title": "Requests and errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Edge/proxy-observed request latency as observed by Traefik; not application-native latency. Uses bounded Traefik `service` label mapping; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(traefik_service_request_duration_seconds_bucket{logical_service=~\"$service\"}[5m])))",
+          "legendFormat": "{{service}} p50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traefik_service_request_duration_seconds_bucket{logical_service=~\"$service\"}[5m])))",
+          "legendFormat": "{{service}} p95",
+          "refId": "B"
+        }
+      ],
+      "title": "Request latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "cAdvisor CPU usage for containers matching the selected logical service via the bounded Compose-service mapping; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 6
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(container_cpu_usage_seconds_total{logical_service=~\"$service\"}[5m]) * 100",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Container CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "cAdvisor memory working set and limit for containers matching the selected logical service via the bounded Compose-service mapping; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 6
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "container_memory_working_set_bytes{logical_service=~\"$service\"}",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "container_spec_memory_limit_bytes{logical_service=~\"$service\"}",
+          "legendFormat": "{{name}} limit",
+          "refId": "B"
+        }
+      ],
+      "title": "Container memory",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Authentik task queue; global metric independent of $service; Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 6
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (queue_name, actor_name) (authentik_tasks_queued)",
+          "legendFormat": "{{queue_name}}/{{actor_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Authentik task queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Application logs limited to the bounded container-name mapping; raw VictoriaLogs stream; selected dashboard time range is preserved. Runtime verification pending.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "id": 7,
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",logical_service=~\"$service\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Application logs",
+      "type": "logs"
+    }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["servicehub", "adr-010", "applications"],
-  "templating": {"list": [{"current": {"text": "All", "value": "$__all"}, "datasource": {"type": "prometheus", "uid": "victoriametrics"}, "definition": "label_values(probe_success{component=\"probe\"},service)", "includeAll": true, "label": "Service", "multi": true, "name": "service", "query": {"query": "label_values(probe_success{component=\"probe\"},service)", "refId": "service-variable"}, "type": "query"}]},
-  "time": {"from": "now-6h", "to": "now"},
+  "tags": [
+    "servicehub",
+    "adr-010",
+    "applications"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "definition": "label_values(logical_service)",
+        "includeAll": true,
+        "multi": true,
+        "allValue": "$__all",
+        "label": "Service",
+        "name": "service",
+        "query": {
+          "query": "label_values(logical_service)",
+          "refId": "service-variable"
+        },
+        "type": "query",
+        "hide": false
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timezone": "browser",
   "title": "ServiceHub Applications",
   "uid": "servicehub-applications",
