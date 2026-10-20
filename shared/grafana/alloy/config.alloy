@@ -179,10 +179,6 @@ discovery.relabel "internal_probe_labels" {
     targets = prometheus.exporter.blackbox.internal.targets
 
     rule {
-        source_labels = ["name"]
-        target_label  = "service"
-    }
-    rule {
         target_label = "component"
         replacement  = "probe"
     }
@@ -198,7 +194,7 @@ discovery.relabel "internal_probe_labels" {
 
 prometheus.scrape "internal_probes" {
     targets         = discovery.relabel.internal_probe_labels.output
-    forward_to      = [prometheus.remote_write.vm.receiver]
+    forward_to      = [prometheus.relabel.probe_service_labels.receiver]
     scrape_interval = "30s"
     scrape_timeout  = "10s"
 }
@@ -247,12 +243,8 @@ discovery.relabel "public_probe_labels" {
     targets = prometheus.exporter.blackbox.public.targets
 
     rule {
-        source_labels = ["name"]
-        target_label  = "service"
-    }
-    rule {
         target_label = "component"
-        replacement  = "public-probe"
+        replacement  = "probe"
     }
     rule {
         target_label = "project"
@@ -266,9 +258,57 @@ discovery.relabel "public_probe_labels" {
 
 prometheus.scrape "public_probes" {
     targets         = discovery.relabel.public_probe_labels.output
-    forward_to      = [prometheus.remote_write.vm.receiver]
+    forward_to      = [prometheus.relabel.probe_service_labels.receiver]
     scrape_interval = "60s"
     scrape_timeout  = "15s"
+}
+
+prometheus.relabel "probe_service_labels" {
+    forward_to = [prometheus.remote_write.vm.receiver]
+
+    rule {
+        source_labels = ["job"]
+        regex         = "integrations/blackbox/(.+)"
+        target_label  = "service"
+        replacement   = "$1"
+    }
+    rule {
+        source_labels = ["job"]
+        regex         = "integrations/blackbox/authentik-(server|worker)"
+        target_label  = "service"
+        replacement   = "authentik"
+    }
+    rule {
+        source_labels = ["job"]
+        regex         = "integrations/blackbox/(.+)-public"
+        target_label  = "service"
+        replacement   = "$1"
+    }
+
+    rule {
+        source_labels = ["job"]
+        regex         = "integrations/blackbox/.+"
+        target_label  = "probe_type"
+        replacement   = "readiness"
+    }
+    rule {
+        source_labels = ["job"]
+        regex         = "integrations/blackbox/.+"
+        target_label  = "target_class"
+        replacement   = "internal"
+    }
+    rule {
+        source_labels = ["job"]
+        regex         = "integrations/blackbox/.+-public"
+        target_label  = "probe_type"
+        replacement   = "https"
+    }
+    rule {
+        source_labels = ["job"]
+        regex         = "integrations/blackbox/.+-public"
+        target_label  = "target_class"
+        replacement   = "external"
+    }
 }
 
 // =============================================
