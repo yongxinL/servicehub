@@ -400,9 +400,10 @@ prometheus.relabel "probe_service_labels" {
     }
     rule {
         source_labels = ["service"]
-        regex         = "authentik|confluence|forgejo|grafana|ocis|traefik|victoriametrics|victorialogs"
+        regex         = "^(authentik|confluence|forgejo|grafana|ocis|traefik|victoriametrics|victorialogs)$"
         target_label  = "logical_service"
         replacement   = "$1"
+        action        = "replace"
     }
 }
 
