@@ -705,7 +705,7 @@ groups:
             datasourceUid: victoriametrics
             model:
               datasource: {type: prometheus, uid: victoriametrics}
-              expr: "max(time() - container_last_seen{name=\"devopsrunner\"})"
+              expr: "max(time() - container_last_seen{container_label_com_docker_compose_service=\"devopsrunner\"})"
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
