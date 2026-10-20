@@ -645,6 +645,12 @@ Expected internal targets: Traefik, Authentik server/worker, Confluence, Forgejo
 
 Confirm TLS verification is enabled, certificates are valid, DNS resolves from Alloy, and intentional authentication redirects are handled. Verify no internal health endpoint is exposed publicly solely for monitoring.
 
+The Grafana public probe uses the `https_admin_restricted` blackbox module and
+accepts either `200` (allowlisted source) or `403` (denied source) because
+Grafana is protected by the Traefik `dashboard-whitelist` IP allowlist. This
+is an intentional access-control response, not a failure. The probe still
+requires valid HTTPS and TLS verification.
+
 **Expected/pass:** probes return 1 and certificate expiry is positive.
 
 **Failure/stop:** missing approved target, unresolved DNS, TLS failure, public internal health endpoint, unexpected authentication failure, or persistent probe 0.
