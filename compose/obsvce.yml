@@ -54,6 +54,18 @@ services:
                     : "$${POSTGRES_EXPORTER_PASSWORD:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_PASSWORD}"
                     exec /bin/alloy run --server.http.listen-addr=0.0.0.0:9080 /etc/alloy
                 fi
+                # OCI APM is optional and disabled by default. When enabled, fail
+                # preflight by naming only the missing variable; never print values
+                # and never fall back to an anonymous endpoint. Logs are permanently
+                # disabled for OCI APM in this project.
+                if [ "$${OCI_APM_ENABLED:-false}" = "true" ]; then
+                    : "$${OCI_APM_OTLP_ENDPOINT:?OCI_APM_ENABLED=true requires OCI_APM_OTLP_ENDPOINT}"
+                    : "$${OCI_APM_DATA_KEY:?OCI_APM_ENABLED=true requires OCI_APM_DATA_KEY}"
+                    if [ "$${OCI_APM_LOGS_ENABLED:-false}" = "true" ]; then
+                        echo "OCI_APM_LOGS_ENABLED=true is not supported; OCI APM log export is disabled by policy." >&2
+                        exit 1
+                    fi
+                fi
                 exec /bin/alloy run --server.http.listen-addr=0.0.0.0:9080 /etc/alloy/config.alloy
         environment:
             - ENVIRONMENT=${ENVIRONMENT:-unknown}
@@ -69,6 +81,14 @@ services:
             - POSTGRES_EXPORTER_DATABASE=${POSTGRES_EXPORTER_DATABASE}
             - POSTGRES_EXPORTER_USER=${POSTGRES_EXPORTER_USER}
             - POSTGRES_EXPORTER_PASSWORD=${POSTGRES_EXPORTER_PASSWORD}
+            # OCI APM (optional). Disabled by default; nothing is exported until
+            # an endpoint and data key are supplied through the server-side .env.
+            - OCI_APM_ENABLED=${OCI_APM_ENABLED:-false}
+            - OCI_APM_TRACES_ENABLED=${OCI_APM_TRACES_ENABLED:-false}
+            - OCI_APM_METRICS_ENABLED=${OCI_APM_METRICS_ENABLED:-false}
+            - OCI_APM_LOGS_ENABLED=${OCI_APM_LOGS_ENABLED:-false}
+            - OCI_APM_OTLP_ENDPOINT=${OCI_APM_OTLP_ENDPOINT:-}
+            - OCI_APM_DATA_KEY=${OCI_APM_DATA_KEY:-}
         depends_on:
             obsvcevlogs:
                 condition: service_started
