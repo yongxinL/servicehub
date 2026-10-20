@@ -52,18 +52,245 @@ POSTGRES_DATABASES="${IDENTITY_DBNAME},${SOURCECODE_DBNAME},${AIGATE_DBNAME},${W
 
 > The script only runs when `${APPS_DATA}/infra/postgresql` is empty. To re-run it on an existing cluster, you must reset the data directory (see below).
 
-## Least-privilege monitoring role
+## PostgreSQL Monitoring Role
 
-Create the role manually on the OCI host during Phase 5 and store the password only in `.env` or the approved secret mechanism. Replace the placeholders and do not commit generated credentials.
+### Purpose and least-privilege design
+
+`svc_metrics` exists only so Alloy's embedded PostgreSQL exporter can collect read-only monitoring data. The role has `LOGIN`, no superuser, database-creation, role-creation, replication, or bypass-RLS privileges, no table ownership or table-write grants, `NOINHERIT`, and a connection limit of five. It is a member of `pg_monitor` and has explicit `CONNECT` privilege on the `postgres` monitoring database.
+
+The password belongs only in the server-side `.env` or the approved secret mechanism. Never commit, print, email, interpolate into Git, or place it in a shell command argument.
+
+### Role creation
+
+Create the role as a PostgreSQL owner or superuser. The password is set separately through the secure procedure below.
 
 ```sql
-CREATE ROLE svc_metrics WITH LOGIN PASSWORD :'monitor_password';
-GRANT CONNECT ON DATABASE postgres TO svc_metrics;
+CREATE ROLE svc_metrics
+    WITH
+    LOGIN
+    NOSUPERUSER
+    NOCREATEDB
+    NOCREATEROLE
+    NOINHERIT
+    NOREPLICATION
+    NOBYPASSRLS
+    CONNECTION LIMIT 5;
+
 GRANT pg_monitor TO svc_metrics;
+GRANT CONNECT ON DATABASE postgres TO svc_metrics;
+```
+
+Do not grant application database ownership, `CREATEDB`, `CREATEROLE`, `SUPERUSER`, `REPLICATION`, `BYPASSRLS`, or application-table write privileges.
+
+### Secure password-setting procedure
+
+1. Generate or retrieve the password from the approved server-side secret mechanism.
+2. Set it interactively in `psql` with `\password svc_metrics`, or pipe it from the approved secret mechanism directly into `psql` stdin. Do not place the value in `argv`, SQL files, Git, logs, or shell history.
+3. Store the same runtime value only as `POSTGRES_EXPORTER_PASSWORD` in the server-side `.env` with owner-only permissions or in the approved external secret mechanism.
+4. Confirm only that the variable is present. Do not print or inspect its value.
+
+Interactive command:
+
+```bash
+docker compose exec -it infrapgsql sh -lc 'psql -U "$POSTGRES_USER"'
+```
+
+Inside `psql`:
+
+```text
+\password svc_metrics
+\q
+```
+
+### Exporter environment variables
+
+`compose/obsvce.yml` passes these non-secret names and the runtime-only password into Alloy:
+
+| Variable | Runtime value or purpose |
+|---|---|
+| `POSTGRES_EXPORTER_ENABLED` | `true` while PostgreSQL telemetry is enabled |
+| `POSTGRES_EXPORTER_HOST` | `infrapgsql` |
+| `POSTGRES_EXPORTER_PORT` | `5432` |
+| `POSTGRES_EXPORTER_DATABASE` | `postgres` |
+| `POSTGRES_EXPORTER_USER` | `svc_metrics` |
+| `POSTGRES_EXPORTER_PASSWORD` | Server-side secret; never print |
+
+The current internal DSN uses `sslmode=disable`. This is the accepted internal-network trust decision recorded by the [ADR-010 Phase 5 runbook](../runbooks/ADR-010-PHASE-5-OCI-VALIDATION.md). If monitoring traffic must cross an untrusted boundary, approve and validate TLS before changing the DSN.
+
+### Role verification
+
+Run these checks as a PostgreSQL owner or superuser. They do not retrieve or display a password hash.
+
+```sql
+SELECT rolname,
+       rolsuper,
+       rolcreatedb,
+       rolcreaterole,
+       rolreplication,
+       rolbypassrls,
+       rolinherit,
+       rolconnlimit
+FROM pg_roles
+WHERE rolname = 'svc_metrics';
+
+SELECT pg_has_role('svc_metrics', 'pg_monitor', 'MEMBER') AS has_pg_monitor;
+SELECT has_database_privilege('svc_metrics', 'postgres', 'CONNECT') AS has_connect;
+
+SELECT table_schema, table_name, privilege_type
+FROM information_schema.role_table_grants
+WHERE grantee = 'svc_metrics'
+ORDER BY table_schema, table_name, privilege_type;
+```
+
+Expected: `LOGIN` enabled; `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `REPLICATION`, and `BYPASSRLS` false; `NOINHERIT`; connection limit `5`; `pg_monitor` membership true; `CONNECT` on `postgres` true; and no application-table grants.
+
+Optional hardening for read-only sessions:
+
+```sql
 ALTER ROLE svc_metrics SET default_transaction_read_only = on;
 ```
 
-PostgreSQL telemetry is `Implemented in configuration`; runtime verification pending. Set `POSTGRES_EXPORTER_ENABLED=true` only when all runtime prerequisites are present: a least-privilege PostgreSQL monitoring role, a runtime secret supplied outside Git, and network access from Alloy. `compose/obsvce.yml` passes `POSTGRES_EXPORTER_HOST`, `POSTGRES_EXPORTER_PORT`, `POSTGRES_EXPORTER_DATABASE`, `POSTGRES_EXPORTER_USER`, and `POSTGRES_EXPORTER_PASSWORD` from runtime environment values into Alloy's embedded exporter. If the password contains URL-reserved characters, percent-encode it in the DSN at deployment time. Phase 5 connectivity and metric validation remain pending.
+Apply that setting only through the approved owner procedure and re-run the verification queries. Current runtime verification did not find this role setting; absence of the setting does not grant table-write privileges because `pg_monitor` and the explicit grants remain read-only.
+
+### WAL collector permission
+
+The enabled `wal` collector calls `pg_catalog.pg_ls_waldir()` to expose WAL directory metadata as `pg_wal_segments` and `pg_wal_size_bytes`.
+
+`svc_metrics` reaches that function through its existing `pg_monitor` membership, so **no additional grant is required**. Runtime verification on the OCI host confirmed:
+
+```sql
+SELECT has_function_privilege(
+    'svc_metrics',
+    'pg_catalog.pg_ls_waldir()',
+    'EXECUTE'
+);
+-- true
+```
+
+The direct grant below remains the approved, documented fallback if `pg_monitor` membership is ever withdrawn or the collector is enabled for a role that is not a member:
+
+```sql
+GRANT EXECUTE ON FUNCTION pg_catalog.pg_ls_waldir() TO svc_metrics;
+```
+
+This grant permits reading WAL directory metadata only. It does not grant filesystem writes, table writes, `pg_read_server_files`, or replication. It requires no PostgreSQL restart.
+
+Review this access if the `wal` collector is disabled later. It can be revoked independently, without removing the monitoring role:
+
+```sql
+REVOKE EXECUTE ON FUNCTION pg_catalog.pg_ls_waldir() FROM svc_metrics;
+```
+
+Do not grant `SUPERUSER`, database ownership, or broader function execution merely to satisfy this collector.
+
+### Connection validation
+
+For an interactive check, enter the password at the hidden prompt:
+
+```bash
+docker compose exec -it infrapgsql psql -U svc_metrics -d postgres
+```
+
+```sql
+SELECT current_user, pg_is_in_recovery();
+```
+
+Do not pass `PGPASSWORD` or the password value on the command line. The primary non-interactive validation is exporter health:
+
+```bash
+curl -fsSG 'http://127.0.0.1:8428/api/v1/query' \
+  --data-urlencode 'query=pg_up'
+```
+
+### Alloy recreation
+
+After any exporter environment or password change, recreate only Alloy:
+
+```bash
+docker compose up -d --no-deps --force-recreate obsvcealloy
+```
+
+Do not recreate PostgreSQL, Grafana, VictoriaMetrics, VictoriaLogs, or unrelated services for this change. Wait at least two 30-second scrape intervals before judging recovery.
+
+### Metric verification
+
+Verify the actual job and core health:
+
+```bash
+curl -fsSG 'http://127.0.0.1:8428/api/v1/query' \
+  --data-urlencode 'query=pg_up'
+
+curl -fsSG 'http://127.0.0.1:8428/api/v1/query' \
+  --data-urlencode 'query=pg_exporter_last_scrape_error'
+
+curl -fsSG 'http://127.0.0.1:8428/api/v1/query' \
+  --data-urlencode 'query=pg_scrape_collector_success'
+```
+
+Expected runtime evidence:
+
+- scrape job `integrations/postgres`;
+- `pg_up == 1`;
+- `pg_exporter_last_scrape_error == 0`;
+- non-WAL collectors report success;
+- VictoriaMetrics remote-write failures remain `0`;
+- Grafana dashboard UID `servicehub-database` resolves and its core panels return data.
+
+Runtime-verified on the OCI host: the `wal` collector reports success and exports `pg_wal_segments` and `pg_wal_size_bytes`. `pg_wal_lsn_diff` is **not** emitted by this exporter and must not be assumed to exist. Vacuum-progress (`pg_stat_progress_vacuum`) and user-table (`pg_stat_user_tables`) series are currently empty; those collectors report success but produce no series until the database has active work. Collector success alone is not evidence of samples.
+
+### Password rotation
+
+1. Generate the replacement in the approved server-side secret mechanism.
+2. Update `POSTGRES_EXPORTER_PASSWORD` in the server-only `.env` without printing it.
+3. Set the replacement on `svc_metrics` through the interactive or stdin-only procedure above.
+4. Recreate only `obsvcealloy`.
+5. Verify `pg_up`, collector health, the database dashboard, and the PostgreSQL alert.
+6. If verification fails, restore the previous server-side secret and role password, recreate only `obsvcealloy`, and repeat verification.
+
+### Exporter disablement
+
+For an intentional disablement:
+
+1. Set `POSTGRES_EXPORTER_ENABLED=false` in the server-side `.env`.
+2. Recreate only `obsvcealloy`.
+3. Confirm `pg_up` stops receiving new samples.
+4. Record that the PostgreSQL alert may enter its configured no-data state after its pending window because PostgreSQL telemetry is intended to remain enabled.
+
+Do not change the alert merely to hide an intentional maintenance state.
+
+### Role revocation and removal
+
+Disable the exporter and recreate Alloy first so monitoring does not reconnect during revocation:
+
+```sql
+REVOKE pg_monitor FROM svc_metrics;
+REVOKE CONNECT ON DATABASE postgres FROM svc_metrics;
+REVOKE EXECUTE ON FUNCTION pg_catalog.pg_ls_waldir() FROM svc_metrics;
+DROP ROLE svc_metrics;
+```
+
+Run the `REVOKE EXECUTE` statement only if the WAL function grant was applied. Do not drop application roles, databases, owners, or data as part of monitoring-role removal.
+
+### Security considerations
+
+- The password never enters Git, Grafana provisioning, dashboard JSON, alert YAML, logs, command arguments, or evidence files.
+- PostgreSQL remains unpublished; Alloy reaches it only on the internal Docker network.
+- Metric labels may include `instance`, `job`, database/state fields, and `usename`; they must never include the password, connection string credentials, or secret values.
+- `pg_monitor` provides monitoring reads but does not confer database ownership or table-write privileges.
+- Keep the connection limit at five unless measured exporter behavior requires a reviewed change.
+- Treat the internal `sslmode=disable` decision as scope-specific, not a general database connection policy.
+
+### Rollback
+
+To roll back monitoring configuration:
+
+1. Restore the previous server-side `POSTGRES_EXPORTER_*` values without printing them.
+2. Restore the previous `svc_metrics` password if it was rotated.
+3. Recreate only `obsvcealloy`.
+4. Verify `pg_up`, collector health, remote-write status, dashboard data, and alert state.
+5. If the role itself must be rolled back, restore only the documented monitoring grants.
+
+Never delete PostgreSQL data, VictoriaMetrics data, VictoriaLogs data, or run `docker compose down -v` as part of monitoring rollback.
 
 ## Connecting from another container
 
