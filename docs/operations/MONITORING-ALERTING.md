@@ -30,7 +30,7 @@ related_documents:
 
 > **Status note (ADR-009 and ADR-010).** [ADR-010](../architecture/adr/ADR-010-establish-servicehub-observability-platform.md), now Accepted, partially supersedes ADR-009's observability retirement. The self-hosted observability stack is included in OCI scope, but Phase 1 deployment and runtime verification are pending. LiteLLM, local `aiserv` services, Stalwart, Bulwark, and other relocated mail-platform telemetry are outside ADR-010.
 
-The Project Owner approved local Phase 5 static validation on 2026-10-20. Implementation through Phase 3 is complete in repository at `6eb4c1e96cab58ba3f819c3b24e629b52fa4876d`; the approved validation revision is `58c8c6d4d606ee93dc43521b6deaef29fbbfa9fc`. Integrated OCI runtime validation, OCI APM, notification delivery, and Confluence JMX remain deferred or pending as defined in [ADR-010 Phase 5 OCI Validation](runbooks/ADR-010-PHASE-5-OCI-VALIDATION.md). ADR-010 is not runtime verified.
+The Project Owner approved local Phase 5 static validation on 2026-10-20. Implementation through Phase 3 is complete in repository at `6eb4c1e96cab58ba3f819c3b24e629b52fa4876d`; the approved validation revision is `58c8c6d4d606ee93dc43521b6deaef29fbbfa9fc`. The core observability platform was runtime verified in DEV on 2026-10-20; OCI APM, notification delivery, Confluence JMX, external watchdog, and retention remain deferred or blocked as tracked in [ADR-010 Phase 5 OCI Validation](runbooks/ADR-010-PHASE-5-OCI-VALIDATION.md). ADR-010 remains `Accepted`; owner-dependent follow-up is tracked separately and does not block core implementation closure.
 
 ## Baseline Topology
 
@@ -178,7 +178,7 @@ validation is additionally blocked on application instrumentation.
 - Credentials are stored outside Git, in the server-side `.env` at mode 600 only. No password, hash, or DSN is committed to the repository, documentation, dashboards, or evidence files.
 - The monitoring-role password was rotated after transcript exposure of the previous value. The rotation preserved all role attributes, `pg_monitor` membership, `CONNECT`, and the existing function ACLs. No secret value is recorded in this repository.
 
-Confluence JMX monitoring remains **Blocked** in DEV. Atlassian JMX and App Monitoring are enabled in the Confluence administration UI, but no JMX-to-Prometheus exporter is installed. The repository defines no approved exporter artifact or checksum; ADR-010 states only that such an exporter "SHOULD be added in a later implementation phase". Selecting and committing an exporter version is an owner decision and was not made. Observed runtime facts for that decision: Confluence 24.04, Temurin Java 21, no `jmxremote` system property (Atlassian JMX is in-process, not RMI), internal port 8060 free, and `JVM_SUPPORT_RECOMMENDED_ARGS` is the supported hook for adding a `-javaagent` argument. No exporter binary, checksum, or arbitrary release is committed. Forgejo server and runner logs are normalized as `service="forgejo"` with `component="server"` or `component="runner"`, and runner absence uses cAdvisor's last-seen metric. This is implemented in configuration; runtime verification pending.
+Confluence JMX monitoring remains **Blocked** in DEV. Atlassian JMX and App Monitoring are enabled in the Confluence administration UI, but no JMX-to-Prometheus exporter is installed. The repository defines no approved exporter artifact or checksum; ADR-010 states only that such an exporter "SHOULD be added in a later implementation phase". Selecting and committing an exporter version is an owner decision and was not made. Observed runtime facts for that decision: Confluence 24.04, Temurin Java 21, no `jmxremote` system property (Atlassian JMX is in-process, not RMI), internal port 8060 free, and `JVM_SUPPORT_RECOMMENDED_ARGS` is the supported hook for adding a `-javaagent` argument. No exporter binary, checksum, or arbitrary release is committed. Forgejo server and runner logs are normalized as `service="forgejo"` with `component="server"` or `component="runner"`, and runner presence uses cAdvisor's last-seen metric through the stable Compose service label. Runner monitoring and the availability alert are Runtime verified.
 
 ## Monitoring Objectives
 
@@ -293,7 +293,7 @@ No severity thresholds or response targets are committed.
 
 ## Alert Inventory
 
-Grafana-managed rules are provisioned from `shared/grafana/provisioning/alerting/servicehub.yml` into the `ServiceHub Alerts` folder. Alert evaluation is implemented in configuration; runtime verification pending. Notification delivery is deferred pending owner-selected contact point.
+Grafana-managed rules are provisioned from `shared/grafana/provisioning/alerting/servicehub.yml` into the `ServiceHub Alerts` folder. Alert evaluation is Runtime verified: Grafana-managed rules evaluate and publish to Alertmanager. Notification delivery is not configured; there are no contact points and the only policy is the default `empty` receiver, so no alert notification is delivered today. Notification delivery is deferred pending owner selection of a contact point and approved runtime credentials.
 
 | Rule UID | Severity | Signal | No-data state |
 |---|---|---|---|

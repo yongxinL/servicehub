@@ -892,6 +892,93 @@ Remaining deferred items:
   external whole-host watchdog, final retention tuning, and final threshold tuning
   remain deferred per ADR-010.
 
+## ADR-010 implementation status and follow-up register (2026-10-20)
+
+**Conditionally accepted: ADR-010 core runtime implementation and DEV follow-up are
+verified, with documented owner-dependent and optional items tracked separately.**
+
+The architecture decision status and the implementation-validation status are separate
+records. ADR-010 remains `status: Accepted`. The items below do not block closure of the
+core implementation.
+
+Runtime verified: Grafana Alloy, VictoriaMetrics, VictoriaLogs, Grafana; host, filesystem,
+inode and container metrics; cAdvisor per-container telemetry; Docker and Linux journal
+logs; VictoriaLogs queries; Traefik metrics and access logs; Authentik metrics and
+readiness; oCIS readiness, public probing, logs and native metrics; the PostgreSQL
+exporter and WAL metrics; Forgejo Actions Runner container health, registration, labels,
+metrics, logs and availability alert; internal readiness probes; external HTTPS and TLS
+probes; normalized probe labels; eight ServiceHub dashboards; Grafana-managed alert
+evaluation; telemetry persistence; excluded AI and mail service verification; OCI APM
+disabled-state safeguards; OCI APM log-export rejection.
+
+The Forgejo Actions Runner has **not** completed an end-to-end workflow test. Its
+container, registration, labels, metrics, logs and alert are verified; workflow execution
+remains pending a purpose-built safe test workflow.
+
+### Required operational follow-up
+
+- Create a safe, manually dispatched Forgejo Runner smoke workflow. The existing workflows
+  deploy to remote hosts over SSH and are not DEV-safe; the new workflow must not deploy
+  production services, publish images externally, modify secrets, or recreate unrelated
+  containers.
+- Select a Grafana notification contact point and approved runtime credentials, then
+  verify firing and recovery delivery. Alert evaluation is verified; delivery is not
+  configured.
+- Select an independent external whole-host watchdog. The ServiceHub host itself must not
+  be used as the external watchdog.
+- Observe storage growth over an owner-approved window before setting retention.
+- Review alert thresholds after sufficient operating history.
+
+### Optional enhancement
+
+- Approve and install a Confluence JMX exporter.
+- Refine the Applications dashboard label mappings.
+- Instrument selected applications for OpenTelemetry traces.
+- Enable OCI APM traces only after an endpoint, data key, application instrumentation and
+  owner approval are all available.
+
+### Explicitly prohibited without new approval
+
+- OCI APM log export.
+- OCI APM metric duplication.
+- Browser RUM.
+- Public JMX endpoints.
+- Public Alloy, VictoriaMetrics or VictoriaLogs endpoints.
+- Restoration of relocated AI or mail telemetry.
+
+### Dispositions
+
+**Confluence JMX.** Deferred pending owner approval of a specific JMX exporter version,
+official artifact source, checksum, license, Java 21 compatibility, Confluence
+compatibility, internal port, and rollback procedure. No exporter was downloaded,
+committed, mounted or started. Confluence retains its verified baseline monitoring:
+container metrics, container logs, readiness probe, Traefik request metrics, and Traefik
+errors and latency.
+
+**Notification delivery.** Deferred pending owner selection of a notification destination
+and approved runtime credentials. No contact point or notification secret exists. Alert
+evaluation is verified; notification delivery is not configured, and no documentation
+should imply that alerts are being delivered.
+
+**External watchdog.** Deferred pending selection of an external monitoring provider or
+independent monitoring host.
+
+**Retention and thresholds.** Retention tuning deferred pending an observation window and
+explicit approval for any change that could remove existing telemetry. Threshold tuning
+deferred pending longer-term operating history. Current thresholds remain accepted
+because runtime evidence shows sufficient headroom and no unjustified firing conditions.
+
+**Applications dashboard label model.** Recorded as separate dashboard-maintenance work,
+not a broad relabelling redesign. Logical service values use short names; container
+metrics use Compose and container labels; Traefik metrics use generated router and service
+labels. Datasource-specific selectors or explicit mappings may be required. This does not
+block core acceptance.
+
+**OCI APM.** Remains disabled. `OCI_APM_ENABLED`, `OCI_APM_TRACES_ENABLED`,
+`OCI_APM_METRICS_ENABLED` and `OCI_APM_LOGS_ENABLED` are all `false`; the OTLP endpoint and
+data key are empty. No trace, metric or log is sent to OCI APM, and enabling `true` for
+log export is rejected at preflight.
+
 ## DEV follow-up validation (2026-10-20)
 
 Recorded against the DEV host, which is not assumed to match OCI or production.
