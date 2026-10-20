@@ -159,7 +159,7 @@ groups:
             datasourceUid: victoriametrics
             model:
               datasource: {type: prometheus, uid: victoriametrics}
-              expr: "min(probe_success{service=~\"authentik-server|authentik-worker\"})"
+              expr: "min(probe_success{service=\"authentik\",probe_type=\"readiness\",target_class=\"internal\"})"
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
