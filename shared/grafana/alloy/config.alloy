@@ -205,7 +205,7 @@ prometheus.exporter.blackbox "public" {
     target {
         name    = "traefik-public"
         address = "https://" + sys.env("DOMAIN_NAME")
-        module  = "https_public_2xx"
+        module  = "https_expected_redirect"
     }
 
     target {
