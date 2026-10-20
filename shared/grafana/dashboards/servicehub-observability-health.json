@@ -305,9 +305,10 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\"} | stats by (_time:1m) count() as logs",
-          "queryType": "range",
-          "refId": "A"
+          "expr": "{project=\"servicehub\"} | stats count() as logs",
+          "queryType": "statsRange",
+          "refId": "A",
+          "step": "1m"
         }
       ],
       "title": "Recent log ingestion",
@@ -331,7 +332,7 @@
       },
       "id": 7,
       "options": {
-        "content": "Alert evaluation is implemented in configuration; runtime verification pending. Notification delivery is deferred pending owner-selected contact point. OCI Monitoring remains the required external watchdog for VM or total-stack failure.",
+        "content": "Alert evaluation is runtime verified. Notification delivery is not configured\nand remains pending an owner-selected contact point. Independent whole-host\nwatchdog coverage is not configured and requires an external monitoring\nprovider or host. OCI APM remains disabled and is not the watchdog mechanism.",
         "mode": "markdown"
       },
       "targets": [],

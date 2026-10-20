@@ -56,7 +56,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "(time() - container_last_seen{name!=\"\"}) < 90",
+          "expr": "(time() - container_last_seen{name=~\"${container:regex}\"}) < 90",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -102,7 +102,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "rate(container_cpu_usage_seconds_total{name!=\"\"}[5m]) * 100",
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\"${container:regex}\"}[5m]) * 100",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -173,7 +173,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_memory_usage_bytes{name!=\"\"}",
+          "expr": "container_memory_usage_bytes{name=~\"${container:regex}\"}",
           "legendFormat": "{{name}} usage",
           "refId": "A"
         },
@@ -182,7 +182,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_memory_working_set_bytes{name!=\"\"}",
+          "expr": "container_memory_working_set_bytes{name=~\"${container:regex}\"}",
           "legendFormat": "{{name}} working set",
           "refId": "B"
         },
@@ -191,7 +191,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_spec_memory_limit_bytes{name!=\"\"}",
+          "expr": "container_spec_memory_limit_bytes{name=~\"${container:regex}\"}",
           "legendFormat": "{{name}} limit",
           "refId": "C"
         }
@@ -262,7 +262,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "rate(container_fs_reads_bytes_total{name!=\"\"}[5m])",
+          "expr": "rate(container_fs_reads_bytes_total{name=~\"${container:regex}\"}[5m])",
           "legendFormat": "{{name}} read",
           "refId": "A"
         },
@@ -271,7 +271,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "rate(container_fs_writes_bytes_total{name!=\"\"}[5m])",
+          "expr": "rate(container_fs_writes_bytes_total{name=~\"${container:regex}\"}[5m])",
           "legendFormat": "{{name}} write",
           "refId": "B"
         }
@@ -317,7 +317,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_start_time_seconds{name!=\"\"}",
+          "expr": "container_start_time_seconds{name=~\"${container:regex}\"}",
           "legendFormat": "{{name}} started",
           "refId": "A"
         },
@@ -326,7 +326,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_last_seen{name!=\"\"}",
+          "expr": "container_last_seen{name=~\"${container:regex}\"}",
           "legendFormat": "{{name}} last seen",
           "refId": "B"
         }
@@ -370,7 +370,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "changes(container_start_time_seconds{name!=\"\"}[15m])",
+          "expr": "changes(container_start_time_seconds{name=~\"${container:regex}\"}[15m])",
           "legendFormat": "{{name}} restarts",
           "refId": "A"
         },
@@ -379,7 +379,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "increase(container_oom_events_total{name!=\"\"}[15m])",
+          "expr": "increase(container_oom_events_total{name=~\"${container:regex}\"}[15m])",
           "legendFormat": "{{name}} OOM",
           "refId": "B"
         }
@@ -415,7 +415,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\"} | filter container_name:~\"$container\"",
+          "expr": "{project=\"servicehub\"} | filter container_name:~\"${container:regex}\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -434,21 +434,25 @@
   "templating": {
     "list": [
       {
-        "current": {},
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "victoriametrics"
         },
-        "definition": "label_values(container_last_seen{name!=\"\"},name)",
+        "definition": "label_values(container_last_seen{name=~\"servicehub-.*\"},name)",
         "includeAll": true,
         "label": "Container",
         "multi": true,
         "name": "container",
         "query": {
-          "query": "label_values(container_last_seen{name!=\"\"},name)",
+          "query": "label_values(container_last_seen{name=~\"servicehub-.*\"},name)",
           "refId": "container-variable"
         },
-        "type": "query"
+        "type": "query",
+        "allValue": "servicehub-.*"
       }
     ]
   },

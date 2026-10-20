@@ -170,7 +170,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Traefik service error (5xx) rate. Router-level request and error telemetry is unavailable in the current Traefik runtime; Runtime verification pending.",
+      "description": "Traefik service 5xx increase over five minutes; sparse errors remain visible.",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps"
@@ -203,7 +203,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (logical_service) (rate(traefik_service_requests_total{logical_service=~\"$service\",code=~\"5..\"}[5m]))",
+          "expr": "sum by (logical_service) (increase(traefik_service_requests_total{code=~\"5..\"}[5m]))",
           "legendFormat": "{{logical_service}}",
           "refId": "A"
         }
@@ -271,7 +271,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Bounded country-code view from VictoriaLogs; Runtime verification pending.",
+      "description": "Bounded country-code view from VictoriaLogs; Runtime verified.",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -317,8 +317,8 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\"} | filter geoip_country_code!=\"\" | stats by (geoip_country_code) count() as requests",
-          "queryType": "range",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:~\"..*\" | stats by (geoip_country_code) count() as requests",
+          "queryType": "stats",
           "refId": "A"
         }
       ],
