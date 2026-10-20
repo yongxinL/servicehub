@@ -87,7 +87,7 @@ groups:
             datasourceUid: victoriametrics
             model:
               datasource: {type: prometheus, uid: victoriametrics}
-              expr: "node_filesystem_readonly"
+              expr: "node_filesystem_readonly{mountpoint!=\"/cdrom\"}"
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -123,7 +123,7 @@ groups:
             datasourceUid: victoriametrics
             model:
               datasource: {type: prometheus, uid: victoriametrics}
-              expr: "probe_success{service=\"traefik\"}"
+              expr: "min(probe_success{service=\"traefik\",probe_type=\"readiness\",target_class=\"internal\"})"
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -195,7 +195,7 @@ groups:
             datasourceUid: victoriametrics
             model:
               datasource: {type: prometheus, uid: victoriametrics}
-              expr: "probe_success{service=\"confluence\"}"
+              expr: "min(probe_success{service=\"confluence\",probe_type=\"readiness\",target_class=\"internal\"})"
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -231,7 +231,7 @@ groups:
             datasourceUid: victoriametrics
             model:
               datasource: {type: prometheus, uid: victoriametrics}
-              expr: "probe_success{service=\"forgejo\"}"
+              expr: "min(probe_success{service=\"forgejo\",probe_type=\"readiness\",target_class=\"internal\"})"
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -267,7 +267,7 @@ groups:
             datasourceUid: victoriametrics
             model:
               datasource: {type: prometheus, uid: victoriametrics}
-              expr: "probe_success{service=\"ocis\"}"
+              expr: "min(probe_success{service=\"ocis\",probe_type=\"readiness\",target_class=\"internal\"})"
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -597,7 +597,7 @@ groups:
             datasourceUid: victoriametrics
             model:
               datasource: {type: prometheus, uid: victoriametrics}
-              expr: "min by (service) (probe_ssl_earliest_cert_expiry{component=\"public-probe\"} - time())"
+              expr: "min by (service) (probe_ssl_earliest_cert_expiry{component=\"probe\",probe_type=\"https\",target_class=\"external\"} - time())"
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
