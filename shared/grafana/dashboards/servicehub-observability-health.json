@@ -319,25 +319,57 @@
         "type": "datasource",
         "uid": "grafana"
       },
-      "description": "Repository status note; Runtime verification pending.",
+      "description": "Grafana built-in alert list. Reflects configured Grafana alert-rule evaluation state only; notification and watchdog coverage are shown separately.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 24,
         "x": 0,
-        "y": 18
+        "y": 18,
+        "w": 12,
+        "h": 6
       },
       "id": 7,
       "options": {
-        "content": "Alert evaluation is runtime verified. Notification delivery is not configured\nand remains pending an owner-selected contact point. Independent whole-host\nwatchdog coverage is not configured and requires an external monitoring\nprovider or host. OCI APM remains disabled and is not the watchdog mechanism.",
-        "mode": "markdown"
+        "viewMode": "list",
+        "groupBy": [
+          "alertname",
+          "grafana_folder",
+          "severity"
+        ],
+        "maxItems": 20,
+        "sortOrder": 3,
+        "stateFilter": {
+          "alerting": true,
+          "pending": true,
+          "noData": true,
+          "normal": false
+        }
       },
       "targets": [],
-      "title": "Alert and watchdog state",
-      "type": "text"
+      "title": "Live alert evaluation",
+      "type": "alertlist"
+    },
+    {
+      "id": 9,
+      "title": "Notification and watchdog coverage",
+      "description": "Static operational-capability status. Alert evaluation is operational; delivery and independent host monitoring are owner-dependent follow-up items.",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "**Alert evaluation**  Runtime verified\n**Notification delivery**  Not configured\n**External host watchdog**  Not configured\n**OCI APM**  Disabled; not used as the watchdog mechanism"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 6
+      }
     }
   ],
   "refresh": "30s",

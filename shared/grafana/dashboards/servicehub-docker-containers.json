@@ -121,14 +121,14 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 0
+        "x": 0,
+        "y": 19,
+        "w": 12,
+        "h": 3
       },
       "id": 3,
       "options": {
-        "content": "CPU throttling metrics are unavailable from the current cAdvisor runtime. No throttling value is inferred from general CPU utilization.",
+        "content": "### Unsupported by current runtime\n\nRuntime limitation: per-container CPU throttling metrics are not exposed by the current cAdvisor/runtime combination. General CPU utilization is available in the CPU Usage panel; no throttling value is inferred.\n\nRuntime verified 2026-10-21.",
         "mode": "markdown"
       },
       "targets": [],
@@ -210,14 +210,14 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 6
+        "x": 12,
+        "y": 19,
+        "w": 12,
+        "h": 3
       },
       "id": 5,
       "options": {
-        "content": "Per-container network metrics are unavailable from the current cAdvisor runtime. Only an unlabelled root-cgroup network series is present.",
+        "content": "### Unsupported by current runtime\n\nRuntime limitation: per-container network metrics are not exposed with a container identity by the current cAdvisor/runtime combination. Only an unlabelled root-cgroup series is available and is intentionally not presented as per-container traffic.\n\nRuntime verified 2026-10-21.",
         "mode": "markdown"
       },
       "targets": [],
@@ -398,10 +398,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 24,
         "x": 0,
-        "y": 18
+        "y": 22,
+        "w": 24,
+        "h": 8
       },
       "id": 9,
       "options": {
@@ -422,6 +422,19 @@
       ],
       "title": "Container logs",
       "type": "logs"
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Runtime Limitations",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
     }
   ],
   "refresh": "30s",

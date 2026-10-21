@@ -289,7 +289,20 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.geoip_country_code}"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 6,
@@ -317,12 +330,12 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:~\"..*\" | stats by (geoip_country_code) count() as requests",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
           "queryType": "stats",
           "refId": "A"
         }
       ],
-      "title": "GeoIP country requests",
+      "title": "Top 10 Countries by Traffic",
       "type": "bargauge"
     },
     {
@@ -360,6 +373,507 @@
       ],
       "title": "Traefik access logs",
       "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 8,
+      "panels": [],
+      "title": "Client and Geographic Traffic",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Detailed public-client traffic. Private, loopback, link-local, shared, and reserved addresses are excluded at query time.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.client_ip}"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 19
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:* | filter -client_ip:re(\"^(0\\\\.|10\\\\.|100\\\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.0\\\\.0\\\\.|192\\\\.0\\\\.2\\\\.|192\\\\.168\\\\.|198\\\\.(1[89])\\\\.|224\\\\.|240\\\\.|255\\\\.)\") | filter -client_ip:re(\"(?i)^(fe80:|fc00:|fd00:|fdff:|::1$)\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "title": "Public Client IP Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Detailed recent public-client traffic; private and reserved addresses are excluded at query time.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.client_ip}"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 19
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:* | filter -client_ip:re(\"^(0\\\\.|10\\\\.|100\\\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.0\\\\.0\\\\.|192\\\\.0\\\\.2\\\\.|192\\\\.168\\\\.|198\\\\.(1[89])\\\\.|224\\\\.|240\\\\.|255\\\\.)\") | filter -client_ip:re(\"(?i)^(fe80:|fc00:|fd00:|fdff:|::1$)\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": "5m",
+      "title": "Top 15 Public Client IPs, last 5 minutes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Detailed hourly public-client traffic; private and reserved addresses are excluded at query time.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.client_ip}"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 19
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:* | filter -client_ip:re(\"^(0\\\\.|10\\\\.|100\\\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.0\\\\.0\\\\.|192\\\\.0\\\\.2\\\\.|192\\\\.168\\\\.|198\\\\.(1[89])\\\\.|224\\\\.|240\\\\.|255\\\\.)\") | filter -client_ip:re(\"(?i)^(fe80:|fc00:|fd00:|fdff:|::1$)\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 10",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": "1h",
+      "title": "Top Public Client IPs, last hour",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Private, loopback, link-local, and reserved-address traffic. Provenance of routed private clients requires owner confirmation.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.client_ip}"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 19
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:re(\"^(0\\\\.|10\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.168\\\\.|(?i)(fe80:|fc00:|fd00:|fdff:|::1$))\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "title": "Internal/Private Client IP Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Detailed public-client geographic traffic; private and reserved addresses are excluded at query time.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.geoip_country_code}"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 28
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 15",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "title": "Geographic Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Detailed hourly country traffic summary.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.geoip_country_code}"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 28
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": "1h",
+      "title": "Top 10 Countries, last hour",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Detailed six-hour country-traffic trend.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "stackMode": "Normal"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.geoip_country_code}"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 28
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": "6h",
+      "title": "Top 10 Countries, last 6 hours, stacked",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Detailed geographic diversity summary; Runtime verified.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 28
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats count_uniq(geoip_country_code) as countries",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Unique Countries",
+      "type": "stat"
     }
   ],
   "refresh": "30s",

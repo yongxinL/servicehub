@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "Security investigation views for host, edge, identity, and Forgejo. Queries are Runtime verification pending.",
+  "description": "Security investigation views for host, identity, Forgejo, and concise edge-security summaries. Detailed traffic and geographic analysis is in ServiceHub Traffic and Edge.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -168,7 +168,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Bounded country-code traffic from the Traefik access-log stream; Runtime verified.",
+      "description": "Concise GeoIP country summary; detailed country traffic is in ServiceHub Traffic and Edge. Runtime verified.",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -186,13 +186,26 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.geoip_country_code}"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 7,
-        "w": 12,
+        "w": 8,
         "x": 0,
-        "y": 14
+        "y": 15
       },
       "id": 5,
       "options": {
@@ -214,12 +227,12 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:~\"..*\" | stats by (geoip_country_code) count() as requests",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 5",
           "queryType": "stats",
           "refId": "A"
         }
       ],
-      "title": "Country-level traffic",
+      "title": "Top 5 Countries",
       "type": "bargauge"
     },
     {
@@ -233,10 +246,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 22
       },
       "id": 6,
       "options": {
@@ -272,12 +285,12 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 14
       },
       "id": 15,
       "options": {},
       "targets": [],
-      "title": "Edge Access and Geographic Security",
+      "title": "Edge Security Summary",
       "type": "row"
     },
     {
@@ -285,12 +298,29 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
+      "description": "Concise public-client summary. Private, loopback, link-local, shared, and reserved addresses are excluded at query time.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.client_ip}"
+              }
+            ]
+          }
+        ]
+      },
       "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 0,
-        "y": 22
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 15
       },
       "id": 7,
       "options": {},
@@ -300,12 +330,12 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:~\"..*\" | stats by (client_ip) count() as requests | sort by (requests desc) | limit 10",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:* | filter -client_ip:re(\"^(0\\\\.|10\\\\.|100\\\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.0\\\\.0\\\\.|192\\\\.0\\\\.2\\\\.|192\\\\.168\\\\.|198\\\\.(1[89])\\\\.|224\\\\.|240\\\\.|255\\\\.)\") | filter -client_ip:re(\"(?i)^(fe80:|fc00:|fd00:|fdff:|::1$)\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 5",
           "queryType": "stats",
           "refId": "A"
         }
       ],
-      "title": "Client IP Distribution",
+      "title": "Top 5 Public Client IPs",
       "type": "piechart"
     },
     {
@@ -316,130 +346,16 @@
       "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "custom": {}
+          "custom": {},
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 6,
-        "y": 22
-      },
-      "time": {
-        "from": "now-1h",
-        "to": "now"
-      },
-      "id": 8,
-      "options": {},
-      "targets": [
-        {
-          "datasource": {
-            "type": "victoriametrics-logs-datasource",
-            "uid": "victorialogs"
-          },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:~\"..*\" | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
-          "queryType": "stats",
-          "refId": "A"
-        }
-      ],
-      "title": "Top Client IPs, last hour",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "victorialogs"
-      },
-      "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 22
-      },
-      "time": {
-        "from": "now-5m",
-        "to": "now"
-      },
-      "id": 9,
-      "options": {},
-      "targets": [
-        {
-          "datasource": {
-            "type": "victoriametrics-logs-datasource",
-            "uid": "victorialogs"
-          },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:~\"..*\" | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
-          "queryType": "statsRange",
-          "refId": "A",
-          "step": "1m"
-        }
-      ],
-      "title": "Top 15 Client IPs, last 5 minutes",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "victorialogs"
-      },
-      "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 22
-      },
-      "id": 10,
-      "options": {},
-      "targets": [
-        {
-          "datasource": {
-            "type": "victoriametrics-logs-datasource",
-            "uid": "victorialogs"
-          },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:~\"..*\" | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
-          "queryType": "stats",
-          "refId": "A"
-        }
-      ],
-      "title": "Geographic Distribution",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "victorialogs"
-      },
-      "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 0,
-        "y": 30
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 15
       },
       "id": 11,
       "options": {},
@@ -456,133 +372,6 @@
       ],
       "title": "Total Unique Countries",
       "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "victorialogs"
-      },
-      "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 6,
-        "y": 30
-      },
-      "id": 12,
-      "options": {},
-      "targets": [
-        {
-          "datasource": {
-            "type": "victoriametrics-logs-datasource",
-            "uid": "victorialogs"
-          },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:~\"..*\" | stats by (geoip_country_code) count() as requests",
-          "queryType": "statsRange",
-          "refId": "A",
-          "step": "5m"
-        }
-      ],
-      "title": "Top 10 Countries by Traffic",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "victorialogs"
-      },
-      "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 30
-      },
-      "time": {
-        "from": "now-1h",
-        "to": "now"
-      },
-      "id": 13,
-      "options": {},
-      "targets": [
-        {
-          "datasource": {
-            "type": "victoriametrics-logs-datasource",
-            "uid": "victorialogs"
-          },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:~\"..*\" | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
-          "queryType": "stats",
-          "refId": "A"
-        }
-      ],
-      "title": "Top 10 Countries, last hour",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "victorialogs"
-      },
-      "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 30
-      },
-      "time": {
-        "from": "now-6h",
-        "to": "now"
-      },
-      "id": 14,
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 80,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {},
-      "targets": [
-        {
-          "datasource": {
-            "type": "victoriametrics-logs-datasource",
-            "uid": "victorialogs"
-          },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:~\"..*\" | stats by (geoip_country_code) count() as requests",
-          "queryType": "statsRange",
-          "refId": "A",
-          "step": "5m"
-        }
-      ],
-      "title": "Top 10 Countries, last 6 hours, stacked",
-      "type": "timeseries"
     }
   ],
   "refresh": "30s",
