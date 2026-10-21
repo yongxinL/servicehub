@@ -1,0 +1,363 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Landing dashboard: host health, capacity, bounded service readiness, container lifecycle, HTTP traffic, authentication failures, and observability pipeline health. Detailed investigation lives in the component dashboards.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Host CPU utilization (node_exporter).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
+          "legendFormat": "CPU",
+          "refId": "A"
+        }
+      ],
+      "title": "Host CPU",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Host memory utilization.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+          "legendFormat": "Memory",
+          "refId": "A"
+        }
+      ],
+      "title": "Host memory",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Filesystem utilization for the Stage 1 validated mounts only (root and /boot/efi); pseudo filesystems are excluded by the collector.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0},
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "100 * (1 - node_filesystem_avail_bytes / node_filesystem_size_bytes)",
+          "legendFormat": "{{mountpoint}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Filesystem capacity",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "One card per bounded logical_service from internal readiness probes. min aggregation makes a single failing required path (e.g. Authentik worker) mark the service down.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {"text": "Down"},
+                "1": {"text": "Ready"}
+              },
+              "type": "value"
+            }
+          ],
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0},
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "min by (logical_service) (probe_success{probe_type=\"readiness\",target_class=\"internal\"})",
+          "legendFormat": "{{logical_service}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Service readiness",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Pressure-stall (PSI) rates from node_exporter.",
+      "fieldConfig": {
+        "defaults": {"unit": "s"},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 6},
+      "id": 3,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "rate(node_pressure_cpu_waiting_seconds_total[5m])",
+          "legendFormat": "CPU waiting",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "rate(node_pressure_memory_waiting_seconds_total[5m])",
+          "legendFormat": "Memory waiting",
+          "refId": "B"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "rate(node_pressure_io_waiting_seconds_total[5m])",
+          "legendFormat": "I/O waiting",
+          "refId": "C"
+        }
+      ],
+      "title": "Pressure-stall information",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Traefik request rate and 5xx error rate across all routed services.",
+      "fieldConfig": {
+        "defaults": {"unit": "reqps"},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6},
+      "id": 8,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "sum(rate(traefik_service_requests_total[5m]))",
+          "legendFormat": "Requests",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m]))",
+          "legendFormat": "5xx",
+          "refId": "B"
+        }
+      ],
+      "title": "HTTP traffic and errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Intentional 15-minute lookback for lifecycle events; rises only on real restarts or OOM kills.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12},
+      "id": 7,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "changes(container_start_time_seconds{name=~\"servicehub-.*\"}[15m])",
+          "legendFormat": "{{name}} restarts (15m)",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "increase(container_oom_events_total{name=~\"servicehub-.*\"}[15m])",
+          "legendFormat": "{{name}} OOM (15m)",
+          "refId": "B"
+        }
+      ],
+      "title": "Container restarts and OOM",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Traefik 401/403 responses by routed backend. Correlation with Authentik and Forgejo failures is in the Security dashboard.",
+      "fieldConfig": {
+        "defaults": {"unit": "reqps"},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 12},
+      "id": 11,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "sum by (logical_service) (rate(traefik_service_requests_total{code=~\"401|403\"}[5m]))",
+          "legendFormat": "{{logical_service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Authentication and authorization failures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Alloy scrape status, remote-write failures, and observability component probes.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 18},
+      "id": 9,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "sum(up{job=\"alloy\"})",
+          "legendFormat": "Alloy scrape",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "sum(increase(prometheus_remote_storage_samples_failed_total[5m]))",
+          "legendFormat": "Remote-write failures",
+          "refId": "B"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "min by (service) (probe_success{service=~\"victoriametrics|victorialogs|grafana\",probe_type=\"readiness\"})",
+          "legendFormat": "{{service}}",
+          "refId": "C"
+        }
+      ],
+      "title": "Observability pipeline health",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Recent warning and error logs across the bounded ServiceHub streams.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 18},
+      "id": 10,
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "displayedFields": ["_time", "container_name", "level", "_msg"]
+      },
+      "targets": [
+        {
+          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "expr": "{project=\"servicehub\",logical_service=\"authentik\"} | filter level:~\"error|warn\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent warning and error logs",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["servicehub", "adr-010", "overview"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "ServiceHub Overview",
+  "uid": "servicehub-overview",
+  "version": 2
+}

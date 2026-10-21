@@ -103,16 +103,6 @@ def main():
 
     enable_mailsv = env.get("ENABLE_MAILSV", "").lower() == "true"
 
-    # Grafana ingress restriction (ADR-010 Stage 2): IP allowlist instead of
-    # Authentik forward auth. GRAFANA_ALLOWED_CIDRS carries the owner-approved
-    # ranges; TRUSTED_IP is the documented fallback so the middleware the
-    # Grafana router references always exists.
-    grafana_cidrs = [
-        r.strip()
-        for r in expand(env.get("GRAFANA_ALLOWED_CIDRS", ""), env).split(",")
-        if r.strip()
-    ] or trusted
-
     # DOMAIN_NAME only reaches the output through the derived keys. A literal
     # override (TRAEFIK_DOMAIN=traefik.old.example) never moves with
     # DOMAIN_NAME, so say so instead of silently writing a stale host.
@@ -185,13 +175,11 @@ def main():
         "middlewares": [mid_secure, "dashboard-login-redirect"],
         "tls": tls,
     }
-    # Grafana ingress restriction (ADR-010 Stage 2): the Docker-label router on
-    # obsvcegrafana attaches this by name; falling back to TRUSTED_IP keeps the
-    # reference valid for deployments that never set GRAFANA_ALLOWED_CIDRS.
-    if not expand(env.get("GRAFANA_ALLOWED_CIDRS", ""), env).strip():
-        print("note: GRAFANA_ALLOWED_CIDRS empty; grafana-allowlist falls back "
-              "to TRUSTED_IP ranges", file=sys.stderr)
-    middlewares["grafana-allowlist"] = {"ipAllowList": {"sourceRange": grafana_cidrs}}
+    # Grafana ingress restriction (ADR-010 Stage 3): the Docker-label router on
+    # obsvcegrafana attaches this by name. TRUSTED_IP is the single source of
+    # truth for administrative ingress, so Grafana shares the same allowlist
+    # as the Traefik dashboard and the other admin interfaces.
+    middlewares["grafana-allowlist"] = {"ipAllowList": {"sourceRange": trusted}}
     if enable_mailsv:
         routers["mailsvstalwart-untrusted"] = {
             "rule": (f"Host(`{env['EMAIL_HOST']}`) && "

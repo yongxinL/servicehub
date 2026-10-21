@@ -89,6 +89,10 @@ web_modules/
 
 # dotenv environment variable files
 .env
+
+# Python cache
+__pycache__/
+*.pyc
 .env.development.local
 .env.test.local
 .env.production.local

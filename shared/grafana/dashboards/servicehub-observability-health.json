@@ -1,0 +1,276 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Observability pipeline health. Grafana cannot reliably report its own total failure; external monitoring is the watchdog.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Alloy and observability-service readiness probes. One card per component.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "Down"
+                },
+                "1": {
+                  "text": "Ready"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "asc"},
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "up{job=\"alloy\"}",
+          "legendFormat": "Alloy",
+          "refId": "A",
+          "instant": true
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "min by (service) (probe_success{service=~\"victoriametrics|victorialogs|grafana\",probe_type=\"readiness\"})",
+          "legendFormat": "{{service}}",
+          "refId": "B",
+          "instant": true
+        }
+      ],
+      "title": "Collector and store readiness",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Alloy remote-write failure and drop counters.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "sum by (remote_name, url) (rate(prometheus_remote_storage_samples_failed_total[5m]))",
+          "legendFormat": "{{remote_name}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "sum(rate(prometheus_remote_storage_samples_dropped_total[5m]))",
+          "legendFormat": "Dropped",
+          "refId": "B"
+        }
+      ],
+      "title": "Remote-write health",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Scrape status for each configured Alloy job. One card per job.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {"text": "Failed"},
+                "1": {"text": "Up"}
+              },
+              "type": "value"
+            }
+          ],
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 6},
+      "id": 3,
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "asc"},
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "up{job=~\"obstack|cadvisor|traefik|alloy|internal|public\"}",
+          "legendFormat": "{{job}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Scrape health",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Filesystem capacity backing observability data stores (VictoriaMetrics + VictoriaLogs + Grafana).",
+      "fieldConfig": {
+        "defaults": {"unit": "percent", "max": 100, "min": 0},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6},
+      "id": 4,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "expr": "100 * (1 - node_filesystem_avail_bytes / node_filesystem_size_bytes)",
+          "legendFormat": "{{mountpoint}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Storage capacity",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Logs from observability components (Alloy, VM, VLogs, Grafana) for debugging.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12},
+      "id": 5,
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "displayedFields": ["_time", "container_name", "level", "_msg"]
+      },
+      "targets": [
+        {
+          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "expr": "{project=\"servicehub\",container_name=~\"servicehub-obsvce(alloy|vm|vlogs|grafana)-1\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Observability logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Log ingestion rate as a time series using statsRange (1-minute step). Returns a numeric 'logs' field that renders correctly.",
+      "fieldConfig": {
+        "defaults": {"unit": "short"},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 12},
+      "id": 6,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single", "sort": "none"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "expr": "{project=\"servicehub\"} | stats count() as logs",
+          "queryType": "statsRange",
+          "refId": "A",
+          "step": "1m"
+        }
+      ],
+      "title": "Recent log ingestion",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "grafana"
+      },
+      "description": "Grafana built-in alert list. Reflects configured alert-rule evaluation state only; notification and watchdog coverage are shown separately.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 18},
+      "id": 7,
+      "options": {
+        "groupBy": ["alertname", "grafana_folder", "severity"],
+        "maxItems": 20,
+        "sortOrder": 3,
+        "stateFilter": {
+          "alerting": true,
+          "noData": true,
+          "normal": false,
+          "pending": true
+        },
+        "viewMode": "list"
+      },
+      "targets": [],
+      "title": "Live alert evaluation",
+      "type": "alertlist"
+    },
+    {
+      "description": "Static operational-capability status. Alert evaluation is operational; delivery and independent host monitoring are owner-dependent follow-up items.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 18},
+      "id": 9,
+      "options": {
+        "content": "**Alert evaluation**: Operational (Grafana built-in)\n\n**Notification delivery**: Not configured\n\n**External host watchdog**: Not configured\n\n**OCI APM**: Disabled; not used as the watchdog mechanism",
+        "mode": "markdown"
+      },
+      "targets": [],
+      "title": "Notification and watchdog coverage",
+      "type": "text"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["servicehub", "adr-010", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "ServiceHub Observability Health",
+  "uid": "servicehub-observability-health",
+  "version": 2
+}
