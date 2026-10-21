@@ -35,23 +35,46 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
       "options": {
-        "legend": {"displayMode": "list", "placement": "bottom"},
-        "tooltip": {"mode": "multi", "sort": "asc"},
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "asc"
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
           "expr": "up{job=\"alloy\"}",
           "legendFormat": "Alloy",
           "refId": "A",
           "instant": true
         },
         {
-          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
           "expr": "min by (service) (probe_success{service=~\"victoriametrics|victorialogs|grafana\",probe_type=\"readiness\"})",
           "legendFormat": "{{service}}",
           "refId": "B",
@@ -71,21 +94,41 @@
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0},
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "id": 2,
       "options": {
-        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
           "expr": "sum by (remote_name, url) (rate(prometheus_remote_storage_samples_failed_total[5m]))",
           "legendFormat": "{{remote_name}}",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
           "expr": "sum(rate(prometheus_remote_storage_samples_dropped_total[5m]))",
           "legendFormat": "Dropped",
           "refId": "B"
@@ -105,8 +148,12 @@
           "mappings": [
             {
               "options": {
-                "0": {"text": "Failed"},
-                "1": {"text": "Up"}
+                "0": {
+                  "text": "Failed"
+                },
+                "1": {
+                  "text": "Up"
+                }
               },
               "type": "value"
             }
@@ -116,16 +163,36 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 6},
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
       "id": 3,
       "options": {
-        "legend": {"displayMode": "list", "placement": "bottom"},
-        "tooltip": {"mode": "multi", "sort": "asc"},
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "asc"
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
           "expr": "up{job=~\"obstack|cadvisor|traefik|alloy|internal|public\"}",
           "legendFormat": "{{job}}",
           "refId": "A",
@@ -142,18 +209,39 @@
       },
       "description": "Filesystem capacity backing observability data stores (VictoriaMetrics + VictoriaLogs + Grafana).",
       "fieldConfig": {
-        "defaults": {"unit": "percent", "max": 100, "min": 0},
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
         "overrides": []
       },
-      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6},
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
       "id": 4,
       "options": {
-        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
           "expr": "100 * (1 - node_filesystem_avail_bytes / node_filesystem_size_bytes)",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
@@ -172,17 +260,30 @@
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12},
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
       "id": 5,
       "options": {
         "showTime": true,
         "sortOrder": "Descending",
         "wrapLogMessage": true,
-        "displayedFields": ["_time", "container_name", "level", "_msg"]
+        "displayedFields": [
+          "_time",
+          "container_name",
+          "level",
+          "_msg"
+        ]
       },
       "targets": [
         {
-          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
           "expr": "{project=\"servicehub\",container_name=~\"servicehub-obsvce(alloy|vm|vlogs|grafana)-1\"}",
           "queryType": "range",
           "refId": "A"
@@ -198,18 +299,37 @@
       },
       "description": "Log ingestion rate as a time series using statsRange (1-minute step). Returns a numeric 'logs' field that renders correctly.",
       "fieldConfig": {
-        "defaults": {"unit": "short"},
+        "defaults": {
+          "unit": "short"
+        },
         "overrides": []
       },
-      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 12},
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
       "id": 6,
       "options": {
-        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
-        "tooltip": {"mode": "single", "sort": "none"}
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
           "expr": "{project=\"servicehub\"} | stats count() as logs",
           "queryType": "statsRange",
           "refId": "A",
@@ -224,16 +344,25 @@
         "type": "datasource",
         "uid": "grafana"
       },
-      "description": "Grafana built-in alert list. Reflects configured alert-rule evaluation state only; notification and watchdog coverage are shown separately.",
+      "description": "Live Grafana-managed alert evaluation state. Shows only non-Normal instances; Normal rules are intentionally hidden. Notification delivery is not configured.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 18},
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
       "id": 7,
       "options": {
-        "groupBy": ["alertname", "grafana_folder", "severity"],
-        "maxItems": 20,
+        "groupBy": [
+          "alertname",
+          "grafana_folder",
+          "severity"
+        ],
+        "maxItems": 50,
         "sortOrder": 3,
         "stateFilter": {
           "alerting": true,
@@ -248,15 +377,20 @@
       "type": "alertlist"
     },
     {
-      "description": "Static operational-capability status. Alert evaluation is operational; delivery and independent host monitoring are owner-dependent follow-up items.",
+      "description": "Runtime-verified operational health: Grafana-managed alert evaluation is configured and validated on adr-010-dev (ADR-010 Stage 4). Notification delivery and an independent external watchdog remain explicitly unconfigured; OCI APM remains disabled pending connection configuration.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 18},
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
       "id": 9,
       "options": {
-        "content": "**Alert evaluation**: Operational (Grafana built-in)\n\n**Notification delivery**: Not configured\n\n**External host watchdog**: Not configured\n\n**OCI APM**: Disabled; not used as the watchdog mechanism",
+        "content": "**Alert evaluation**: Operational — Grafana-managed, 27 rules in 3 evaluation groups, validated on healthy system\n\n**Notification delivery**: Not configured (no contact point; owner follow-up required)\n\n**External host watchdog**: Not configured (owner follow-up required)\n\n**OCI APM**: Disabled — not a watchdog mechanism; disabled pending connection configuration",
         "mode": "markdown"
       },
       "targets": [],
@@ -266,11 +400,20 @@
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["servicehub", "adr-010", "observability"],
-  "templating": {"list": []},
-  "time": {"from": "now-6h", "to": "now"},
+  "tags": [
+    "servicehub",
+    "adr-010",
+    "observability"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timezone": "browser",
   "title": "ServiceHub Observability Health",
   "uid": "servicehub-observability-health",
-  "version": 2
+  "version": 3
 }
