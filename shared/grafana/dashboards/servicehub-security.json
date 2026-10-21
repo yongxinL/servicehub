@@ -178,28 +178,11 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 1000
               }
             ]
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "geoip_country_code"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.geoip_country_code}"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 7,
@@ -233,7 +216,20 @@
         }
       ],
       "title": "Top 5 Countries",
-      "type": "bargauge"
+      "type": "bargauge",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{geoip_country_code=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {
@@ -301,20 +297,7 @@
       "description": "Concise public-client summary. Private, loopback, link-local, shared, and reserved addresses are excluded at query time.",
       "fieldConfig": {
         "defaults": {},
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "client_ip"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.client_ip}"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 7,
@@ -336,7 +319,20 @@
         }
       ],
       "title": "Top 5 Public Client IPs",
-      "type": "piechart"
+      "type": "piechart",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{client_ip=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {

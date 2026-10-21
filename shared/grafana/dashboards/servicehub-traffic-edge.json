@@ -273,36 +273,8 @@
       },
       "description": "Bounded country-code view from VictoriaLogs; Runtime verified.",
       "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1000
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "geoip_country_code"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.geoip_country_code}"
-              }
-            ]
-          }
-        ]
+        "defaults": {},
+        "overrides": []
       },
       "gridPos": {
         "h": 6,
@@ -336,7 +308,20 @@
         }
       ],
       "title": "Top 10 Countries by Traffic",
-      "type": "bargauge"
+      "type": "bargauge",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{geoip_country_code=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {
@@ -395,20 +380,7 @@
       "description": "Detailed public-client traffic. Private, loopback, link-local, shared, and reserved addresses are excluded at query time.",
       "fieldConfig": {
         "defaults": {},
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "client_ip"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.client_ip}"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -447,7 +419,20 @@
         }
       ],
       "title": "Public Client IP Distribution",
-      "type": "piechart"
+      "type": "piechart",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{client_ip=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {
@@ -457,20 +442,7 @@
       "description": "Detailed recent public-client traffic; private and reserved addresses are excluded at query time.",
       "fieldConfig": {
         "defaults": {},
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "client_ip"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.client_ip}"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -505,7 +477,20 @@
       ],
       "timeFrom": "5m",
       "title": "Top 15 Public Client IPs, last 5 minutes",
-      "type": "timeseries"
+      "type": "timeseries",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{client_ip=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {
@@ -515,20 +500,7 @@
       "description": "Detailed hourly public-client traffic; private and reserved addresses are excluded at query time.",
       "fieldConfig": {
         "defaults": {},
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "client_ip"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.client_ip}"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -568,7 +540,20 @@
       ],
       "timeFrom": "1h",
       "title": "Top Public Client IPs, last hour",
-      "type": "piechart"
+      "type": "piechart",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{client_ip=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {
@@ -578,20 +563,7 @@
       "description": "Private, loopback, link-local, and reserved-address traffic. Provenance of routed private clients requires owner confirmation.",
       "fieldConfig": {
         "defaults": {},
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "client_ip"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.client_ip}"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -630,7 +602,20 @@
         }
       ],
       "title": "Internal/Private Client IP Distribution",
-      "type": "piechart"
+      "type": "piechart",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{client_ip=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {
@@ -640,20 +625,7 @@
       "description": "Detailed public-client geographic traffic; private and reserved addresses are excluded at query time.",
       "fieldConfig": {
         "defaults": {},
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "geoip_country_code"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.geoip_country_code}"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -692,7 +664,20 @@
         }
       ],
       "title": "Geographic Distribution",
-      "type": "piechart"
+      "type": "piechart",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{geoip_country_code=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {
@@ -702,20 +687,7 @@
       "description": "Detailed hourly country traffic summary.",
       "fieldConfig": {
         "defaults": {},
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "geoip_country_code"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.geoip_country_code}"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -755,7 +727,20 @@
       ],
       "timeFrom": "1h",
       "title": "Top 10 Countries, last hour",
-      "type": "piechart"
+      "type": "piechart",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{geoip_country_code=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {
@@ -769,20 +754,7 @@
             "stackMode": "Normal"
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "geoip_country_code"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels.geoip_country_code}"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -817,7 +789,20 @@
       ],
       "timeFrom": "6h",
       "title": "Top 10 Countries, last 6 hours, stacked",
-      "type": "timeseries"
+      "type": "timeseries",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "fields": {
+              "mode": "all"
+            },
+            "pattern": "^requests\\{geoip_country_code=\"([^\"]+)\"\\}$",
+            "replacement": "$1",
+            "result": "replace"
+          }
+        }
+      ]
     },
     {
       "datasource": {
