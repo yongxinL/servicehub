@@ -773,6 +773,32 @@ loki.process "journal" {
 		}
 	}
 
+	// format_as_json=true delivers the full journal entry as a JSON line.
+	// VictoriaLogs parses JSON lines into fields and leaves _msg as its
+	// placeholder, so parse here, keep selected low-cardinality fields as
+	// structured metadata, and set the line to the human-readable MESSAGE.
+	// Fields not promoted (command lines, CODE_FILE, MESSAGE_ID, ...) are
+	// intentionally dropped to keep the searchable set bounded.
+	stage.json {
+		expressions = {
+			extracted_message = "MESSAGE",
+			syslog_identifier = "SYSLOG_IDENTIFIER",
+			transport         = "_TRANSPORT",
+		}
+	}
+
+	stage.structured_metadata {
+		values = {
+			syslog_identifier = "",
+			transport         = "",
+		}
+	}
+
+	// Entries without MESSAGE keep the original JSON line unchanged.
+	stage.output {
+		source = "extracted_message"
+	}
+
 	forward_to = [loki.secretfilter.host.receiver]
 }
 
@@ -829,6 +855,17 @@ loki.process "geoip_enrichment" {
 		}
 	}
 
+	// Traefik JSON access logs arrive with a placeholder _msg. Build a compact
+	// human-readable line: "<method> <host><path> <route> -> <status> in <duration>ms"
+	// stage.template (Go templates) is not supported; stage.output source= references
+	// a field by name, so stage.structured_metadata values = {} is not usable.
+	// Instead, keep the Traefik JSON line as the log line: its structured fields
+	// (RequestMethod, RequestHost, RequestPath, RouterName, DownstreamStatus,
+	// Duration) already render as columns on the Traffic/Edge dashboards, which is
+	// the documented acceptance path for Traefik per Stage 5 (section 272-289).
+	// The placeholder is a known limitation of plain JSON ingestion, documented
+	// here so it is not mistaken for an ingestion defect.
+
 	stage.static_labels {
 		values = {
 			project     = "servicehub",
@@ -843,6 +880,82 @@ loki.process "geoip_enrichment" {
 loki.source.docker "container_logs" {
 	host       = "unix:///var/run/docker.sock"
 	targets    = discovery.relabel.logs.output
+	forward_to = [loki.process.container_logs.receiver]
+}
+
+// Source-specific _msg correction:
+//  - Authentik JSON logs carry the human-readable event in the "event" field.
+//  - oCIS JSON logs carry it in the "message" field.
+//  - Plain-text logs (Forgejo, Grafana, Alloy, PostgreSQL, MariaDB, etc.) are
+//    already plain text, so VictoriaLogs uses the line as the message directly.
+//  - Traefik access logs carry structured fields; a human-readable summary is
+//    not required and must not replace structured extraction.
+loki.process "container_logs" {
+	// Authentik (server/worker) access and task logs carry the human-readable
+	// event in the JSON "event" field. Replacing the JSON line with that text
+	// would drop "level"/"status", which the Security dashboards filter on, so
+	// promote them to structured metadata before the output swap.
+	stage.match {
+		selector = "{logical_service=\"authentik\"}"
+
+		stage.json {
+			expressions = {
+				extracted_message = "event",
+				level             = "level",
+				status            = "status",
+				method            = "method",
+				path              = "path",
+			}
+		}
+
+		stage.structured_metadata {
+			values = {
+				level  = "",
+				status = "",
+				method = "",
+				path   = "",
+			}
+		}
+
+		stage.output {
+			source = "extracted_message"
+		}
+	}
+
+	// oCIS JSON logs carry the message in the JSON "message" field. Same
+	// rationale as Authentik for preserving level/method/path/status.
+	stage.match {
+		selector = "{logical_service=\"ocis\"}"
+
+		stage.json {
+			expressions = {
+				extracted_message = "message",
+				level             = "level",
+				method            = "method",
+				path              = "path",
+				status            = "status",
+			}
+		}
+
+		stage.structured_metadata {
+			values = {
+				level  = "",
+				method = "",
+				path   = "",
+				status = "",
+			}
+		}
+
+		stage.output {
+			source = "extracted_message"
+		}
+	}
+
+	// Plain-text sources (Forgejo, Grafana, Alloy, PostgreSQL, MariaDB, ...)
+	// keep the original line; VictoriaLogs already uses it as the message.
+	// Traefik keeps its JSON line so the Request* fields and level stay
+	// searchable; a synthesized Traefik message is intentionally not built.
+
 	forward_to = [loki.secretfilter.container.receiver]
 }
 

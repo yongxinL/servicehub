@@ -19,7 +19,12 @@
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
       "options": {
         "showTime": true,
@@ -28,7 +33,10 @@
       },
       "targets": [
         {
-          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
           "expr": "{project=\"servicehub\",component=\"security\",source=\"journal\"}",
           "queryType": "range",
           "refId": "A"
@@ -44,18 +52,37 @@
       },
       "description": "Traefik authentication and authorization responses by status code.",
       "fieldConfig": {
-        "defaults": {"unit": "reqps"},
+        "defaults": {
+          "unit": "reqps"
+        },
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 0},
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "id": 2,
       "options": {
-        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "victoriametrics"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
           "expr": "sum by (code) (rate(traefik_service_requests_total{code=~\"401|403|404|429\"}[5m]))",
           "legendFormat": "{{code}}",
           "refId": "A"
@@ -74,7 +101,12 @@
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 7},
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
       "id": 3,
       "options": {
         "showTime": true,
@@ -83,7 +115,10 @@
       },
       "targets": [
         {
-          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
           "expr": "{project=\"servicehub\",logical_service=\"authentik\"} | filter level:~\"error|warn\"",
           "queryType": "range",
           "refId": "A"
@@ -102,7 +137,12 @@
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 7},
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
       "id": 4,
       "options": {
         "showTime": true,
@@ -111,7 +151,10 @@
       },
       "targets": [
         {
-          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
           "expr": "{project=\"servicehub\",logical_service=\"forgejo\"} | filter _msg:~\"(?i)(panic|error|fatal|failed|fail:|failed to)\"",
           "queryType": "range",
           "refId": "A"
@@ -130,18 +173,32 @@
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 8, "x": 0, "y": 15},
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 15
+      },
       "id": 5,
       "options": {
         "displayMode": "gradient",
         "orientation": "horizontal",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "showUnfilled": true,
         "valueMode": "color"
       },
       "targets": [
         {
-          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
           "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 5",
           "queryType": "stats",
           "refId": "A"
@@ -150,9 +207,28 @@
       "title": "Top 5 Countries",
       "type": "bargauge",
       "transformations": [
-        {"id": "merge", "options": {}},
-        {"id": "reduce", "options": {"calcs": ["lastNotNull"], "fields": ""}},
-        {"id": "organize", "options": {"excludeByName": {}, "indexByName": {}, "renameByName": {"geoip_country_code": "Country", "Value": "Requests"}}}
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "valueLabel": "geoip_country_code"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
       ]
     },
     {
@@ -162,15 +238,26 @@
       },
       "description": "Total unique countries seen in the selected time range.",
       "fieldConfig": {
-        "defaults": {"custom": {}, "unit": "short"},
+        "defaults": {
+          "custom": {},
+          "unit": "short"
+        },
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 8, "x": 8, "y": 15},
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 15
+      },
       "id": 11,
       "options": {},
       "targets": [
         {
-          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
           "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats count_uniq(geoip_country_code) as countries",
           "queryType": "stats",
           "refId": "A"
@@ -189,12 +276,20 @@
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 8, "x": 16, "y": 15},
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 15
+      },
       "id": 7,
       "options": {},
       "targets": [
         {
-          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
           "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:* | filter -client_ip:re(\"^(0\\\\.|10\\\\.|100\\\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.0\\\\.0\\\\.|192\\\\.0\\\\.2\\\\.|192\\\\.168\\\\.|198\\\\.(1[89])\\\\.|224\\\\.|240\\\\.|255\\\\.)\") | filter -client_ip:re(\"(?i)^(fe80:|fc00:|fd00:|fdff:|::1$)\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 5",
           "queryType": "stats",
           "refId": "A"
@@ -203,14 +298,38 @@
       "title": "Top 5 Public Client IPs",
       "type": "piechart",
       "transformations": [
-        {"id": "merge", "options": {}},
-        {"id": "reduce", "options": {"calcs": ["lastNotNull"], "fields": ""}},
-        {"id": "organize", "options": {"excludeByName": {}, "indexByName": {}, "renameByName": {"client_ip": "Client IP", "Value": "Requests"}}}
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "valueLabel": "client_ip"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
       ]
     },
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
       "id": 15,
       "options": {},
       "targets": [],
@@ -227,7 +346,12 @@
         "defaults": {},
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
       "id": 6,
       "options": {
         "showTime": true,
@@ -236,7 +360,10 @@
       },
       "targets": [
         {
-          "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
           "expr": "{project=\"servicehub\"} | filter container_name:~\"infraauth|infraauthwrk|devopsforgejo|devopsrunner|routetraefik\" | filter level:~\"error|warn\"",
           "queryType": "range",
           "refId": "A"
@@ -248,9 +375,18 @@
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["servicehub", "adr-010", "security"],
-  "templating": {"list": []},
-  "time": {"from": "now-6h", "to": "now"},
+  "tags": [
+    "servicehub",
+    "adr-010",
+    "security"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timezone": "browser",
   "title": "ServiceHub Security",
   "uid": "servicehub-security",
