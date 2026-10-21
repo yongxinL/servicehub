@@ -58,8 +58,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "probe_success{logical_service=~\"${service:regex}\",probe_type=\"readiness\",target_class=\"internal\"}",
-          "legendFormat": "{{service}}",
+          "expr": "max by (logical_service) (probe_success{logical_service=~\"${service:regex}\",probe_type=\"readiness\",target_class=\"internal\"})",
+          "legendFormat": "{{logical_service}}",
           "refId": "A"
         }
       ],
@@ -368,6 +368,7 @@
   "templating": {
     "list": [
       {
+        "allValue": "authentik|confluence|forgejo|grafana|ocis|traefik|victoriametrics|victorialogs",
         "current": {
           "text": "All",
           "value": "$__all"
@@ -377,17 +378,16 @@
           "uid": "victoriametrics"
         },
         "definition": "label_values(logical_service)",
+        "hide": false,
         "includeAll": true,
-        "multi": true,
-        "allValue": "authentik|confluence|forgejo|grafana|ocis|traefik|victoriametrics|victorialogs",
         "label": "Service",
+        "multi": true,
         "name": "service",
         "query": {
           "query": "label_values(logical_service)",
           "refId": "service-variable"
         },
-        "type": "query",
-        "hide": false
+        "type": "query"
       }
     ]
   },

@@ -121,10 +121,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 19,
+        "h": 3,
         "w": 12,
-        "h": 3
+        "x": 0,
+        "y": 21
       },
       "id": 3,
       "options": {
@@ -150,8 +150,8 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 0,
-        "y": 6
+        "x": 16,
+        "y": 0
       },
       "id": 4,
       "options": {
@@ -210,10 +210,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 12,
-        "y": 19,
+        "h": 3,
         "w": 12,
-        "h": 3
+        "x": 12,
+        "y": 21
       },
       "id": 5,
       "options": {
@@ -239,7 +239,7 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 16,
+        "x": 0,
         "y": 6
       },
       "id": 6,
@@ -284,18 +284,18 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "cAdvisor start time and last-seen state; Runtime verification pending.",
+      "description": "Operational age calculated from container start time. Duration format.",
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "ds"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 12
+        "w": 8,
+        "x": 8,
+        "y": 6
       },
       "id": 7,
       "options": {
@@ -317,8 +317,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_start_time_seconds{name=~\"${container:regex}\"}",
-          "legendFormat": "{{name}} started",
+          "expr": "time() - container_start_time_seconds{name=~\"${container:regex}\"}",
+          "legendFormat": "{{name}}",
           "refId": "A"
         },
         {
@@ -326,12 +326,12 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_last_seen{name=~\"${container:regex}\"}",
-          "legendFormat": "{{name}} last seen",
+          "expr": "time() - container_last_seen{name=~\"${container:regex}\"}",
+          "legendFormat": "{{name}} last seen ago",
           "refId": "B"
         }
       ],
-      "title": "Lifecycle timestamps",
+      "title": "Container Age",
       "type": "timeseries"
     },
     {
@@ -346,9 +346,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 12
+        "w": 8,
+        "x": 16,
+        "y": 6
       },
       "id": 8,
       "options": {
@@ -398,10 +398,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 22,
+        "h": 8,
         "w": 24,
-        "h": 8
+        "x": 0,
+        "y": 12
       },
       "id": 9,
       "options": {
@@ -424,17 +424,17 @@
       "type": "logs"
     },
     {
-      "id": 10,
-      "type": "row",
-      "title": "Runtime Limitations",
       "collapsed": false,
       "gridPos": {
-        "x": 0,
-        "y": 18,
+        "h": 1,
         "w": 24,
-        "h": 1
+        "x": 0,
+        "y": 20
       },
-      "panels": []
+      "id": 10,
+      "panels": [],
+      "title": "Runtime Limitations",
+      "type": "row"
     }
   ],
   "refresh": "30s",
@@ -447,6 +447,7 @@
   "templating": {
     "list": [
       {
+        "allValue": "servicehub-.*",
         "current": {
           "text": "All",
           "value": "$__all"
@@ -464,8 +465,7 @@
           "query": "label_values(container_last_seen{name=~\"servicehub-.*\"},name)",
           "refId": "container-variable"
         },
-        "type": "query",
-        "allValue": "servicehub-.*"
+        "type": "query"
       }
     ]
   },

@@ -59,7 +59,7 @@
             "uid": "victoriametrics"
           },
           "expr": "up{job=\"alloy\"}",
-          "legendFormat": "Alloy self-scrape",
+          "legendFormat": "Alloy",
           "refId": "A"
         },
         {
@@ -67,7 +67,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "probe_success{service=~\"victoriametrics|victorialogs|grafana\"}",
+          "expr": "max by (service) (probe_success{service=~\"victoriametrics|victorialogs|grafana\",probe_type=\"readiness\"})",
           "legendFormat": "{{service}}",
           "refId": "B"
         }
@@ -325,14 +325,13 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 18,
+        "h": 6,
         "w": 12,
-        "h": 6
+        "x": 0,
+        "y": 18
       },
       "id": 7,
       "options": {
-        "viewMode": "list",
         "groupBy": [
           "alertname",
           "grafana_folder",
@@ -342,34 +341,35 @@
         "sortOrder": 3,
         "stateFilter": {
           "alerting": true,
-          "pending": true,
           "noData": true,
-          "normal": false
-        }
+          "normal": false,
+          "pending": true
+        },
+        "viewMode": "list"
       },
       "targets": [],
       "title": "Live alert evaluation",
       "type": "alertlist"
     },
     {
-      "id": 9,
-      "title": "Notification and watchdog coverage",
       "description": "Static operational-capability status. Alert evaluation is operational; delivery and independent host monitoring are owner-dependent follow-up items.",
-      "type": "text",
-      "options": {
-        "mode": "markdown",
-        "content": "**Alert evaluation**  Runtime verified\n**Notification delivery**  Not configured\n**External host watchdog**  Not configured\n**OCI APM**  Disabled; not used as the watchdog mechanism"
-      },
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "x": 12,
-        "y": 18,
+        "h": 6,
         "w": 12,
-        "h": 6
-      }
+        "x": 12,
+        "y": 18
+      },
+      "id": 9,
+      "options": {
+        "content": "**Alert evaluation**  Runtime verified\n\n**Notification delivery**  Not configured\n\n**External host watchdog**  Not configured\n\n**OCI APM**  Disabled; not used as the watchdog mechanism",
+        "mode": "markdown"
+      },
+      "title": "Notification and watchdog coverage",
+      "type": "text"
     }
   ],
   "refresh": "30s",

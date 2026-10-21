@@ -190,7 +190,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "requests"
+              "options": "geoip_country_code"
             },
             "properties": [
               {
@@ -305,7 +305,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "requests"
+              "options": "client_ip"
             },
             "properties": [
               {
