@@ -170,18 +170,7 @@
       },
       "description": "Concise GeoIP country summary; detailed country traffic is in ServiceHub Traffic and Edge. Runtime verified.",
       "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
+        "defaults": {},
         "overrides": []
       },
       "gridPos": {
@@ -219,14 +208,22 @@
       "type": "bargauge",
       "transformations": [
         {
-          "id": "renameByRegex",
+          "id": "labelsToFields",
           "options": {
-            "fields": {
-              "mode": "all"
-            },
-            "pattern": "^requests\\{geoip_country_code=\"([^\"]+)\"\\}$",
-            "replacement": "$1",
-            "result": "replace"
+            "labels": [
+              "geoip_country_code"
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "geoip_country_code": "Country",
+              "Value": "Requests"
+            }
           }
         }
       ]
@@ -322,14 +319,22 @@
       "type": "piechart",
       "transformations": [
         {
-          "id": "renameByRegex",
+          "id": "labelsToFields",
           "options": {
-            "fields": {
-              "mode": "all"
-            },
-            "pattern": "^requests\\{client_ip=\"([^\"]+)\"\\}$",
-            "replacement": "$1",
-            "result": "replace"
+            "labels": [
+              "client_ip"
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "client_ip": "Client IP",
+              "Value": "Requests"
+            }
           }
         }
       ]
