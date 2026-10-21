@@ -1,6 +1,6 @@
-// Grafana Alloy — core telemetry: host metrics, container metrics, journal and
-// container logs. Probe, native-application, and PostgreSQL pipelines are added
-// in the service-telemetry stage.
+// Grafana Alloy — core telemetry (host, container, journal, container logs)
+// plus service telemetry: availability/TLS probes, native application metrics,
+// normalized logical_service identity, and security log normalization.
 // Pattern: https://github.com/grafana/alloy-scenarios
 
 // =============================================
@@ -96,7 +96,7 @@ prometheus.scrape "host" {
 // =============================================
 prometheus.scrape "containers" {
 	targets         = discovery.relabel.containers.output
-	forward_to      = [prometheus.relabel.container_labels.receiver]
+	forward_to      = [prometheus.relabel.cadvisor_labels.receiver]
 	scrape_interval = "30s"
 	scrape_timeout  = "15s"
 }
@@ -104,7 +104,9 @@ prometheus.scrape "containers" {
 // cAdvisor exposes every Docker label as container_label_<name>. Containers with
 // many Traefik routers exceed VictoriaMetrics' 40-label limit and are dropped
 // silently, so keep only the compose service label.
-prometheus.relabel "container_labels" {
+// logical_service is a bounded identity shared with probe and log pipelines;
+// workloads outside the eight tracked services get no value (ADR-010 section 23).
+prometheus.relabel "cadvisor_labels" {
 	forward_to = [prometheus.remote_write.vm.receiver]
 
 	rule {
@@ -115,6 +117,62 @@ prometheus.relabel "container_labels" {
 	rule {
 		action = "labeldrop"
 		regex  = "container_label_.*"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "infraauth|infraauthwrk"
+		target_label  = "logical_service"
+		replacement   = "authentik"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "webappconf"
+		target_label  = "logical_service"
+		replacement   = "confluence"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "devopsforgejo"
+		target_label  = "logical_service"
+		replacement   = "forgejo"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "webappocis"
+		target_label  = "logical_service"
+		replacement   = "ocis"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "routetraefik"
+		target_label  = "logical_service"
+		replacement   = "traefik"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "obsvcegrafana"
+		target_label  = "logical_service"
+		replacement   = "grafana"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "obsvcevm"
+		target_label  = "logical_service"
+		replacement   = "victoriametrics"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "obsvcevlogs"
+		target_label  = "logical_service"
+		replacement   = "victorialogs"
 	}
 }
 
@@ -127,9 +185,51 @@ prometheus.scrape "traefik" {
 		job         = "traefik",
 		instance    = constants.hostname,
 	}]
-	forward_to      = [prometheus.remote_write.vm.receiver]
+	forward_to      = [prometheus.relabel.traefik_labels.receiver]
 	scrape_interval = "30s"
 	scrape_timeout  = "15s"
+}
+
+// Traefik reports the routed backend in the `service` label as
+// "<compose-service>@docker". Map it to the same bounded logical_service
+// identity used by the container and probe pipelines.
+prometheus.relabel "traefik_labels" {
+	forward_to = [prometheus.remote_write.vm.receiver]
+
+	rule {
+		source_labels = ["service"]
+		regex         = "infraauth@docker|infraauthwrk@docker"
+		target_label  = "logical_service"
+		replacement   = "authentik"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "webappconf@docker"
+		target_label  = "logical_service"
+		replacement   = "confluence"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "devopsforgejo@docker"
+		target_label  = "logical_service"
+		replacement   = "forgejo"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "webappocis@docker"
+		target_label  = "logical_service"
+		replacement   = "ocis"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "obsvcegrafana@docker"
+		target_label  = "logical_service"
+		replacement   = "grafana"
+	}
 }
 
 // =============================================
@@ -150,6 +250,274 @@ prometheus.scrape "alloy_self" {
 		__address__ = "localhost:9080",
 		job         = "alloy",
 		instance    = constants.hostname,
+	}]
+	forward_to      = [prometheus.remote_write.vm.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
+}
+
+// =============================================
+// AVAILABILITY AND TLS PROBES — Blackbox Exporter
+// Internal targets use documented readiness endpoints. Public targets verify
+// DNS, HTTPS, TLS handshake, certificate validity, and response duration.
+// Config at /etc/alloy/blackbox.yml (mounted from shared/grafana/alloy/).
+// =============================================
+prometheus.exporter.blackbox "internal" {
+	config_file = "/etc/alloy/blackbox.yml"
+
+	target {
+		name    = "traefik"
+		address = "http://routetraefik:8080/ping"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "authentik-server"
+		address = "http://infraauth:9000/-/health/ready/"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "authentik-worker"
+		address = "http://infraauthwrk:9000/-/health/ready/"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "confluence"
+		address = "http://webappconf:8090/status"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "forgejo"
+		address = "http://devopsforgejo:3000/api/healthz"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "ocis"
+		address = "http://webappocis:9200/status.php"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "grafana"
+		address = "http://obsvcegrafana:3000/api/health"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "victoriametrics"
+		address = "http://obsvcevm:8428/health"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "victorialogs"
+		address = "http://obsvcevlogs:9428/health"
+		module  = "http_internal_2xx"
+	}
+}
+
+discovery.relabel "internal_probe_labels" {
+	targets = prometheus.exporter.blackbox.internal.targets
+
+	rule {
+		target_label = "component"
+		replacement  = "probe"
+	}
+
+	rule {
+		target_label = "project"
+		replacement  = "servicehub"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("ENVIRONMENT")
+	}
+}
+
+prometheus.scrape "internal_probes" {
+	targets         = discovery.relabel.internal_probe_labels.output
+	forward_to      = [prometheus.relabel.probe_service_labels.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "10s"
+}
+
+prometheus.exporter.blackbox "public" {
+	config_file = "/etc/alloy/blackbox.yml"
+
+	target {
+		name    = "traefik-public"
+		address = "https://" + sys.env("DOMAIN_NAME")
+		module  = "https_expected_redirect"
+	}
+
+	target {
+		name    = "authentik-public"
+		address = "https://" + sys.env("IDENTITY_DOMAIN")
+		module  = "https_public_2xx"
+	}
+
+	target {
+		name    = "confluence-public"
+		address = "https://" + sys.env("WORKSPACE_DOMAIN")
+		module  = "https_public_2xx"
+	}
+
+	target {
+		name    = "forgejo-public"
+		address = "https://" + sys.env("SOURCECODE_DOMAIN")
+		module  = "https_public_2xx"
+	}
+
+	target {
+		name    = "ocis-public"
+		address = "https://" + sys.env("CLOUD_DOMAIN")
+		module  = "https_public_2xx"
+	}
+
+	target {
+		name    = "grafana-public"
+		address = "https://" + sys.env("OBSERVABILITY_DOMAIN")
+		module  = "https_admin_restricted"
+	}
+}
+
+discovery.relabel "public_probe_labels" {
+	targets = prometheus.exporter.blackbox.public.targets
+
+	rule {
+		target_label = "component"
+		replacement  = "probe"
+	}
+
+	rule {
+		target_label = "project"
+		replacement  = "servicehub"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("ENVIRONMENT")
+	}
+}
+
+prometheus.scrape "public_probes" {
+	targets         = discovery.relabel.public_probe_labels.output
+	forward_to      = [prometheus.relabel.probe_service_labels.receiver]
+	scrape_interval = "60s"
+	scrape_timeout  = "15s"
+}
+
+prometheus.relabel "probe_service_labels" {
+	forward_to = [prometheus.remote_write.vm.receiver]
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/(.+)"
+		target_label  = "service"
+		replacement   = "$1"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/authentik-(server|worker)"
+		target_label  = "service"
+		replacement   = "authentik"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/(.+)-public"
+		target_label  = "service"
+		replacement   = "$1"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/.+"
+		target_label  = "probe_type"
+		replacement   = "readiness"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/.+"
+		target_label  = "target_class"
+		replacement   = "internal"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/.+-public"
+		target_label  = "probe_type"
+		replacement   = "https"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/.+-public"
+		target_label  = "target_class"
+		replacement   = "external"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "^(authentik|confluence|forgejo|grafana|ocis|traefik|victoriametrics|victorialogs)$"
+		target_label  = "logical_service"
+		replacement   = "$1"
+		action        = "replace"
+	}
+}
+
+// =============================================
+// NATIVE APPLICATION METRICS
+// Authentik documents port 9300 for server, worker, and outpost metrics.
+// oCIS documents proxy metrics on the debug port 9205. Neither is routed
+// through Traefik.
+// =============================================
+prometheus.scrape "authentik_server" {
+	targets = [{
+		__address__ = "infraauth:9300",
+		job         = "authentik_server",
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "authentik",
+		component   = "server",
+	}]
+	forward_to      = [prometheus.remote_write.vm.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
+}
+
+prometheus.scrape "authentik_worker" {
+	targets = [{
+		__address__ = "infraauthwrk:9300",
+		job         = "authentik_worker",
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "authentik",
+		component   = "worker",
+	}]
+	forward_to      = [prometheus.remote_write.vm.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
+}
+
+prometheus.scrape "ocis_proxy" {
+	targets = [{
+		__address__ = "webappocis:9205",
+		job         = "ocis_proxy",
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "ocis",
+		component   = "proxy",
 	}]
 	forward_to      = [prometheus.remote_write.vm.receiver]
 	scrape_interval = "30s"
@@ -186,6 +554,67 @@ discovery.relabel "logs" {
 	rule {
 		target_label = "environment"
 		replacement  = sys.env("ENVIRONMENT")
+	}
+
+	// Bounded logical_service identity for the eight approved applications
+	// (ADR-010 section 23/24). Containers outside the eight — PostgreSQL,
+	// runners, other compose workloads — match no rule and receive no
+	// logical_service value; there is no fallback. Stream cardinality stays
+	// bounded because the value set is fixed.
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-infraauth-.*|servicehub-infraauthwrk-.*"
+		target_label  = "logical_service"
+		replacement   = "authentik"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-webappconf-.*"
+		target_label  = "logical_service"
+		replacement   = "confluence"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-devopsforgejo-.*"
+		target_label  = "logical_service"
+		replacement   = "forgejo"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-webappocis-.*"
+		target_label  = "logical_service"
+		replacement   = "ocis"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-routetraefik-.*"
+		target_label  = "logical_service"
+		replacement   = "traefik"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-obsvcegrafana-.*"
+		target_label  = "logical_service"
+		replacement   = "grafana"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-obsvcevm-.*"
+		target_label  = "logical_service"
+		replacement   = "victoriametrics"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-obsvcevlogs-.*"
+		target_label  = "logical_service"
+		replacement   = "victorialogs"
 	}
 }
 

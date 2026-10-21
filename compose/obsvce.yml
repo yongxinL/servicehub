@@ -150,10 +150,9 @@ services:
             - "traefik.http.routers.obsvcegrafana.entrypoints=websecure"
             - "traefik.http.routers.obsvcegrafana.rule=Host(`${OBSERVABILITY_DOMAIN}`)"
             - "traefik.http.routers.obsvcegrafana.tls=true"
+            - "traefik.http.routers.obsvcegrafana.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.obsvcegrafana.middlewares=secure-chain@file,grafana-allowlist@file"
             - "traefik.http.services.obsvcegrafana.loadbalancer.server.port=3000"
-            # uncomment when Domain Level Forward Authentication enabled in Authentik
-            # - "traefik.http.routers.obsvcegrafana.middlewares=secure-chain@file,authentik-forwardauth@file"
-            # - "traefik.http.routers.obsvcegrafana.tls.certresolver=${CERTRESOLVER}"
         networks:
             - subnet
         restart: unless-stopped
