@@ -208,11 +208,16 @@
       "type": "bargauge",
       "transformations": [
         {
-          "id": "labelsToFields",
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "reduce",
           "options": {
-            "labels": [
-              "geoip_country_code"
-            ]
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": ""
           }
         },
         {
@@ -319,11 +324,16 @@
       "type": "piechart",
       "transformations": [
         {
-          "id": "labelsToFields",
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "reduce",
           "options": {
-            "labels": [
-              "client_ip"
-            ]
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": ""
           }
         },
         {
