@@ -654,6 +654,21 @@ loki.process "journal" {
         }
     }
 
+    stage.json {
+        expressions = {
+            extracted_message = "MESSAGE",
+        }
+    }
+
+    stage.template {
+        source = "extracted_message"
+        template = `{{ if .extracted_message }}{{ .extracted_message }}{{ else }}Journal event{{ end }}`
+    }
+
+    stage.output {
+        source = "extracted_message"
+    }
+
     forward_to = [loki.secretfilter.host.receiver]
 }
 
@@ -715,6 +730,43 @@ loki.process "geoip_enrichment" {
             environment = sys.env("ENVIRONMENT"),
         }
     }
+
+    stage.match {
+        selector = `{container_name=~"^servicehub-routetraefik-\d+$"}`
+
+        stage.json {
+            expressions = {
+                downstream_status = "DownstreamStatus",
+                request_host      = "RequestHost",
+                request_method    = "RequestMethod",
+                request_path      = "RequestPath",
+                router_name       = "RouterName",
+                service_name      = "ServiceName",
+                start_utc         = "StartUTC",
+            }
+        }
+
+        stage.structured_metadata {
+            values = {
+                downstream_status = "",
+                request_host      = "",
+                request_method    = "",
+                request_path      = "",
+                router_name       = "",
+                service_name      = "",
+                start_utc         = "",
+            }
+        }
+
+        stage.template {
+            source = "extracted_message"
+            template = `{{ if and .request_method .request_host .downstream_status .router_name }}{{ .request_method }} {{ .request_host }} -> {{ .downstream_status }} ({{ .router_name }}){{ else }}Traefik access event{{ end }}`
+        }
+
+        stage.output {
+            source = "extracted_message"
+        }
+    }
 }
 
 // =============================================
@@ -746,6 +798,25 @@ loki.process "security_normalization" {
             values = {
                 level = "",
             }
+        }
+
+        stage.structured_metadata {
+            values = {
+                authentik_event   = "event",
+                authentik_host    = "host",
+                authentik_logger  = "logger",
+                authentik_method  = "method",
+                authentik_status  = "status",
+            }
+        }
+
+        stage.template {
+            source = "extracted_message"
+            template = `{{ if .event }}{{ .event }}{{ else }}Authentik log event{{ end }}`
+        }
+
+        stage.output {
+            source = "extracted_message"
         }
     }
 
@@ -781,6 +852,32 @@ loki.process "security_normalization" {
                 logical_service = "ocis",
                 component       = "proxy",
             }
+        }
+
+        stage.json {
+            expressions = {
+                extracted_message = "message",
+            }
+        }
+
+        stage.structured_metadata {
+            values = {
+                ocis_level       = "level",
+                ocis_line        = "line",
+                ocis_method      = "method",
+                ocis_path        = "path",
+                ocis_remote_addr = "remote-addr",
+                ocis_status      = "status",
+            }
+        }
+
+        stage.template {
+            source = "extracted_message"
+            template = `{{ if .extracted_message }}{{ .extracted_message }}{{ else }}OCIS log event{{ end }}`
+        }
+
+        stage.output {
+            source = "extracted_message"
         }
     }
 
