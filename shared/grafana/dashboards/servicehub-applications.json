@@ -52,7 +52,9 @@
           "sort": "asc"
         },
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         }
@@ -93,7 +95,9 @@
       "id": 2,
       "options": {
         "legend": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -130,7 +134,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Traefik-observed p50 and p95 latency grouped by bounded logical_service. Edge latency only; not application-native.",
+      "description": "p50/p95 latency by logical_service from Traefik duration buckets (0.1/0.3/1.2/5.0s). Values may plateau near 5s when requests fall in the +Inf bucket: histogram_quantile cannot interpolate beyond the highest finite bucket. Low-traffic services can show unstable quantiles.",
       "fieldConfig": {
         "defaults": {
           "unit": "s"
@@ -146,7 +150,9 @@
       "id": 3,
       "options": {
         "legend": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -199,7 +205,9 @@
       "id": 4,
       "options": {
         "legend": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -243,7 +251,9 @@
       "id": 5,
       "options": {
         "legend": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -294,7 +304,9 @@
       "id": 6,
       "options": {
         "legend": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -338,7 +350,12 @@
         "showTime": true,
         "sortOrder": "Descending",
         "wrapLogMessage": true,
-        "displayedFields": ["_time", "container_name", "level", "_msg"]
+        "displayedFields": [
+          "_time",
+          "container_name",
+          "level",
+          "_msg"
+        ]
       },
       "targets": [
         {
@@ -346,7 +363,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",logical_service=~\"^(${service:regex})$\"}",
+          "expr": "{project=\"servicehub\",logical_service=~\"^(${service:regex})$\"} | fields _msg, level, container_name, logical_service",
           "queryType": "range",
           "refId": "A"
         }
@@ -357,7 +374,11 @@
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["servicehub", "adr-010", "applications"],
+  "tags": [
+    "servicehub",
+    "adr-010",
+    "applications"
+  ],
   "templating": {
     "list": [
       {

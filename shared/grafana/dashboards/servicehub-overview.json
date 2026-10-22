@@ -14,7 +14,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Host CPU utilization (node_exporter).",
+      "description": "Host CPU used (non-idle) over 5m, complementary to Infrastructure CPU idle.",
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -39,7 +39,7 @@
           "refId": "A"
         }
       ],
-      "title": "Host CPU",
+      "title": "Host CPU used",
       "type": "stat"
     },
     {
@@ -47,7 +47,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Host memory utilization.",
+      "description": "Host memory used (1 - MemAvailable/MemTotal).",
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -72,7 +72,7 @@
           "refId": "A"
         }
       ],
-      "title": "Host memory",
+      "title": "Host memory used",
       "type": "stat"
     },
     {
@@ -155,7 +155,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Pressure-stall (PSI) rates from node_exporter.",
+      "description": "Pressure-stall (PSI) rate: seconds of stall time per second (1.0 = fully stalled). rate() over 5m windows.",
       "fieldConfig": {
         "defaults": {"unit": "s"},
         "overrides": []
@@ -227,7 +227,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Intentional 15-minute lookback for lifecycle events; rises only on real restarts or OOM kills.",
+      "description": "Container lifecycle events with intentional 15-minute lookback. Restarts (changes in start_time) and OOM kills; stays at zero until a real event. Zero-only series hidden by legend.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -342,7 +342,7 @@
       "targets": [
         {
           "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
-          "expr": "{project=\"servicehub\",logical_service=\"authentik\"} | filter level:~\"error|warn\"",
+          "expr": "{project=\"servicehub\"} | filter level:~\"error|warn\" | fields _msg, level, container_name, logical_service",
           "queryType": "range",
           "refId": "A"
         }

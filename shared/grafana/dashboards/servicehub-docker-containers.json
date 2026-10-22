@@ -14,7 +14,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Instant query: a container counts as Seen when its last-seen timestamp is fresher than 90 seconds. Instant evaluation keeps old incarnations out of the card count.",
+      "description": "Instant query: 1 = running (last seen within 90s), 0 = missing. The bool modifier is required; a bare comparison is a filter and returns elapsed seconds (e.g. 27.4) instead of a state.",
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -24,7 +24,7 @@
                   "text": "Missing"
                 },
                 "1": {
-                  "text": "Seen"
+                  "text": "Running"
                 }
               },
               "type": "value"
@@ -63,13 +63,13 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (name) ((time() - container_last_seen{name=~\"^(${container:regex})$\"}) < 90)",
+          "expr": "max by (name) ((time() - container_last_seen{name=~\"^(${container:regex})$\"}) < bool 90)",
           "legendFormat": "{{name}}",
           "refId": "A",
           "instant": true
         }
       ],
-      "title": "Container state",
+      "title": "Container running",
       "type": "stat"
     },
     {
@@ -236,7 +236,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Current container age from container start time. Instant query and duration formatting; no historic incarnations and no raw epoch rendering.",
+      "description": "Current container age from container start time. Informational only; color is neutral. A fresh age matters only with restart evidence in the Restart and OOM panel.",
       "fieldConfig": {
         "defaults": {
           "unit": "dtdurations"
@@ -251,7 +251,7 @@
       },
       "id": 7,
       "options": {
-        "colorMode": "value",
+        "colorMode": "none",
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
@@ -357,7 +357,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\"} | filter container_name:re(\"^(${container:regex})$\")",
+          "expr": "{project=\"servicehub\"} | filter container_name:re(\"^(${container:regex})$\") | fields _msg, level, container_name, logical_service",
           "queryType": "range",
           "refId": "A"
         }

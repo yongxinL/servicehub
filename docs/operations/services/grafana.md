@@ -85,20 +85,79 @@ docker compose up obsvcegrafanainit
 | [`alloy/`](../../../shared/grafana/alloy) | Grafana Alloy collector — see [alloy/README.md](../../../shared/grafana/alloy/README.md) |
 | [`geoip/`](../../../shared/grafana/geoip) | GeoIP database used by Alloy log enrichment |
 
-## Dashboard architecture and Stage 6 decisions
+## Dashboard architecture and Stage 6/7 decisions
 
 ### First-party dashboards
 
-| UID / File | Title | Purpose | Stage 6 changes |
+| UID / File | Title | Purpose | Stage 7 changes |
 |---|---|---|---|
-| `servicehub-overview` | ServiceHub Overview | High-level red/amber/green across all domains | None |
-| `servicehub-infrastructure` | ServiceHub Infrastructure | Host-level CPU, memory, load, disk, network, PSI | **Enhanced:** Memory → Memory composition (7 series), Load → Load average (adds 1m/CPU count and CPU cores), Disk I/O (+ IOPS, I/O time ratio, weighted I/O), Network (+ receive/transmit errors) |
-| `servicehub-traffic-edge` | ServiceHub Traffic and Edge | Edge traffic, TLS, bounded GeoIP | **Enhanced:** Added Request rate by entrypoint, Open connections by entrypoint, Config reloads (last hour), TLS cert expiry (Traefik); shifted geo panels down 10 grid units |
-| `servicehub-docker-containers` | ServiceHub Docker and Containers | cAdvisor-based container CPU/memory/disk | None (evaluated: CPU throttling unsupported, per-container network identity-less root only → no additions) |
-| `servicehub-applications` | ServiceHub Applications | Application-level RED metrics | None |
-| `servicehub-database` | ServiceHub Database | PostgreSQL exporter metrics | None |
-| `servicehub-observability-health` | ServiceHub Observability Health | Telemetry pipeline health (Alloy, VM, VL, Grafana) | None |
-| `servicehub-security` | ServiceHub Security | SSH/sudo, Authentik/Forgejo/Traefik failures, GeoIP, recent logs | **Layout restructured:** 2×2 top row (SSH/sudo, Traefik 4xx, Authentik, Forgejo), full-width row label, 3-panel geo summary (Top 5 Countries w=10, Total Countries w=4, Top 5 Public IPs w=10), full-width recent logs; Forgejo empty state documented honestly |
+| `servicehub-overview` | ServiceHub Overview | Executive landing page: host, apps, ingress, containers, telemetry health. Not a troubleshooting surface. | Renamed `Host CPU` → **Host CPU used**, `Host memory` → **Host memory used**; PSI and restart/OOM descriptions made explicit; log panels now show message body |
+| `servicehub-infrastructure` | ServiceHub Infrastructure | Host Linux saturation analysis (node-exporter only) | Read-only state split out of the percent-capacity axis into its own **Read-only mounts** panel; disk queries filter `sr0`/loop/ram/fd; PSI description corrected (rate, not counter); uptime stat color set to neutral (`colorMode: none`) |
+| `servicehub-traffic-edge` | ServiceHub Traffic and Edge | Traefik ingress performance, SLO, TLS, connections, access logs, GeoIP | **New rows:** Latency and SLO (Apdex, top slow services, 300 ms and 1200 ms violation ratios) and Ten-minute HTTP outcomes + payload size (2xx/5xx/other, request/response throughput). TLS state separated from certificate expiry. Status panel documents `code=0` as websocket. Grid restructured. |
+| `servicehub-docker-containers` | ServiceHub Docker and Containers | Container runtime troubleshooting (cAdvisor) | **Bug fix:** `Container state` → **Container running** — the query used a bare `<` comparison, which in PromQL is a *filter*, so the card showed elapsed seconds (≈27.4) instead of a state. Now uses `< bool 90` with a 1/0 value mapping. Container age `colorMode: none` (informational, not an alarm) |
+| `servicehub-applications` | ServiceHub Applications | Service-centric cross-signal investigation | Latency panel documents the 5 s plateau artefact (quantile interpolation cannot exceed the highest finite bucket) |
+| `servicehub-database` | ServiceHub Database | PostgreSQL availability and workload | **Split** `Cache, temp, and WAL` into **Cache hit ratio** (percent axis, 0–100) and **Temporary bytes and WAL size** (bytes). A ratio was previously plotted on a bytes axis |
+| `servicehub-observability-health` | ServiceHub Observability Health | Telemetry pipeline health and monitoring gaps | Remote-write legends changed from opaque component hashes (`c35da8`) to meaningful names; alertlist description states it shows firing/pending/no-data only |
+| `servicehub-security` | ServiceHub Security | Concise security-relevant operational summary | Regression validation only; log panels now show message body |
+
+### Log panel display standard (Stage 7)
+
+Every first-party log panel shows, at minimum:
+
+```text
+Timestamp | Level | Service or container | Message
+```
+
+**Why the `| fields` clause matters.** The VictoriaLogs datasource returns labels as a packed JSON `labels` column, not as separate columns. Without field promotion the Logs visualization had no body to render and the row reduced to timestamp + level + container.
+
+**Implementation.** Log queries end with:
+
+```text
+| fields _msg, level, container_name, logical_service
+```
+
+which promotes the message body into the frame's `Line` field. Verified frames contain `Time | Line | id | labels | streams | streamId` where `Line` holds the actual post-cutover message.
+
+**Post-cutover message boundary.** Ingestion was corrected in Stage 5. Historical pre-cutover records still carry `_msg` placeholders and remain until retention expires; they are not a current ingestion defect and were not rewritten.
+
+**Levels.** `level` is only present for structured sources. Grafana and plain-text sources legitimately show no level rather than a fabricated `UNK` class.
+
+### Traefik SLO panel semantics (Stage 7)
+
+Apdex and SLO panels use `traefik_service_request_duration_seconds_bucket`, whose live bucket boundaries are exactly `0.1`, `0.3`, `1.2`, `5.0`, `+Inf` — so the owner-requested thresholds map onto real buckets without interpolation.
+
+```text
+Satisfied  = rate(bucket{le="0.3"})
+Tolerating = rate(bucket{le="1.2"}) - Satisfied
+Total      = rate(bucket{le="+Inf"})
+
+Apdex = (Satisfied + Tolerating / 2) / Total
+```
+
+**PromQL caveat (verified against the live endpoint).** The `le` label survives the `rate()` and therefore the selector, so dividing `rate(bucket{le="0.3"}) / rate(bucket{le="+Inf"})` in place yields an **empty result** — the two sides never match on `le`. Each ratio must be aggregated away from `le` *before* the binary operation:
+
+```promql
+sum by (logical_service) (rate(...{le="0.3"}[5m]))
+  / sum by (logical_service) (rate(...{le="+Inf"}[5m]))
+```
+
+**Display thresholds.** Good ≥ 0.94, Needs attention 0.85–0.94, Poor < 0.85. These are proposed operational defaults, **not** owner-approved SLO policy.
+
+| Panel | Semantics | Metric |
+|---|---|---|
+| Apdex score | Score over 0–1 from the formula above | `traefik_service_request_duration_seconds_bucket` |
+| Top slow services | p95 latency per `logical_service` | same bucket metric via `histogram_quantile` |
+| Services failing SLO 300ms | Violation **ratio** = 1 − (≤0.3 s / all) | same bucket metric |
+| Services failing SLO 1200ms | Violation **ratio** = 1 − (≤1.2 s / all) | same bucket metric |
+| 2xx / 5xx / non-2xx-non-5xx, last 10m | `increase()` over 10m, unit *requests* | `traefik_service_requests_total` |
+| Request / response body throughput | `rate()` of byte counters, unit *B/s* | `traefik_service_requests_bytes_total`, `traefik_service_responses_bytes_total` |
+| Open connections by entrypoint | Count gauge, distinct from request rate | `traefik_open_connections` |
+
+**`code="0"` is not an HTTP error.** Live series inspection shows `code="0"` occurs exclusively with `protocol="websocket"` — websocket upgrades have no HTTP response status. It is neither success nor error and is labelled as such.
+
+### No additional dashboards (Workstream K)
+
+Decision: **no new first-party dashboards.** The eight existing dashboards cover overview, applications, host infrastructure, containers, PostgreSQL, traffic/edge, security, and observability health. Traefik SLO panels live in Traffic and Edge; logs stay inside the relevant operational dashboards and Explore; reference dashboards remain references. A future tracing/service-dependency dashboard is deferred until such a backend exists.
 
 ### Reference dashboards (kept in `dashboards/reference/`)
 
@@ -136,6 +195,11 @@ docker compose up obsvcegrafanainit
 | Open connections by entrypoint | **ADOPT** | Traffic and Edge | Added (panel 18) |
 | Config reload success/last | **ADOPT** | Traffic and Edge | Added (panel 19) |
 | TLS cert expiry (Traefik source) | **ADOPT** | Traffic and Edge | Added (panel 20); blackbox probe TLS panel remains (panel 5) — no duplicate |
+| Apdex score | **ADOPT** | Traffic and Edge | Added (panel 21); buckets 0.3/1.2 s verified live |
+| Top slow services (p95) | **ADOPT** | Traffic and Edge | Added (panel 22) |
+| SLO violation ratios 300 ms / 1200 ms | **ADOPT** | Traffic and Edge | Added (panels 23, 24); separate thresholds per owner request |
+| 10m HTTP outcomes (2xx/5xx/other) | **ADOPT** | Traffic and Edge | Added (panels 25–27) |
+| Request/response byte throughput | **ADOPT** | Traffic and Edge | Added (panels 28, 29); `traefik_service_requests_bytes_total` / `_responses_bytes_total` verified live |
 | Top services/backends | **REJECT** | — | "Request rate by service" exists; bounded by `logical_service` |
 | Router/service health | **REJECT** | — | Metric not available |
 

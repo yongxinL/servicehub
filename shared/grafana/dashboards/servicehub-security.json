@@ -350,7 +350,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\"} | filter container_name:~\"infraauth|infraauthwrk|devopsforgejo|devopsrunner|routetraefik\" | filter level:~\"error|warn\"",
+          "expr": "{project=\"servicehub\"} | filter container_name:~\"infraauth|infraauthwrk|devopsforgejo|devopsrunner|routetraefik\" | filter level:~\"error|warn\" | fields _msg, level, container_name, logical_service",
           "queryType": "range",
           "refId": "A"
         }

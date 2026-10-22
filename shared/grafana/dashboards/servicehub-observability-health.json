@@ -89,7 +89,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Alloy remote-write failure and drop counters.",
+      "description": "VictoriaMetrics remote-write failures by destination. Zero means no failures, not no activity. Legends use component names, not internal IDs.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -121,7 +121,7 @@
             "uid": "victoriametrics"
           },
           "expr": "sum by (remote_name, url) (rate(prometheus_remote_storage_samples_failed_total[5m]))",
-          "legendFormat": "{{remote_name}}",
+          "legendFormat": "VictoriaMetrics remote write",
           "refId": "A"
         },
         {
@@ -130,7 +130,7 @@
             "uid": "victoriametrics"
           },
           "expr": "sum(rate(prometheus_remote_storage_samples_dropped_total[5m]))",
-          "legendFormat": "Dropped",
+          "legendFormat": "Dropped samples",
           "refId": "B"
         }
       ],
@@ -284,7 +284,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=~\"servicehub-obsvce(alloy|vm|vlogs|grafana)-1\"}",
+          "expr": "{project=\"servicehub\",container_name=~\"servicehub-obsvce(alloy|vm|vlogs|grafana)-1\"} | fields _msg, level, container_name, logical_service",
           "queryType": "range",
           "refId": "A"
         }
@@ -344,7 +344,7 @@
         "type": "datasource",
         "uid": "grafana"
       },
-      "description": "Live Grafana-managed alert evaluation state. Shows only non-Normal instances; Normal rules are intentionally hidden. Notification delivery is not configured.",
+      "description": "Live Grafana-managed alert evaluation state. Shows firing, pending, and no-data states only; Normal rules are hidden. Notification delivery is not configured.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -390,7 +390,7 @@
       },
       "id": 9,
       "options": {
-        "content": "**Alert evaluation**: Operational — Grafana-managed, 27 rules in 3 evaluation groups, validated on healthy system\n\n**Notification delivery**: Not configured (no contact point; owner follow-up required)\n\n**External host watchdog**: Not configured (owner follow-up required)\n\n**OCI APM**: Disabled — not a watchdog mechanism; disabled pending connection configuration",
+        "content": "**Alert evaluation**: Operational \u2014 Grafana-managed, 27 rules in 3 evaluation groups, validated on healthy system\n\n**Notification delivery**: Not configured (no contact point; owner follow-up required)\n\n**External host watchdog**: Not configured (owner follow-up required)\n\n**OCI APM**: Disabled \u2014 not a watchdog mechanism; disabled pending connection configuration",
         "mode": "markdown"
       },
       "targets": [],

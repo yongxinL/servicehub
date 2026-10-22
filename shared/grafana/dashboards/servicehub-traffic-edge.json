@@ -60,7 +60,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "HTTP status distribution.",
+      "description": "HTTP status classes (2xx/3xx/4xx/5xx) from Traefik. Code 0 represents websocket upgrades (no HTTP status) and is shown separately. Use 2xx/3xx/4xx/5xx for HTTP status analysis.",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps"
@@ -98,7 +98,7 @@
           "refId": "A"
         }
       ],
-      "title": "HTTP status distribution",
+      "title": "HTTP status codes (incl. websocket 0)",
       "type": "timeseries"
     },
     {
@@ -170,7 +170,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Traefik 5xx error rate by bounded logical_service over five minutes. Sparse errors remain visible without zero-fill.",
+      "description": "Service 5xx error rates by logical_service. If no data, means no 5xx errors in the selected range.",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps"
@@ -195,7 +195,8 @@
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
-        }
+        },
+        "noValue": "No service 5xx errors in selected range"
       },
       "targets": [
         {
@@ -216,10 +217,10 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Public HTTPS probe_success and certificate expiry (in seconds until expiry).",
+      "description": "HTTPS probe success from blackbox exporter (1 = up, 0 = down). Certificate expiry is in separate panel.",
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "none"
         },
         "overrides": []
       },
@@ -250,21 +251,694 @@
             "uid": "victoriametrics"
           },
           "expr": "probe_success{probe_type=\"https\",target_class=\"external\"}",
-          "legendFormat": "{{service}} success",
+          "legendFormat": "{{instance}}",
           "refId": "A"
+        }
+      ],
+      "title": "TLS endpoint state",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "id": 30,
+      "panels": [],
+      "title": "Latency and SLO",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Apdex score from Traefik duration histogram buckets (0.3s satisfied, 1.2s tolerating). Score = (Satisfied + Tolerating/2) / Total. Good >= 0.94, Needs attention 0.85-0.94, Poor < 0.85.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 13
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "probe_ssl_earliest_cert_expiry{probe_type=\"https\",target_class=\"external\"} - time()",
-          "legendFormat": "{{service}} cert-expiry",
-          "refId": "B"
+          "expr": "(sum by (logical_service) (rate(traefik_service_request_duration_seconds_bucket{le=\"0.3\"}[5m])) + sum by (logical_service) (rate(traefik_service_request_duration_seconds_bucket{le=\"1.2\"}[5m]))) / 2 / sum by (logical_service) (rate(traefik_service_request_duration_seconds_bucket{le=\"+Inf\"}[5m]))",
+          "legendFormat": "Apdex",
+          "refId": "A"
         }
       ],
-      "title": "TLS state and certificate expiry",
+      "title": "Apdex score",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "p95 latency by logical_service. Excludes internal/non-user services if they distort the view.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 13
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, logical_service) (rate(traefik_service_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{logical_service}} p95 (s)",
+          "refId": "A"
+        }
+      ],
+      "title": "Top slow services",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Ratio of requests > 300ms per logical_service. slow_ratio_300ms = 1 - (requests <= 0.3s / all requests). Shows only services with sufficient traffic and non-zero violation rate.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 13
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "1 - (sum by (logical_service) (rate(traefik_service_request_duration_seconds_bucket{le=\"0.3\"}[5m])) / sum by (logical_service) (rate(traefik_service_request_duration_seconds_bucket{le=\"+Inf\"}[5m])))",
+          "legendFormat": "Slow > 300ms ratio",
+          "refId": "A"
+        }
+      ],
+      "title": "Services failing SLO 300ms",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Ratio of requests > 1200ms per logical_service. slow_ratio_1200ms = 1 - (requests <= 1.2s / all requests). Separate from 300ms threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 20
+      },
+      "id": 24,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "1 - (sum by (logical_service) (rate(traefik_service_request_duration_seconds_bucket{le=\"1.2\"}[5m])) / sum by (logical_service) (rate(traefik_service_request_duration_seconds_bucket{le=\"+Inf\"}[5m])))",
+          "legendFormat": "Slow > 1200ms ratio",
+          "refId": "A"
+        }
+      ],
+      "title": "Services failing SLO 1200ms",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "id": 31,
+      "panels": [],
+      "title": "Ten-minute HTTP outcomes and payload size",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Total 2xx responses in the last 10 minutes.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 28
+      },
+      "id": 25,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "increase(traefik_service_requests_total{code=~\"2..\"}[10m])",
+          "legendFormat": "2xx (10m)",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "2xx requests, last 10m",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Total 5xx responses in the last 10 minutes.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 28
+      },
+      "id": 26,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "increase(traefik_service_requests_total{code=~\"5..\"}[10m])",
+          "legendFormat": "5xx (10m)",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "5xx requests, last 10m",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Total non-2xx/non-5xx responses (3xx + 4xx + code 0) in the last 10 minutes.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 28
+      },
+      "id": 27,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "increase(traefik_service_requests_total{code=~\"3..|4..|0\"}[10m])",
+          "legendFormat": "3xx/4xx/0 (10m)",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Non-2xx/non-5xx, last 10m",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Request body throughput by logical_service (bytes/s). From Traefik service request byte counter.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 33
+      },
+      "id": 28,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (logical_service) (rate(traefik_service_requests_bytes_total[5m]))",
+          "legendFormat": "{{logical_service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Request body throughput by service",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Response body throughput by logical_service (bytes/s). From Traefik service response byte counter.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      },
+      "id": 29,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (logical_service) (rate(traefik_service_responses_bytes_total[5m]))",
+          "legendFormat": "{{logical_service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Response body throughput by service",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Request rate grouped by Traefik entrypoint (web, websecure, traefik dashboard).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 38
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (entrypoint) (rate(traefik_entrypoint_requests_total[5m]))",
+          "instant": false,
+          "legendFormat": "{{entrypoint}}",
+          "refId": "A",
+          "reflowRange": false
+        }
+      ],
+      "title": "Request rate by entrypoint",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Current open connections per entrypoint (TCP).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "traefik_open_connections",
+          "instant": false,
+          "legendFormat": "{{entrypoint}} {{protocol}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Open connections by entrypoint",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Traefik configuration reloads over the last hour; sustained growth may indicate config churn.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "increase(traefik_config_reloads_total[1h])",
+          "instant": true,
+          "legendFormat": "reloads",
+          "refId": "A"
+        }
+      ],
+      "title": "Config reloads (last hour)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Traefik TLS certificate expiry in days (current cert not_after - now). Negative means expired.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 14
+              },
+              {
+                "color": "green",
+                "value": 30
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "id": 20,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "min by (instance) ((traefik_tls_certs_not_after - time()) / 86400)",
+          "instant": true,
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TLS certificate expiry (Traefik)",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -280,7 +954,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 48
       },
       "id": 6,
       "options": {
@@ -339,7 +1013,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Traefik access-log investigation stream; sanitized fields only.",
+      "description": "Traefik access-log investigation stream; sanitized allowlist only. Request path and query strings are deliberately excluded: LogSQL on this datasource cannot strip query parameters, so the path column is omitted rather than shown unsanitized.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -348,7 +1022,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 12
+        "y": 48
       },
       "id": 7,
       "options": {
@@ -361,7 +1035,6 @@
           "geoip_country_code",
           "RequestMethod",
           "RequestHost",
-          "RequestPath",
           "RouterName",
           "ServiceName",
           "DownstreamStatus",
@@ -374,7 +1047,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"}",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | fields RequestMethod, RequestHost, DownstreamStatus, Duration, ClientHost, RouterName, ServiceName, client_ip, geoip_country_code",
           "queryType": "range",
           "refId": "A"
         }
@@ -388,7 +1061,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 54
       },
       "id": 8,
       "panels": [],
@@ -409,7 +1082,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 29
+        "y": 55
       },
       "id": 9,
       "options": {
@@ -482,7 +1155,7 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 29
+        "y": 55
       },
       "id": 10,
       "options": {
@@ -551,7 +1224,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 29
+        "y": 55
       },
       "id": 11,
       "options": {
@@ -625,7 +1298,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 29
+        "y": 55
       },
       "id": 12,
       "options": {
@@ -698,7 +1371,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 38
+        "y": 63
       },
       "id": 13,
       "options": {
@@ -782,7 +1455,7 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 38
+        "y": 63
       },
       "id": 14,
       "options": {
@@ -827,7 +1500,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 38
+        "y": 63
       },
       "id": 15,
       "options": {
@@ -905,7 +1578,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 38
+        "y": 63
       },
       "id": 16,
       "options": {
@@ -948,248 +1621,6 @@
           "options": {}
         }
       ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "victoriametrics"
-      },
-      "description": "Request rate grouped by Traefik entrypoint (web, websecure, traefik dashboard).",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "fillOpacity": 10,
-            "showPoints": "never",
-            "spanNulls": true
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 0,
-        "y": 18
-      },
-      "id": 17,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "sum by (entrypoint) (rate(traefik_entrypoint_requests_total[5m]))",
-          "instant": false,
-          "legendFormat": "{{entrypoint}}",
-          "refId": "A",
-          "reflowRange": false
-        }
-      ],
-      "title": "Request rate by entrypoint",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "victoriametrics"
-      },
-      "description": "Current open connections per entrypoint (TCP).",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "fillOpacity": 10,
-            "showPoints": "never",
-            "spanNulls": true
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 12,
-        "y": 18
-      },
-      "id": 18,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "traefik_open_connections",
-          "instant": false,
-          "legendFormat": "{{entrypoint}} {{protocol}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Open connections by entrypoint",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "victoriametrics"
-      },
-      "description": "Traefik configuration reloads over the last hour; sustained growth may indicate config churn.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 3
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 0,
-        "y": 23
-      },
-      "id": 19,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "increase(traefik_config_reloads_total[1h])",
-          "instant": true,
-          "legendFormat": "reloads",
-          "refId": "A"
-        }
-      ],
-      "title": "Config reloads (last hour)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "victoriametrics"
-      },
-      "description": "Minimum days until any Traefik-managed TLS certificate expires.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 14
-              },
-              {
-                "color": "green",
-                "value": 30
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 12,
-        "y": 23
-      },
-      "id": 20,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "min by (instance) ((traefik_tls_certs_not_after - time()) / 86400)",
-          "instant": true,
-          "legendFormat": "{{instance}}",
-          "refId": "A"
-        }
-      ],
-      "title": "TLS certificate expiry (Traefik)",
-      "type": "stat"
     }
   ],
   "refresh": "30s",
