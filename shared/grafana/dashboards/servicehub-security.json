@@ -20,7 +20,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 0,
         "y": 0
@@ -58,7 +58,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 12,
         "y": 0
@@ -102,10 +102,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 7
+        "y": 8
       },
       "id": 3,
       "options": {
@@ -132,16 +132,16 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Forgejo failure events matched by bounded keywords in the log message. Empty result is legitimate.",
+      "description": "No Forgejo failures in selected range",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 7
+        "y": 8
       },
       "id": 4,
       "options": {
@@ -174,10 +174,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
+        "h": 9,
+        "w": 10,
         "x": 0,
-        "y": 15
+        "y": 17
       },
       "id": 5,
       "options": {
@@ -245,10 +245,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 8,
-        "y": 15
+        "h": 9,
+        "w": 4,
+        "x": 10,
+        "y": 17
       },
       "id": 11,
       "options": {},
@@ -277,10 +277,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 16,
-        "y": 15
+        "h": 9,
+        "w": 10,
+        "x": 14,
+        "y": 17
       },
       "id": 7,
       "options": {},
@@ -323,20 +323,6 @@
       ]
     },
     {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 14
-      },
-      "id": 15,
-      "options": {},
-      "targets": [],
-      "title": "Edge Security Summary",
-      "type": "row"
-    },
-    {
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
@@ -347,10 +333,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 22
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 26
       },
       "id": 6,
       "options": {
@@ -371,6 +357,19 @@
       ],
       "title": "Recent security logs",
       "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 15,
+      "panels": [],
+      "title": "Edge Security Summary",
+      "type": "row"
     }
   ],
   "refresh": "30s",
