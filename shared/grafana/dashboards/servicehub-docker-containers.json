@@ -348,8 +348,7 @@
       "options": {
         "showTime": true,
         "sortOrder": "Descending",
-        "wrapLogMessage": true,
-        "displayedFields": ["_time", "container_name", "level", "_msg"]
+        "wrapLogMessage": true
       },
       "targets": [
         {
@@ -357,7 +356,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\"} | filter container_name:re(\"^(${container:regex})$\") | fields _msg, level, container_name, logical_service",
+          "expr": "{project=\"servicehub\"} | filter container_name:re(\"^(${container:regex})$\")",
           "queryType": "range",
           "refId": "A"
         }

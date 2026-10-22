@@ -326,7 +326,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Recent warning and error logs across the bounded ServiceHub streams.",
+      "description": "Recent warning and error logs across the bounded ServiceHub streams. Matches source levels warn, warning, error, and critical; sources with no level field (plain-text logs) are excluded rather than inferred.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -336,13 +336,12 @@
       "options": {
         "showTime": true,
         "sortOrder": "Descending",
-        "wrapLogMessage": true,
-        "displayedFields": ["_time", "container_name", "level", "_msg"]
+        "wrapLogMessage": true
       },
       "targets": [
         {
           "datasource": {"type": "victoriametrics-logs-datasource", "uid": "victorialogs"},
-          "expr": "{project=\"servicehub\"} | filter level:~\"error|warn\" | fields _msg, level, container_name, logical_service",
+          "expr": "{project=\"servicehub\"} | filter level:~\"warn|warning|error|critical\"",
           "queryType": "range",
           "refId": "A"
         }

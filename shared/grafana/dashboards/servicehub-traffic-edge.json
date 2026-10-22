@@ -473,7 +473,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Total 2xx responses in the last 10 minutes.",
+      "description": "Total 2xx responses in the last 10 minutes. Fixed operational window; ignores the dashboard time range.",
       "fieldConfig": {
         "defaults": {
           "unit": "short"
@@ -519,7 +519,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Total 5xx responses in the last 10 minutes.",
+      "description": "Total 5xx responses in the last 10 minutes. Fixed operational window; ignores the dashboard time range.",
       "fieldConfig": {
         "defaults": {
           "unit": "short"
@@ -565,7 +565,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Total non-2xx/non-5xx responses (3xx + 4xx + code 0) in the last 10 minutes.",
+      "description": "Total non-2xx/non-5xx responses (3xx + 4xx + code 0) in the last 10 minutes. Fixed operational window; ignores the dashboard time range.",
       "fieldConfig": {
         "defaults": {
           "unit": "short"
@@ -814,7 +814,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Traefik configuration reloads over the last hour; sustained growth may indicate config churn.",
+      "description": "Traefik configuration reloads over the last hour; sustained growth may indicate config churn. Fixed operational window; ignores the dashboard time range.",
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -1047,7 +1047,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | fields RequestMethod, RequestHost, DownstreamStatus, Duration, ClientHost, RouterName, ServiceName, client_ip, geoip_country_code",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | fields _time, RequestMethod, RequestHost, DownstreamStatus, Duration, ClientHost, RouterName, ServiceName, client_ip, geoip_country_code",
           "queryType": "range",
           "refId": "A"
         }
@@ -1146,7 +1146,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Top 15 public client IPs in the last 5 minutes (horizontal bar). Private, loopback, link-local, shared, and reserved addresses are excluded at query time.",
+      "description": "Top 15 public client IPs by request count across the selected dashboard time range. Private, loopback, link-local, shared, and reserved addresses are excluded at query time. Follows the dashboard time range.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -1182,8 +1182,7 @@
           "refId": "A"
         }
       ],
-      "timeFrom": "5m",
-      "title": "Top 15 Public Client IPs, last 5 minutes",
+      "title": "Top 15 Public Client IPs",
       "type": "bargauge",
       "transformations": [
         {
@@ -1215,7 +1214,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Top 10 public client IPs in the last hour. Private and reserved addresses are excluded at query time.",
+      "description": "Top 10 public client IPs by request count across the selected dashboard time range. Private and reserved addresses are excluded at query time. Follows the dashboard time range.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -1256,8 +1255,7 @@
           "refId": "A"
         }
       ],
-      "timeFrom": "1h",
-      "title": "Top Public Client IPs, last hour",
+      "title": "Top Public Client IPs",
       "type": "piechart",
       "transformations": [
         {
@@ -1491,7 +1489,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Top 10 countries in the last hour (pie).",
+      "description": "Top 10 countries by request count from Traefik access logs across the selected dashboard time range. Follows the dashboard time range.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -1532,8 +1530,7 @@
           "refId": "A"
         }
       ],
-      "timeFrom": "1h",
-      "title": "Top 10 Countries, last hour",
+      "title": "Top 10 Countries",
       "type": "piechart",
       "transformations": [
         {
@@ -1565,7 +1562,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "All countries by request count over the last 6 hours (stacked area, time-bucketed).",
+      "description": "Top 10 countries by request count over the selected dashboard time range, time-bucketed and stacked. Follows the dashboard time range.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1605,8 +1602,7 @@
           "refId": "A"
         }
       ],
-      "timeFrom": "6h",
-      "title": "Countries, last 6 hours, stacked",
+      "title": "Country traffic trend",
       "type": "timeseries",
       "transformations": [
         {

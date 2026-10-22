@@ -100,7 +100,7 @@ docker compose up obsvcegrafanainit
 | `servicehub-observability-health` | ServiceHub Observability Health | Telemetry pipeline health and monitoring gaps | Remote-write legends changed from opaque component hashes (`c35da8`) to meaningful names; alertlist description states it shows firing/pending/no-data only |
 | `servicehub-security` | ServiceHub Security | Concise security-relevant operational summary | Regression validation only; log panels now show message body |
 
-### Log panel display standard (Stage 7)
+### Log panel display standard (Stage 8, correcting Stage 7)
 
 Every first-party log panel shows, at minimum:
 
@@ -108,19 +108,39 @@ Every first-party log panel shows, at minimum:
 Timestamp | Level | Service or container | Message
 ```
 
-**Why the `| fields` clause matters.** The VictoriaLogs datasource returns labels as a packed JSON `labels` column, not as separate columns. Without field promotion the Logs visualization had no body to render and the row reduced to timestamp + level + container.
+**Frame contract (verified live in Stage 8).** The VictoriaLogs datasource returns every frame as
+`Time | Line | id | labels | streams | streamId`. Non-promoted fields (for example `level`,
+`container_name`, `logical_service`, `RequestMethod`, `Duration`) live inside the packed JSON
+`labels` column, which the Logs visualization renders as field chips.
 
-**Implementation.** Log queries end with:
+**The Stage 7 `| fields` clause was wrong and has been removed.** A trailing
+`| fields _msg, level, container_name, logical_service` that omits `_time` destroys the frame's
+`Time` column (it becomes `-6795364578872`, rendered as 1754-08-31) and, because these streams
+promote their real message into `_msg` only at the stream level, returns the literal placeholder
+`missing _msg field; see docs.victoriametrics.com/...#message-field` as the `Line` body. Stage 7's
+claim that this clause "promotes the message body into the frame's `Line` field" was refuted by
+direct frame inspection in Stage 8.
 
-```text
-| fields _msg, level, container_name, logical_service
-```
+**Implementation (Stage 8).** Log panels query the plain stream selector with no trailing
+projection — `{project="servicehub",...}` — or, when filtering is needed, use `| filter`
+clauses only. The datasource then returns the real event time and the ingested line as `Line`.
+Panels that want a reduced column set (Traefik access logs) must include `_time` in the
+`| fields` list to keep the `Time` column intact.
 
-which promotes the message body into the frame's `Line` field. Verified frames contain `Time | Line | id | labels | streams | streamId` where `Line` holds the actual post-cutover message.
+**Traefik access-log caveat (Stage 7 decision retained).** Traefik ingests its JSON line
+verbatim and legitimately has no `_msg`, so its `Line` renders the `missing _msg field`
+placeholder; its structured fields (method, host, status, duration) are shown via
+`displayedFields` chips. Request path and query strings remain deliberately excluded:
+LogSQL on this datasource cannot strip query parameters, so the path column is omitted
+rather than shown unsanitized.
 
-**Post-cutover message boundary.** Ingestion was corrected in Stage 5. Historical pre-cutover records still carry `_msg` placeholders and remain until retention expires; they are not a current ingestion defect and were not rewritten.
+**Level filters (Stage 8).** The corpus contains `warn`, `warning`, `error`, and `critical`
+as distinct level values (plus sources with no level at all). Warning/error panels filter
+`level:~"warn|warning|error|critical"` so real `warning`- and `critical`-classified records
+are not silently dropped, as the earlier two-term `error|warn` filter did.
 
-**Levels.** `level` is only present for structured sources. Grafana and plain-text sources legitimately show no level rather than a fabricated `UNK` class.
+**Levels.** `level` is only present for structured sources. Grafana and plain-text sources
+legitimately show no level rather than a fabricated `UNK` class.
 
 ### Traefik SLO panel semantics (Stage 7)
 
@@ -154,6 +174,16 @@ sum by (logical_service) (rate(...{le="0.3"}[5m]))
 | Open connections by entrypoint | Count gauge, distinct from request rate | `traefik_open_connections` |
 
 **`code="0"` is not an HTTP error.** Live series inspection shows `code="0"` occurs exclusively with `protocol="websocket"` — websocket upgrades have no HTTP response status. It is neither success nor error and is labelled as such.
+
+### Stage 8 decisions summary
+
+| Workstream | Decision |
+|---|---|
+| **A — Log rendering** | Removed the destructive `| fields _msg, level, container_name, logical_service` clause from all first-party log panels. The clause (without `_time`) produced `Time = 1754-08-31` and `Line = "missing _msg field"`. Plain stream selectors now return correct `Time` and real message text. Traefik rows in Docker/Applications logs show the placeholder — documented limitation, not an ingestion defect. |
+| **B — Infrastructure summary** | Replaced the six stat cards with a Node Exporter-style compact row at y=0, h=5, width 4 each: Pressure (`bargauge`, CPU/Memory/I/O bars), CPU Busy, System Load (max 200), RAM Usage and Swap Used (`gauge` radial), Uptime (`stat`, `dtdurations`, green-only). Detail panels re-balanced into three rows (CPU/Memory/Load at y=5, Pressure/FS/Inodes at y=13, Disk I/O/Network/Read-only at y=21). Removed the bottom-isolated full-size Uptime panel and the pre-existing grid overlap (Inode utilization vs Read-only mounts both at x=16,y=8). Swap Used guards zero-swap with `... and (SwapTotal > 0)` plus `clamp_min(SwapTotal, 1)`; the series disappears when swap is disabled and `noValue` renders "Not configured". Root cause of the old `97508966400%`: VictoriaMetrics treats a non-`bool` comparison (`SwapTotal > 0`) as a *filter*, returning the raw byte value rather than `1`, so multiplying the percentage by it produced the byte count as a percent. |
+| **C — Time-range semantics** | Four traffic-edge Top-N/distribution panels had unjustified `timeFrom` overrides (5m, 1h, 1h, 6h) — removed; panels now follow dashboard range. Retitled `Countries, last 6 hours` → `Country traffic trend`. Intentional fixed windows (10m HTTP outcomes 25–27, 1h config reloads 19, 15m restart/OOM on Overview) keep their window in the expr and descriptions state "ignores the dashboard time range". |
+| **D — Access-log timestamps** | Traefik access-log panel (traffic-edge id=7) now includes `_time` in its `| fields` list. Frame inspection confirms `Time` = 2026-10-22 across 15m/6h/24h ranges. `Duration` remains a nanosecond string in `labels`; the panel shows it via `displayedFields`. |
+| **E — Alert NoData** | `servicehub-fs-readonly`: changed `node_filesystem_readonly{...} == 1` (PromQL filter → empty vector when all rw) to `max(node_filesystem_readonly{...})` (raw metric, value 0 when healthy) with condition threshold > 0.5. `servicehub-traefik-5xx`: split numerator and denominator into separate queries A/B, ratio computed in expression `A / clamp_min(B, 1)`, so an empty 5xx series yields 0 ratio → Normal, not NoData. Rule UIDs unchanged. |
 
 ### No additional dashboards (Workstream K)
 
