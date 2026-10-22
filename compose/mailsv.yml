@@ -48,6 +48,8 @@ services:
             - "traefik.http.routers.mailsvstalwart-jmap.priority=20"
             - "traefik.http.routers.mailsvstalwart-jmap.tls=true"
             - "traefik.http.routers.mailsvstalwart-jmap.tls.certresolver=${CERTRESOLVER}"
+            # Define the internal container port for Stalwart (HTTP/JMAP/Admin)
+            - "traefik.http.services.mailsvstalwart.loadbalancer.server.port=8080"
             # ADR-009: the admin-path trust/redirect rules and IP allow list live
             # in shared/traefik/advanced/admin-routers.yml (generated from .env by
             # scripts/setup.sh, hot-reloaded by the file provider). Only the public

@@ -27,8 +27,8 @@ Proposed, Accepted, Rejected, Deprecated, Superseded. Accepted ADRs are immutabl
 | [ADR-006](ADR-006-adopt-ocis-with-local-filesystem-storage.md) | Adopt oCIS with Local Filesystem Storage | Accepted | 2026-10-04 | 2026-10-04 | |
 | [ADR-007](ADR-007-adopt-dual-target-backup-and-recovery.md) | Adopt Dual-Target Backup and Disaster Recovery | Accepted | 2026-10-04 | 2026-10-04 | |
 | [ADR-008](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) | Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables | Accepted | 2026-10-06 | 2026-10-04 | Partially superseded by ADR-009 (Open WebUI relocation) |
-| [ADR-009](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) | Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries | Accepted | 2026-10-08 | 2026-10-05 | Supersedes ADR-008 in part; defers observability to ADR-010 |
-| [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) | Collect OCI Logs and Integrate Service Telemetry with Oracle APM | Proposed | 2026-10-05 | 2026-10-05 | Split from ADR-009; pending owner decision |
+| [ADR-009](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) | Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries | Accepted | 2026-10-17 | 2026-10-05 | Supersedes ADR-008 in part; partially superseded by ADR-010 for OCI observability scope |
+| [ADR-010](ADR-010-establish-servicehub-observability-platform.md) | Establish the ServiceHub Observability Platform with Grafana, VictoriaMetrics, VictoriaLogs, Alloy, and Oracle APM | Accepted | 2026-10-17 | 2026-10-05 | Accepted; supersedes ADR-009's OCI-native-only observability decision in part and relevant ADR-008 collector mount restrictions |
 
 Next available identifier: ADR-011.
 

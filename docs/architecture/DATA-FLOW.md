@@ -114,12 +114,12 @@ flowchart LR
     Host[Host exporter] --> Alloy[obsvcealloy]
     Containers[cAdvisor] --> Alloy
     Traefik[Traefik metrics] --> Alloy
-    LiteLLM[LiteLLM metrics] --> Alloy
+    Alloy[Alloy self-metrics] --> Alloy
     Alloy --> VM[(VictoriaMetrics)]
     VM --> Grafana[(Grafana)]
 ```
 
-VictoriaMetrics also has a direct scrape configuration for Alloy and LiteLLM. Host ports 8428 and 9428 are published for remote pushes, although remote sources are not configured in this repository.
+Alloy is the single metrics ingestion path: it scrapes host, container, Traefik, and its own metrics, then remote-writes them to VictoriaMetrics. VictoriaMetrics has no direct scrape configuration. Its loopback host port is for host-side Phase 5 validation only.
 
 ## Log Flow
 

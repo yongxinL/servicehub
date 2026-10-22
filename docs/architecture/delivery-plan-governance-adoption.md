@@ -116,7 +116,7 @@ Each row represents one audit finding or one deliberately grouped homogeneous fi
 | Legacy product guides | docs/products/ is not an operations category | safe automatic | Move to docs/operations/services/ and register category | 2 | OD-approved move |
 | Product-guide links | Relative links depend on docs/products/ depth | safe automatic | Repair every affected relative link | 2 | Product move |
 | Lessons identifiers | LESSON-001/002 violate current naming | safe automatic | Rename to LES-001/002 and update IDs, titles, indexes, and inbound links | 2 | OD-approved move |
-| Legacy lesson Compose link | LESSON-002 links to compose/poste.yml | careful consolidation | Replace with compose/mailsv.yml and add dated note | 2 | OD-6 |
+| Legacy lesson Compose link | LESSON-002 links to compose/poste.yml | careful consolidation | Replace with compose/mailsv.yml (archived) and add dated note; docs archived to docs/archive/2026-10-mailsv-removal/ | 2 | OD-6 |
 | Runbook locations | RUNBOOK.md, BACKUP-RESTORE.md, and DEPLOYMENT.md are outside runbooks/ | safe automatic | Move into docs/operations/runbooks/ | 2 | Index and link repair |
 | Stale Compose links | dbsvc, authn, depot, wbapp, aiagn, obsvc, and poste remain in links | careful consolidation | Replace with current domains and add dated rename notes | 2, 3 | OD-6 |
 | Alloy README | Four Victoria/Grafana README links point to nonexistent files | safe automatic | Point links to docs/operations/services/ and docs/operations/services/grafana.md | 2 | Product move |
@@ -279,13 +279,13 @@ Lesson identifier edits
 - docs/lessons/LES-001-initial-architecture-review.md:5 — LESSON-001 -> LES-001.
 - docs/lessons/LES-001-initial-architecture-review.md — add metadata row `Formerly: LESSON-001`.
 - docs/lessons/LES-001-initial-architecture-review.md:24 — LESSON-001 -> LES-001.
-- docs/lessons/LES-002-stalwart-allowlist-broke-bulwark-login.md:5 — LESSON-002 -> LES-002.
-- docs/lessons/LES-002-stalwart-allowlist-broke-bulwark-login.md — add metadata row `Formerly: LESSON-002`.
-- docs/lessons/LES-002-stalwart-allowlist-broke-bulwark-login.md:25 — LESSON-002 -> LES-002.
+- docs/lessons/LES-002-stalwart-allowlist-broke-bulwark-login.md:5 — LESSON-002 -> LES-002. (archived to docs/archive/2026-10-mailsv-removal/docs/lessons/)
+- docs/lessons/LES-002-stalwart-allowlist-broke-bulwark-login.md — add metadata row `Formerly: LESSON-002`. (archived)
+- docs/lessons/LES-002-stalwart-allowlist-broke-bulwark-login.md:25 — LESSON-002 -> LES-002. (archived)
 - docs/lessons/LES-002-stalwart-allowlist-broke-bulwark-login.md:31:
-  - compose/poste.yml -> compose/mailsv.yml
-  - ../products/bulwark.md -> ../operations/services/bulwark.md
-  - ../products/stalwart.md -> ../operations/services/stalwart.md
+  - compose/poste.yml -> compose/mailsv.yml (archived)
+  - ../products/bulwark.md -> ../operations/services/bulwark.md (archived to ../archive/2026-10-mailsv-removal/)
+  - ../products/stalwart.md -> ../operations/services/stalwart.md (archived to ../archive/2026-10-mailsv-removal/)
   - Add: “Rename note (2026-10-12): compose/poste.yml was renamed compose/mailsv.yml; historical incident wording is retained.”
 - docs/lessons/LES-002-stalwart-allowlist-broke-bulwark-login.md:110 -> ../operations/services/bulwark.md
 - docs/lessons/LES-002-stalwart-allowlist-broke-bulwark-login.md:111 -> ../operations/services/stalwart.md
@@ -343,14 +343,14 @@ docs/products/authentik.md:38 -> ../../../env.example
 docs/products/authentik.md:79 -> ../../../shared/traefik/advanced/middlewares-authentik.yml
 docs/products/authentik.md:138 -> ../../../README.md#architecture-overview
 docs/products/authentik.md:139 -> ../../../README.md#security-observability-stack
-docs/products/bulwark.md:7 -> ../../../compose/mailsv.yml
-docs/products/bulwark.md:7 -> ../../../shared/bulwark/Dockerfile
-docs/products/bulwark.md:95 -> ../../../shared/bulwark/Dockerfile
-docs/products/bulwark.md:102 -> ../../../README.md#email-stack-mailsv
+docs/products/bulwark.md:7 -> ../../../compose/mailsv.yml (archived)
+docs/products/bulwark.md:7 -> ../../../shared/bulwark/Dockerfile (archived)
+docs/products/bulwark.md:95 -> ../../../shared/bulwark/Dockerfile (archived)
+docs/products/bulwark.md:102 -> ../../../README.md#email-stack-mailsv (archived)
 docs/products/confluence.md:7 -> ../../../compose/webapp.yml
 docs/products/confluence.md:7 -> ../../../shared/confluence/Dockerfile
 docs/products/confluence.md:28 -> ../../../env.example
-docs/products/confluence.md:90 -> ../../../scripts/egress-guard.sh
+docs/products/confluence.md:90 -> ../../../scripts/firewall.sh
 docs/products/confluence.md:90 -> ../../../scripts/egress-policies.conf
 docs/products/confluence.md:100 -> ../EGRESS-CONTROLS.md
 docs/products/confluence.md:114 -> ../../../shared/confluence/Dockerfile
@@ -446,18 +446,18 @@ docs/products/postgresql.md:102 -> ../../../shared/postgresql/Dockerfile
 docs/products/postgresql.md:103 -> ../../../shared/postgresql/create-multiple-databases.sh
 docs/products/postgresql.md:107 -> ../runbooks/BACKUP-RESTORE.md
 docs/products/postgresql.md:110 -> ../../../README.md#configuration
-docs/products/stalwart.md:7 -> ../../../compose/mailsv.yml
-docs/products/stalwart.md:7 -> ../../../shared/stalwart/Dockerfile
-docs/products/stalwart.md:37 -> ../../../shared/stalwart/entrypoint.sh
+docs/products/stalwart.md:7 -> ../../../compose/mailsv.yml (archived)
+docs/products/stalwart.md:7 -> ../../../shared/stalwart/Dockerfile (archived)
+docs/products/stalwart.md:37 -> ../../../shared/stalwart/entrypoint.sh (archived)
 docs/products/stalwart.md:95 -> ../runbooks/BACKUP-RESTORE.md
-docs/products/stalwart.md:232 -> ../../../shared/stalwart/entrypoint.sh
-docs/products/stalwart.md:233 -> ../../../shared/stalwart/acme-export.sh
+docs/products/stalwart.md:232 -> ../../../shared/stalwart/entrypoint.sh (archived)
+docs/products/stalwart.md:233 -> ../../../shared/stalwart/acme-export.sh (archived)
 docs/products/stalwart.md:333 -> ../../../README.md#configuration
 docs/products/stalwart.md:345 -> ../../../README.md#configuration
-docs/products/stalwart.md:377 -> ../../../shared/stalwart/Dockerfile
-docs/products/stalwart.md:378 -> ../../../shared/stalwart/entrypoint.sh
-docs/products/stalwart.md:379 -> ../../../shared/stalwart/acme-export.sh
-docs/products/stalwart.md:387 -> ../../../README.md#email-stack-mailsv
+docs/products/stalwart.md:377 -> ../../../shared/stalwart/Dockerfile (archived)
+docs/products/stalwart.md:378 -> ../../../shared/stalwart/entrypoint.sh (archived)
+docs/products/stalwart.md:379 -> ../../../shared/stalwart/acme-export.sh (archived)
+docs/products/stalwart.md:387 -> ../../../README.md#email-stack-mailsv (archived)
 docs/products/traefik.md:9 -> ../../../compose/route.yml
 docs/products/traefik.md:9 -> ../../../shared/traefik/Dockerfile
 docs/products/traefik.md:31 -> ../../../env.example
@@ -522,8 +522,8 @@ docs/architecture/COMPONENT-CATALOGUE.md:46 -> ../operations/services/openwebui.
 docs/architecture/COMPONENT-CATALOGUE.md:48 -> ../operations/services/hermesagent.md
 docs/architecture/COMPONENT-CATALOGUE.md:49 -> ../operations/services/litellm.md
 docs/architecture/COMPONENT-CATALOGUE.md:50 -> ../operations/services/llamacpp.md
-docs/architecture/COMPONENT-CATALOGUE.md:56 -> ../operations/services/stalwart.md
-docs/architecture/COMPONENT-CATALOGUE.md:58 -> ../operations/services/bulwark.md
+docs/architecture/COMPONENT-CATALOGUE.md:56 -> ../operations/services/stalwart.md (archived to ../archive/2026-10-mailsv-removal/)
+docs/architecture/COMPONENT-CATALOGUE.md:58 -> ../operations/services/bulwark.md (archived to ../archive/2026-10-mailsv-removal/)
 docs/operations/INSTALLATION.md:103 -> services/confluence.md
 docs/operations/SERVICE-INVENTORY.md:34 -> services/traefik.md
 docs/operations/SERVICE-INVENTORY.md:41 -> services/forgejo.md
@@ -532,8 +532,8 @@ docs/operations/SERVICE-INVENTORY.md:44 -> services/owncloud.md
 docs/operations/SERVICE-INVENTORY.md:45 -> services/owncloud.md
 docs/operations/SERVICE-INVENTORY.md:49 -> services/litellm.md
 docs/operations/SERVICE-INVENTORY.md:55 -> services/grafana.md
-docs/operations/SERVICE-INVENTORY.md:56 -> services/stalwart.md
-docs/operations/SERVICE-INVENTORY.md:58 -> services/bulwark.md
+docs/operations/SERVICE-INVENTORY.md:56 -> services/stalwart.md (archived to ../archive/2026-10-mailsv-removal/)
+docs/operations/SERVICE-INVENTORY.md:58 -> services/bulwark.md (archived to ../archive/2026-10-mailsv-removal/)
 docs/operations/SERVICE-INVENTORY.md:68 -> services/wordpress.md
 docs/operations/TROUBLESHOOTING.md:74 -> services/authentik.md
 docs/operations/TROUBLESHOOTING.md:106 -> services/traefik.md#security-middlewares
@@ -682,7 +682,7 @@ docs/architecture/adr/ADR-004-use-authentik-for-central-identity.md:78 -> ../../
 docs/architecture/adr/ADR-004-use-authentik-for-central-identity.md:79 -> ../../operations/services/authentik.md
 docs/architecture/adr/ADR-004-use-authentik-for-central-identity.md:80 -> ../../../shared/traefik/advanced/middlewares-authentik.yml
 docs/architecture/adr/ADR-004-use-authentik-for-central-identity.md:81 -> ../../../compose/obsvce.yml
-docs/architecture/adr/ADR-004-use-authentik-for-central-identity.md:82 -> ../../operations/services/stalwart.md
+docs/architecture/adr/ADR-004-use-authentik-for-central-identity.md:82 -> ../../operations/services/stalwart.md (archived to ../../archive/2026-10-mailsv-removal/)
 docs/architecture/adr/ADR-004-use-authentik-for-central-identity.md:86 -> ../ARCHITECTURE.md
 docs/architecture/adr/ADR-004-use-authentik-for-central-identity.md:87 -> ../../operations/TROUBLESHOOTING.md
 docs/architecture/adr/ADR-004-use-authentik-for-central-identity.md:88 -> ../../testing/TEST-001-platform-baseline-validation.md
@@ -730,7 +730,7 @@ docs/architecture/adr/ADR-008-standardise-service-naming-storage-and-bind-mounts
 docs/architecture/adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md:414 -> ../../operations/runbooks/BACKUP-RESTORE.md
 docs/architecture/adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md:415 -> ../ARCHITECTURE.md
 docs/architecture/adr/ADR-008-standardise-service-naming-storage-and-bind-mounts.md:427 -> ../../operations/runbooks/BACKUP-RESTORE.md
-docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../../scripts/egress-guard.sh
+docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../../scripts/firewall.sh
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../../scripts/egress-policies.conf
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../operations/EGRESS-CONTROLS.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:162 -> ../../operations/services/confluence.md#outbound-egress-policy
@@ -738,12 +738,12 @@ docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundar
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:250 -> ../../../docker-compose.yml
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:251 -> ../../../compose/webapp.yml
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:252 -> ../../../compose/route.yml
-docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:252 -> ../../../compose/mailsv.yml
+docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:252 -> ../../../compose/mailsv.yml (archived)
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:256 -> ../../../docker-compose.yml
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:257 -> ../../../compose/webapp.yml
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:257 -> ../../../compose/aiserv.yml
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:258 -> ../../../compose/route.yml
-docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:258 -> ../../../compose/mailsv.yml
+docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:258 -> ../../../compose/mailsv.yml (archived)
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:259 -> ../../../scripts/gen-admin-rules.py
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:261 -> ../../../.forgejo/workflows/61-deploy.yml
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:262 -> ../../../env.example
@@ -754,7 +754,7 @@ docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundar
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:264 -> ../../operations/SERVICE-INVENTORY.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:264 -> ../../operations/MONITORING-ALERTING.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:264 -> ../../operations/runbooks/BACKUP-RESTORE.md
-docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../../scripts/egress-guard.sh
+docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../../scripts/firewall.sh
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../../scripts/egress-policies.conf
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../operations/EGRESS-CONTROLS.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:266 -> ../../operations/services/confluence.md
@@ -769,7 +769,7 @@ docs/architecture/adr/009-rescope-oci-deployment-and-harden-platform-boundaries.
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:278 -> ../../operations/EGRESS-CONTROLS.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:279 -> ../../operations/SERVICE-INVENTORY.md
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:289 -> ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md
-docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:291 -> ../../../scripts/egress-guard.sh
+docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:291 -> ../../../scripts/firewall.sh
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:291 -> ../../../scripts/egress-policies.conf
 docs/architecture/adr/ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md:291 -> ../../operations/EGRESS-CONTROLS.md
 docs/architecture/adr/ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md:35 -> ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md
@@ -797,7 +797,7 @@ Add notes without rewriting historical decisions:
 - ADR-004: compose/authn.yml -> compose/infra.yml; compose/obsvc.yml -> compose/obsvce.yml.
 - ADR-005: compose/aiagn.yml -> compose/aiserv.yml.
 - ADR-006: compose/wbapp.yml -> compose/webapp.yml.
-- LES-002: compose/poste.yml -> compose/mailsv.yml.
+- LES-002: compose/poste.yml -> compose/mailsv.yml (archived).
 - PHASE-002, PHASE-003, and PHASE-004: apply the same dated note when their archived copies are repaired.
 - ADR-008:407 is an explicit historical baseline list; retain the old names and do not rewrite it.
 
@@ -1036,7 +1036,7 @@ Index entries to add
 - Architecture: ARCHITECTURE.md, COMPONENT-CATALOGUE.md, DATA-FLOW.md, DEPLOYMENT-ARCHITECTURE.md, SYSTEM-CONTEXT.md, adr/README.md, delivery-plan-servicehub-platform.md.
 - Operations: DEVELOPMENT.md, EGRESS-CONTROLS.md, INSTALLATION.md, MONITORING-ALERTING.md, SERVICE-INVENTORY.md, TROUBLESHOOTING.md, runbooks/, and services/.
 - Services: all 18 guides currently under docs/operations/services/.
-- Lessons: LES-001-initial-architecture-review.md, LES-002-stalwart-allowlist-broke-bulwark-login.md.
+- Lessons: LES-001-initial-architecture-review.md, LES-002-stalwart-allowlist-broke-bulwark-login.md (archived).
 - Investigation: INV-001-architecture-and-documentation-gap-analysis.md.
 - Testing: TEST-001-platform-baseline-validation.md.
 - RFC: RFC-001-reliability-and-recovery-baseline.md, RFC-002-family-cloud-platform-strategy.md.
@@ -1185,11 +1185,11 @@ All tracked Markdown/documentation files at the audited commit:
 - ADRs: docs/adr/ADR-001-use-docker-compose.md, ADR-002-use-traefik-as-ingress.md, ADR-003-use-postgresql-as-primary-database.md, ADR-004-use-authentik-for-central-identity.md, ADR-005-use-litellm-for-ai-routing.md, ADR-006-adopt-ocis-with-local-filesystem-storage.md, ADR-007-adopt-dual-target-backup-and-recovery.md, ADR-008-standardise-service-naming-storage-and-bind-mounts.md, ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md, ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md, README.md.
 - RFCs: docs/rfc/README.md, RFC-001-reliability-and-recovery-baseline.md, RFC-002-family-cloud-platform-strategy.md.
 - Investigations: docs/investigations/README.md, INV-001-architecture-and-documentation-gap-analysis.md.
-- Lessons: docs/lessons/README.md, LESSON-001-initial-architecture-review.md, LESSON-002-stalwart-allowlist-broke-bulwark-login.md.
+- Lessons: docs/lessons/README.md, LESSON-001-initial-architecture-review.md, LESSON-002-stalwart-allowlist-broke-bulwark-login.md (archived).
 - Testing: docs/testing/README.md, TEST-001-platform-baseline-validation.md.
 - Operations: docs/operations/README.md, BACKUP-RESTORE.md, DEPLOYMENT.md, DEVELOPMENT.md, EGRESS-CONTROLS.md, INSTALLATION.md, MONITORING-ALERTING.md, RUNBOOK.md, SERVICE-INVENTORY.md, TROUBLESHOOTING.md, runbooks/README.md.
 - Product scaffold: docs/product/README.md, requirements-template.md, vision-template.md.
-- Product/service guides: docs/products/README.md, authentik.md, bulwark.md, confluence.md, fastcrw.md, forgejo.md, grafana.md, hermesagent.md, litellm.md, llamacpp.md, mariadb.md, openwebui.md, owncloud.md, postgresql.md, stalwart.md, traefik.md, victorialogs.md, victoriametrics.md, wordpress.md.
+- Product/service guides: docs/products/README.md, authentik.md, bulwark.md (archived), confluence.md, fastcrw.md, forgejo.md, grafana.md, hermesagent.md, litellm.md, llamacpp.md, mariadb.md, openwebui.md, owncloud.md, postgresql.md, stalwart.md (archived), traefik.md, victorialogs.md, victoriametrics.md, wordpress.md.
 - Planning: docs/charter/CHARTER.md, docs/requirements/PRD.md, ROADMAP.md, docs/phases/README.md, PHASE-001-platform-foundation.md, PHASE-002-identity-and-developer-services.md, PHASE-003-ai-platform.md, PHASE-004-observability-and-operational-hardening.md.
 - Templates: docs/templates/README.md, upper-case ADR-TEMPLATE.md, INVESTIGATION-TEMPLATE.md, LESSON-TEMPLATE.md, PHASE-TEMPLATE.md, RELEASE-TEMPLATE.md, RFC-TEMPLATE.md, TEST-TEMPLATE.md, plus lower-case cross-specification-delivery-plan-template.md, lesson-learned-template.md, runbook-template.md, temporary-work-handoff-template.md, test-plan-template.md, tooling-adoption-entry-template.md, verification-summary-template.md.
 - Releases: docs/releases/README.md, RELEASE-TEMPLATE.md.
@@ -1222,7 +1222,7 @@ No tracked .env or servicehub.key was found.
 ### Deployment and Runtime Definitions
 
 - docker-compose.yml
-- compose/aiserv.yml, devops.yml, infra.yml, mailsv.yml, obsvce.yml, route.yml, webapp.yml
+- compose/aiserv.yml, devops.yml, infra.yml, mailsv.yml (archived), obsvce.yml, route.yml, webapp.yml
 - shared/*/Dockerfile
 - shared/fastcrw/chromium/compose.yml, shared/fastcrw/compose.yml, shared/fastcrw/lightpanda/compose.yml
 - shared/searxng/compose.yml
@@ -1236,18 +1236,18 @@ No tracked .env or servicehub.key was found.
 
 These files contain comments or configuration notes that record implementation decisions and should be retained unchanged unless a later governed artifact requires otherwise:
 
-- compose/aiserv.yml, compose/devops.yml, compose/infra.yml, compose/mailsv.yml, compose/obsvce.yml, compose/webapp.yml
-- scripts/egress-guard.sh, scripts/egress-policies.conf, scripts/gen-admin-rules.py, scripts/setup.sh
+- compose/aiserv.yml, compose/devops.yml, compose/infra.yml, compose/mailsv.yml (archived), compose/obsvce.yml, compose/webapp.yml
+- scripts/firewall.sh, scripts/egress-policies.conf, scripts/gen-admin-rules.py, scripts/setup.sh
 - shared/fastcrw/chromium/compose.yml, shared/fastcrw/config.docker.toml
 - shared/forgejo/actions/entrypoint.sh
 - shared/hermesagent/start-gateways.sh
 - shared/litellm/config.default.yaml, shared/litellm/smartrouter.py
 - shared/searxng/settings.yml
-- shared/stalwart/acme-export.sh, shared/stalwart/entrypoint.sh
+- shared/stalwart/acme-export.sh (archived), shared/stalwart/entrypoint.sh (archived)
 - shared/traefik/advanced/admin-routers.yml, shared/traefik/advanced/middlewares-security.yml
 - shared/wordpress/etc/nginx/nginx.conf
 
-Examples include scripts/egress-guard.sh:2, scripts/egress-policies.conf:1, shared/litellm/smartrouter.py:10, shared/hermesagent/start-gateways.sh:10, shared/stalwart/entrypoint.sh:5, and compose/aiserv.yml:2.
+Examples include scripts/firewall.sh:2, scripts/egress-policies.conf:1, shared/litellm/smartrouter.py:10, shared/hermesagent/start-gateways.sh:10, shared/stalwart/entrypoint.sh:5 (archived), and compose/aiserv.yml:2.
 
 ### Planning and Task Stores
 

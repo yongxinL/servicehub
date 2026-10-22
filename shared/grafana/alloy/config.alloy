@@ -1,111 +1,527 @@
-// Grafana Alloy — container metrics and container logs with GeoIP enrichment
+// Grafana Alloy — core telemetry (host, container, journal, container logs)
+// plus service telemetry: availability/TLS probes, native application metrics,
+// normalized logical_service identity, and security log normalization.
 // Pattern: https://github.com/grafana/alloy-scenarios
 
 // =============================================
 // HOST METRICS — built-in unix/node_exporter
-// procfs/sysfs paths point to bind-mounted host paths.
-// The host rootfs is not mounted (ADR-008), so rootfs-based
-// collectors (filesystem) are disabled rather than mis-reporting
-// the container's own filesystem.
+// procfs/sysfs/rootfs paths point to read-only host mounts. ADR-010 section 3
+// restores real host filesystem and inode collection through rootfs_path.
 // =============================================
 prometheus.exporter.unix "host" {
-    disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs", "filesystem"]
-    procfs_path        = "/host/proc"
-    sysfs_path         = "/host/sys"
+	disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs"]
+	procfs_path        = "/host/proc"
+	sysfs_path         = "/host/sys"
+	rootfs_path        = "/host/root"
+
+	filesystem {
+		fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|tmpfs|fuse.*|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|ramfs|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
+		mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys)($|/)"
+		mount_timeout        = "5s"
+	}
 }
 
 discovery.relabel "host" {
-    targets = prometheus.exporter.unix.host.targets
+	targets = prometheus.exporter.unix.host.targets
 
-    rule {
-        target_label = "job"
-        replacement  = "obstack"
-    }
-    rule {
-        target_label = "instance"
-        replacement  = constants.hostname
-    }
+	rule {
+		target_label = "job"
+		replacement  = "obstack"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = constants.hostname
+	}
+
+	rule {
+		target_label = "project"
+		replacement  = "servicehub"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("ENVIRONMENT")
+	}
 }
 
 // =============================================
 // CONTAINER METRICS — built-in cAdvisor
-// docker_only=true skips host-level cgroup (avoids duplication with host metrics)
+// docker_only=true skips host-level cgroup (avoids duplication with host metrics).
+// containerd_host resolves per-container identity on containerd-backed Docker
+// engines; without it only the root cgroup series is published.
 // =============================================
 prometheus.exporter.cadvisor "containers" {
-    docker_host = "unix:///var/run/docker.sock"
-    docker_only = true
+	docker_host     = "unix:///var/run/docker.sock"
+	docker_only     = true
+	containerd_host = "/host/root/run/containerd/containerd.sock"
 }
 
 discovery.relabel "containers" {
-    targets = prometheus.exporter.cadvisor.containers.targets
+	targets = prometheus.exporter.cadvisor.containers.targets
 
-    rule {
-        target_label = "job"
-        replacement  = "cadvisor"
-    }
-    rule {
-        target_label = "instance"
-        replacement  = constants.hostname
-    }
+	rule {
+		target_label = "job"
+		replacement  = "cadvisor"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = constants.hostname
+	}
+
+	rule {
+		target_label = "project"
+		replacement  = "servicehub"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("ENVIRONMENT")
+	}
 }
 
 // =============================================
 // SCRAPE — host metrics
 // =============================================
 prometheus.scrape "host" {
-    targets         = discovery.relabel.host.output
-    forward_to      = [prometheus.remote_write.vm.receiver]
-    scrape_interval = "30s"
-    scrape_timeout  = "15s"
+	targets         = discovery.relabel.host.output
+	forward_to      = [prometheus.remote_write.vm.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
 }
 
 // =============================================
 // SCRAPE — container metrics → VictoriaMetrics only
 // =============================================
 prometheus.scrape "containers" {
-    targets         = discovery.relabel.containers.output
-    forward_to      = [prometheus.remote_write.vm.receiver]
-    scrape_interval = "30s"
-    scrape_timeout  = "15s"
+	targets         = discovery.relabel.containers.output
+	forward_to      = [prometheus.relabel.cadvisor_labels.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
+}
+
+// cAdvisor exposes every Docker label as container_label_<name>. Containers with
+// many Traefik routers exceed VictoriaMetrics' 40-label limit and are dropped
+// silently, so keep only the compose service label.
+// logical_service is a bounded identity shared with probe and log pipelines;
+// workloads outside the eight tracked services get no value (ADR-010 section 23).
+prometheus.relabel "cadvisor_labels" {
+	forward_to = [prometheus.remote_write.vm.receiver]
+
+	rule {
+		source_labels = ["container_label_com_docker_compose_service"]
+		target_label  = "compose_service"
+	}
+
+	rule {
+		action = "labeldrop"
+		regex  = "container_label_.*"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "infraauth|infraauthwrk"
+		target_label  = "logical_service"
+		replacement   = "authentik"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "webappconf"
+		target_label  = "logical_service"
+		replacement   = "confluence"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "devopsforgejo"
+		target_label  = "logical_service"
+		replacement   = "forgejo"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "webappocis"
+		target_label  = "logical_service"
+		replacement   = "ocis"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "routetraefik"
+		target_label  = "logical_service"
+		replacement   = "traefik"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "obsvcegrafana"
+		target_label  = "logical_service"
+		replacement   = "grafana"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "obsvcevm"
+		target_label  = "logical_service"
+		replacement   = "victoriametrics"
+	}
+
+	rule {
+		source_labels = ["compose_service"]
+		regex         = "obsvcevlogs"
+		target_label  = "logical_service"
+		replacement   = "victorialogs"
+	}
 }
 
 // =============================================
 // TRAEFIK METRICS — scrape from Traefik's Prometheus endpoint
 // =============================================
 prometheus.scrape "traefik" {
-    targets = [{
-        __address__ = "routetraefik:8080",
-        job         = "traefik",
-        instance    = constants.hostname,
-    }]
-    forward_to      = [prometheus.remote_write.vm.receiver]
-    scrape_interval = "30s"
-    scrape_timeout  = "15s"
+	targets = [{
+		__address__ = "routetraefik:8080",
+		job         = "traefik",
+		instance    = constants.hostname,
+	}]
+	forward_to      = [prometheus.relabel.traefik_labels.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
+}
+
+// Traefik reports the routed backend in the `service` label as
+// "<compose-service>@docker". Map it to the same bounded logical_service
+// identity used by the container and probe pipelines.
+prometheus.relabel "traefik_labels" {
+	forward_to = [prometheus.remote_write.vm.receiver]
+
+	rule {
+		source_labels = ["service"]
+		regex         = "infraauth@docker|infraauthwrk@docker"
+		target_label  = "logical_service"
+		replacement   = "authentik"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "webappconf@docker"
+		target_label  = "logical_service"
+		replacement   = "confluence"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "devopsforgejo@docker"
+		target_label  = "logical_service"
+		replacement   = "forgejo"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "webappocis@docker"
+		target_label  = "logical_service"
+		replacement   = "ocis"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "obsvcegrafana@docker"
+		target_label  = "logical_service"
+		replacement   = "grafana"
+	}
 }
 
 // =============================================
 // REMOTE WRITE — VictoriaMetrics
 // =============================================
 prometheus.remote_write "vm" {
-    endpoint {
-        url = "http://obsvcevm:8428/api/v1/write"
-    }
+	endpoint {
+		url = "http://obsvcevm:8428/api/v1/write"
+	}
 }
 
 // =============================================
 // SCRAPE — Alloy self-metrics
-// Exposes log-derived counters (e.g. traefik_access_client_ip_requests_total)
-// generated by stage.metrics inside loki.process pipelines
+// Covers pipeline, remote-write, scrape, and component health.
 // =============================================
 prometheus.scrape "alloy_self" {
-    targets = [{
-        __address__ = "localhost:9080",
-        job         = "alloy",
-        instance    = constants.hostname,
-    }]
-    forward_to      = [prometheus.remote_write.vm.receiver]
-    scrape_interval = "30s"
-    scrape_timeout  = "15s"
+	targets = [{
+		__address__ = "localhost:9080",
+		job         = "alloy",
+		instance    = constants.hostname,
+	}]
+	forward_to      = [prometheus.remote_write.vm.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
+}
+
+// =============================================
+// AVAILABILITY AND TLS PROBES — Blackbox Exporter
+// Internal targets use documented readiness endpoints. Public targets verify
+// DNS, HTTPS, TLS handshake, certificate validity, and response duration.
+// Config at /etc/alloy/blackbox.yml (mounted from shared/grafana/alloy/).
+// =============================================
+prometheus.exporter.blackbox "internal" {
+	config_file = "/etc/alloy/blackbox.yml"
+
+	target {
+		name    = "traefik"
+		address = "http://routetraefik:8080/ping"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "authentik-server"
+		address = "http://infraauth:9000/-/health/ready/"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "authentik-worker"
+		address = "http://infraauthwrk:9000/-/health/ready/"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "confluence"
+		address = "http://webappconf:8090/status"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "forgejo"
+		address = "http://devopsforgejo:3000/api/healthz"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "ocis"
+		address = "http://webappocis:9200/status.php"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "grafana"
+		address = "http://obsvcegrafana:3000/api/health"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "victoriametrics"
+		address = "http://obsvcevm:8428/health"
+		module  = "http_internal_2xx"
+	}
+
+	target {
+		name    = "victorialogs"
+		address = "http://obsvcevlogs:9428/health"
+		module  = "http_internal_2xx"
+	}
+}
+
+discovery.relabel "internal_probe_labels" {
+	targets = prometheus.exporter.blackbox.internal.targets
+
+	rule {
+		target_label = "component"
+		replacement  = "probe"
+	}
+
+	rule {
+		target_label = "project"
+		replacement  = "servicehub"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("ENVIRONMENT")
+	}
+}
+
+prometheus.scrape "internal_probes" {
+	targets         = discovery.relabel.internal_probe_labels.output
+	forward_to      = [prometheus.relabel.probe_service_labels.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "10s"
+}
+
+prometheus.exporter.blackbox "public" {
+	config_file = "/etc/alloy/blackbox.yml"
+
+	target {
+		name    = "traefik-public"
+		address = "https://" + sys.env("DOMAIN_NAME")
+		module  = "https_expected_redirect"
+	}
+
+	target {
+		name    = "authentik-public"
+		address = "https://" + sys.env("IDENTITY_DOMAIN")
+		module  = "https_public_2xx"
+	}
+
+	target {
+		name    = "confluence-public"
+		address = "https://" + sys.env("WORKSPACE_DOMAIN")
+		module  = "https_public_2xx"
+	}
+
+	target {
+		name    = "forgejo-public"
+		address = "https://" + sys.env("SOURCECODE_DOMAIN")
+		module  = "https_public_2xx"
+	}
+
+	target {
+		name    = "ocis-public"
+		address = "https://" + sys.env("CLOUD_DOMAIN")
+		module  = "https_public_2xx"
+	}
+
+	target {
+		name    = "grafana-public"
+		address = "https://" + sys.env("OBSERVABILITY_DOMAIN")
+		module  = "https_admin_restricted"
+	}
+}
+
+discovery.relabel "public_probe_labels" {
+	targets = prometheus.exporter.blackbox.public.targets
+
+	rule {
+		target_label = "component"
+		replacement  = "probe"
+	}
+
+	rule {
+		target_label = "project"
+		replacement  = "servicehub"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("ENVIRONMENT")
+	}
+}
+
+prometheus.scrape "public_probes" {
+	targets         = discovery.relabel.public_probe_labels.output
+	forward_to      = [prometheus.relabel.probe_service_labels.receiver]
+	scrape_interval = "60s"
+	scrape_timeout  = "15s"
+}
+
+prometheus.relabel "probe_service_labels" {
+	forward_to = [prometheus.remote_write.vm.receiver]
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/(.+)"
+		target_label  = "service"
+		replacement   = "$1"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/authentik-(server|worker)"
+		target_label  = "service"
+		replacement   = "authentik"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/(.+)-public"
+		target_label  = "service"
+		replacement   = "$1"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/.+"
+		target_label  = "probe_type"
+		replacement   = "readiness"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/.+"
+		target_label  = "target_class"
+		replacement   = "internal"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/.+-public"
+		target_label  = "probe_type"
+		replacement   = "https"
+	}
+
+	rule {
+		source_labels = ["job"]
+		regex         = "integrations/blackbox/.+-public"
+		target_label  = "target_class"
+		replacement   = "external"
+	}
+
+	rule {
+		source_labels = ["service"]
+		regex         = "^(authentik|confluence|forgejo|grafana|ocis|traefik|victoriametrics|victorialogs)$"
+		target_label  = "logical_service"
+		replacement   = "$1"
+		action        = "replace"
+	}
+}
+
+// =============================================
+// NATIVE APPLICATION METRICS
+// Authentik documents port 9300 for server, worker, and outpost metrics.
+// oCIS documents proxy metrics on the debug port 9205. Neither is routed
+// through Traefik.
+// =============================================
+prometheus.scrape "authentik_server" {
+	targets = [{
+		__address__ = "infraauth:9300",
+		job         = "authentik_server",
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "authentik",
+		component   = "server",
+	}]
+	forward_to      = [prometheus.remote_write.vm.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
+}
+
+prometheus.scrape "authentik_worker" {
+	targets = [{
+		__address__ = "infraauthwrk:9300",
+		job         = "authentik_worker",
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "authentik",
+		component   = "worker",
+	}]
+	forward_to      = [prometheus.remote_write.vm.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
+}
+
+prometheus.scrape "ocis_proxy" {
+	targets = [{
+		__address__ = "webappocis:9205",
+		job         = "ocis_proxy",
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "ocis",
+		component   = "proxy",
+	}]
+	forward_to      = [prometheus.remote_write.vm.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
 }
 
 // =============================================
@@ -113,139 +529,445 @@ prometheus.scrape "alloy_self" {
 // relabel_rules extracts container_name from Docker metadata
 // =============================================
 discovery.docker "containers" {
-    host = "unix:///var/run/docker.sock"
+	host = "unix:///var/run/docker.sock"
 }
 
 discovery.relabel "logs" {
-    targets = discovery.docker.containers.targets // Connect the discovery to the relabel
+	targets = discovery.docker.containers.targets
 
-    rule {
-        source_labels = ["__meta_docker_container_name"]
-        regex         = "/(.*)"
-        target_label  = "container_name"
-    }
-    rule {
-        target_label = "instance"
-        replacement  = constants.hostname
-    }
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container_name"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = constants.hostname
+	}
+
+	rule {
+		target_label = "project"
+		replacement  = "servicehub"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("ENVIRONMENT")
+	}
+
+	// Bounded logical_service identity for the eight approved applications
+	// (ADR-010 section 23/24). Containers outside the eight — PostgreSQL,
+	// runners, other compose workloads — match no rule and receive no
+	// logical_service value; there is no fallback. Stream cardinality stays
+	// bounded because the value set is fixed.
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-infraauth-.*|servicehub-infraauthwrk-.*"
+		target_label  = "logical_service"
+		replacement   = "authentik"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-webappconf-.*"
+		target_label  = "logical_service"
+		replacement   = "confluence"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-devopsforgejo-.*"
+		target_label  = "logical_service"
+		replacement   = "forgejo"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-webappocis-.*"
+		target_label  = "logical_service"
+		replacement   = "ocis"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-routetraefik-.*"
+		target_label  = "logical_service"
+		replacement   = "traefik"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-obsvcegrafana-.*"
+		target_label  = "logical_service"
+		replacement   = "grafana"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-obsvcevm-.*"
+		target_label  = "logical_service"
+		replacement   = "victoriametrics"
+	}
+
+	rule {
+		source_labels = ["container_name"]
+		regex         = "servicehub-obsvcevlogs-.*"
+		target_label  = "logical_service"
+		replacement   = "victorialogs"
+	}
+}
+
+// =============================================
+// SELECTIVE HOST JOURNAL
+// Journald match filters limit collection to SSH, sudo, logind, kernel,
+// Docker, systemd, and firewall events. PIDs, usernames, paths, commands,
+// and message text remain journal fields, not Prometheus metric labels.
+// Journal group membership is a host prerequisite for these sources.
+// =============================================
+loki.relabel "journal" {
+	forward_to = []
+
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		target_label  = "systemd_unit"
+	}
+
+	rule {
+		source_labels = ["__journal__comm"]
+		target_label  = "process_name"
+	}
+
+	rule {
+		source_labels = ["__journal_priority"]
+		target_label  = "priority"
+	}
+
+	rule {
+		source_labels = ["__journal_priority_keyword"]
+		target_label  = "priority_name"
+	}
+
+	rule {
+		source_labels = ["__journal__hostname"]
+		target_label  = "journal_host"
+	}
+}
+
+loki.source.journal "ssh" {
+	format_as_json = true
+	max_age        = "24h"
+	matches        = "_COMM=sshd"
+	relabel_rules  = loki.relabel.journal.rules
+	labels         = {
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "linux-host",
+		component   = "security",
+		source      = "journal",
+	}
+	forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "sudo" {
+	format_as_json = true
+	max_age        = "24h"
+	matches        = "_COMM=sudo"
+	relabel_rules  = loki.relabel.journal.rules
+	labels         = {
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "linux-host",
+		component   = "security",
+		source      = "journal",
+	}
+	forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "authentication" {
+	format_as_json = true
+	max_age        = "24h"
+	matches        = "_SYSTEMD_UNIT=systemd-logind.service"
+	relabel_rules  = loki.relabel.journal.rules
+	labels         = {
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "linux-host",
+		component   = "security",
+		source      = "journal",
+	}
+	forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "kernel" {
+	format_as_json = true
+	max_age        = "24h"
+	matches        = "_TRANSPORT=kernel"
+	relabel_rules  = loki.relabel.journal.rules
+	labels         = {
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "linux-host",
+		component   = "system",
+		source      = "journal",
+	}
+	forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "docker" {
+	format_as_json = true
+	max_age        = "24h"
+	matches        = "_SYSTEMD_UNIT=docker.service"
+	relabel_rules  = loki.relabel.journal.rules
+	labels         = {
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "docker",
+		component   = "runtime",
+		source      = "journal",
+	}
+	forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "systemd" {
+	format_as_json = true
+	max_age        = "24h"
+	matches        = "_COMM=systemd"
+	relabel_rules  = loki.relabel.journal.rules
+	labels         = {
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "linux-host",
+		component   = "systemd",
+		source      = "journal",
+	}
+	forward_to = [loki.process.journal.receiver]
+}
+
+loki.source.journal "firewall" {
+	format_as_json = true
+	max_age        = "24h"
+	matches        = "SYSLOG_IDENTIFIER=firewalld"
+	relabel_rules  = loki.relabel.journal.rules
+	labels         = {
+		project     = "servicehub",
+		environment = sys.env("ENVIRONMENT"),
+		instance    = constants.hostname,
+		service     = "linux-host",
+		component   = "firewall",
+		source      = "journal",
+	}
+	forward_to = [loki.process.journal.receiver]
+}
+
+loki.process "journal" {
+	stage.static_labels {
+		values = {
+			event_source = "journald",
+		}
+	}
+
+	// format_as_json=true delivers the full journal entry as a JSON line.
+	// VictoriaLogs parses JSON lines into fields and leaves _msg as its
+	// placeholder, so parse here, keep selected low-cardinality fields as
+	// structured metadata, and set the line to the human-readable MESSAGE.
+	// Fields not promoted (command lines, CODE_FILE, MESSAGE_ID, ...) are
+	// intentionally dropped to keep the searchable set bounded.
+	stage.json {
+		expressions = {
+			extracted_message = "MESSAGE",
+			syslog_identifier = "SYSLOG_IDENTIFIER",
+			transport         = "_TRANSPORT",
+		}
+	}
+
+	stage.structured_metadata {
+		values = {
+			syslog_identifier = "",
+			transport         = "",
+		}
+	}
+
+	// Entries without MESSAGE keep the original JSON line unchanged.
+	stage.output {
+		source = "extracted_message"
+	}
+
+	forward_to = [loki.secretfilter.host.receiver]
+}
+
+loki.secretfilter "host" {
+	drop_on_timeout = true
+	label_timed_out = true
+	redact_with     = "<REDACTED:$SECRET_NAME>"
+	forward_to      = [loki.write.vlogs.receiver]
 }
 
 // =============================================
 // GEOIP ENRICHMENT — for Traefik access logs
 // =============================================
 loki.process "geoip_enrichment" {
-    forward_to = [loki.write.vlogs.receiver]
+	forward_to = [loki.write.vlogs.receiver]
 
-    // Extract client IP from Traefik JSON log ClientHost field (real TCP source address)
-    stage.json {
-        expressions = {
-            client_ip = "ClientHost",
-        }
-    }
+	// Extract client IP from Traefik JSON log ClientHost field (real TCP source address)
+	stage.json {
+		expressions = {
+			client_ip = "ClientHost",
+		}
+	}
+	// Keep the TCP source address in structured metadata. It is searchable for
+	// investigation but is not promoted to a VictoriaLogs stream label, so
+	// stream cardinality stays bounded.
+	stage.structured_metadata {
+		values = {
+			client_ip = "",
+		}
+	}
 
-    // Promote client_ip to a stream label so stage.match can filter on it
-    // and stage.metrics includes it in the counter label set
-    stage.labels {
-        values = {
-            client_ip = "",
-        }
-    }
+	// Apply GeoIP lookup for all IPs
+	// Private IPs will return empty/none values from the GeoIP database
+	stage.geoip {
+		source  = "client_ip"
+		db      = "/geoip/GeoLite2-City.mmdb"
+		db_type = "city"
+	}
 
-    // Generate a Prometheus counter from real client IPs (non-spoofable TCP source).
-    // prefix="" disables Alloy's default "loki_process_custom_" prefix.
-    // match_all=false (default) means the counter only increments when client_ip
-    // is present in the extracted map — so non-Traefik logs are silently skipped.
-    stage.metrics {
-        metric.counter {
-            name        = "access_client_ip_requests_total"
-            prefix      = "traefik_"
-            description = "Requests per client IP from Traefik access logs (ClientHost / TCP source)"
-            source      = "client_ip"
-            action      = "inc"
-            match_all   = false
-        }
-    }
+	// Only the bounded country code becomes a stream label; city and
+	// coordinates stay searchable structured metadata (ADR-010 sections 9 and 24).
+	stage.labels {
+		values = {
+			geoip_country_code = "",
+		}
+	}
 
-    // Apply GeoIP lookup for all IPs
-    // Private IPs will return empty/none values from the GeoIP database
-    stage.geoip {
-        source    = "client_ip"
-        db        = "/geoip/GeoLite2-City.mmdb"
-        db_type   = "city"
-    }
+	stage.structured_metadata {
+		values = {
+			geoip_country_name       = "",
+			geoip_city_name          = "",
+			geoip_location_latitude  = "",
+			geoip_location_longitude = "",
+		}
+	}
 
-    // Labels from GeoIP-enriched values (for VictoriaLogs / log queries)
-    stage.labels {
-        values = {
-            geoip_country_name       = "",
-            geoip_country_code       = "",
-            geoip_city_name          = "",
-            geoip_location_latitude  = "",
-            geoip_location_longitude = "",
-        }
-    }
+	// Traefik JSON access logs arrive with a placeholder _msg. Build a compact
+	// human-readable line: "<method> <host><path> <route> -> <status> in <duration>ms"
+	// stage.template (Go templates) is not supported; stage.output source= references
+	// a field by name, so stage.structured_metadata values = {} is not usable.
+	// Instead, keep the Traefik JSON line as the log line: its structured fields
+	// (RequestMethod, RequestHost, RequestPath, RouterName, DownstreamStatus,
+	// Duration) already render as columns on the Traffic/Edge dashboards, which is
+	// the documented acceptance path for Traefik per Stage 5 (section 272-289).
+	// The placeholder is a known limitation of plain JSON ingestion, documented
+	// here so it is not mistaken for an ingestion defect.
 
-    // Override geo labels for RFC-1918 private IP ranges.
-    // GeoIP databases return empty values for these addresses, so we assign
-    // a fixed internal location. Covers:
-    //   10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-    stage.match {
-        selector = `{client_ip=~"^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.).*"}`
-
-        stage.static_labels {
-            values = {
-                geoip_country_name       = "Sixtyone Republic",
-                geoip_country_code       = "QX",
-                geoip_city_name          = "Pentagon",
-                geoip_location_latitude  = "0.000",
-                geoip_location_longitude = "0.000",
-            }
-        }
-    }
-
-    // Country-level counter — runs after both GeoIP enrichment and the private IP
-    // override above, so geoip_country_name always has a value for matched entries.
-    // Selector skips non-Traefik logs (no country set) automatically.
-    stage.match {
-        selector = `{geoip_country_name=~".+"}`
-
-        stage.metrics {
-            metric.counter {
-                name      = "country_requests_total"
-                prefix    = "traefik_"
-                action    = "inc"
-                match_all = true
-            }
-        }
-    }
+	stage.static_labels {
+		values = {
+			project     = "servicehub",
+			environment = sys.env("ENVIRONMENT"),
+		}
+	}
 }
 
 // =============================================
 // LOGS — container logs via Docker socket with GeoIP
 // =============================================
 loki.source.docker "container_logs" {
-    host          = "unix:///var/run/docker.sock"
-    targets       = discovery.relabel.logs.output
-    forward_to    = [loki.process.geoip_enrichment.receiver]
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.logs.output
+	forward_to = [loki.process.container_logs.receiver]
+}
+
+// Source-specific _msg correction:
+//  - Authentik JSON logs carry the human-readable event in the "event" field.
+//  - oCIS JSON logs carry it in the "message" field.
+//  - Plain-text logs (Forgejo, Grafana, Alloy, PostgreSQL, MariaDB, etc.) are
+//    already plain text, so VictoriaLogs uses the line as the message directly.
+//  - Traefik access logs carry structured fields; a human-readable summary is
+//    not required and must not replace structured extraction.
+loki.process "container_logs" {
+	// Authentik (server/worker) access and task logs carry the human-readable
+	// event in the JSON "event" field. Replacing the JSON line with that text
+	// would drop "level"/"status", which the Security dashboards filter on, so
+	// promote them to structured metadata before the output swap.
+	stage.match {
+		selector = "{logical_service=\"authentik\"}"
+
+		stage.json {
+			expressions = {
+				extracted_message = "event",
+				level             = "level",
+				status            = "status",
+				method            = "method",
+				path              = "path",
+			}
+		}
+
+		stage.structured_metadata {
+			values = {
+				level  = "",
+				status = "",
+				method = "",
+				path   = "",
+			}
+		}
+
+		stage.output {
+			source = "extracted_message"
+		}
+	}
+
+	// oCIS JSON logs carry the message in the JSON "message" field. Same
+	// rationale as Authentik for preserving level/method/path/status.
+	stage.match {
+		selector = "{logical_service=\"ocis\"}"
+
+		stage.json {
+			expressions = {
+				extracted_message = "message",
+				level             = "level",
+				method            = "method",
+				path              = "path",
+				status            = "status",
+			}
+		}
+
+		stage.structured_metadata {
+			values = {
+				level  = "",
+				method = "",
+				path   = "",
+				status = "",
+			}
+		}
+
+		stage.output {
+			source = "extracted_message"
+		}
+	}
+
+	// Plain-text sources (Forgejo, Grafana, Alloy, PostgreSQL, MariaDB, ...)
+	// keep the original line; VictoriaLogs already uses it as the message.
+	// Traefik keeps its JSON line so the Request* fields and level stay
+	// searchable; a synthesized Traefik message is intentionally not built.
+
+	forward_to = [loki.secretfilter.container.receiver]
+}
+
+loki.secretfilter "container" {
+	drop_on_timeout = true
+	label_timed_out = true
+	redact_with     = "<REDACTED:$SECRET_NAME>"
+	forward_to      = [loki.process.geoip_enrichment.receiver]
 }
 
 loki.write "vlogs" {
-    endpoint {
-        url = "http://obsvcevlogs:9428/insert/loki/api/v1/push"
-    }
-}
-
-// =============================================
-// LITELLM METRICS — scrape from LiteLLM's Prometheus endpoint
-// =============================================
-prometheus.scrape "litellm" {
-    targets = [{
-        __address__ = "aiservlitellm:12380",
-        job         = "litellm",
-        instance    = constants.hostname,
-    }]
-    metrics_path    = "/metrics/"
-    forward_to      = [prometheus.remote_write.vm.receiver]
-    scrape_interval = "30s"
-    scrape_timeout  = "15s"
+	endpoint {
+		url = "http://obsvcevlogs:9428/insert/loki/api/v1/push"
+	}
 }

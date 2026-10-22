@@ -64,38 +64,76 @@ inject_secrets() {
 merge_env() {
     echo "Merging new variables from env.example into existing .env..."
 
-    # Create a temp file to store merged result
-    cp "$ENV_EXAMPLE_FILE" "$ENV_FILE.tmp"
+    python3 - "$ENV_EXAMPLE_FILE" "$ENV_FILE" "$ENV_FILE.tmp" <<'PYEOF'
+import re
+import sys
 
-    # For each line in the existing .env, carry it into the new file
-    while IFS= read -r line; do
-        [[ -z "$line" || "$line" =~ ^# || "$line" != *"="* ]] && continue
-        key=${line%%=*}
 
-        # The merge starts from env.example, so a key that exists only in .env
-        # (locally added: extra Hermes instances, site-specific overrides)
-        # would otherwise be dropped on every run — including every deploy.
-        if ! grep -q "^${key}=" "$ENV_EXAMPLE_FILE"; then
-            printf '%s\n' "$line" >> "$ENV_FILE.tmp"
+def parse_blocks(path):
+    with open(path) as handle:
+        lines = handle.read().splitlines()
+
+    blocks = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        match = re.match(r"(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)", line)
+        if not match:
+            blocks.append((None, [line]))
+            index += 1
             continue
-        fi
 
-        # If key exists in env.example and has a value in .env, preserve it
-        old_value=${line#*=}
-        if [ -n "$old_value" ]; then
-            # Use python3 so arbitrary characters in old_value (quotes, pipes,
-            # backslashes) are never interpreted by the shell or sed.
-            python3 - "$key" "$old_value" "$ENV_FILE.tmp" <<'PYEOF'
-import sys, re
-key, val, fname = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(fname) as f:
-    content = f.read()
-content = re.sub(r'^' + re.escape(key) + r'=.*', key + '=' + val, content, flags=re.MULTILINE)
-with open(fname, 'w') as f:
-    f.write(content)
+        key = match.group(1)
+        value = match.group(2)
+        block = [line]
+        index += 1
+        if value and value[0] in {"'", '"'}:
+            while not quote_closed(value, value[0]):
+                if index == len(lines):
+                    raise ValueError(f"unterminated quoted value for {key} in {path}")
+                value += "\n" + lines[index]
+                block.append(lines[index])
+                index += 1
+        blocks.append((key, block))
+    return blocks
+
+
+def quote_closed(value, quote):
+    escaped = False
+    for char in value[1:]:
+        if quote == '"' and escaped:
+            escaped = False
+            continue
+        if quote == '"' and char == "\\":
+            escaped = True
+            continue
+        if char == quote:
+            return True
+    return False
+
+
+example_path, env_path, output_path = sys.argv[1:]
+example_blocks = parse_blocks(example_path)
+env_blocks = parse_blocks(env_path)
+existing = {key: block for key, block in env_blocks if key}
+
+lines = []
+seen = set()
+for key, block in example_blocks:
+    if key in existing:
+        lines.extend(existing[key])
+        seen.add(key)
+    else:
+        lines.extend(block)
+
+for key, block in env_blocks:
+    if key not in seen:
+        lines.extend(block)
+        seen.add(key)
+
+with open(output_path, "w") as handle:
+    handle.write("\n".join(lines) + "\n")
 PYEOF
-        fi
-    done < "$ENV_FILE"
 
     # Replace original with merged
     mv "$ENV_FILE.tmp" "$ENV_FILE"

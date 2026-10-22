@@ -78,7 +78,7 @@ All default database consumers in `compose/*.yml` connect to `dbsvcpgsqldb`. `en
 - [PostgreSQL image](../../../shared/postgresql/Dockerfile)
 - [PostgreSQL README](../../operations/services/postgresql.md)
 - [backup workflow](../../../.forgejo/workflows/71-backup.yml)
-- Database environment settings in `compose/infra.yml` (Rename note 2026-10-12: formerly compose/authn.yml.), `compose/devops.yml` (Rename note 2026-10-12: formerly compose/depot.yml.), `compose/aiserv.yml` (Rename note 2026-10-12: formerly compose/aiagn.yml.), `compose/webapp.yml` (Rename note 2026-10-12: formerly compose/wbapp.yml.), and `compose/mailsv.yml` (Rename note 2026-10-12: formerly compose/poste.yml.)
+- Database environment settings in `compose/infra.yml` (Rename note 2026-10-12: formerly compose/authn.yml.), `compose/devops.yml` (Rename note 2026-10-12: formerly compose/depot.yml.), `compose/aiserv.yml` (Rename note 2026-10-12: formerly compose/aiagn.yml.), `compose/webapp.yml` (Rename note 2026-10-12: formerly compose/wbapp.yml.), and `compose/mailsv.yml` (Rename note 2026-10-12: formerly compose/poste.yml. Archive note 2026-10-16: mailsv is disabled — OCI blocks outbound port 25; an external email provider is used instead.)
 
 ## Related Documents
 

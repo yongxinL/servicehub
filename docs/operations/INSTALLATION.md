@@ -96,7 +96,7 @@ mkdir -p ${APPS_DATA}/infra/authentik/{media,templates}
 mkdir -p ${APPS_DATA}/shared/certs
 mkdir -p ${APPS_DATA}/devops/forgejo/{data,runner}
 mkdir -p ${APPS_DATA}/aiserv/hermes/00
-mkdir -p ${APPS_DATA}/mailsv/{stalwart,bulwark}
+# mkdir -p ${APPS_DATA}/mailsv/{stalwart,bulwark}  # disabled; OCI blocks port 25
 chown -R 1000:1000 ${APPS_DATA}/devops/forgejo/{data,runner}
 ```
 

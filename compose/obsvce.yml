@@ -6,8 +6,6 @@ services:
         command:
             - "--storageDataPath=/storage"
             - "--httpListenAddr=:8428"
-            - "--promscrape.config=/etc/vm/scrape.yaml"
-            - "--promscrape.config.strictParse=false"
             - "--enableTCP6=true"
         healthcheck:
             test: [ "CMD-SHELL", "curl -fsS http://localhost:8428/health || exit 1" ]
@@ -19,11 +17,10 @@ services:
         networks:
             - subnet
         ports:
-            - "8428:8428" # HTTP API - for remote Alloy/metrics push
+            - "127.0.0.1:8428:8428" # HTTP API - host-side checks only; Alloy uses the internal Docker network
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/obsvce/victoriametrics:/storage
-            - ../shared/victoriametrics/scrape.yaml:/etc/vm/scrape.yaml:ro
 
     # obsvcevlogs — VictoriaLogs log aggregation. Docs: docs/operations/services/victorialogs.md
     obsvcevlogs:
@@ -32,17 +29,11 @@ services:
         command:
             - "--storageDataPath=/vlogs"
             - "--httpListenAddr=:9428"
-        healthcheck:
-            test: [ "CMD-SHELL", "curl -fsS http://localhost:9428/health || exit 1" ]
-            interval: 30s
-            timeout: 10s
-            retries: 5
-            start_period: 20s
         image: obsvcevlogs:latest
         networks:
             - subnet
         ports:
-            - "9428:9428" # HTTP API - for remote Alloy/log push
+            - "127.0.0.1:9428:9428" # HTTP API - host-side checks only; Alloy uses the internal Docker network
         restart: unless-stopped
         volumes:
             - ${APPS_DATA}/obsvce/victorialogs:/vlogs
@@ -51,13 +42,56 @@ services:
     obsvcealloy:
         build:
             context: ../shared/grafana/alloy/
+        entrypoint: /bin/sh
         command:
-            - run
-            - --server.http.listen-addr=0.0.0.0:9080
-            - /etc/alloy/config.alloy
+            - -ec
+            - |
+                if [ "$${POSTGRES_EXPORTER_ENABLED:-false}" = "true" ]; then
+                    : "$${POSTGRES_EXPORTER_HOST:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_HOST}"
+                    : "$${POSTGRES_EXPORTER_PORT:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_PORT}"
+                    : "$${POSTGRES_EXPORTER_DATABASE:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_DATABASE}"
+                    : "$${POSTGRES_EXPORTER_USER:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_USER}"
+                    : "$${POSTGRES_EXPORTER_PASSWORD:?POSTGRES_EXPORTER_ENABLED=true requires POSTGRES_EXPORTER_PASSWORD}"
+                    exec /bin/alloy run --server.http.listen-addr=0.0.0.0:9080 /etc/alloy
+                fi
+                # OCI APM is optional and disabled by default. When enabled, fail
+                # preflight by naming only the missing variable; never print values
+                # and never fall back to an anonymous endpoint. Logs are permanently
+                # disabled for OCI APM in this project.
+                if [ "$${OCI_APM_ENABLED:-false}" = "true" ]; then
+                    : "$${OCI_APM_OTLP_ENDPOINT:?OCI_APM_ENABLED=true requires OCI_APM_OTLP_ENDPOINT}"
+                    : "$${OCI_APM_DATA_KEY:?OCI_APM_ENABLED=true requires OCI_APM_DATA_KEY}"
+                    if [ "$${OCI_APM_LOGS_ENABLED:-false}" = "true" ]; then
+                        echo "OCI_APM_LOGS_ENABLED=true is not supported; OCI APM log export is disabled by policy." >&2
+                        exit 1
+                    fi
+                fi
+                exec /bin/alloy run --server.http.listen-addr=0.0.0.0:9080 /etc/alloy/config.alloy
+        environment:
+            - ENVIRONMENT=${ENVIRONMENT:-unknown}
+            - DOMAIN_NAME=${DOMAIN_NAME}
+            - IDENTITY_DOMAIN=${IDENTITY_DOMAIN}
+            - WORKSPACE_DOMAIN=${WORKSPACE_DOMAIN}
+            - SOURCECODE_DOMAIN=${SOURCECODE_DOMAIN}
+            - CLOUD_DOMAIN=${CLOUD_DOMAIN}
+            - OBSERVABILITY_DOMAIN=${OBSERVABILITY_DOMAIN}
+            - POSTGRES_EXPORTER_ENABLED=${POSTGRES_EXPORTER_ENABLED:-false}
+            - POSTGRES_EXPORTER_HOST=${POSTGRES_EXPORTER_HOST}
+            - POSTGRES_EXPORTER_PORT=${POSTGRES_EXPORTER_PORT}
+            - POSTGRES_EXPORTER_DATABASE=${POSTGRES_EXPORTER_DATABASE}
+            - POSTGRES_EXPORTER_USER=${POSTGRES_EXPORTER_USER}
+            - POSTGRES_EXPORTER_PASSWORD=${POSTGRES_EXPORTER_PASSWORD}
+            # OCI APM (optional). Disabled by default; nothing is exported until
+            # an endpoint and data key are supplied through the server-side .env.
+            - OCI_APM_ENABLED=${OCI_APM_ENABLED:-false}
+            - OCI_APM_TRACES_ENABLED=${OCI_APM_TRACES_ENABLED:-false}
+            - OCI_APM_METRICS_ENABLED=${OCI_APM_METRICS_ENABLED:-false}
+            - OCI_APM_LOGS_ENABLED=${OCI_APM_LOGS_ENABLED:-false}
+            - OCI_APM_OTLP_ENDPOINT=${OCI_APM_OTLP_ENDPOINT:-}
+            - OCI_APM_DATA_KEY=${OCI_APM_DATA_KEY:-}
         depends_on:
             obsvcevlogs:
-                condition: service_healthy
+                condition: service_started
             obsvcevm:
                 condition: service_healthy
         healthcheck:
@@ -65,7 +99,7 @@ services:
             interval: 30s
             timeout: 10s
             retries: 5
-        hostname: ${DOMAIN_NAME}
+        hostname: obsvcealloy
         image: obsvcealloy:latest
         networks:
             - subnet
@@ -74,10 +108,14 @@ services:
         volumes:
             - ../shared/grafana/geoip/GeoLite2-City.mmdb:/geoip/GeoLite2-City.mmdb:ro # GeoLite2 City database for GeoIP enrichment
             - ../shared/grafana/alloy:/etc/alloy:ro # Alloy config files
+            - /:/host/root:ro,rslave # Host filesystem and inode collection; privileged read boundary
             - /var/run/docker.sock:/var/run/docker.sock # Docker API — cAdvisor + Loki log discovery (writable required for cAdvisor)
             - /proc:/host/proc:ro # unix exporter — procfs_path (CPU, memory, network)
             - /sys:/host/sys:ro # unix exporter — sysfs_path (disk I/O, hardware info)
             - /sys/fs/cgroup:/sys/fs/cgroup:ro # cAdvisor — cgroup stats (standard in-container path)
+            - /var/log/journal:/var/log/journal:ro # selective systemd-journald collection
+            - /run/log/journal:/run/log/journal:ro # volatile systemd-journald collection
+            - /etc/machine-id:/etc/machine-id:ro # journal location identifier
 
     # obsvcegrafana — Grafana dashboards. Docs: docs/operations/services/grafana.md
     obsvcegrafana:
@@ -100,6 +138,10 @@ services:
             - GF_SERVER_ROOT_URL=https://${OBSERVABILITY_DOMAIN}
             - GF_USERS_ALLOW_SIGN_UP=false
             - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource
+            # Drilldown apps that cannot work with the provisioned backends: Logs Drilldown is
+            # Loki-only, Traces Drilldown needs a Tempo datasource (none exists, OCI APM off).
+            # Metrics Drilldown stays enabled (VictoriaMetrics is Prometheus-compatible).
+            - GF_PLUGINS_DISABLE_PLUGINS=grafana-lokiexplore-app,grafana-exploretraces-app
         healthcheck:
             test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1" ]
             interval: 30s
@@ -112,10 +154,9 @@ services:
             - "traefik.http.routers.obsvcegrafana.entrypoints=websecure"
             - "traefik.http.routers.obsvcegrafana.rule=Host(`${OBSERVABILITY_DOMAIN}`)"
             - "traefik.http.routers.obsvcegrafana.tls=true"
-            - "traefik.http.services.obsvcegrafana.loadbalancer.server.port=3000"
-            # uncomment when Domain Level Forward Authentication enabled in Authentik
-            - "traefik.http.routers.obsvcegrafana.middlewares=secure-chain@file,authentik-forwardauth@file"
             - "traefik.http.routers.obsvcegrafana.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.obsvcegrafana.middlewares=secure-chain@file,grafana-allowlist@file"
+            - "traefik.http.services.obsvcegrafana.loadbalancer.server.port=3000"
         networks:
             - subnet
         restart: unless-stopped

@@ -7,12 +7,9 @@
 #   compose/infra.yml   infra*   Databases (MariaDB + PostgreSQL) + Authentik identity
 #   compose/devops.yml  devops*  Source control + CI (Forgejo + Actions runner)
 #   compose/webapp.yml  webapp*  Homepage / CMS + cloud drive (Confluence + oCIS)
-#   compose/mailsv.yml  mailsv*  Email services (Stalwart mail + Bulwark webmail)
-#
-# Per ADR-009 this OCI deployment scope excludes the AI platform
-# (compose/aiserv.yml) and the self-hosted observability stack
-# (compose/obsvce.yml). Both files remain in source control: aiserv.yml is
-# deployed on local infrastructure and obsvce.yml is retained for reference.
+# Per ADR-009 the AI platform (compose/aiserv.yml) and mail platform
+# (compose/mailsv.yml) remain outside this OCI deployment. Per ADR-010, the
+# self-hosted observability stack (compose/obsvce.yml) is included in OCI scope.
 #
 # Deploy with: docker compose up -d --build
 #
@@ -39,5 +36,9 @@ include:
     # --> web applications (webapp)
     - compose/webapp.yml
 
-    # --> email services: mail server + webmail (mailsv)
-    - compose/mailsv.yml
+    # --> observability: metrics, logs, collection, and dashboards (obsvce)
+    - compose/obsvce.yml
+
+    # Email services (mailsv) remain excluded: OCI blocks outbound port 25 and
+    # the mail platform is being relocated away from OCI. AI services (aiserv)
+    # remain on local infrastructure. Do not add their telemetry to ADR-010.

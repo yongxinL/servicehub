@@ -49,6 +49,10 @@ Set in `.env` (see [`env.example`](../../../env.example)):
 | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_USER` / `EMAIL_PASS` / `EMAIL_FROM` | Outbound email for invitations and recovery |
 | `TRUSTED_IP` | Trusted proxy CIDRs (`AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS`) |
 
+The default port `465` uses implicit TLS (`AUTHENTIK_EMAIL__USE_SSL=true` and `AUTHENTIK_EMAIL__USE_TLS=false`). For port `587` STARTTLS, reverse those two values in `compose/infra.yml`.
+
+On OCI, [OCI Email Delivery](../../../README.md#oci-email-delivery) can supply `EMAIL_*` directly for invitations and recovery email. Its `587` submission endpoint uses STARTTLS, so use `AUTHENTIK_EMAIL__USE_TLS=true` and `AUTHENTIK_EMAIL__USE_SSL=false`.
+
 `IDENTITY_DBNAME` must be listed in `POSTGRES_DATABASES` so the PostgreSQL init script creates it on first start.
 
 ## Data & persistence
@@ -99,7 +103,7 @@ The email stack uses Authentik as its mail-account directory: Stalwart validates
 
 That integration belongs to the email stack, so the full walkthrough lives in the Stalwart README — provider fields, Bind/Unbind flows, bind/search modes, service account role and permissions, outpost, Stalwart-side directory settings, domain binding and bind troubleshooting:
 
-- [Stalwart — Directory: Authentik LDAP (SSO)](stalwart.md#directory-authentik-ldap-sso)
+- [Stalwart — Directory: Authentik LDAP (SSO)](../../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) (archived)
 
 ## Operations
 
@@ -137,6 +141,6 @@ Do these in the Authentik admin UI (one-time):
 
 - [Root README — Architecture](../../../README.md#architecture-overview)
 - [Root README — Security Observability Stack](../../../README.md#security-observability-stack) — Grafana is an example forward-auth–protected service
-- [Stalwart Mail Server](stalwart.md#directory-authentik-ldap-sso) — consumes this IdP as its LDAP mail directory (walkthrough consolidated there)
+- [Stalwart Mail Server](../../archive/2026-10-mailsv-removal/docs/operations/services/stalwart.md#directory-authentik-ldap-sso) — consumes this IdP as its LDAP mail directory (archived; walkthrough consolidated there)
 - [Traefik](traefik.md) — forward-auth middleware and routing
 - [oCIS](owncloud.md) — Authentik OIDC cloud-drive integration

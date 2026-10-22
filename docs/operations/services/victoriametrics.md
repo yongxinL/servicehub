@@ -4,7 +4,7 @@
 
 ## Overview
 
-[VictoriaMetrics](https://victoriametrics.com/products/open-source/) is the metrics store for the observability stack (`obsvce`). It receives metrics pushed by [Grafana Alloy](../../../shared/grafana/alloy/README.md) and stored by Prometheus scrape jobs, and serves them to [Grafana](grafana.md). It is defined by the `obsvcevm` service in [`compose/obsvce.yml`](../../../compose/obsvce.yml) and built from [`shared/victoriametrics/Dockerfile`](../../../shared/victoriametrics/Dockerfile) (`FROM victoriametrics/victoria-metrics:latest`).
+[VictoriaMetrics](https://victoriametrics.com/products/open-source/) is the metrics store for the observability stack (`obsvce`). It receives metrics remote-written by [Grafana Alloy](../../../shared/grafana/alloy/README.md) and serves them to [Grafana](grafana.md). It is defined by the `obsvcevm` service in [`compose/obsvce.yml`](../../../compose/obsvce.yml) and built from [`shared/victoriametrics/Dockerfile`](../../../shared/victoriametrics/Dockerfile) (`FROM victoriametrics/victoria-metrics:latest`).
 
 ## Service details
 
@@ -13,7 +13,7 @@
 | Service name | `obsvcevm` |
 | HTTP API port | 8428 (published to the host for remote Alloy/metrics push) |
 | Data persistence | `${APPS_DATA}/obsvce/victoriametrics` (mounted at `/storage`) |
-| Scrape config | [`scrape.yaml`](../../../shared/victoriametrics/scrape.yaml) (mounted read-only at `/etc/vm/scrape.yaml`) |
+| Scrape config | None; Alloy is the single metrics ingestion path |
 | Health check | `curl -fsS http://localhost:8428/health` every 30 s |
 | Depended on by | `obsvcealloy` (healthy), `obsvcegrafana` (via Alloy) |
 
@@ -25,20 +25,11 @@ The service runs `victoria-metrics` with:
 |---|---|
 | `--storageDataPath=/storage` | Persist time-series data on the host bind mount |
 | `--httpListenAddr=:8428` | HTTP API / ingestion endpoint |
-| `--promscrape.config=/etc/vm/scrape.yaml` | Scrape targets from [`scrape.yaml`](../../../shared/victoriametrics/scrape.yaml) |
-| `--promscrape.config.strictParse=false` | Tolerate fields newer than the binary |
 | `--enableTCP6=true` | Enable IPv6 |
 
-## Scrape targets
+## Ingestion topology
 
-VictoriaMetrics scrapes two endpoints itself (in addition to metrics pushed by Alloy):
-
-| Job | Target | Path |
-|---|---|---|
-| `alloy` | `obsvcealloy:9080` | `/metrics` |
-| `litellm` | `aiservlitellm:12380` | `/metrics` |
-
-Alloy pushes host, container and Traefik metrics through `/api/v1/write` (see [`../grafana/alloy/config.alloy`](../../../shared/grafana/alloy/config.alloy)), so most metrics arrive by remote write rather than scrape.
+VictoriaMetrics does not directly scrape targets. Alloy pushes host, container, Traefik, and self metrics through `/api/v1/write` (see [`../grafana/alloy/config.alloy`](../../../shared/grafana/alloy/config.alloy)).
 
 ## Data & persistence
 
@@ -64,7 +55,7 @@ curl -s 'http://localhost:8428/api/v1/query?query=up' | jq .
 | Path | Purpose |
 |---|---|
 | [`Dockerfile`](../../../shared/victoriametrics/Dockerfile) | Image build (`FROM victoriametrics/victoria-metrics:latest`) + curl for health checks |
-| [`scrape.yaml`](../../../shared/victoriametrics/scrape.yaml) | Prometheus scrape configuration for Alloy and LiteLLM |
+| [`config.alloy`](../../../shared/grafana/alloy/config.alloy) | Single authoritative metrics ingestion path |
 
 ## See also
 

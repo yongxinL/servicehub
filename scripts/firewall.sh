@@ -89,24 +89,38 @@ LIMIT="-m limit --limit $LOG_RATE"
 die() { echo "egress: $*" >&2; exit 1; }
 warn() { echo "egress: WARNING: $*" >&2; }
 
+valid_ipv4() {
+  awk -F. -v address="$1" 'BEGIN {
+    if (split(address, octets, ".") != 4) exit 1
+    for (i = 1; i <= 4; i++)
+      if (octets[i] !~ /^[0-9]+$/ || octets[i] + 0 > 255) exit 1
+    exit 0
+  }'
+}
+
 if [ "$(id -u)" -ne 0 ] && [ "${1:-}" != "selftest" ] && [ -z "${EGRESS_NOSUDO:-}" ]; then
   exec sudo "$0" "$@"
 fi
 
 # The host's own public address — restricted containers hairpin back into
 # Traefik when public names (login.<domain>, ...) resolve to it. Override with
-# EGRESS_SELF_IP=<ipv4>; otherwise detected via cloud instance metadata.
+# EGRESS_SELF_IP=<ipv4>; otherwise detected via cloud instance metadata, then
+# the host's outbound IPv4 address.
 self_ip() {
-  [ -z "${EGRESS_SELF_IP:-}" ] || { printf '%s\n' "$EGRESS_SELF_IP"; return 0; }
+  if [ -n "${EGRESS_SELF_IP:-}" ]; then
+    valid_ipv4 "$EGRESS_SELF_IP" || return 1
+    printf '%s\n' "$EGRESS_SELF_IP"
+    return 0
+  fi
   command -v curl >/dev/null 2>&1 || return 1
-  ip=$(curl -fsS -m 2 -H 'Authorization: Bearer Oracle' \
-      http://169.254.169.254/opc/v2/instance/publicip/ 2>/dev/null ||
-    curl -fsS -m 2 http://169.254.169.254/opc/v2/instance/publicip/ 2>/dev/null || true)
-  ip=$(printf '%s' "$ip" | tr -d ' \t\n')
-  case $ip in
-    [0-9]*.[0-9]*.[0-9]*.[0-9]*) printf '%s\n' "$ip" ;;
-    *) return 1 ;;
-  esac
+  ip=$(curl --noproxy '*' -fsS -m 2 -H 'Authorization: Bearer Oracle' \
+      http://169.254.169.254/opc/v2/vnics/ 2>/dev/null ||
+    curl --noproxy '*' -fsS -m 2 http://169.254.169.254/opc/v1/vnics/ 2>/dev/null || true)
+  ip=$(printf '%s' "$ip" | sed -n 's/.*"publicIp"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' | head -1)
+  valid_ipv4 "$ip" && { printf '%s\n' "$ip"; return 0; }
+  ip=$(curl --noproxy '*' -4 -fsS -m 5 https://checkip.amazonaws.com 2>/dev/null | tr -d ' \t\n')
+  valid_ipv4 "$ip" && { printf '%s\n' "$ip"; return 0; }
+  return 1
 }
 
 # Destinations for allow/revoke/allow-domain: an explicit CIDR, a bare IPv4
@@ -200,7 +214,7 @@ EOF
     if sip=$(self_ip); then
       iptables -A "$AUX" -d "$sip/32" -m comment --comment egress-restricted-self -j RETURN
     else
-      warn "host public IP unknown — restricted services cannot hairpin to it (set EGRESS_SELF_IP=<ipv4>)"
+      warn "host public IP unknown — restricted services cannot hairpin to it; apply with: sudo env EGRESS_SELF_IP=<public-ipv4> scripts/firewall.sh apply"
     fi
     iptables -A "$AUX" -d 10.0.0.0/8 -j RETURN
     iptables -A "$AUX" -d 172.16.0.0/12 -j RETURN
@@ -454,6 +468,25 @@ selftest() {
   grep -Fqx -- "-A EGRESS_RESTRICTED -d 198.51.100.7/32 -m comment --comment egress-restricted-self -j RETURN" "$STUB_LOG" &&
     echo "ok: host public IP allowed for restricted hairpin" || { echo "FAIL: self ip"; cat "$STUB_LOG"; fail=1; }
 
+  printf '%s\n' '#!/bin/sh' \
+    'case "$*" in' \
+    '  *opc/v2/vnics/*) printf "%s\n" "[{\"privateIp\":\"10.0.0.6\",\"publicIp\":\"192.0.2.10\"}]" ;;' \
+    'esac' 'exit 0' >"$t/bin/curl"
+  : >"$STUB_LOG"
+  EGRESS_SELF_IP= sh "$0" apply >/dev/null 2>&1
+  grep -Fqx -- "-A EGRESS_RESTRICTED -d 192.0.2.10/32 -m comment --comment egress-restricted-self -j RETURN" "$STUB_LOG" &&
+    echo "ok: OCI vNIC metadata supplies the host public IP" || { echo "FAIL: OCI self ip"; cat "$STUB_LOG"; fail=1; }
+
+  printf '%s\n' '#!/bin/sh' \
+    'case "$*" in' \
+    '  *opc/v2/vnics/*) exit 1 ;;' \
+    '  *https://checkip.amazonaws.com*) echo 192.0.2.11 ;;' \
+    'esac' 'exit 0' >"$t/bin/curl"
+  : >"$STUB_LOG"
+  EGRESS_SELF_IP= sh "$0" apply >/dev/null 2>&1
+  grep -Fqx -- "-A EGRESS_RESTRICTED -d 192.0.2.11/32 -m comment --comment egress-restricted-self -j RETURN" "$STUB_LOG" &&
+    echo "ok: outbound IPv4 fallback supplies the host public IP" || { echo "FAIL: outbound self ip"; cat "$STUB_LOG"; fail=1; }
+
   grep -Fq -- "-m set --match-set blocked dst -m comment --comment egress-blocked -j DROP" "$STUB_LOG" &&
     grep -Fq -- "-j LOG --log-prefix egress-blocked: " "$STUB_LOG" &&
     echo "ok: global block DROP + LOG installed" || { echo "FAIL: blocked"; fail=1; }
@@ -497,13 +530,24 @@ selftest() {
     echo "ok: no set rules when the set is absent (warning only)"
 
   : >"$STUB_LOG"
+  printf '%s\n' '#!/bin/sh' 'exit 1' >"$t/bin/curl"
   EGRESS_SELF_IP= sh "$0" apply >/dev/null 2>"$t/err"
   if grep -q 'egress-restricted-self' "$STUB_LOG"; then
     echo "FAIL: self rule when the host IP is unknown"; fail=1
-  elif grep -q 'host public IP unknown' "$t/err"; then
+  elif grep -q 'sudo env EGRESS_SELF_IP=<public-ipv4>' "$t/err"; then
     echo "ok: no self rule and a warning when the host IP is unknown"
   else
     echo "FAIL: unknown-IP warning missing"; cat "$STUB_LOG" "$t/err"; fail=1
+  fi
+
+  : >"$STUB_LOG"
+  EGRESS_SELF_IP=999.0.0.1 sh "$0" apply >/dev/null 2>"$t/err"
+  if grep -q 'egress-restricted-self' "$STUB_LOG"; then
+    echo "FAIL: invalid EGRESS_SELF_IP was installed"; fail=1
+  elif grep -q 'sudo env EGRESS_SELF_IP=<public-ipv4>' "$t/err"; then
+    echo "ok: invalid EGRESS_SELF_IP is rejected"
+  else
+    echo "FAIL: invalid EGRESS_SELF_IP warning missing"; cat "$STUB_LOG" "$t/err"; fail=1
   fi
 
   : >"$STUB_LOG"

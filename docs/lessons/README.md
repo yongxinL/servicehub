@@ -29,3 +29,5 @@ Incorporation targets include runbooks, the constitution, ADRs, tests, and gover
 
 ## Current scaffold state
 Two lessons are indexed.
+
+**Note:** LES-002 is archived at `docs/archive/2026-10-mailsv-removal/docs/lessons/` since the mailsv stack was disabled (OCI blocks port 25).

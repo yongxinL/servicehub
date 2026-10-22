@@ -41,6 +41,8 @@ related_documents:
 
 <!-- Allowed status: Draft, Proposed, In Review, Accepted, Rejected, Superseded, Deprecated, Archived -->
 
+> **Partial supersession (2026-10-17):** [ADR-010](ADR-010-establish-servicehub-observability-platform.md), now Accepted, supersedes only this decision's removal of the self-hosted `obsvce` stack from OCI and its OCI-native-only observability replacement. The `obsvce` stack is restored to OCI scope to implement ADR-010. All ADR-009 decisions unrelated to observability remain binding. ADR-010 also supersedes the relevant ADR-008 bind-mount and Docker-access restrictions only to the extent required by the approved observability collector's minimum read-only host mounts and controlled Docker access.
+
 ## Context
 
 The ServiceHub platform has been migrated to Oracle Cloud Infrastructure (OCI). The current compose domains and their services are:
@@ -51,7 +53,7 @@ The ServiceHub platform has been migrated to Oracle Cloud Infrastructure (OCI). 
 | `infra` | Authentik, PostgreSQL, MariaDB |
 | `devops` | Forgejo, Forgejo Runner |
 | `webapp` | Confluence, oCIS, Open WebUI |
-| `mailsv` | Stalwart, Bulwark |
+| `mailsv` | Stalwart, Bulwark (disabled 2026-10; OCI blocks outbound port 25 — external email provider used instead) |
 | `obsvce` | VictoriaMetrics, VictoriaLogs, Alloy, Grafana |
 | `aiserv` | LiteLLM, Hermes, llama.cpp |
 
@@ -61,7 +63,7 @@ Observations from operation on OCI:
 - AI workloads consume significant CPU, memory, and storage.
 - OCI provides managed APM, Monitoring, Logging, and Tracing capabilities that the platform does not yet use; the self-hosted observability stack duplicates them.
 - Open WebUI is deployed under the `webapp` domain even though it is part of the AI platform rather than a business application.
-- Administrative endpoints are protected by IP allow lists (`compose/route.yml` `dashboard-whitelist`, `compose/mailsv.yml` `mailsvstalwart-whitelist`) and return HTTP 403 to unauthorised callers.
+- Administrative endpoints are protected by IP allow lists (`compose/route.yml` `dashboard-whitelist`, `compose/mailsv.yml` `mailsvstalwart-whitelist` — mailsv disabled) and return HTTP 403 to unauthorised callers.
 - Confluence Data Center does not require routine communication with Atlassian services for normal operation, but no outbound restriction is currently defined.
 
 These forces affect deployment scope, resource allocation, and the security boundary of the platform, so they are decided together rather than as independent changes.
@@ -76,7 +78,7 @@ All AI-related services SHALL be hosted on local infrastructure and SHALL NOT be
 
 | | Domains |
 |---|---|
-| OCI deployment | `route`, `infra`, `devops`, `webapp`, `mailsv` |
+| OCI deployment | `route`, `infra`, `devops`, `webapp` (mailsv excluded 2026-10; OCI blocks port 25) |
 | Local AI platform | `aiserv` — Open WebUI, LiteLLM, Hermes, Ollama, and future AI services |
 
 Benefits:
@@ -98,7 +100,7 @@ The move follows the [ADR-008](ADR-008-standardise-service-naming-storage-and-bi
 
 Oracle Cloud native observability services SHALL replace the self-hosted observability stack for OCI-hosted workloads.
 
-The services selected, their credentials, and the log collection and APM integration design are recorded in [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md); this ADR only retires the self-hosted deployment.
+The services selected, their credentials, and the log collection and APM integration design were originally recorded in [ADR-010](ADR-010-establish-servicehub-observability-platform.md). See the partial-supersession notice above: ADR-010 now retains and extends the self-hosted deployment.
 
 This decision applies only to workloads hosted within the OCI ServiceHub environment.
 
@@ -130,7 +132,7 @@ route    Traefik
 infra    Authentik, PostgreSQL, MariaDB
 devops   Forgejo, Forgejo Runner
 webapp   Confluence, oCIS
-mailsv   Stalwart, Bulwark
+mailsv   Stalwart, Bulwark (disabled 2026-10; OCI blocks port 25)
 ```
 
 Principle: OCI SHALL host business-critical platform services; resource-intensive AI workloads SHALL be hosted on local infrastructure.
@@ -163,7 +165,7 @@ Exceptions: temporary outbound access MAY be granted for marketplace app install
 
 Benefits: reduced attack surface, reduced third-party dependency and privacy exposure, predictable self-managed operation, and operational independence from Atlassian service availability.
 
-Implementation: two layers, both enforced on the host inside the Docker `DOCKER-USER` chain by [scripts/egress-guard.sh](../../../scripts/egress-guard.sh). (1) A per-service policy in [scripts/egress-policies.conf](../../../scripts/egress-policies.conf) — Confluence (`webappconf`) carries the `restricted` policy, which diverts the container's traffic to an `EGRESS_RESTRICTED` helper chain that returns for RFC1918 destinations (the approved dependency classes above) and for the host's own public IP — hairpin back to Traefik when public names such as `login.<domain>` resolve to it, detected at apply time from instance metadata — and logs then drops everything else; services are resolved by Compose service label, and an `allow-blocked` policy opts a service out of layer 2. (2) A global block drops traffic from any container to the CIDRs listed in `EGRESS_BLOCK_URL` (configured in `.env`; the feed is externalised so no vendor is named in the script), held in one `ipset` and refreshed at startup and by a daily timer. Confluence itself stays on the single `subnet` network. Installation, verification, the command reference, and the time-boxed exception procedure are recorded in [Container egress controls](../../operations/EGRESS-CONTROLS.md); the Confluence-specific destination table is in [../../operations/services/confluence.md](../../operations/services/confluence.md#outbound-egress-policy).
+Implementation: two layers, both enforced on the host inside the Docker `DOCKER-USER` chain by [scripts/firewall.sh](../../../scripts/firewall.sh). (1) A per-service policy in [scripts/egress-policies.conf](../../../scripts/egress-policies.conf) — Confluence (`webappconf`) carries the `restricted` policy, which diverts the container's traffic to an `EGRESS_RESTRICTED` helper chain that returns for RFC1918 destinations (the approved dependency classes above) and for the host's own public IP — hairpin back to Traefik when public names such as `login.<domain>` resolve to it, detected at apply time from instance metadata — and logs then drops everything else; services are resolved by Compose service label, and an `allow-blocked` policy opts a service out of layer 2. (2) A global block drops traffic from any container to the CIDRs listed in `EGRESS_BLOCK_URL` (configured in `.env`; the feed is externalised so no vendor is named in the script), held in one `ipset` and refreshed at startup and by a daily timer. Confluence itself stays on the single `subnet` network. Installation, verification, the command reference, and the time-boxed exception procedure are recorded in [Container egress controls](../../operations/EGRESS-CONTROLS.md); the Confluence-specific destination table is in [../../operations/services/confluence.md](../../operations/services/confluence.md#outbound-egress-policy).
 
 ### 6. Administrative endpoint access policy
 
@@ -247,7 +249,7 @@ Option 2 satisfies every driver in a single, coherent rescope. Option 1 leaves A
 - `docker-compose.yml` include set updated to five domains on `adr-009` branch.
 - `compose/aiserv.yml` and `compose/obsvce.yml` retained in source control.
 - `compose/webapp.yml` updated: Open WebUI renamed to `aiservowui`, moved to `aiserv` domain, storage path updated.
-- `scripts/egress-guard.sh` and `scripts/egress-policies.conf` enforce Confluence egress (`restricted` policy with host-public-IP return, global Atlassian CIDR block via ipset).
+- `scripts/firewall.sh` and `scripts/egress-policies.conf` enforce Confluence egress (`restricted` policy with host-public-IP return, global Atlassian CIDR block via ipset).
 - Traefik file-provider middleware generated from `.env` for administrative redirect to `login.<domain>`.
 - Living documentation updated: README, Architecture, Deployment architecture, Component catalogue, Service inventory, Monitoring and alerting, Backup and restore, affected service READMEs.
 - `docker compose config --quiet` passes locally on reduced include set.
@@ -258,7 +260,7 @@ Option 2 satisfies every driver in a single, coherent rescope. Option 1 leaves A
 - [ADR-004 Use Authentik for Central Identity](ADR-004-use-authentik-for-central-identity.md) — identity endpoint targeted by the redirect and an approved Confluence dependency.
 - [ADR-005 Use LiteLLM for AI Workload Routing](ADR-005-use-litellm-for-ai-routing.md) — AI routing platform moved to local infrastructure.
 - [ADR-008 Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) — naming, storage, and backup tier conventions applied when Open WebUI moves.
-- [ADR-010 Collect OCI Logs and Integrate Service Telemetry with Oracle APM](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) — replacement for the retired self-hosted observability stack, split out of this decision.
+- [ADR-010 Establish the ServiceHub Observability Platform with Grafana, VictoriaMetrics, VictoriaLogs, Alloy, and Oracle APM](ADR-010-establish-servicehub-observability-platform.md) — partially supersedes this decision's observability retirement.
 - [Deployment architecture](../DEPLOYMENT-ARCHITECTURE.md) — deployment targets and environment model rescope by this decision.
 - [Architecture](../ARCHITECTURE.md) — system and component boundaries.
 - [Monitoring and alerting](../../operations/MONITORING-ALERTING.md) — self-hosted stack replaced by Oracle Cloud native services.
@@ -273,9 +275,9 @@ Option 2 satisfies every driver in a single, coherent rescope. Option 1 leaves A
 | Move Open WebUI from `webapp` to `aiserv` (compose placement, `aiservowui` name, Traefik labels, storage path, variables, backup tier) | ServiceHub Architecture | 2026-10-05 | Implemented in source control — backup tier update recorded, runtime verification pending |
 | Review and update backup, recovery, and retention coverage for `${APPS_DATA}/aiserv/openwebui` following the Open WebUI relocation | George Li | TBD | Open — path updated in source control, local backup/restore scope not re-scoped |
 | Remove `compose/obsvce.yml` and its `docker-compose.yml` `include` from the OCI deployment; retain the file in source control | ServiceHub Architecture | 2026-10-05 | Implemented in source control — include removed, file retained |
-| Configure Oracle APM, Monitoring, Logging, and Tracing for OCI-hosted workloads and record the configuration | ServiceHub Architecture | TBD | Moved to [ADR-010](ADR-010-collect-oci-logs-and-integrate-with-oracle-apm.md) |
+| Configure OCI observability and record the configuration | ServiceHub Architecture | TBD | Moved to [ADR-010](ADR-010-establish-servicehub-observability-platform.md) |
 | Define and document the observability strategy for locally hosted `aiserv` services after removal of the OCI `obsvce` deployment | ServiceHub Architecture | TBD | Proposed |
-| Define the Confluence outbound allow list (PostgreSQL, Authentik, SMTP, DNS, NTP) and a time-boxed exception procedure | George Li | 2026-10-05 | Implemented in source control — enforced by [scripts/egress-guard.sh](../../../scripts/egress-guard.sh) from [scripts/egress-policies.conf](../../../scripts/egress-policies.conf) (`webappconf` restricted: RFC1918 and host-public-IP return, log then drop, in the Docker `DOCKER-USER` chain) plus a global block of Atlassian CIDRs via ipset; install, verification, and exception procedure recorded in [Container egress controls](../../operations/EGRESS-CONTROLS.md); rule logic verified by offline selftest plus a 21-check integration test; applied on the OCI host by the owner (2026-10-06) |
+| Define the Confluence outbound allow list (PostgreSQL, Authentik, SMTP, DNS, NTP) and a time-boxed exception procedure | George Li | 2026-10-05 | Implemented in source control — enforced by [scripts/firewall.sh](../../../scripts/firewall.sh) from [scripts/egress-policies.conf](../../../scripts/egress-policies.conf) (`webappconf` restricted: RFC1918 and host-public-IP return, log then drop, in the Docker `DOCKER-USER` chain) plus a global block of Atlassian CIDRs via ipset; install, verification, and exception procedure recorded in [Container egress controls](../../operations/EGRESS-CONTROLS.md); rule logic verified by offline selftest plus a 21-check integration test; applied on the OCI host by the owner (2026-10-06) |
 | Replace the HTTP 403 response on `traefik.<domain>` and `mail.<domain>` with a redirect to `https://login.<domain>` while retaining the IP allow list | ServiceHub Architecture | 2026-10-05 | Implemented in source control — rules generated from `.env` and hot-reloaded via the file provider; `docker compose config` verified; allowed/disallowed address test pending on a deployed target |
 | Update architecture, deployment, monitoring, and service inventory documentation in the same change as the implementation | George Li | 2026-10-05 | Implemented — living documentation and service READMEs updated in the same change |
 | Validate with `docker compose config` on the reduced include set and a deployment of the OCI scope, and record the evidence | ServiceHub Architecture | TBD | In progress — `docker compose config --quiet` passes locally; OCI deployment evidence outstanding |
