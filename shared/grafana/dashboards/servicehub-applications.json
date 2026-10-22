@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "Application availability, edge requests, resources, and logs. Metric and label mapping is Runtime verification pending.",
+  "description": "Application availability, edge requests, resources, and logs filtered by bounded logical_service. Readiness uses min aggregation so a failing required probe correctly marks the service unhealthy.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -14,7 +14,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Alloy blackbox probe results for the selected logical service. Logical selector preserved; Runtime verification pending.",
+      "description": "One readiness card per bounded logical_service. min aggregation surfaces a failing required probe (Authentik maps server+worker both to logical_service=authentik).",
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -50,6 +50,13 @@
         "tooltip": {
           "mode": "multi",
           "sort": "asc"
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "targets": [
@@ -58,9 +65,10 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (logical_service) (probe_success{logical_service=~\"${service:regex}\",probe_type=\"readiness\",target_class=\"internal\"})",
+          "expr": "min by (logical_service) (probe_success{logical_service=~\"^(${service:regex})$\",probe_type=\"readiness\",target_class=\"internal\"})",
           "legendFormat": "{{logical_service}}",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Application readiness",
@@ -71,7 +79,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Traefik service request rate and 5xx rate for the selected logical service. Uses bounded Traefik `service` label mapping; Runtime verification pending.",
+      "description": "Traefik request rate and 5xx rate grouped by bounded logical_service. No requests{...} legend: legend uses logical_service label.",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps"
@@ -104,8 +112,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (service) (rate(traefik_service_requests_total{logical_service=~\"${service:regex}\"}[5m]))",
-          "legendFormat": "{{service}} requests",
+          "expr": "sum by (logical_service) (rate(traefik_service_requests_total{logical_service=~\"^(${service:regex})$\"}[5m]))",
+          "legendFormat": "{{logical_service}} requests",
           "refId": "A"
         },
         {
@@ -113,8 +121,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (service) (rate(traefik_service_requests_total{logical_service=~\"${service:regex}\",code=~\"5..\"}[5m]))",
-          "legendFormat": "{{service}} 5xx",
+          "expr": "sum by (logical_service) (rate(traefik_service_requests_total{logical_service=~\"^(${service:regex})$\",code=~\"5..\"}[5m]))",
+          "legendFormat": "{{logical_service}} 5xx",
           "refId": "B"
         }
       ],
@@ -126,7 +134,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Edge/proxy-observed request latency as observed by Traefik; not application-native latency. Uses bounded Traefik `service` label mapping; Runtime verification pending.",
+      "description": "p50/p95 latency by logical_service from Traefik duration buckets (0.1/0.3/1.2/5.0s). Values may plateau near 5s when requests fall in the +Inf bucket: histogram_quantile cannot interpolate beyond the highest finite bucket. Low-traffic services can show unstable quantiles.",
       "fieldConfig": {
         "defaults": {
           "unit": "s"
@@ -159,8 +167,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(traefik_service_request_duration_seconds_bucket{logical_service=~\"${service:regex}\"}[5m])))",
-          "legendFormat": "{{service}} p50",
+          "expr": "histogram_quantile(0.50, sum by (le, logical_service) (rate(traefik_service_request_duration_seconds_bucket{logical_service=~\"^(${service:regex})$\"}[5m])))",
+          "legendFormat": "{{logical_service}} p50",
           "refId": "A"
         },
         {
@@ -168,8 +176,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(traefik_service_request_duration_seconds_bucket{logical_service=~\"${service:regex}\"}[5m])))",
-          "legendFormat": "{{service}} p95",
+          "expr": "histogram_quantile(0.95, sum by (le, logical_service) (rate(traefik_service_request_duration_seconds_bucket{logical_service=~\"^(${service:regex})$\"}[5m])))",
+          "legendFormat": "{{logical_service}} p95",
           "refId": "B"
         }
       ],
@@ -181,7 +189,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "cAdvisor CPU usage for containers matching the selected logical service via the bounded Compose-service mapping; Runtime verification pending.",
+      "description": "cAdvisor CPU rate for containers matching the selected logical_service via bounded compose_service mapping. Range query kept short to avoid stale containers.",
       "fieldConfig": {
         "defaults": {
           "unit": "percent"
@@ -214,7 +222,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "rate(container_cpu_usage_seconds_total{logical_service=~\"${service:regex}\"}[5m]) * 100",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{logical_service=~\"^(${service:regex})$\"}[5m])) * 100",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -227,7 +235,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "cAdvisor memory working set and limit for containers matching the selected logical service via the bounded Compose-service mapping; Runtime verification pending.",
+      "description": "cAdvisor memory working set and limit for containers matching the selected logical_service.",
       "fieldConfig": {
         "defaults": {
           "unit": "bytes"
@@ -260,8 +268,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_memory_working_set_bytes{logical_service=~\"${service:regex}\"}",
-          "legendFormat": "{{name}}",
+          "expr": "sum by (name) (container_memory_working_set_bytes{logical_service=~\"^(${service:regex})$\"})",
+          "legendFormat": "{{name}} working set",
           "refId": "A"
         },
         {
@@ -269,7 +277,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_spec_memory_limit_bytes{logical_service=~\"${service:regex}\"}",
+          "expr": "sum by (name) (container_spec_memory_limit_bytes{logical_service=~\"^(${service:regex})$\"})",
           "legendFormat": "{{name}} limit",
           "refId": "B"
         }
@@ -282,7 +290,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Fixed Authentik-specific health panel; it does not follow the Service selector.",
+      "description": "Authentik-specific task queue metrics. Fixed panel: not governed by the Service selector (this metric is authentik-only; an arrow pattern would be misleading).",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -313,12 +321,12 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (queue_name, actor_name) (authentik_tasks_queued)",
-          "legendFormat": "{{queue_name}}/{{actor_name}}",
+          "expr": "sum by (queue_name) (authentik_tasks_queued)",
+          "legendFormat": "{{queue_name}}",
           "refId": "A"
         }
       ],
-      "title": "Authentik task queue (fixed global)",
+      "title": "Authentik task queue (Authentik only)",
       "type": "timeseries"
     },
     {
@@ -326,7 +334,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Application logs limited to the bounded container-name mapping; raw VictoriaLogs stream; selected dashboard time range is preserved. Runtime verification pending.",
+      "description": "Application container logs filtered by logical_service. Each selected service retains its own row of logs; All expands to the eight bounded services only.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -349,7 +357,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",logical_service=~\"${service:regex}\"}",
+          "expr": "{project=\"servicehub\",logical_service=~\"^(${service:regex})$\"}",
           "queryType": "range",
           "refId": "A"
         }
@@ -377,16 +385,17 @@
           "type": "prometheus",
           "uid": "victoriametrics"
         },
-        "definition": "label_values(logical_service)",
-        "hide": false,
+        "definition": "label_values(probe_success{probe_type=\"readiness\"}, logical_service)",
         "includeAll": true,
         "label": "Service",
         "multi": true,
         "name": "service",
         "query": {
-          "query": "label_values(logical_service)",
+          "query": "label_values(probe_success{probe_type=\"readiness\"}, logical_service)",
           "refId": "service-variable"
         },
+        "refresh": 2,
+        "sort": 1,
         "type": "query"
       }
     ]
@@ -398,5 +407,5 @@
   "timezone": "browser",
   "title": "ServiceHub Applications",
   "uid": "servicehub-applications",
-  "version": 1
+  "version": 2
 }

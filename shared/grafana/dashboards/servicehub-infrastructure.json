@@ -1,29 +1,1151 @@
 {
-  "annotations": {"list": []},
-  "description": "Infrastructure metrics. Queries are statically derived from configured node_exporter collectors; Runtime verification pending.",
+  "annotations": {
+    "list": []
+  },
+  "description": "Infrastructure metrics from node_exporter (Stage 1). Covers CPU, memory, load, pressure-stall, filesystem, inodes, disk I/O, network, and uptime.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [],
   "liveNow": false,
   "panels": [
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "node_exporter CPU; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}, "id": 1, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "avg by (mode) (rate(node_cpu_seconds_total[5m])) * 100", "legendFormat": "{{mode}}", "refId": "A"}], "title": "CPU utilization", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "node_exporter memory; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}, "id": 2, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "node_memory_MemTotal_bytes", "legendFormat": "Total", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "node_memory_MemAvailable_bytes", "legendFormat": "Available", "refId": "B"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "node_memory_SwapFree_bytes", "legendFormat": "Swap free", "refId": "C"}], "title": "Memory", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "node_exporter load averages; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}, "id": 3, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "node_load1", "legendFormat": "1m", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "node_load5", "legendFormat": "5m", "refId": "B"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "node_load15", "legendFormat": "15m", "refId": "C"}], "title": "Load", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "PSI counters; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8}, "id": 4, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(node_pressure_cpu_waiting_seconds_total[5m])", "legendFormat": "CPU waiting", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(node_pressure_memory_waiting_seconds_total[5m])", "legendFormat": "Memory waiting", "refId": "B"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(node_pressure_io_waiting_seconds_total[5m])", "legendFormat": "I/O waiting", "refId": "C"}], "title": "Pressure-stall information", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Filesystem capacity and read-only state; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8}, "id": 5, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "100 * (1 - node_filesystem_avail_bytes / node_filesystem_size_bytes)", "legendFormat": "{{mountpoint}}", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "node_filesystem_readonly * 100", "legendFormat": "{{mountpoint}} readonly", "refId": "B"}], "title": "Filesystem capacity", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Filesystem inodes; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8}, "id": 6, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "100 * (1 - node_filesystem_files_free / node_filesystem_files)", "legendFormat": "{{mountpoint}}", "refId": "A"}], "title": "Inode utilization", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Disk throughput; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16}, "id": 7, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(node_disk_read_bytes_total[5m])", "legendFormat": "{{device}} read", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(node_disk_written_bytes_total[5m])", "legendFormat": "{{device}} written", "refId": "B"}], "title": "Disk I/O", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Network throughput; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 8, "y": 16}, "id": 8, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])", "legendFormat": "{{device}} receive", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])", "legendFormat": "{{device}} transmit", "refId": "B"}], "title": "Network", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Uptime from boot timestamp; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 16}, "id": 9, "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single", "sort": "none"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "node_time_seconds - node_boot_time_seconds", "legendFormat": "Uptime", "refId": "A"}], "title": "Uptime", "type": "stat"}
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "PSI 'some' stall percentage (5m rate) for CPU, Memory, and I/O. Each bar is an independent resource; thresholds reuse Sustained Pressure alerts (0.2 = 20%).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 20,
+      "options": {
+        "displayMode": "basic",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "text": {},
+        "valueMode": "color"
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * rate(node_pressure_cpu_waiting_seconds_total{job=\"obstack\",project=\"servicehub\"}[5m])",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "CPU",
+          "range": false,
+          "refId": "A",
+          "step": 240
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * rate(node_pressure_memory_waiting_seconds_total{job=\"obstack\",project=\"servicehub\"}[5m])",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "Memory",
+          "range": false,
+          "refId": "B",
+          "step": 240
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * rate(node_pressure_io_waiting_seconds_total{job=\"obstack\",project=\"servicehub\"}[5m])",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "I/O",
+          "range": false,
+          "refId": "C",
+          "step": 240
+        }
+      ],
+      "title": "Pressure",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Percent of CPU time not idle over 5m, averaged across cores. No alert threshold exists for CPU busy; sustained contention is alarmed via Pressure panel.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "rgba(50, 172, 45, 0.97)"
+              },
+              {
+                "color": "rgba(237, 129, 40, 0.89)",
+                "value": 70
+              },
+              {
+                "color": "rgba(245, 54, 54, 0.9)",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "id": 21,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\",job=\"obstack\",project=\"servicehub\"}[5m])))",
+          "instant": true,
+          "legendFormat": "",
+          "range": false,
+          "refId": "A",
+          "step": 240
+        }
+      ],
+      "title": "CPU Busy",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "1-minute load average normalized by logical CPU count (100 * node_load1 / CPU cores). Value >100% means 1m load exceeds available cores. Detailed 1m/5m/15m load chart below.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "max": 200,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "rgba(50, 172, 45, 0.97)"
+              },
+              {
+                "color": "rgba(237, 129, 40, 0.89)",
+                "value": 70
+              },
+              {
+                "color": "rgba(245, 54, 54, 0.9)",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "id": 22,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * node_load1{job=\"obstack\",project=\"servicehub\"} / count(count by (cpu) (node_cpu_seconds_total{job=\"obstack\",project=\"servicehub\"}))",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "step": 240
+        }
+      ],
+      "title": "System Load",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Percent of RAM not available (1 - MemAvailable/MemTotal). Composition detail is in Memory composition below.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "rgba(50, 172, 45, 0.97)"
+              },
+              {
+                "color": "rgba(237, 129, 40, 0.89)",
+                "value": 70
+              },
+              {
+                "color": "rgba(245, 54, 54, 0.9)",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "id": 23,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "clamp_min((1 - (node_memory_MemAvailable_bytes{job=\"obstack\",project=\"servicehub\"} / node_memory_MemTotal_bytes{job=\"obstack\",project=\"servicehub\"})) * 100, 0)",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "step": 240
+        }
+      ],
+      "title": "RAM Usage",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Percentage of swap space currently used: 100 * (SwapTotal - SwapFree) / SwapTotal, kept only when SwapTotal > 0 (PromQL `and` filter). Hosts with swap disabled return no series and render 'Not configured' (noValue), which distinguishes disabled swap from a configured 0%-used swap. Detailed swap series in Memory composition below.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "noValue": "Not configured",
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "rgba(50, 172, 45, 0.97)"
+              },
+              {
+                "color": "rgba(237, 129, 40, 0.89)",
+                "value": 25
+              },
+              {
+                "color": "rgba(245, 54, 54, 0.9)",
+                "value": 60
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "id": 24,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "(100 * (node_memory_SwapTotal_bytes{job=\"obstack\",project=\"servicehub\"} - node_memory_SwapFree_bytes{job=\"obstack\",project=\"servicehub\"}) / clamp_min(node_memory_SwapTotal_bytes{job=\"obstack\",project=\"servicehub\"}, 1)) and (node_memory_SwapTotal_bytes{job=\"obstack\",project=\"servicehub\"} > 0)",
+          "instant": true,
+          "legendFormat": "",
+          "range": false,
+          "refId": "A",
+          "step": 240
+        }
+      ],
+      "title": "Swap Used",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Host uptime since boot. Informational - a recent reboot is not an alarm by itself; correlate with the restart/OOM panel on Overview.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "rgba(50, 172, 45, 0.97)"
+              }
+            ]
+          },
+          "unit": "dtdurations"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 25,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_time_seconds{job=\"obstack\",project=\"servicehub\"} - node_boot_time_seconds{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "Uptime",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Uptime",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "CPU utilization by mode (node_exporter). Sum of non-idle modes equals used CPU; idle is complementary to Overview 'Host CPU used'.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "avg by (mode) (rate(node_cpu_seconds_total{job=\"obstack\",project=\"servicehub\"}[5m])) * 100",
+          "legendFormat": "{{mode}}",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Memory breakdown (bytes): Used = Total-Available; Cached; Buffers; SReclaimable (subset of Cached); Available; Swap used = Total-Free; Swap total. Note Cached and SReclaimable overlap; Used includes reclaimable memory not yet reclaimed.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 5
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_memory_MemTotal_bytes{job=\"obstack\",project=\"servicehub\"} - node_memory_MemAvailable_bytes{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "Used (Total-Available)",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_memory_Cached_bytes{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "Cached",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_memory_Buffers_bytes{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "Buffers",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_memory_SReclaimable_bytes{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "SReclaimable",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_memory_MemAvailable_bytes{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "Available",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_memory_SwapTotal_bytes{job=\"obstack\",project=\"servicehub\"} - node_memory_SwapFree_bytes{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "Swap used",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_memory_SwapTotal_bytes{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "Swap total",
+          "refId": "G"
+        }
+      ],
+      "title": "Memory composition",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Load averages plus 1m load per CPU core and core count.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_load1{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "1m",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_load5{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "5m",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_load15{job=\"obstack\",project=\"servicehub\"}",
+          "legendFormat": "15m",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_load1{job=\"obstack\",project=\"servicehub\"} / count(count by (cpu)(node_cpu_seconds_total{job=\"obstack\",project=\"servicehub\"}))",
+          "legendFormat": "1m / CPU count",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "count(count by (cpu)(node_cpu_seconds_total{job=\"obstack\",project=\"servicehub\"}))",
+          "legendFormat": "CPU cores",
+          "refId": "E"
+        }
+      ],
+      "title": "Load average",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Pressure-stall information (PSI) rate from node_exporter: seconds of stall per second (1.0 = fully stalled). rate() over 5m windows. Values are dimensionless fractions; unit 's' is conventional.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 13
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_pressure_cpu_waiting_seconds_total{job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "CPU waiting",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_pressure_memory_waiting_seconds_total{job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "Memory waiting",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_pressure_io_waiting_seconds_total{job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "I/O waiting",
+          "refId": "C"
+        }
+      ],
+      "title": "Pressure-stall information",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Filesystem capacity (percent) for validated mounts. Read-only state is excluded from this panel; see the separate Read-only mounts panel below.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 13
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "100 * (1 - node_filesystem_avail_bytes{job=\"obstack\",project=\"servicehub\",mountpoint!=\"/cdrom\"} / node_filesystem_size_bytes{job=\"obstack\",project=\"servicehub\",mountpoint!=\"/cdrom\"})",
+          "legendFormat": "{{mountpoint}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Filesystem capacity",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Filesystem inodes (Stage 1 excludes virtual filesystems).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 13
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "100 * (1 - node_filesystem_files_free{job=\"obstack\",project=\"servicehub\",mountpoint!=\"/cdrom\"} / node_filesystem_files{job=\"obstack\",project=\"servicehub\",mountpoint!=\"/cdrom\"})",
+          "legendFormat": "{{mountpoint}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Inode utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Disk throughput, IOPS, I/O time ratio, and weighted I/O time from diskstats. Optical (sr0), loop, ram, and fd devices are excluded; real disks only.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 21
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_disk_read_bytes_total{device!~\"sr0|loop.*|ram.*|fd.*\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} read",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_disk_written_bytes_total{device!~\"sr0|loop.*|ram.*|fd.*\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} written",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_disk_reads_completed_total{device!~\"sr0|loop.*|ram.*|fd.*\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} reads/s",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_disk_writes_completed_total{device!~\"sr0|loop.*|ram.*|fd.*\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} writes/s",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_disk_io_time_seconds_total{device!~\"sr0|loop.*|ram.*|fd.*\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} I/O time ratio",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_disk_io_time_weighted_seconds_total{device!~\"sr0|loop.*|ram.*|fd.*\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} weighted I/O",
+          "refId": "F"
+        }
+      ],
+      "title": "Disk I/O",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Network throughput and errors excluding loopback.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 21
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_network_receive_bytes_total{device!=\"lo\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} receive",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_network_transmit_bytes_total{device!=\"lo\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} transmit",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_network_receive_errs_total{device!=\"lo\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} receive errs",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "rate(node_network_transmit_errs_total{device!=\"lo\",job=\"obstack\",project=\"servicehub\"}[5m])",
+          "legendFormat": "{{device}} transmit errs",
+          "refId": "D"
+        }
+      ],
+      "title": "Network",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Read-only state (0 = rw, 1 = ro) for validated mounts. Deliberately NOT on the percent-capacity axis; a boolean indicator, not a capacity percentage.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "rw"
+                },
+                "1": {
+                  "text": "ro"
+                }
+              },
+              "type": "value"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 21
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_filesystem_readonly{job=\"obstack\",project=\"servicehub\",mountpoint!=\"/cdrom\"}",
+          "legendFormat": "{{mountpoint}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Read-only mounts",
+      "type": "timeseries"
+    }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["servicehub", "adr-010", "infrastructure"],
-  "templating": {"list": []},
-  "time": {"from": "now-6h", "to": "now"},
+  "tags": [
+    "servicehub",
+    "adr-010",
+    "infrastructure"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timezone": "browser",
   "title": "ServiceHub Infrastructure",
   "uid": "servicehub-infrastructure",
-  "version": 1
+  "version": 3
 }

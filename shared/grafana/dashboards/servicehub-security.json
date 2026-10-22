@@ -14,13 +14,13 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "SSH and sudo journal events. Query is unchanged; matching events exist outside the default six-hour dashboard time range. Empty state shown when nothing matches the selected range; Runtime verification pending.",
+      "description": "SSH and sudo journal events from the host.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 0,
         "y": 0
@@ -50,7 +50,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Traefik authentication and authorization responses; Runtime verification pending.",
+      "description": "Traefik authentication and authorization responses by status code.",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps"
@@ -58,7 +58,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 12,
         "y": 0
@@ -96,16 +96,16 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Authentik failure events filtered by logical_service and observed level field values. The previous non-existent logical service filter is removed.",
+      "description": "Authentik failure events filtered by logical_service and level field. Matches source levels warn, warning, error, and critical.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 7
+        "y": 8
       },
       "id": 3,
       "options": {
@@ -119,7 +119,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",logical_service=\"authentik\"} | filter level:~\"error|warn\"",
+          "expr": "{project=\"servicehub\",logical_service=\"authentik\"} | filter level:~\"warn|warning|error|critical\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -132,16 +132,16 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Forgejo container log events matched by bounded failure keywords in the _msg field. Forgejo logs do not reliably set a level field; runner polling, successful HTTP, and normal startup messages are not classified as failures. Empty result is legitimate.",
+      "description": "No Forgejo failures in selected range",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 7
+        "y": 8
       },
       "id": 4,
       "options": {
@@ -168,16 +168,16 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Concise GeoIP country summary; detailed country traffic is in ServiceHub Traffic and Edge. Runtime verified.",
+      "description": "Top 5 countries by request count from Traefik access logs. GeoIP enrichment from Stage 2.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
+        "h": 9,
+        "w": 10,
         "x": 0,
-        "y": 15
+        "y": 17
       },
       "id": 5,
       "options": {
@@ -208,27 +208,25 @@
       "type": "bargauge",
       "transformations": [
         {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "valueLabel": "geoip_country_code"
+          }
+        },
+        {
           "id": "merge",
           "options": {}
         },
         {
-          "id": "reduce",
-          "options": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": ""
-          }
-        },
-        {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "Time": true,
+              "__name__": true
+            },
             "indexByName": {},
-            "renameByName": {
-              "geoip_country_code": "Country",
-              "Value": "Requests"
-            }
+            "renameByName": {}
           }
         }
       ]
@@ -238,74 +236,51 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Recent security-relevant logs; Runtime verification pending.",
+      "description": "Total unique countries seen in the selected time range.",
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "custom": {},
+          "unit": "short"
+        },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 22
+        "h": 9,
+        "w": 4,
+        "x": 10,
+        "y": 17
       },
-      "id": 6,
-      "options": {
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
+      "id": 11,
+      "options": {},
       "targets": [
         {
           "datasource": {
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\"} | filter container_name:~\"infraauth|infraauthwrk|devopsforgejo|devopsrunner|routetraefik\" | filter level:~\"error|warn\"",
-          "queryType": "range",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats count_uniq(geoip_country_code) as countries",
+          "queryType": "stats",
           "refId": "A"
         }
       ],
-      "title": "Recent security logs",
-      "type": "logs"
+      "title": "Total Unique Countries",
+      "type": "stat"
     },
     {
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Section boundary for bounded edge access and geographic security views.",
+      "description": "Top 5 public client IPs by request count. Private/reserved addresses excluded at query time.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 14
-      },
-      "id": 15,
-      "options": {},
-      "targets": [],
-      "title": "Edge Security Summary",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "victorialogs"
-      },
-      "description": "Concise public-client summary. Private, loopback, link-local, shared, and reserved addresses are excluded at query time.",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 16,
-        "y": 15
+        "h": 9,
+        "w": 10,
+        "x": 14,
+        "y": 17
       },
       "id": 7,
       "options": {},
@@ -324,27 +299,25 @@
       "type": "piechart",
       "transformations": [
         {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "valueLabel": "client_ip"
+          }
+        },
+        {
           "id": "merge",
           "options": {}
         },
         {
-          "id": "reduce",
-          "options": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": ""
-          }
-        },
-        {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "Time": true,
+              "__name__": true
+            },
             "indexByName": {},
-            "renameByName": {
-              "client_ip": "Client IP",
-              "Value": "Requests"
-            }
+            "renameByName": {}
           }
         }
       ]
@@ -354,35 +327,49 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Bounded query-time aggregation from the Traefik access-log stream; Runtime verified.",
+      "description": "Recent security-relevant logs from bounded services. Matches source levels warn, warning, error, and critical.",
       "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "unit": "short"
-        },
+        "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 8,
-        "y": 15
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 26
       },
-      "id": 11,
-      "options": {},
+      "id": 6,
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
       "targets": [
         {
           "datasource": {
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:~\"..*\" | stats count_uniq(geoip_country_code) as countries",
-          "queryType": "stats",
+          "expr": "{project=\"servicehub\"} | filter container_name:~\"infraauth|infraauthwrk|devopsforgejo|devopsrunner|routetraefik\" | filter level:~\"warn|warning|error|critical\"",
+          "queryType": "range",
           "refId": "A"
         }
       ],
-      "title": "Total Unique Countries",
-      "type": "stat"
+      "title": "Recent security logs",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 15,
+      "panels": [],
+      "title": "Edge Security Summary",
+      "type": "row"
     }
   ],
   "refresh": "30s",
@@ -402,5 +389,5 @@
   "timezone": "browser",
   "title": "ServiceHub Security",
   "uid": "servicehub-security",
-  "version": 1
+  "version": 2
 }

@@ -91,6 +91,8 @@ services:
             - AUTHENTIK_POSTGRESQL__NAME=${IDENTITY_DBNAME}
             # listen settings
             - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
+            # Expose Prometheus metrics on the internal network for Alloy
+            # scraping. Never routed through Traefik (ADR-010 section 10).
             - AUTHENTIK_LISTEN__METRICS=0.0.0.0:9300
         image: infraauth:latest
         labels:
@@ -161,6 +163,8 @@ services:
             - AUTHENTIK_POSTGRESQL__NAME=${IDENTITY_DBNAME}
             # listen settings
             - AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS=${TRUSTED_IP}
+            # Expose Prometheus metrics on the internal network for Alloy
+            # scraping. Never routed through Traefik (ADR-010 section 10).
             - AUTHENTIK_LISTEN__METRICS=0.0.0.0:9300
         image: infraauth:latest
         networks:

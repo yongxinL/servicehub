@@ -1,0 +1,9 @@
+apiVersion: 1
+
+# Alerting provisioning: enables Grafana-managed alert evaluation
+# Requires GF_ALERTING_enabled=true in Grafana environment (already set)
+# Alert rules are loaded from shared/grafana/provisioning/alerting/servicehub.yml
+alerting:
+  # Configuration is handled via Grafana environment variables
+  # and the rule file is loaded by Grafana's provisioning system
+  enabled: true

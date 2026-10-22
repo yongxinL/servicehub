@@ -3,44 +3,36 @@ modules:
         prober: http
         timeout: 5s
         http:
-            preferred_ip_protocol: ip4
-            valid_status_codes:
-                - 200
+            valid_status_codes: [200]
+            preferred_ip_protocol: "ip4"
     https_public_2xx:
         prober: http
         timeout: 10s
         http:
-            preferred_ip_protocol: ip4
-            valid_status_codes:
-                - 200
+            valid_status_codes: [200]
+            preferred_ip_protocol: "ip4"
             tls_config:
                 insecure_skip_verify: false
     https_expected_redirect:
         prober: http
         timeout: 10s
         http:
-            method: GET
-            preferred_ip_protocol: ip4
-            valid_status_codes:
-                - 301
-                - 302
-                - 303
-                - 307
-                - 308
+            valid_status_codes: [301, 302, 303, 307, 308]
             follow_redirects: false
             fail_if_not_ssl: true
+            preferred_ip_protocol: "ip4"
             tls_config:
                 insecure_skip_verify: false
     https_admin_restricted:
         prober: http
         timeout: 10s
         http:
-            method: GET
-            preferred_ip_protocol: ip4
-            valid_status_codes:
-                - 200
-                - 403
+            # Allowed source: Grafana returns 302 to /login; non-allowlisted
+            # source: Traefik's ipAllowList returns 403. Accept both as proof
+            # that the ingress policy is in force and TLS is valid.
+            valid_status_codes: [302, 403]
             follow_redirects: false
             fail_if_not_ssl: true
+            preferred_ip_protocol: "ip4"
             tls_config:
                 insecure_skip_verify: false

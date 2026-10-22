@@ -138,6 +138,10 @@ services:
             - GF_SERVER_ROOT_URL=https://${OBSERVABILITY_DOMAIN}
             - GF_USERS_ALLOW_SIGN_UP=false
             - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource
+            # Drilldown apps that cannot work with the provisioned backends: Logs Drilldown is
+            # Loki-only, Traces Drilldown needs a Tempo datasource (none exists, OCI APM off).
+            # Metrics Drilldown stays enabled (VictoriaMetrics is Prometheus-compatible).
+            - GF_PLUGINS_DISABLE_PLUGINS=grafana-lokiexplore-app,grafana-exploretraces-app
         healthcheck:
             test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1" ]
             interval: 30s
@@ -150,9 +154,9 @@ services:
             - "traefik.http.routers.obsvcegrafana.entrypoints=websecure"
             - "traefik.http.routers.obsvcegrafana.rule=Host(`${OBSERVABILITY_DOMAIN}`)"
             - "traefik.http.routers.obsvcegrafana.tls=true"
-            - "traefik.http.services.obsvcegrafana.loadbalancer.server.port=3000"
-            - "traefik.http.routers.obsvcegrafana.middlewares=secure-chain@file,dashboard-whitelist@file"
             - "traefik.http.routers.obsvcegrafana.tls.certresolver=${CERTRESOLVER}"
+            - "traefik.http.routers.obsvcegrafana.middlewares=secure-chain@file,grafana-allowlist@file"
+            - "traefik.http.services.obsvcegrafana.loadbalancer.server.port=3000"
         networks:
             - subnet
         restart: unless-stopped

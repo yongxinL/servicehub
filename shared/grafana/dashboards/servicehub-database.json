@@ -1,27 +1,447 @@
 {
-  "annotations": {"list": []},
-  "description": "PostgreSQL health and capacity. Queries follow postgres_exporter's standard metric namespace and are Runtime verification pending.",
+  "annotations": {
+    "list": []
+  },
+  "description": "PostgreSQL health and capacity from Stage 2 postgres_exporter. Covers availability, connections, transactions, locks, long-running transactions, database size, cache hit ratio, temporary bytes, and WAL size.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [],
   "liveNow": false,
   "panels": [
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Embedded postgres_exporter availability; Runtime verification pending.", "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"text": "Down"}, "1": {"text": "Up"}}, "type": "value"}], "max": 1, "min": 0}, "overrides": []}, "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0}, "id": 1, "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single", "sort": "none"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "min(pg_up)", "legendFormat": "PostgreSQL", "refId": "A"}], "title": "PostgreSQL availability", "type": "stat"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "postgres_exporter connection metrics; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 5, "w": 9, "x": 6, "y": 0}, "id": 2, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum by (state) (pg_stat_activity_count)", "legendFormat": "{{state}}", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "max(pg_settings_max_connections)", "legendFormat": "Max connections", "refId": "B"}], "title": "Connections", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Transaction rates from postgres_exporter; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []}, "gridPos": {"h": 5, "w": 9, "x": 15, "y": 0}, "id": 3, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum(rate(pg_stat_database_xact_commit[5m]))", "legendFormat": "Commit", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum(rate(pg_stat_database_xact_rollback[5m]))", "legendFormat": "Rollback", "refId": "B"}], "title": "Transactions", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "postgres_exporter lock and deadlock metrics; Runtime verification pending.", "fieldConfig": {"defaults": {}, "overrides": []}, "gridPos": {"h": 7, "w": 8, "x": 0, "y": 5}, "id": 4, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum(pg_locks_count)", "legendFormat": "Locks", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum(rate(pg_stat_database_deadlocks[5m]))", "legendFormat": "Deadlocks", "refId": "B"}], "title": "Locks and deadlocks", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Long-running transaction duration; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}, "gridPos": {"h": 7, "w": 8, "x": 8, "y": 5}, "id": 5, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "max(pg_stat_activity_max_tx_duration)", "legendFormat": "Max transaction duration", "refId": "A"}], "title": "Long-running transactions", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Database size and growth; Runtime verification pending.", "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}, "gridPos": {"h": 7, "w": 8, "x": 16, "y": 5}, "id": 6, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "pg_database_size_bytes", "legendFormat": "{{datname}}", "refId": "A"}], "title": "Database size", "type": "timeseries"},
-    {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "description": "Current aggregate size of PostgreSQL WAL segment files", "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}, "gridPos": {"h": 7, "w": 24, "x": 0, "y": 12}, "id": 7, "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}, "targets": [{"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum(rate(pg_stat_database_blks_hit[5m])) / clamp_min(sum(rate(pg_stat_database_blks_hit[5m]) + rate(pg_stat_database_blks_read[5m])), 1)", "legendFormat": "Cache hit ratio", "refId": "A"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "sum(rate(pg_stat_database_temp_bytes[5m]))", "legendFormat": "Temporary bytes", "refId": "B"}, {"datasource": {"type": "prometheus", "uid": "victoriametrics"}, "expr": "pg_wal_size_bytes", "legendFormat": "WAL size", "refId": "C"}], "title": "Current WAL Size", "type": "timeseries"}
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Embedded postgres_exporter availability; pg_up=1 means healthy.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "Down"
+                },
+                "1": {
+                  "text": "Up"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "min(pg_up)",
+          "legendFormat": "PostgreSQL",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "PostgreSQL availability",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "PostgreSQL connections by state plus max connections.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (state) (pg_stat_activity_count)",
+          "legendFormat": "{{state}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max(pg_settings_max_connections)",
+          "legendFormat": "Max connections",
+          "refId": "B"
+        }
+      ],
+      "title": "Connections",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Transaction commit and rollback rates.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 15,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(rate(pg_stat_database_xact_commit[5m]))",
+          "legendFormat": "Commit",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(rate(pg_stat_database_xact_rollback[5m]))",
+          "legendFormat": "Rollback",
+          "refId": "B"
+        }
+      ],
+      "title": "Transactions",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Current lock count and deadlock rate.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(pg_locks_count)",
+          "legendFormat": "Locks",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(rate(pg_stat_database_deadlocks[5m]))",
+          "legendFormat": "Deadlocks",
+          "refId": "B"
+        }
+      ],
+      "title": "Locks and deadlocks",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Longest running transaction duration.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 5
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "max(pg_stat_activity_max_tx_duration)",
+          "legendFormat": "Max transaction duration",
+          "refId": "A"
+        }
+      ],
+      "title": "Long-running transactions",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Database size per database.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "pg_database_size_bytes",
+          "legendFormat": "{{datname}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Database size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "PostgreSQL cache hit ratio percentage. 100 = all hits; lower means more disk reads.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "100 * sum(rate(pg_stat_database_blks_hit[5m])) / clamp_min(sum(rate(pg_stat_database_blks_hit[5m]) + rate(pg_stat_database_blks_read[5m])), 1)",
+          "legendFormat": "Cache hit ratio",
+          "refId": "A"
+        }
+      ],
+      "title": "Cache hit ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "description": "Temporary bytes written rate and current WAL size. Separate panel from ratio to avoid unit mixing.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(rate(pg_stat_database_temp_bytes[5m]))",
+          "legendFormat": "Temporary bytes/s",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "pg_wal_size_bytes",
+          "legendFormat": "WAL size",
+          "refId": "B"
+        }
+      ],
+      "title": "Temporary bytes and WAL size",
+      "type": "timeseries"
+    }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["servicehub", "adr-010", "database"],
-  "templating": {"list": []},
-  "time": {"from": "now-6h", "to": "now"},
+  "tags": [
+    "servicehub",
+    "adr-010",
+    "database"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timezone": "browser",
   "title": "ServiceHub Database",
   "uid": "servicehub-database",
-  "version": 1
+  "version": 2
 }

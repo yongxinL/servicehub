@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "Observability pipeline health. Grafana cannot reliably report its own total failure; OCI Monitoring is the external watchdog.",
+  "description": "Observability pipeline health. Grafana cannot reliably report its own total failure; external monitoring is the watchdog.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -14,7 +14,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Alloy and observability-service probes; Runtime verification pending.",
+      "description": "Alloy and observability-service readiness probes. One card per component.",
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -50,6 +50,13 @@
         "tooltip": {
           "mode": "multi",
           "sort": "asc"
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "targets": [
@@ -60,16 +67,18 @@
           },
           "expr": "up{job=\"alloy\"}",
           "legendFormat": "Alloy",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (service) (probe_success{service=~\"victoriametrics|victorialogs|grafana\",probe_type=\"readiness\"})",
+          "expr": "min by (service) (probe_success{service=~\"victoriametrics|victorialogs|grafana\",probe_type=\"readiness\"})",
           "legendFormat": "{{service}}",
-          "refId": "B"
+          "refId": "B",
+          "instant": true
         }
       ],
       "title": "Collector and store readiness",
@@ -80,7 +89,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Alloy remote-write failure counters; Runtime verification pending.",
+      "description": "VictoriaMetrics remote-write failures by destination. Zero means no failures, not no activity. Legends use component names, not internal IDs.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -112,7 +121,7 @@
             "uid": "victoriametrics"
           },
           "expr": "sum by (remote_name, url) (rate(prometheus_remote_storage_samples_failed_total[5m]))",
-          "legendFormat": "{{remote_name}}",
+          "legendFormat": "VictoriaMetrics remote write",
           "refId": "A"
         },
         {
@@ -121,7 +130,7 @@
             "uid": "victoriametrics"
           },
           "expr": "sum(rate(prometheus_remote_storage_samples_dropped_total[5m]))",
-          "legendFormat": "Dropped",
+          "legendFormat": "Dropped samples",
           "refId": "B"
         }
       ],
@@ -133,7 +142,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Scrape status for configured Alloy jobs; Runtime verification pending.",
+      "description": "Scrape status for each configured Alloy job. One card per job.",
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -169,6 +178,13 @@
         "tooltip": {
           "mode": "multi",
           "sort": "asc"
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "targets": [
@@ -179,7 +195,8 @@
           },
           "expr": "up{job=~\"obstack|cadvisor|traefik|alloy|internal|public\"}",
           "legendFormat": "{{job}}",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Scrape health",
@@ -190,10 +207,12 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Filesystem capacity backing observability data; Runtime verification pending.",
+      "description": "Filesystem capacity backing observability data stores (VictoriaMetrics + VictoriaLogs + Grafana).",
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "unit": "percent",
+          "max": 100,
+          "min": 0
         },
         "overrides": []
       },
@@ -236,7 +255,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Observability component logs; Runtime verification pending.",
+      "description": "Logs from observability components (Alloy, VM, VLogs, Grafana) for debugging.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -272,7 +291,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Recent log ingestion as a time series using a 1-minute range aggregation against VictoriaLogs. Runtime verification pending.",
+      "description": "Log ingestion rate as a time series using statsRange (1-minute step). Returns a numeric 'logs' field that renders correctly.",
       "fieldConfig": {
         "defaults": {
           "unit": "short"
@@ -319,7 +338,7 @@
         "type": "datasource",
         "uid": "grafana"
       },
-      "description": "Grafana built-in alert list. Reflects configured Grafana alert-rule evaluation state only; notification and watchdog coverage are shown separately.",
+      "description": "Live Grafana-managed alert evaluation state. Shows firing, pending, and no-data states only; Normal rules are hidden. Notification delivery is not configured.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -337,7 +356,7 @@
           "grafana_folder",
           "severity"
         ],
-        "maxItems": 20,
+        "maxItems": 50,
         "sortOrder": 3,
         "stateFilter": {
           "alerting": true,
@@ -352,7 +371,7 @@
       "type": "alertlist"
     },
     {
-      "description": "Static operational-capability status. Alert evaluation is operational; delivery and independent host monitoring are owner-dependent follow-up items.",
+      "description": "Runtime-verified operational health: Grafana-managed alert evaluation is configured and validated on adr-010-dev (ADR-010 Stage 4). Notification delivery and an independent external watchdog remain explicitly unconfigured; OCI APM remains disabled pending connection configuration.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -365,9 +384,10 @@
       },
       "id": 9,
       "options": {
-        "content": "**Alert evaluation**  Runtime verified\n\n**Notification delivery**  Not configured\n\n**External host watchdog**  Not configured\n\n**OCI APM**  Disabled; not used as the watchdog mechanism",
+        "content": "**Alert evaluation**: Operational \u2014 Grafana-managed, 27 rules in 3 evaluation groups, validated on healthy system\n\n**Notification delivery**: Not configured (no contact point; owner follow-up required)\n\n**External host watchdog**: Not configured (owner follow-up required)\n\n**OCI APM**: Disabled \u2014 not a watchdog mechanism; disabled pending connection configuration",
         "mode": "markdown"
       },
+      "targets": [],
       "title": "Notification and watchdog coverage",
       "type": "text"
     }
@@ -389,5 +409,5 @@
   "timezone": "browser",
   "title": "ServiceHub Observability Health",
   "uid": "servicehub-observability-health",
-  "version": 1
+  "version": 3
 }

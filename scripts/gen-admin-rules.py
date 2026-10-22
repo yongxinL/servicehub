@@ -175,6 +175,11 @@ def main():
         "middlewares": [mid_secure, "dashboard-login-redirect"],
         "tls": tls,
     }
+    # Grafana ingress restriction (ADR-010 Stage 3): the Docker-label router on
+    # obsvcegrafana attaches this by name. TRUSTED_IP is the single source of
+    # truth for administrative ingress, so Grafana shares the same allowlist
+    # as the Traefik dashboard and the other admin interfaces.
+    middlewares["grafana-allowlist"] = {"ipAllowList": {"sourceRange": trusted}}
     if enable_mailsv:
         routers["mailsvstalwart-untrusted"] = {
             "rule": (f"Host(`{env['EMAIL_HOST']}`) && "

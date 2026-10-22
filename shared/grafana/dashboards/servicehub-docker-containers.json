@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "Docker and container telemetry. Queries use cAdvisor Docker-only collection; Runtime verification pending.",
+  "description": "Docker and container telemetry from Stage 1 cAdvisor collection. Current-state panels use instant queries so historic container incarnations cannot duplicate cards.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -14,7 +14,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Last-seen container state; Runtime verification pending.",
+      "description": "Instant query: 1 = running (last seen within 90s), 0 = missing. The bool modifier is required; a bare comparison is a filter and returns elapsed seconds (e.g. 27.4) instead of a state.",
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -24,12 +24,14 @@
                   "text": "Missing"
                 },
                 "1": {
-                  "text": "Seen"
+                  "text": "Running"
                 }
               },
               "type": "value"
             }
-          ]
+          ],
+          "max": 1,
+          "min": 0
         },
         "overrides": []
       },
@@ -48,6 +50,11 @@
         "tooltip": {
           "mode": "multi",
           "sort": "asc"
+        },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
         }
       },
       "targets": [
@@ -56,13 +63,13 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (name) ((time() - container_last_seen{name=~\"${container:regex}\"}) < 90)",
+          "expr": "max by (name) ((time() - container_last_seen{name=~\"^(${container:regex})$\"}) < bool 90)",
           "legendFormat": "{{name}}",
           "refId": "A",
           "instant": true
         }
       ],
-      "title": "Container state",
+      "title": "Container running",
       "type": "stat"
     },
     {
@@ -70,7 +77,7 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "cAdvisor CPU rate; Runtime verification pending.",
+      "description": "cAdvisor CPU usage rate over five minutes.",
       "fieldConfig": {
         "defaults": {
           "unit": "percent"
@@ -86,9 +93,7 @@
       "id": 2,
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -103,7 +108,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "rate(container_cpu_usage_seconds_total{name=~\"${container:regex}\"}[5m]) * 100",
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\"^(${container:regex})$\"}[5m]) * 100",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -113,35 +118,10 @@
     },
     {
       "datasource": {
-        "type": "grafana",
-        "uid": "grafana"
-      },
-      "description": "CPU throttling metrics are unavailable from the current cAdvisor runtime. No throttling value is inferred from general CPU utilization; Runtime verification pending.",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 12,
-        "x": 0,
-        "y": 21
-      },
-      "id": 3,
-      "options": {
-        "content": "### Unsupported by current runtime\n\nRuntime limitation: per-container CPU throttling metrics are not exposed by the current cAdvisor/runtime combination. General CPU utilization is available in the CPU Usage panel; no throttling value is inferred.\n\nRuntime verified 2026-10-21.",
-        "mode": "markdown"
-      },
-      "targets": [],
-      "title": "CPU throttling",
-      "type": "text"
-    },
-    {
-      "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "cAdvisor memory usage and working set; Runtime verification pending.",
+      "description": "cAdvisor memory usage, working set, and configured limit.",
       "fieldConfig": {
         "defaults": {
           "unit": "bytes"
@@ -157,9 +137,7 @@
       "id": 4,
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -174,7 +152,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_memory_usage_bytes{name=~\"${container:regex}\"}",
+          "expr": "container_memory_usage_bytes{name=~\"^(${container:regex})$\"}",
           "legendFormat": "{{name}} usage",
           "refId": "A"
         },
@@ -183,7 +161,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_memory_working_set_bytes{name=~\"${container:regex}\"}",
+          "expr": "container_memory_working_set_bytes{name=~\"^(${container:regex})$\"}",
           "legendFormat": "{{name}} working set",
           "refId": "B"
         },
@@ -192,7 +170,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "container_spec_memory_limit_bytes{name=~\"${container:regex}\"}",
+          "expr": "container_spec_memory_limit_bytes{name=~\"^(${container:regex})$\"}",
           "legendFormat": "{{name}} limit",
           "refId": "C"
         }
@@ -202,35 +180,10 @@
     },
     {
       "datasource": {
-        "type": "grafana",
-        "uid": "grafana"
-      },
-      "description": "Per-container network metrics are unavailable from the current cAdvisor runtime. Only an unlabelled root-cgroup network series is present; Runtime verification pending.",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 12,
-        "x": 12,
-        "y": 21
-      },
-      "id": 5,
-      "options": {
-        "content": "### Unsupported by current runtime\n\nRuntime limitation: per-container network metrics are not exposed with a container identity by the current cAdvisor/runtime combination. Only an unlabelled root-cgroup series is available and is intentionally not presented as per-container traffic.\n\nRuntime verified 2026-10-21.",
-        "mode": "markdown"
-      },
-      "targets": [],
-      "title": "Container network",
-      "type": "text"
-    },
-    {
-      "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "cAdvisor filesystem I/O; Runtime verification pending.",
+      "description": "cAdvisor filesystem read/write throughput.",
       "fieldConfig": {
         "defaults": {
           "unit": "Bps"
@@ -246,9 +199,7 @@
       "id": 6,
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -263,7 +214,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "rate(container_fs_reads_bytes_total{name=~\"${container:regex}\"}[5m])",
+          "expr": "rate(container_fs_reads_bytes_total{name=~\"^(${container:regex})$\"}[5m])",
           "legendFormat": "{{name}} read",
           "refId": "A"
         },
@@ -272,7 +223,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "rate(container_fs_writes_bytes_total{name=~\"${container:regex}\"}[5m])",
+          "expr": "rate(container_fs_writes_bytes_total{name=~\"^(${container:regex})$\"}[5m])",
           "legendFormat": "{{name}} write",
           "refId": "B"
         }
@@ -285,10 +236,10 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "Operational age calculated from container start time. Duration format.",
+      "description": "Current container age from container start time. Informational only; color is neutral. A fresh age matters only with restart evidence in the Restart and OOM panel.",
       "fieldConfig": {
         "defaults": {
-          "unit": "ds"
+          "unit": "dtdurations"
         },
         "overrides": []
       },
@@ -300,17 +251,16 @@
       },
       "id": 7,
       "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "textMode": "auto"
       },
       "targets": [
         {
@@ -318,31 +268,21 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (name) (time() - container_start_time_seconds{name=~\"${container:regex}\"})",
+          "expr": "max by (name) (time() - container_start_time_seconds{name=~\"^(${container:regex})$\"})",
           "legendFormat": "{{name}}",
           "refId": "A",
           "instant": true
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "max by (name) (time() - container_last_seen{name=~\"${container:regex}\"})",
-          "legendFormat": "{{name}} last seen ago",
-          "refId": "B",
-          "instant": true
         }
       ],
-      "title": "Container Age",
-      "type": "timeseries"
+      "title": "Container age",
+      "type": "stat"
     },
     {
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "description": "cAdvisor restart and OOM indicators; Runtime verification pending.",
+      "description": "Intentional 15-minute historical lookback: restart count (start-time changes) and OOM events, grouped by visible container identity.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -356,9 +296,7 @@
       "id": 8,
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "displayMode": "table",
           "placement": "bottom"
         },
@@ -373,8 +311,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (name) (changes(container_start_time_seconds{name=~\"${container:regex}\"}[15m]))",
-          "legendFormat": "{{name}} restarts",
+          "expr": "max by (name) (changes(container_start_time_seconds{name=~\"^(${container:regex})$\"}[15m]))",
+          "legendFormat": "{{name}} restarts (15m)",
           "refId": "A"
         },
         {
@@ -382,8 +320,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (name) (increase(container_oom_events_total{name=~\"${container:regex}\"}[15m]))",
-          "legendFormat": "{{name}} OOM",
+          "expr": "max by (name) (increase(container_oom_events_total{name=~\"^(${container:regex})$\"}[15m]))",
+          "legendFormat": "{{name}} OOM (15m)",
           "refId": "B"
         }
       ],
@@ -395,7 +333,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Container log stream; VictoriaLogs query is Runtime verification pending.",
+      "description": "Container log stream filtered by container_name with regex-safe interpolation.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -418,7 +356,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\"} | filter container_name:~\"${container:regex}\"",
+          "expr": "{project=\"servicehub\"} | filter container_name:re(\"^(${container:regex})$\")",
           "queryType": "range",
           "refId": "A"
         }
@@ -438,15 +376,61 @@
       "panels": [],
       "title": "Runtime Limitations",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "grafana"
+      },
+      "description": "Runtime limitation stated honestly; no throttling value is inferred.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "id": 3,
+      "options": {
+        "content": "### CPU throttling unsupported\n\nPer-container CPU throttling metrics are not exposed by the current cAdvisor/runtime combination. General CPU utilization is in the CPU Usage panel; no throttling value is inferred.",
+        "mode": "markdown"
+      },
+      "targets": [],
+      "title": "CPU throttling",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "grafana"
+      },
+      "description": "Runtime limitation stated honestly; identity-less root network series is not presented as per-container traffic.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "id": 5,
+      "options": {
+        "content": "### Per-container network unavailable\n\nThe source exposes only an identity-less root-cgroup network series, so per-container traffic is not shown. It is intentionally not presented as per-container data.",
+        "mode": "markdown"
+      },
+      "targets": [],
+      "title": "Container network",
+      "type": "text"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": [
-    "servicehub",
-    "adr-010",
-    "docker"
-  ],
+  "tags": ["servicehub", "adr-010", "docker"],
   "templating": {
     "list": [
       {
@@ -459,15 +443,17 @@
           "type": "prometheus",
           "uid": "victoriametrics"
         },
-        "definition": "label_values(container_last_seen{name=~\"servicehub-.*\"},name)",
+        "definition": "label_values(container_last_seen{name=~\"servicehub-.*\"}, name)",
         "includeAll": true,
         "label": "Container",
         "multi": true,
         "name": "container",
         "query": {
-          "query": "label_values(container_last_seen{name=~\"servicehub-.*\"},name)",
+          "query": "label_values(container_last_seen{name=~\"servicehub-.*\"}, name)",
           "refId": "container-variable"
         },
+        "refresh": 2,
+        "sort": 1,
         "type": "query"
       }
     ]
@@ -479,5 +465,5 @@
   "timezone": "browser",
   "title": "ServiceHub Docker and Containers",
   "uid": "servicehub-docker-containers",
-  "version": 1
+  "version": 2
 }

@@ -93,6 +93,9 @@ services:
             - OCIS_LOG_PRETTY=false
             # Traefik terminates TLS; oCIS receives plain HTTP internally.
             - PROXY_TLS=false
+            # Expose proxy Prometheus metrics on the internal network for Alloy
+            # scraping. Never routed through Traefik (ADR-010 section 11).
+            - PROXY_DEBUG_ADDR=0.0.0.0:9205
             # Use Authentik as the external OIDC provider instead of the built-in IDP.
             - OCIS_EXCLUDE_RUN_SERVICES=idp
             - OCIS_OIDC_ISSUER=${CLOUD_OIDC_ISSUER}

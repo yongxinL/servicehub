@@ -4,27 +4,61 @@
 // through runtime environment only.
 // =============================================
 prometheus.exporter.postgres "primary" {
-    data_source_names = [
-        "postgresql://" + sys.env("POSTGRES_EXPORTER_USER") + ":" + sys.env("POSTGRES_EXPORTER_PASSWORD") + "@" + sys.env("POSTGRES_EXPORTER_HOST") + ":" + sys.env("POSTGRES_EXPORTER_PORT") + "/" + sys.env("POSTGRES_EXPORTER_DATABASE") + "?sslmode=disable",
-    ]
-    enabled_collectors = [
-        "database",
-        "locks",
-        "replication_slot",
-        "replication",
-        "roles",
-        "stat_bgwriter",
-        "stat_database",
-        "stat_progress_vacuum",
-        "stat_user_tables",
-        "statio_user_tables",
-        "wal",
-    ]
+	data_source_names = [
+		"postgresql://" + sys.env("POSTGRES_EXPORTER_USER") + ":" + sys.env("POSTGRES_EXPORTER_PASSWORD") + "@" + sys.env("POSTGRES_EXPORTER_HOST") + ":" + sys.env("POSTGRES_EXPORTER_PORT") + "/" + sys.env("POSTGRES_EXPORTER_DATABASE") + "?sslmode=disable",
+	]
+	enabled_collectors = [
+		"database",
+		"locks",
+		"replication_slot",
+		"replication",
+		"roles",
+		"stat_bgwriter",
+		"stat_database",
+		"stat_progress_vacuum",
+		"stat_user_tables",
+		"statio_user_tables",
+		"wal",
+	]
 }
 
 prometheus.scrape "postgres" {
-    targets         = prometheus.exporter.postgres.primary.targets
-    forward_to      = [prometheus.remote_write.vm.receiver]
-    scrape_interval = "30s"
-    scrape_timeout  = "15s"
+	targets         = prometheus.exporter.postgres.primary.targets
+	forward_to      = [prometheus.relabel.postgres_labels.receiver]
+	scrape_interval = "30s"
+	scrape_timeout  = "15s"
+}
+
+prometheus.relabel "postgres_labels" {
+	forward_to = [prometheus.remote_write.vm.receiver]
+
+	rule {
+		target_label = "job"
+		replacement  = "postgresql"
+	}
+
+	rule {
+		target_label = "service"
+		replacement  = "postgresql"
+	}
+
+	rule {
+		target_label = "component"
+		replacement  = "database"
+	}
+
+	rule {
+		target_label = "project"
+		replacement  = "servicehub"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = sys.env("ENVIRONMENT")
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = constants.hostname
+	}
 }
