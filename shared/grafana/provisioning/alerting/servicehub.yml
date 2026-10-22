@@ -1008,7 +1008,7 @@ groups:
       # ------------------------------------------------------------------
       - uid: servicehub-traefik-5xx
         title: Sustained Traefik HTTP 5xx rate
-        condition: C
+        condition: B
         data:
           - refId: A
             relativeTimeRange:
@@ -1019,24 +1019,11 @@ groups:
               datasource:
                 type: prometheus
                 uid: victoriametrics
-              expr: "sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m])) or vector(0)"
+              expr: "(sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(traefik_service_requests_total[5m])), 1)"
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
           - refId: B
-            relativeTimeRange:
-              from: 600
-              to: 0
-            datasourceUid: victoriametrics
-            model:
-              datasource:
-                type: prometheus
-                uid: victoriametrics
-              expr: "clamp_min(sum(rate(traefik_service_requests_total[5m])), 1)"
-              intervalMs: 1000
-              maxDataPoints: 43200
-              refId: B
-          - refId: C
             relativeTimeRange:
               from: 0
               to: 0
@@ -1051,7 +1038,7 @@ groups:
                     type: and
                   query:
                     params:
-                      - C
+                      - A
                   reducer:
                     params: []
                     type: last
@@ -1059,10 +1046,10 @@ groups:
               datasource:
                 type: __expr__
                 uid: "-100"
-              expression: "A / B"
+              expression: A
               intervalMs: 1000
               maxDataPoints: 43200
-              refId: C
+              refId: B
               type: classic_conditions
         for: 10m
         noDataState: NoData

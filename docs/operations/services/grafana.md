@@ -20,6 +20,18 @@
 | Drilldown plugins | **Enabled:** Metrics Drilldown (`grafana-metricsdrilldown-app`); **Disabled:** Logs Drilldown (`grafana-lokiexplore-app`), Traces Drilldown (`grafana-exploretraces-app`) |
 | Depends on | `routetraefik`, `obsvcegrafanainit`, `obsvcealloy` |
 
+## Access and authentication
+
+| Control | State |
+|---|---|
+| Ingress allowlist source | `TRUSTED_IP` (Traefik `grafana-allowlist@file` middleware on the `websecure` router) |
+| Grafana authentication | Built-in Grafana auth (`GF_SECURITY_ADMIN_USER` / `GF_SECURITY_ADMIN_PASSWORD`) |
+| Authentik forward auth | **Not used for Grafana** (removed in Stage 5) |
+| Anonymous access | Disabled (`GF_USERS_ALLOW_SIGN_UP=false`; auth required) |
+| Separate Grafana CIDR variable | **Absent** — no `GRAFANA_ALLOWED_CIDRS` exists in compose or `.env` |
+
+Requests from sources outside the `TRUSTED_IP` allowlist receive a Traefik 403 before Grafana is reached. The allowlist is not evidence of Grafana-side authorization: Grafana still requires login after the network gate.
+
 ## Configuration
 
 Set in `.env` (see [`env.example`](../../../env.example)):
@@ -40,19 +52,93 @@ Grafana settings applied by the compose file:
 | `GF_INSTALL_PLUGINS` | `victoriametrics-logs-datasource` | Logs datasource |
 | `GF_PLUGINS_DISABLE_PLUGINS` | `grafana-lokiexplore-app,grafana-exploretraces-app` | Hide incompatible Drilldown apps |
 
+## Datasources
+
+Authoritative inventory from [`provisioning/datasources/datasources.yml`](../../../shared/grafana/provisioning/datasources/datasources.yml):
+
+| Name | UID | Type / plugin | Access | Default | Intended use | Explore | Drilldown |
+|---|---|---|---|---|---|---|---|
+| VictoriaMetrics | `victoriametrics` | `prometheus` (Prometheus API) | proxy | **Yes** (`isDefault: true`) | All metric panels, alert evaluation, Metrics Drilldown | Supported | Metrics Drilldown — **enabled** |
+| VictoriaLogs | `victorialogs` | `victoriametrics-logs-datasource` (prometheus-logs plugin) | proxy | No | All log panels, GeoIP panels, log-based alert rule | Supported | Logs Drilldown — **disabled** (Loki-only plugin) |
+
+Both datasources are provisioned with `editable: false` and communicate with their backends over the internal Docker network (`obsvcevm:8428`, `obsvcevlogs:9428`). No credentials or secret-bearing URLs are stored in the datasource configuration — both backends are unauthenticated inside the private network.
+
 ## Provisioning
 
-Both provisioning files are mounted read-only from [`provisioning/`](../../../shared/grafana/provisioning):
+Provisioning files are mounted read-only from [`provisioning/`](../../../shared/grafana/provisioning):
 
-| File | Purpose |
+| Path | Purpose |
 |---|---|
-| [`provisioning/datasources/datasources.yml`](../../../shared/grafana/provisioning/datasources/datasources.yml) | VictoriaMetrics (default) and VictoriaLogs data sources |
-| [`provisioning/dashboards/dashboards.yml`](../../../shared/grafana/provisioning/dashboards/dashboards.yml) | Loads dashboards from `/var/lib/grafana/dashboards` |
+| [`provisioning/datasources/datasources.yml`](../../../shared/grafana/provisioning/datasources/datasources.yml) | VictoriaMetrics (default) and VictoriaLogs datasources |
+| [`provisioning/dashboards/dashboards.yml`](../../../shared/grafana/provisioning/dashboards/dashboards.yml) | File provider: `path: /var/lib/grafana/dashboards`, `foldersFromFilesStructure: true`, `updateIntervalSeconds: 30`, `allowUiUpdates: true`, `disableDeletion: false` |
+| [`provisioning/alerting/alerting.yml`](../../../shared/grafana/provisioning/alerting/alerting.yml) | Enables Grafana-managed alert evaluation (`alerting.enabled: true`) |
+| [`provisioning/alerting/servicehub.yml`](../../../shared/grafana/provisioning/alerting/servicehub.yml) | 27 alert rules in 3 groups, folder `ServiceHub Alerts` |
 
-Pre-built dashboards in [`dashboards/`](../../../shared/grafana/dashboards) are mounted at `/var/lib/grafana/dashboards/observability` and include:
+Dashboard files are mounted at `/var/lib/grafana/dashboards/observability`. Because `foldersFromFilesStructure: true` is set, the subdirectory structure determines Grafana folders:
+
+| Folder on disk | Contents | Count |
+|---|---|---|
+| `shared/grafana/dashboards/` | First-party ServiceHub dashboards | **8** |
+| `shared/grafana/dashboards/reference/` | Reference dashboards | **10** |
+| **Total provisioned** | | **18** |
 
 - **First-party ServiceHub dashboards (8):** Overview, Infrastructure, Traffic and Edge, Docker and Containers, Applications, Database, Observability Health, Security
 - **Reference dashboards (10):** Node Exporter Full, cAdvisor Explorer/Dashboard, Docker Dashboard/Containers Overview, Traefik Full Observability/Official Standalone, VictoriaMetrics Overview, VictoriaLogs Explorer/Internal State
+
+Only the 8 first-party dashboards are maintained for ServiceHub operations. The 10 reference dashboards are reference-only and may reference datasources that are not provisioned here. See the [Dashboard Catalogue](../observability-dashboards.md) for per-dashboard detail.
+
+### Safe Grafana recreation
+
+```bash
+# Recreate Grafana only — picks up provisioning and dashboard changes
+docker compose up -d --no-deps --force-recreate obsvcegrafana
+```
+
+Do **not** use `docker compose down -v` — that destroys persisted Grafana state and telemetry volumes.
+
+### Validation commands
+
+```bash
+GP=$(docker exec servicehub-obsvcegrafana-1 printenv GF_SECURITY_ADMIN_PASSWORD)
+GIP=$(docker inspect servicehub-obsvcegrafana-1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+
+# Dashboard count (expect 18)
+curl -s -u "Captain.Li:$GP" http://$GIP:3000/api/search | jq 'length'
+
+# Alert groups and rule counts (expect 3 groups / 27 rules)
+curl -s -u "Captain.Li:$GP" \
+  http://$GIP:3000/api/prometheus/grafana/api/v1/rules \
+| jq '.data.groups[] | {name, count: (.rules | length)}'
+
+# Rule health (expect all "ok")
+curl -s -u "Captain.Li:$GP" \
+  http://$GIP:3000/api/prometheus/grafana/api/v1/rules \
+| jq '[.data.groups[].rules[] | select(.health != "ok") | {name, health, lastError}]'
+```
+
+### Rollback workflow
+
+```bash
+git revert <commit>
+docker compose up -d --no-deps --force-recreate obsvcegrafana
+```
+
+Documentation-only rollback requires no service restart. Grafana's SQLite database persists in `${APPS_DATA}/obsvce/grafana` and is not reset by a recreate. Telemetry in VictoriaMetrics/VictoriaLogs is never deleted during rollback.
+
+## Explore and Drilldown
+
+Explore and Drilldown do **not** have identical compatibility in this deployment.
+
+| Capability | State | Reason |
+|---|---|---|
+| Explore Metrics | **Supported** | VictoriaMetrics exposes the Prometheus query/label/series API through the Grafana proxy |
+| Explore Logs | **Supported** | VictoriaLogs LogSQL queries return correct results through the Grafana proxy |
+| Metrics Drilldown | **Enabled and validated** | `grafana-metricsdrilldown-app` accepts `datasource.type == "prometheus"`; VictoriaMetrics is Prometheus-compatible |
+| Logs Drilldown | **Disabled** (documented limitation) | `grafana-lokiexplore-app` only supports the `loki` datasource type; VictoriaLogs has no drilldown-limits endpoint. Use Explore with the VictoriaLogs datasource instead |
+| Traces Drilldown | **Disabled** (deferred) | No tracing backend is provisioned (no Tempo/Jaeger). OCI APM is disabled. `grafana-exploretraces-app` is disabled so no broken UI is presented |
+
+Disabled plugins are configured via `GF_PLUGINS_DISABLE_PLUGINS=grafana-lokiexplore-app,grafana-exploretraces-app`. No fake datasource is provisioned to satisfy a disabled plugin.
+
 
 ## Data & persistence
 
