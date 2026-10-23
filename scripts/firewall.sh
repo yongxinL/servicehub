@@ -89,14 +89,9 @@ LIMIT="-m limit --limit $LOG_RATE"
 die() { echo "egress: $*" >&2; exit 1; }
 warn() { echo "egress: WARNING: $*" >&2; }
 
-valid_ipv4() {
-  awk -F. -v address="$1" 'BEGIN {
-    if (split(address, octets, ".") != 4) exit 1
-    for (i = 1; i <= 4; i++)
-      if (octets[i] !~ /^[0-9]+$/ || octets[i] + 0 > 255) exit 1
-    exit 0
-  }'
-}
+# Single shared detection helper: validates IPv4, detects public IP via OCI metadata
+# or outbound check, rejects private/reserved/multicast addresses.
+. "$(dirname "$0")/public-ip.sh"
 
 if [ "$(id -u)" -ne 0 ] && [ "${1:-}" != "selftest" ] && [ -z "${EGRESS_NOSUDO:-}" ]; then
   exec sudo "$0" "$@"
@@ -107,20 +102,7 @@ fi
 # EGRESS_SELF_IP=<ipv4>; otherwise detected via cloud instance metadata, then
 # the host's outbound IPv4 address.
 self_ip() {
-  if [ -n "${EGRESS_SELF_IP:-}" ]; then
-    valid_ipv4 "$EGRESS_SELF_IP" || return 1
-    printf '%s\n' "$EGRESS_SELF_IP"
-    return 0
-  fi
-  command -v curl >/dev/null 2>&1 || return 1
-  ip=$(curl --noproxy '*' -fsS -m 2 -H 'Authorization: Bearer Oracle' \
-      http://169.254.169.254/opc/v2/vnics/ 2>/dev/null ||
-    curl --noproxy '*' -fsS -m 2 http://169.254.169.254/opc/v1/vnics/ 2>/dev/null || true)
-  ip=$(printf '%s' "$ip" | sed -n 's/.*"publicIp"[[:space:]]*:[[:space:]]*"\([0-9.]*\)".*/\1/p' | head -1)
-  valid_ipv4 "$ip" && { printf '%s\n' "$ip"; return 0; }
-  ip=$(curl --noproxy '*' -4 -fsS -m 5 https://checkip.amazonaws.com 2>/dev/null | tr -d ' \t\n')
-  valid_ipv4 "$ip" && { printf '%s\n' "$ip"; return 0; }
-  return 1
+  detect_servicehub_public_ipv4
 }
 
 # Destinations for allow/revoke/allow-domain: an explicit CIDR, a bare IPv4
