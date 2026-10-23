@@ -8,6 +8,8 @@ This document describes the operational observability platform (ADR-010) deploye
 
 - **Metrics**: Host, container, Traefik, native application (Authentik, oCIS, Alloy, PostgreSQL), and blackbox probe metrics → VictoriaMetrics → Grafana
 - **Logs**: Journal (SSH, sudo, logind, kernel, Docker, systemd, firewall), container logs, Traefik access logs → Alloy → VictoriaLogs → Grafana
+- **Traffic classification**: Traefik access logs carry a `traffic_origin` field (`self` / `internal` / `external`) assigned at ingestion by Alloy (ADR-010)
+- **Retention**: VictoriaMetrics 90 days, VictoriaLogs 30 days (owner-approved policy, ADR-010)
 - **Dashboards**: 8 first-party ServiceHub dashboards + 10 reference dashboards provisioned via file provider
 - **Alert evaluation**: 27 Grafana-managed rules across 3 groups; evaluation enabled, notification delivery intentionally not configured
 
@@ -37,8 +39,8 @@ All components communicate over the internal Docker `subnet` network. VictoriaMe
 | Component | Role | Key config | Data produced |
 |-----------|------|------------|---------------|
 | **Alloy** (`obsvcealloy`) | Single telemetry collector. Scrapes Prometheus endpoints, tails Docker/journal logs, runs blackbox probes, enriches with GeoIP, forwards metrics to VictoriaMetrics and logs to VictoriaLogs. | `shared/grafana/alloy/config.alloy` (973 lines), `postgres.alloy`, `blackbox.yml` | `project="servicehub"` label on all series/streams; bounded `logical_service` identity (8 values); GeoIP country code as label |
-| **VictoriaMetrics** (`obsvcevm`) | Long-term metric storage, Prometheus-compatible query API, remote-write receiver. | `compose/obsvce.yml`, `--storageDataPath=/storage` | Metrics from Alloy scrapes; `/health` endpoint |
-| **VictoriaLogs** (`obsvcevlogs`) | Long-term log storage, LogSQL/LogQL query API, Loki-compatible push endpoint. | `compose/obsvce.yml`, `--storageDataPath=/vlogs` | Logs from Alloy; `/health` endpoint |
+| **VictoriaMetrics** (`obsvcevm`) | Long-term metric storage, Prometheus-compatible query API, remote-write receiver. Retains 90 days (`--retentionPeriod=${VICTORIAMETRICS_RETENTION:-90d}`). | `compose/obsvce.yml`, `--storageDataPath=/storage` | Metrics from Alloy scrapes; `/health` endpoint |
+| **VictoriaLogs** (`obsvcevlogs`) | Long-term log storage, LogSQL/LogQL query API, Loki-compatible push endpoint. Retains 30 days (`--retentionPeriod=${VICTORIALOGS_RETENTION:-30d}`). | `compose/obsvce.yml`, `--storageDataPath=/vlogs` | Logs from Alloy; `/health` endpoint |
 | **Grafana** (`obsvcegrafana`) | Visualization, dashboard provisioning, alert evaluation. Built-in auth + Traefik `TRUSTED_IP` allowlist. Plugins: `victoriametrics-logs-datasource`; Drilldown: Metrics enabled, Logs/Traces disabled. | `shared/grafana/provisioning/` (datasources, dashboards, alerting) | 18 dashboards provisioned, 27 alert rules loaded |
 | **cAdvisor** (embedded in Alloy) | Container CPU, memory, disk I/O, network, restart/OOM metrics. | `prometheus.exporter.cadvisor` in `config.alloy` | `container_*`, `container_label_*` → relabeled to `compose_service` + `logical_service` |
 | **node/host exporter** (unix exporter) | Host CPU, memory, filesystem, disk, network, PSI, load, uptime. | `prometheus.exporter.unix` in `config.alloy` (procfs/sysfs/rootfs from `/host/*`) | `node_*` metrics with `job="obstack"` |
@@ -119,6 +121,25 @@ docker compose up -d obsvcevm obsvcevlogs obsvcealloy obsvcegrafana obsvcegrafan
 - Configuration is file-provisioned: revert the file, `docker compose up -d --force-recreate` the affected service.
 - Telemetry data (VictoriaMetrics/VictoriaLogs volumes) is **never deleted** during rollback.
 - No `docker compose down -v` — destroys persisted telemetry.
+
+### Traffic origin and public-IP change
+
+Traefik access logs carry `traffic_origin` as structured metadata (not a stream label). The value is assigned by Alloy at ingestion:
+
+| Value | Definition |
+|-------|-----------|
+| `self` | Client IP equals the ServiceHub public IPv4 address (hairpin/loopback via public address, health checks, monitoring probes) |
+| `internal` | RFC1918, loopback, link-local, or shared (100.64/10) address |
+| `external` | Anything else (public client) |
+
+The ServiceHub public IPv4 is detected automatically during `scripts/setup.sh` (same detection as `scripts/firewall.sh`) and written to `runtime/servicehub.env` (Git-ignored, mode 0600). Alloy reads this file via Compose `env_file`.
+
+**If the public IP changes** (e.g., after an ISP reassignment or OCI instance rebuild):
+1. Run `bash scripts/setup.sh` to re-detect and rewrite `runtime/servicehub.env`.
+2. Recreate Alloy: `docker compose up -d --no-deps --force-recreate obsvcealloy`.
+3. Existing logs retain the old `traffic_origin` value; only new logs are classified correctly. Historical reclassification is not performed (telemetry is immutable after write).
+
+**Healthy empty state**: The "Internal Client IP Distribution" panel on the Traffic and Edge dashboard is expected to be empty or near-empty on a host with no routed private-traffic clients. This is healthy; it does not indicate a collection failure.
 
 ---
 

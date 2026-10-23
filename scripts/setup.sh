@@ -299,6 +299,40 @@ if [ -n "$EGRESS_POLICY_DST" ] && [ -d "$APPS_DATA" ]; then
     fi
 fi
 
+# Generate runtime/servicehub.env: the ServiceHub public IPv4, detected with the
+# same logic firewall.sh uses for the restricted-hairpin allowance. The real
+# value is Git-ignored and never written to .env, so Git never carries an IP.
+# Layout: directory 0700, file 0600, written via temp file + mv so a failure
+# leaves no partial file. A failed detection keeps the previous value instead of
+# clearing it — a stale IP only mis-classifies traffic, an empty one disables
+# self detection entirely.
+#
+# shellcheck source=scripts/public-ip.sh
+. "$SCRIPT_DIR/public-ip.sh"
+RUNTIME_DIR="$PROJECT_ROOT/runtime"
+RUNTIME_ENV="$RUNTIME_DIR/servicehub.env"
+install -d -m 0700 "$RUNTIME_DIR"
+detected_ip=$(detect_servicehub_public_ipv4 || true)
+if [ -z "$detected_ip" ] && [ -f "$RUNTIME_ENV" ]; then
+    detected_ip=$(grep -E '^SERVICEHUB_PUBLIC_IP=' "$RUNTIME_ENV" | tail -1 | cut -d= -f2- | tr -d '"')
+    if [ -n "$detected_ip" ]; then
+        echo "Public IP detection failed; keeping the previous value in $RUNTIME_ENV"
+    fi
+fi
+if [ -n "$detected_ip" ]; then
+    # Unchanged: leave the file alone so mtime (and any watcher) is stable.
+    if [ "$(grep -E '^SERVICEHUB_PUBLIC_IP=' "$RUNTIME_ENV" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"')" != "$detected_ip" ]; then
+        tmp_env=$(mktemp "$RUNTIME_DIR/.servicehub.env.XXXXXX")
+        printf 'SERVICEHUB_PUBLIC_IP=%s\n' "$detected_ip" >"$tmp_env"
+        chmod 0600 "$tmp_env"
+        mv "$tmp_env" "$RUNTIME_ENV"
+        echo "Wrote $RUNTIME_ENV (mode 0600)"
+    fi
+else
+    echo "Warning: public IPv4 could not be detected; $RUNTIME_ENV not created" >&2
+fi
+unset detected_ip tmp_env
+
 # Regenerate the Traefik admin routers from .env (ADR-009). The file provider
 # watches shared/traefik/advanced, so TRUSTED_IP, DOMAIN_NAME and the derived
 # domain changes hot-reload without restarting any container. Fail loudly:

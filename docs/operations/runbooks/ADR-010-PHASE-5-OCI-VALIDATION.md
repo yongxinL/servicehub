@@ -1024,11 +1024,16 @@ External watchdog:
 
 Retention:
 
-- Neither VictoriaMetrics nor VictoriaLogs sets a retention period; both are unlimited and
-  disk-constrained only. Observed after about ten hours: VictoriaMetrics 12 MB,
-  13,519 series, about 217 samples/s; VictoriaLogs 30 MB; Grafana 326 MB; host disk 67%
-  used with 25 GB free. Retention was **not** changed, because it would delete existing
-  telemetry and the DEV window is too short to justify a value.
+- VictoriaMetrics is configured with `--retentionPeriod=${VICTORIAMETRICS_RETENTION:-90d}`
+  and VictoriaLogs with `--retentionPeriod=${VICTORIALOGS_RETENTION:-30d}` (owner-approved
+  ADR-010 policy). Enforcement is server-side: on restart each store deletes data older
+  than its retention period. No telemetry volume is deleted by the rollout itself — the
+  window simply begins expiring from that point forward. Rollback is setting the override
+  variable in `.env` (e.g. `VICTORIALOGS_RETENTION=365d`) and recreating the affected
+  service; already-deleted data cannot be recovered. Observed before enforcement:
+  VictoriaMetrics 12 MB, 13,519 series, about 217 samples/s; VictoriaLogs 30 MB; Grafana
+  326 MB; host disk 67% used with 25 GB free. Sizing at those rates is an
+  observation-window concern, not a retention concern.
 
 Thresholds:
 
@@ -1060,8 +1065,6 @@ Remaining deferred items:
 - Confluence JMX pending an approved exporter version and checksum.
 - Notification delivery pending an owner-selected contact point.
 - External whole-host watchdog pending an approved provider.
-- Retention configuration pending an owner observation window and approval, since setting
-  it deletes existing telemetry.
 - Threshold retuning pending a longer DEV history.
 - Runner end-to-end workflow execution pending a Forgejo dispatch credential.
 - Applications dashboard label-model inconsistency (`$service` short names versus
