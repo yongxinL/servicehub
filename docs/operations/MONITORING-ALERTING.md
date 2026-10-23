@@ -86,7 +86,7 @@ A collector health metric of `1` confirms the collector ran, not that it produce
 | Confluence JMX | Blocked | No approved exporter artifact or checksum exists; owner decision required |
 | Notification delivery | Blocked | No approved contact point or credential exists |
 | External watchdog | Blocked | No approved external provider or endpoint exists |
-| Retention | Deferred | Both stores are unlimited; DEV sizing needs an owner observation window |
+| Retention | Approved | VM 90d / VLogs 30d (ADR-010); DEV sizing needs an owner observation window |
 | Alert thresholds | Validated and retained | All thresholds have headroom on observed DEV data; none changed |
 | OCI APM | Deferred (disabled) | Scaffolding is inert; logs disabled by policy |
 
@@ -135,13 +135,16 @@ failures 0; PostgreSQL backends 23 against a pool maximum of 125; TLS certificat
 87 days remaining against a 14-day threshold. Thresholds were not changed to silence
 anything, and a ten-hour DEV window is too short to justify retuning.
 
-**Retention (Deferred).** Neither VictoriaMetrics nor VictoriaLogs has a retention period
-configured, so both are unlimited and constrained only by disk. Observed after roughly
-ten hours: VictoriaMetrics 12 MB with 13,519 active series and about 217 samples/s
-ingestion; VictoriaLogs 30 MB. Grafana storage is 326 MB. Host disk is 67% used with
-25 GB available. Because the observation window is a single DEV day, production retention
-must not be inferred from it. Setting retention would begin deleting existing telemetry
-and therefore needs explicit owner approval.
+**Retention (Approved — ADR-010).** VictoriaMetrics is configured with
+`--retentionPeriod=${VICTORIAMETRICS_RETENTION:-90d}` and VictoriaLogs with
+`--retentionPeriod=${VICTORIALOGS_RETENTION:-30d}`. Retention enforcement is server-side:
+on restart, each store deletes data older than its retention period. No telemetry volume
+is deleted by the rollout itself — the window simply begins expiring from that point
+forward. Rollback is setting the override variable in `.env` (e.g. `VICTORIALOGS_RETENTION=365d`)
+and recreating the affected service; already-deleted data cannot be recovered. Observed
+before enforcement: VictoriaMetrics 12 MB with 13,519 active series and about 217 samples/s
+ingestion; VictoriaLogs 30 MB; Grafana storage 326 MB; host disk 67% used with 25 GB
+available. Sizing at those rates is an observation-window concern, not a retention concern.
 
 **Alert selector defects corrected.** The Traffic Edge "TLS state and certificate expiry"
 panel queried `component="public-probe"`, which exists in no series, so both targets were
