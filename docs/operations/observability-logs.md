@@ -2,7 +2,7 @@
 
 > Source matrix, display standard, post-cutover boundary, labels vs metadata, useful queries.
 
-All logs flow through Alloy → VictoriaLogs → Grafana. VictoriaLogs datasource UID: `victorialogs`. Push endpoint: `http://obsvcevlogs:9428/insert/loki/api/v1/push`.
+All logs flow through Alloy → VictoriaLogs → Grafana. VictoriaLogs datasource UID: `victorialogs`. Push endpoint: `http://obsvcevlogs:9428/insert/loki/api/v1/push`. Retention: **30 days** (`--retentionPeriod=30d`, owner-approved).
 
 ---
 

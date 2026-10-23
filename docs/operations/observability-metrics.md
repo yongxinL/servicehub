@@ -2,7 +2,7 @@
 
 > Meaningful metric families, formulas, and consumers. Not an exhaustive series list.
 
-All metrics live in VictoriaMetrics with `project="servicehub"` and `environment` labels. Scrape interval is 30s (probes 30s internal / 60s public). Datasource UID: `victoriametrics`.
+All metrics live in VictoriaMetrics with `project="servicehub"` and `environment` labels. Scrape interval is 30s (probes 30s internal / 60s public). Retention: **90 days** (`--retentionPeriod=90d`, owner-approved). Datasource UID: `victoriametrics`.
 
 ---
 
