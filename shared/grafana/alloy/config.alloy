@@ -813,7 +813,7 @@ loki.secretfilter "host" {
 // GEOIP ENRICHMENT — for Traefik access logs
 // =============================================
 loki.process "geoip_enrichment" {
-	forward_to = [loki.write.vlogs.receiver]
+	forward_to = [loki.process.traffic_classifier.receiver]
 
 	// Extract client IP from Traefik JSON log ClientHost field (real TCP source address)
 	stage.json {
@@ -865,6 +865,68 @@ loki.process "geoip_enrichment" {
 	// the documented acceptance path for Traefik per Stage 5 (section 272-289).
 	// The placeholder is a known limitation of plain JSON ingestion, documented
 	// here so it is not mistaken for an ingestion defect.
+
+	stage.static_labels {
+		values = {
+			project     = "servicehub",
+			environment = sys.env("ENVIRONMENT"),
+		}
+	}
+}
+
+// =============================================
+// TRAFFIC-ORIGIN CLASSIFICATION (ADR-010)
+// Classify Traefik access-log traffic as self, internal, or external.
+// The ADR states the field must be queryable but must NOT become a stream label
+// (only the three bounded values exist and stream growth must be measured).
+// stage.labels would promote it to a stream label, so classification uses
+// stage.regex + stage.structured_metadata instead.
+// Uses SERVICEHUB_PUBLIC_IP from runtime/servicehub.env (populated by
+// scripts/setup.sh, same detection as firewall.sh).
+// =============================================
+loki.process "traffic_classifier" {
+	forward_to = [loki.write.vlogs.receiver]
+
+	// RFC1918, loopback, link-local and shared (100.64/10) are internal.
+	// The ServiceHub public IP is self. Everything else is external.
+	// Regex match against client_ip (already extracted as structured metadata).
+	// Classification writes to structured metadata only; no stream label is created.
+	stage.match {
+		selector = "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"}"
+
+		// Internal: RFC1918, loopback, link-local, shared (100.64/10)
+		stage.regex {
+			expression = "^(?P<traffic_origin>10\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.|192\\.168\\.|127\\.|169\\.254\\.|100\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\.)"
+			source     = "client_ip"
+		}
+		stage.structured_metadata {
+			values = {
+				traffic_origin = "internal",
+			}
+		}
+
+		// Self: exact match of the ServiceHub public IP
+		stage.regex {
+			expression = "^(?P<traffic_origin>" + sys.env("SERVICEHUB_PUBLIC_IP") + ")$"
+			source     = "client_ip"
+		}
+		stage.structured_metadata {
+			values = {
+				traffic_origin = "self",
+			}
+		}
+
+		// External: everything else (default)
+		stage.regex {
+			expression = "^(?P<traffic_origin>.+)$"
+			source     = "client_ip"
+		}
+		stage.structured_metadata {
+			values = {
+				traffic_origin = "external",
+			}
+		}
+	}
 
 	stage.static_labels {
 		values = {
