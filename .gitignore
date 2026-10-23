@@ -265,3 +265,6 @@ shared/traefik/advanced/admin-routers.yml
 
 # Confluence bundled plugin tarballs required by the image build
 !shared/confluence/plugins/*.tar.gz
+
+# Generated runtime state (contains the detected ServiceHub public IPv4)
+runtime/servicehub.env

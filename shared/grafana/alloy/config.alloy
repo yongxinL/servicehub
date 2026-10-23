@@ -813,7 +813,7 @@ loki.secretfilter "host" {
 // GEOIP ENRICHMENT — for Traefik access logs
 // =============================================
 loki.process "geoip_enrichment" {
-	forward_to = [loki.write.vlogs.receiver]
+	forward_to = [loki.process.traffic_classifier.receiver]
 
 	// Extract client IP from Traefik JSON log ClientHost field (real TCP source address)
 	stage.json {
@@ -857,14 +857,64 @@ loki.process "geoip_enrichment" {
 
 	// Traefik JSON access logs arrive with a placeholder _msg. Build a compact
 	// human-readable line: "<method> <host><path> <route> -> <status> in <duration>ms"
-	// stage.template (Go templates) is not supported; stage.output source= references
-	// a field by name, so stage.structured_metadata values = {} is not usable.
-	// Instead, keep the Traefik JSON line as the log line: its structured fields
-	// (RequestMethod, RequestHost, RequestPath, RouterName, DownstreamStatus,
-	// Duration) already render as columns on the Traffic/Edge dashboards, which is
-	// the documented acceptance path for Traefik per Stage 5 (section 272-289).
-	// The placeholder is a known limitation of plain JSON ingestion, documented
-	// here so it is not mistaken for an ingestion defect.
+	// Not done here: stage.template rewrites one field at a time and would not
+	// produce the multi-field summary. Instead, keep the Traefik JSON line as the
+	// log line: its structured fields (RequestMethod, RequestHost, RequestPath,
+	// RouterName, DownstreamStatus, Duration) already render as columns on the
+	// Traffic/Edge dashboards, which is the documented acceptance path for Traefik
+	// per Stage 5 (section 272-289). The placeholder is a known limitation of plain
+	// JSON ingestion, documented here so it is not mistaken for an ingestion defect.
+
+	stage.static_labels {
+		values = {
+			project     = "servicehub",
+			environment = sys.env("ENVIRONMENT"),
+		}
+	}
+}
+
+// =============================================
+// TRAFFIC-ORIGIN CLASSIFICATION (ADR-010)
+// Classify Traefik access-log traffic as self, internal, or external.
+// The ADR states the field must be queryable but must NOT become a stream label
+// (only the three bounded values exist and stream growth must be measured).
+// stage.labels would promote it to a stream label, so classification uses
+// stage.regex + stage.structured_metadata instead.
+// Uses SERVICEHUB_PUBLIC_IP from runtime/servicehub.env (populated by
+// scripts/setup.sh, same detection as firewall.sh).
+// =============================================
+loki.process "traffic_classifier" {
+	forward_to = [loki.write.vlogs.receiver]
+
+	// Re-extract client_ip from the raw Traefik JSON line. The geoip_enrichment
+	// stage has already promoted client_ip to structured metadata; re-reading the
+	// JSON here makes the field available as an extracted value for stage.template.
+	stage.json {
+		expressions = {
+			client_ip = "ClientHost",
+		}
+	}
+
+	// RFC1918, loopback, link-local and shared (100.64/10) are internal.
+	// The ServiceHub public IP is self. Everything else is external.
+	// stage.template mutates client_ip in place; stage.structured_metadata then
+	// promotes that value under traffic_origin. The client_ip structured metadata
+	// set by geoip_enrichment is already a copy and is not affected.
+	// Classification lands in structured metadata only, never a stream label.
+	stage.match {
+		selector = "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"}"
+
+		stage.template {
+			source   = "client_ip"
+			template = "{{ if regexMatch \"^(10\\\\.|172\\\\.(1[6-9]|2[0-9]|3[0-1])\\\\.|192\\\\.168\\\\.|127\\\\.|169\\\\.254\\\\.|100\\\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\\\.)\" .Value }}internal{{ else if eq .Value \"" + sys.env("SERVICEHUB_PUBLIC_IP") + "\" }}self{{ else }}external{{ end }}"
+		}
+
+		stage.structured_metadata {
+			values = {
+				traffic_origin = "client_ip",
+			}
+		}
+	}
 
 	stage.static_labels {
 		values = {
