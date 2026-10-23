@@ -1289,7 +1289,9 @@
       },
       "description": "Internal client IP distribution (traffic_origin=internal).",
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "No internal/private client traffic in the selected time range"
+        },
         "overrides": []
       },
       "gridPos": {
