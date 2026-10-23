@@ -945,7 +945,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Top 10 countries by request count from Traefik access logs (bounded view).",
+      "description": "Top 10 countries by request count from external clients (traffic_origin=external).",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -976,7 +976,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
           "queryType": "stats",
           "refId": "A"
         }
@@ -1073,7 +1073,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Public client IP distribution. Private, loopback, link-local, shared, and reserved addresses are excluded at query time.",
+      "description": "External client IP distribution (traffic_origin=external). Private, loopback, link-local, shared, and reserved addresses excluded.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -1109,7 +1109,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:* | filter -client_ip:re(\"^(0\\\\.|10\\\\.|100\\\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.0\\\\.0\\\\.|192\\\\.0\\\\.2\\\\.|192\\\\.168\\\\.|198\\\\.(1[89])\\\\.|224\\\\.|240\\\\.|255\\\\.)\") | filter -client_ip:re(\"(?i)^(fe80:|fc00:|fd00:|fdff:|::1$)\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
           "queryType": "stats",
           "refId": "A"
         }
@@ -1146,7 +1146,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Top 15 public client IPs by request count across the selected dashboard time range. Private, loopback, link-local, shared, and reserved addresses are excluded at query time. Follows the dashboard time range.",
+      "description": "Top 15 external client IPs by request count (traffic_origin=external). Follows the dashboard time range.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -1177,7 +1177,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:* | filter -client_ip:re(\"^(0\\\\.|10\\\\.|100\\\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.0\\\\.0\\\\.|192\\\\.0\\\\.2\\\\.|192\\\\.168\\\\.|198\\\\.(1[89])\\\\.|224\\\\.|240\\\\.|255\\\\.)\") | filter -client_ip:re(\"(?i)^(fe80:|fc00:|fd00:|fdff:|::1$)\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
           "queryType": "stats",
           "refId": "A"
         }
@@ -1214,7 +1214,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Top 10 public client IPs by request count across the selected dashboard time range. Private and reserved addresses are excluded at query time. Follows the dashboard time range.",
+      "description": "Top 10 external client IPs by request count (traffic_origin=external). Follows the dashboard time range.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -1250,7 +1250,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:* | filter -client_ip:re(\"^(0\\\\.|10\\\\.|100\\\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.0\\\\.0\\\\.|192\\\\.0\\\\.2\\\\.|192\\\\.168\\\\.|198\\\\.(1[89])\\\\.|224\\\\.|240\\\\.|255\\\\.)\") | filter -client_ip:re(\"(?i)^(fe80:|fc00:|fd00:|fdff:|::1$)\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 10",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | stats by (client_ip) count() as requests | sort by (requests desc) | limit 10",
           "queryType": "stats",
           "refId": "A"
         }
@@ -1287,7 +1287,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Private, loopback, link-local, and reserved-address traffic. Provenance of routed private clients requires owner confirmation.",
+      "description": "Internal client IP distribution (traffic_origin=internal).",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -1323,12 +1323,12 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter client_ip:re(\"^(0\\\\.|10\\\\.|127\\\\.|169\\\\.254\\\\.|172\\\\.(1[6-9]|2[0-9]|3[01])\\\\.|192\\\\.168\\\\.|(?i)(fe80:|fc00:|fd00:|fdff:|::1$))\") | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"internal\" | stats by (client_ip) count() as requests | sort by (requests desc) | limit 15",
           "queryType": "stats",
           "refId": "A"
         }
       ],
-      "title": "Internal/Private Client IP Distribution",
+      "title": "Internal Client IP Distribution",
       "type": "piechart",
       "transformations": [
         {
@@ -1360,7 +1360,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Top 15 countries distribution (pie).",
+      "description": "Top 15 countries distribution from external clients (traffic_origin=external).",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -1396,7 +1396,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 15",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 15",
           "queryType": "stats",
           "refId": "A"
         }
@@ -1433,7 +1433,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Total unique countries seen (numeric).",
+      "description": "Total unique countries seen from external clients (traffic_origin=external).",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -1476,7 +1476,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats count_uniq(geoip_country_code) as countries",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | filter geoip_country_code:re(\"^..$\") | stats count_uniq(geoip_country_code) as countries",
           "queryType": "stats",
           "refId": "A"
         }
@@ -1489,7 +1489,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Top 10 countries by request count from Traefik access logs across the selected dashboard time range. Follows the dashboard time range.",
+      "description": "Top 10 countries by request count from external clients (traffic_origin=external) across the selected dashboard time range.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -1525,7 +1525,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
           "queryType": "stats",
           "refId": "A"
         }
@@ -1562,7 +1562,7 @@
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
       },
-      "description": "Top 10 countries by request count over the selected dashboard time range, time-bucketed and stacked. Follows the dashboard time range.",
+      "description": "Top 10 countries by request count from external clients (traffic_origin=external), time-bucketed and stacked. Follows the dashboard time range.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1597,7 +1597,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 10",
           "queryType": "statsRange",
           "refId": "A"
         }
@@ -1615,6 +1615,79 @@
         {
           "id": "merge",
           "options": {}
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "description": "Self-generated requests (traffic_origin=self). Includes health checks, monitoring probes, and internal service-to-service calls originating from the ServiceHub public IP. Useful for diagnostics; excluded from public-facing analytics.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 55
+      },
+      "id": 40,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"self\" | stats by (client_ip, RequestMethod, RequestHost, RouterName, ServiceName) count() as requests | sort by (requests desc) | limit 10",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "title": "Self-Generated Requests",
+      "type": "piechart",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns",
+            "valueLabel": "client_ip"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
         }
       ]
     }
