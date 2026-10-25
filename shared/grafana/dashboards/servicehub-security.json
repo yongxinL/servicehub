@@ -199,7 +199,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | filter geoip_country_code:re(\"^..$\") | stats by (geoip_country_code) count() as requests | sort by (requests desc) | limit 5",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"}\ntraffic_origin:=\"external\"\ngeoip_country_code:*\n| stats by (geoip_country_code) count() as requests\n| sort by (requests desc)\n| limit 5",
           "queryType": "stats",
           "refId": "A"
         }
@@ -258,7 +258,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | filter geoip_country_code:re(\"^..$\") | stats count_uniq(geoip_country_code) as countries",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"}\ntraffic_origin:=\"external\"\ngeoip_country_code:*\n| stats count_uniq(geoip_country_code) as countries",
           "queryType": "stats",
           "refId": "A"
         }
@@ -290,7 +290,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"} | filter traffic_origin=\"external\" | stats by (client_ip) count() as requests | sort by (requests desc) | limit 5",
+          "expr": "{project=\"servicehub\",container_name=\"servicehub-routetraefik-1\"}\ntraffic_origin:=\"external\"\nclient_ip:*\n| stats by (client_ip) count() as requests\n| sort by (requests desc)\n| limit 5",
           "queryType": "stats",
           "refId": "A"
         }
