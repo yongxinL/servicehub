@@ -91,6 +91,8 @@ The decision requires:
 
 The local `aiserv` platform (ADR-009) remains the host for local inference workloads (llama.cpp, Hermes, Open WebUI). 9Router does not run on the local `aiserv` platform. This is consistent with ADR-009, which reserves the OCI deployment for platform services including ingress, identity, DevOps, and business applications, while AI workloads run locally. 9Router is an ingress-layer gateway, not an AI workload.
 
+OCI placement does not imply anonymous public access. Traefik SHALL enforce the approved access policy before forwarding traffic to 9Router.
+
 Final service name, storage path, network, and backup tier SHALL follow ADR-008 conventions during implementation (e.g., service prefix `route`, storage under `${APPS_DATA}/route/`, backup Tier 2, experimental classification).
 
 ## NVIDIA 40 RPM Constraint
@@ -103,7 +105,7 @@ This is an account/provider operating constraint that must be verified during im
 
 Concurrency SHALL be bounded separately from RPM. Retry loops SHALL be bounded and use backoff. `Retry-After` or reset metadata SHOULD be honoured where reliably available. Repeated requests SHALL NOT create a 429 storm.
 
-NVIDIA models sharing one account quota SHALL NOT be treated as independent fallback capacity without evidence. Multiple API keys SHALL NOT be assumed to multiply quota. Fallback SHALL select only explicitly approved free routes. No eligible free route SHALL result in a clear failure rather than paid fallback.
+NVIDIA models sharing one account quota SHALL NOT be treated as independent fallback capacity without evidence. Multiple API keys SHALL NOT be assumed to multiply quota. Fallback SHALL select only explicitly approved free routes. When no eligible approved free route remains, the request SHALL fail clearly and SHALL NOT fall back to a paid or subscription-backed provider.
 
 ### Initial Experimental Operating Profile
 
@@ -216,7 +218,7 @@ The decision tree for rate-control implementation ensures that the decision does
 
 ## Security and Privacy Requirements
 
-Require:
+The implementation SHALL provide:
 
 - HTTPS;
 - API authentication;
@@ -246,13 +248,13 @@ Three distinct authentication layers apply:
 
 1. **Traefik access control** — the `TRUSTED_IP` allowlist protects administrative endpoints (dashboard) at the ingress layer.
 2. **9Router client API authentication** — if the pinned release supports JWT or API-key authentication for the `/v1` client endpoint, it SHALL be configured; this is separate from Traefik's IP-based controls. The relationship between `JWT_SECRET` and client API keys MUST be verified from upstream documentation before relying on it.
-3. **Upstream provider credentials** — NVIDIA and OpenCode Free API keys stored in 9Router's provider configuration, never in Git.
+3. **Upstream provider credentials** — NVIDIA credentials, and any credentials required by other approved providers, stored in 9Router's provider configuration, never in Git. OpenCode Free does not assume an API key; its authentication requirements MUST be verified against the pinned release.
 
 ## Operational Requirements
 
 ### Health and availability
 
-Require later validation of:
+The implementation SHALL validate and provide:
 
 - container state;
 - a verified health endpoint or safe health-check method;
@@ -262,7 +264,7 @@ Require later validation of:
 
 ### Observability
 
-Require visibility, where safely and reliably available, for:
+The implementation SHALL provide visibility, where safely and reliably available, for:
 
 - request count;
 - success, error, timeout, and rate-limit outcomes;
@@ -276,7 +278,7 @@ Require visibility, where safely and reliably available, for:
 
 ### Logging
 
-Require validation that logs do not expose:
+The implementation SHALL ensure that logs do not expose:
 
 - prompts;
 - full model responses;
@@ -289,7 +291,7 @@ Require validation that logs do not expose:
 
 ### Backup and restore
 
-Require:
+The implementation SHALL provide:
 
 - identification of all persistent 9Router state;
 - protected backup of SQLite and related files;
@@ -300,7 +302,7 @@ Require:
 
 ### Upgrade and rollback
 
-Require:
+The implementation SHALL provide:
 
 - pinned release/image;
 - release-note review;
@@ -367,11 +369,23 @@ Require reassessment if:
 
 ## Verified Upstream Facts (9Router)
 
-Based on the official 9Router GitHub repository (`decolua/9router`) and its published documentation as inspected on 2026-11-02. The exact release tag to be pinned is selected during implementation (Gate 1); facts below were verified against upstream `master` documentation and may require re-verification against the pinned tag.
+### Evidence References
+
+**Branch-referenced evidence** (not version-pinned; must be revalidated at Gate 1):
+- Upstream repository: `https://github.com/decolua/9router`
+- Inspected branch: `master`
+- Inspection date: 2026-11-02
+- Source documents:
+  - `README.md` — Docker deployment and quick start
+  - `gitbook/content/en/features/combos.md` — fallback strategy
+  - `gitbook/content/en/features/smart-routing.md` — reactive fallback behaviour
+  - Provider setup examples — NVIDIA configuration
+
+**Pinned implementation evidence**: not yet available. Revalidation required against the selected release tag and image digest (Gate 1).
 
 ### Release and deployment (verified)
 
-- Docker images published to Docker Hub under `decolua/9router` with a `latest` tag; versioned-tag availability is confirmed during implementation (Gate 1).
+- Docker images published to Docker Hub under `decolua/9router` with a `latest` tag; versioned-tag availability confirmed during implementation (Gate 1).
 - Docker deployment documented with volume persistence (`-v "$HOME/.9router:/app/data"`, `DATA_DIR=/app/data`) and native port `20128` (source: upstream `README.md` Docker quick start). ServiceHub exposes 9Router only through Traefik; the native port is not published (Gate 5).
 - SQLite is the application state backend at path configurable via `DATA_DIR` (default `~/.9router`).
 - Container starts without privileged requirements in documented examples.
@@ -431,14 +445,15 @@ This ADR does not:
 |---|---|---:|---|
 | Create Forgejo issue to track 9Router implementation | Project owner | TBD | Proposed |
 | Draft container and Traefik integration (ADR-008 conventions) | Implementation owner | TBD | Proposed |
-| Provision credentials for OpenCode Free, NVIDIA, 9Router | Project owner | TBD | Proposed |
+| Provision credentials for OpenCode Free, NVIDIA, and 9Router | Project owner | TBD | Proposed |
 | Implement rate-control proof of concept (decision boundary) | Implementation owner | TBD | Proposed |
-| Validate Claude Code, Codex CLI, OpenCode compatibility | Implementation owner | TBD | Proposed |
+| Validate Claude Code, Codex CLI, and OpenCode compatibility | Implementation owner | TBD | Proposed |
 | Measure and tune NVIDIA RPM behaviour | Implementation owner | TBD | Proposed |
 | Create and test backup/restore procedures | Implementation owner | TBD | Proposed |
 | Document health, observability, and operational procedures | Implementation owner | TBD | Proposed |
 | Perform security test and compile test report | Implementation owner | TBD | Proposed |
-| Obtain owner acceptance and deploy to production | Project owner | TBD | Proposed |
+| Obtain owner approval for experimental deployment | Project owner | TBD | Proposed |
+| Review promotion beyond experimental status after operational acceptance gates pass | Implementation owner | TBD | Proposed |
 
 ---
 
