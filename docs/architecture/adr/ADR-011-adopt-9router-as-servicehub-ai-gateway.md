@@ -5,13 +5,16 @@ document_type: ADR
 document_id: ADR-011
 title: Adopt 9Router as the ServiceHub AI Gateway
 version: "1.0"
-status: Proposed
+status: Accepted
 decision_basis: Owner selection of 9Router for unified AI client routing with OpenCode Free and NVIDIA provider support, conditional on implementation validation
 lifecycle_stage: Design
 owner: project-owner
 maintainer: project-owner
 created: 2026-11-02
 updated: 2026-11-02
+approved_by: project-owner
+approval_mode: owner-self-approval
+approved_on: 2026-11-02
 tags:
   - servicehub
   - architecture
@@ -423,7 +426,7 @@ Require reassessment if:
 ## Related Documents
 
 - [ADR-002 Use Traefik as the Single HTTP Ingress](ADR-002-use-traefik-as-ingress.md) — ingress exposure and middleware behaviour.
-- [ADR-005 Use LiteLLM for AI Workload Routing](ADR-005-use-litellm-for-ai-routing.md) — existing LiteLLM routing; **if accepted, ADR-011 will supersede the gateway-selection portion of ADR-005**. ADR-005 remains authoritative for local `aiserv` workload routing while ADR-011 is Proposed.
+- [ADR-005 Use LiteLLM for AI Workload Routing](ADR-005-use-litellm-for-ai-routing.md) — existing LiteLLM routing; **ADR-011 supersedes the gateway-selection portion of ADR-005**. ADR-005 remains authoritative for local `aiserv` workload routing. All other ADR-005 decisions remain binding.
 - [ADR-008 Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) — service naming, storage, and network conventions applied to 9Router during implementation.
 - [ADR-009 Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) — OCI scope for 9Router gateway; local `aiserv` scope unaffected.
 

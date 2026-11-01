@@ -4,26 +4,31 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-005
 title: Use LiteLLM for AI Workload Routing
-version: "1.1"
+version: "1.2"
 status: Accepted
 decision_basis: Inferred from current implementation
 lifecycle_stage: Design
 owner: George Li
 maintainer: George Li
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-11-02
 tags:
   - servicehub
   - architecture
   - ai
   - litellm
 related_documents:
+  - ADR-011
   - ARCHITECTURE
   - DATA-FLOW
   - PHASE-003 (archived)
 ---
 
 # ADR-005: Use LiteLLM for AI Workload Routing
+
+<!-- Allowed status: Draft, Proposed, In Review, Accepted, Rejected, Superseded, Deprecated, Archived -->
+
+> **Partial supersession (2026-11-02):** [ADR-011](ADR-011-adopt-9router-as-servicehub-ai-gateway.md), now Accepted, supersedes only this decision's selection of the AI gateway for external coding clients (Claude Code, OpenAI Codex CLI, OpenCode). ADR-011 adopts 9Router for that role, subject to experimental implementation and the 27 operational-acceptance validation gates it defines. ADR-005 remains authoritative for local `aiserv` workload routing, including the `hephaestus` local-inference and `prometheus` cloud-target routing. All other ADR-005 decisions remain binding.
 
 ## Context
 

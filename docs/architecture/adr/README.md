@@ -29,7 +29,7 @@ Proposed, Accepted, Rejected, Deprecated, Superseded. Accepted ADRs are immutabl
 | [ADR-008](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) | Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables | Accepted | 2026-10-06 | 2026-10-04 | Partially superseded by ADR-009 (Open WebUI relocation) |
 | [ADR-009](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) | Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries | Accepted | 2026-10-17 | 2026-10-05 | Supersedes ADR-008 in part; partially superseded by ADR-010 for OCI observability scope |
 | [ADR-010](ADR-010-establish-servicehub-observability-platform.md) | Establish the ServiceHub Observability Platform with Grafana, VictoriaMetrics, VictoriaLogs, Alloy, and Oracle APM | Accepted | 2026-10-17 | 2026-10-05 | Accepted; supersedes ADR-009's OCI-native-only observability decision in part and relevant ADR-008 collector mount restrictions |
-| [ADR-011](ADR-011-adopt-9router-as-servicehub-ai-gateway.md) | Adopt 9Router as the ServiceHub AI Gateway | Proposed | 2026-11-02 | 2026-11-02 | Proposed; conditional on 27 implementation validation gates; replaces ADR-005 gateway function (LiteLLM) with unified OpenCode Free/NVIDIA routing |
+| [ADR-011](ADR-011-adopt-9router-as-servicehub-ai-gateway.md) | Adopt 9Router as the ServiceHub AI Gateway | Accepted | 2026-11-02 | 2026-11-02 | Accepted; supersedes the gateway-selection portion of ADR-005 (LiteLLM); conditional on 27 implementation validation gates for operational acceptance |
 
 Next available identifier: ADR-012.
 
