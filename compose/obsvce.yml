@@ -5,6 +5,7 @@ services:
             context: ../shared/victoriametrics/
         command:
             - "--storageDataPath=/storage"
+            - "--retentionPeriod=${VICTORIAMETRICS_RETENTION:-90d}"
             - "--httpListenAddr=:8428"
             - "--enableTCP6=true"
         healthcheck:
@@ -28,6 +29,7 @@ services:
             context: ../shared/victorialogs/
         command:
             - "--storageDataPath=/vlogs"
+            - "--retentionPeriod=${VICTORIALOGS_RETENTION:-30d}"
             - "--httpListenAddr=:9428"
         image: obsvcevlogs:latest
         networks:
@@ -42,6 +44,13 @@ services:
     obsvcealloy:
         build:
             context: ../shared/grafana/alloy/
+        env_file:
+            # Runtime state written by scripts/setup.sh from the same public-IP
+            # detection firewall.sh uses; never committed. required: false keeps a
+            # host working before the file exists — Alloy then classifies every
+            # public address as external, which is the pre-ADR-010 behaviour.
+            - path: ../runtime/servicehub.env
+              required: false
         entrypoint: /bin/sh
         command:
             - -ec

@@ -140,17 +140,20 @@
   - Open connections by entrypoint (timeseries)
   - Config reloads, last hour (stat) — fixed 1h window
   - TLS certificate expiry, Traefik source (stat)
-  - **GeoIP panels** (VictoriaLogs):
-    - Top 10 Countries by Traffic (bargauge)
+  - **GeoIP panels** (VictoriaLogs, all filtered by `traffic_origin`):
+    - Top 10 Countries by Traffic (bargauge) — `traffic_origin="external"`
     - Traefik access logs (logs) — structured fields: method, host, status, duration; path/query omitted
-    - Client IP Distribution, Geographic Distribution (piecharts/bargauges)
+    - Client IP Distribution, Geographic Distribution (piecharts/bargauges) — `traffic_origin="external"`
+    - Internal Client IP Distribution (piechart) — `traffic_origin="internal"`
+    - Self-Generated Requests (piechart) — `traffic_origin="self"`; diagnostic only
     - Country traffic trend (timeseries) — formerly "Countries, last 6 hours"
+- **Traffic origin classification**: Alloy assigns `traffic_origin` (`self`/`internal`/`external`) to Traefik access logs at ingestion. Public-facing panels (clients, countries) filter `traffic_origin="external"` to exclude self and internal traffic. Internal panel filters `traffic_origin="internal"`. Self-Generated Requests panel is diagnostic only and is excluded from public analytics.
 - **Native metrics vs VictoriaLogs**: Metrics panels use Traefik Prometheus endpoint; GeoIP/client/country/access-log panels use VictoriaLogs.
 - **Apdex formula**: Uses live bucket boundaries 0.1/0.3/1.2/5.0/+Inf; no interpolation needed. Display thresholds: Good ≥0.94, Needs attention 0.85–0.94, Poor <0.85 (proposed defaults, not policy).
 - **Intentional fixed windows**: 10m HTTP outcomes (panels 25–27), 1h config reloads (panel 19), 15m restart/OOM on Overview — descriptions state "ignores dashboard time range".
 - **Dashboard-range panels**: All others follow time picker.
 - **Access-log path/query privacy**: Deliberately omitted — LogSQL cannot strip query parameters.
-- **Known valid empty states**: GeoIP panels empty until traffic arrives; access-log panel shows placeholder `missing _msg field` (Traefik JSON has no `_msg` — documented limitation).
+- **Known valid empty states**: GeoIP panels empty until traffic arrives; access-log panel shows placeholder `missing _msg field` (Traefik JSON has no `_msg` — documented limitation); Internal Client IP Distribution empty when no routed private clients (healthy).
 - **Limitations**: `code="0"` is websocket, not error. SLO violation ratios are display ratios, not alert policy.
 
 ### 7. ServiceHub Security
