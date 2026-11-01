@@ -85,25 +85,33 @@ The decision requires:
 - experimental and non-critical classification until runtime evidence supports promotion;
 - backup, restore, monitoring, upgrade, rollback, and credential-rotation documentation before operational acceptance.
 
+## Deployment Scope
+
+9Router SHALL be deployed on the OCI-hosted ServiceHub platform (in the `route` compose domain alongside Traefik) as a gateway service reachable at `cerberus.<servicehub-domain>`.
+
+The local `aiserv` platform (ADR-009) remains the host for local inference workloads (llama.cpp, Hermes, Open WebUI). 9Router does not run on the local `aiserv` platform. This is consistent with ADR-009, which reserves the OCI deployment for platform services including ingress, identity, DevOps, and business applications, while AI workloads run locally. 9Router is an ingress-layer gateway, not an AI workload.
+
+Final service name, storage path, network, and backup tier SHALL follow ADR-008 conventions during implementation (e.g., service prefix `route`, storage under `${APPS_DATA}/route/`, backup Tier 2, experimental classification).
+
 ## NVIDIA 40 RPM Constraint
 
 The owner's present planning constraint is 40 requests per minute.
 
 This is an account/provider operating constraint that must be verified during implementation. NVIDIA may apply model-level, account-level, concurrency, worker-capacity, or other limits beyond the headline RPM figure.
 
-9Router MUST NOT be assumed to enforce the 40 RPM limit proactively. Reactive 429 (HTTP Too Many Requests) fallback is not equivalent to proactive throttling. A conservative local target below the nominal maximum is required if proactive limiting is implemented.
+9Router SHALL NOT be assumed to enforce the 40 RPM limit proactively. Reactive 429 (HTTP Too Many Requests) fallback is not equivalent to proactive throttling. A conservative local target below the nominal maximum is required if proactive limiting is implemented.
 
-Concurrency must be bounded separately from RPM. Retry loops must be bounded and use backoff. `Retry-After` or reset metadata should be honoured where reliably available. Repeated requests must not create a 429 storm.
+Concurrency SHALL be bounded separately from RPM. Retry loops SHALL be bounded and use backoff. `Retry-After` or reset metadata SHOULD be honoured where reliably available. Repeated requests SHALL NOT create a 429 storm.
 
-NVIDIA models sharing one account quota must not be treated as independent fallback capacity without evidence. Multiple API keys must not be assumed to multiply quota. Fallback must select only explicitly approved free routes. No eligible free route must result in a clear failure rather than paid fallback.
+NVIDIA models sharing one account quota SHALL NOT be treated as independent fallback capacity without evidence. Multiple API keys SHALL NOT be assumed to multiply quota. Fallback SHALL select only explicitly approved free routes. No eligible free route SHALL result in a clear failure rather than paid fallback.
 
-### Initial local NVIDIA targeting (implementation recommendations, not provider guarantees)
+### Initial Experimental Operating Profile
+
+The following recommendations are for implementation tuning. They are NOT native 9Router settings, NOT provider guarantees, and MUST be validated against observed behaviour:
 
 - Initial local NVIDIA target: 36 requests per minute
 - Initial burst capacity: 1
 - Initial maximum long coding-agent sessions: 1
-
-These values are recommendations for implementation tuning, not native 9Router settings. The later implementation must verify how they can be enforced.
 
 ## NVIDIA Rate-Control Decision Boundary
 
@@ -115,7 +123,7 @@ The implementation SHALL follow this decision tree, in preferred order:
 4. If neither path is supported, limit coding-agent concurrency, configure approved free fallback, monitor 429 behaviour, and document that ServiceHub cannot guarantee pre-emptive 40 RPM enforcement.
 5. Do not patch or fork 9Router unless the owner separately approves the maintenance burden.
 
-The ADR must not select a proxy product or mandate an extra container before compatibility is verified.
+The ADR does not select a proxy product or mandate an extra container before compatibility is verified.
 
 ## Scope
 
@@ -162,13 +170,13 @@ The ADR must not select a proxy product or mandate an extra container before com
 |---|---|---|---|
 | **A. Configure each coding client directly** | Less gateway infrastructure | Duplicated endpoints, credentials, and models; no central OpenCode Free/NVIDIA routing policy; inconsistent fallback and visibility; difficult coordination of the NVIDIA rate budget | Limited policy and visibility |
 | **B. Run 9Router separately on each workstation** | Lower dependency on a shared ServiceHub instance | Duplicated installation, configuration, state, upgrades, and credentials; inconsistent provider and fallback policy; no aggregate NVIDIA quota coordination | Fragmented policy and quota |
-| **C. Deploy 9Router centrally in ServiceHub** | Stable endpoint; shared provider and model policy; central fallback configuration; central operational visibility | Extra credential-bearing service; central availability and security responsibility; unresolved need to verify proactive NVIDIA throttling | Selected |
+| **C. Deploy 9Router centrally in ServiceHub (OCI)** | Stable endpoint; shared provider and model policy; central fallback configuration; central operational visibility | Extra credential-bearing service; central availability and security responsibility; unresolved need to verify proactive NVIDIA throttling | Selected |
 | **D. Use only native client services** | Lowest deployment effort | Failure to provide the desired OpenCode Free and NVIDIA gateway policy; separate quota and identity models; reduced control over free-only fallback | Does not meet policy requirements |
 | **E. Defer implementation** | Avoids immediate operational and security risk | Leaves fragmented client configuration and NVIDIA rate handling unresolved | Policy gap remains |
 
 ## Rationale
 
-Central 9Router deployment satisfies the owner's requirements for unified endpoint, OpenCode Free routing, and NVIDIA provider coordination while preserving isolation from the primary ServiceHub workloads (which remain on the local `aiserv` platform per ADR-009). The gateway can be operated as an experimental service and promoted later once implementation validation confirms rate control and client compatibility.
+Central 9Router deployment on the OCI platform satisfies the owner's requirements for a unified endpoint, OpenCode Free routing, and NVIDIA provider coordination while preserving the ADR-009 boundary: local inference workloads remain on the local `aiserv` platform. The gateway can be operated as an experimental service and promoted only after implementation validation confirms rate control and client compatibility.
 
 The decision tree for rate-control implementation ensures that the decision does not mandate a specific architecture (e.g., introducing a separate rate-limit proxy) before compatibility is verified. The implementation team retains the flexibility to choose the simplest feasible path from the validated options.
 
@@ -230,7 +238,15 @@ Require:
 - data-classification review before external provider use;
 - security review before access is widened beyond trusted networks.
 
-If 9Router cannot safely separate dashboard policy from client API policy at the required hostname, the implementation must stop and present secure alternatives rather than weaken administration controls.
+If 9Router cannot safely separate dashboard policy from client API policy at the required hostname, the implementation SHALL stop and present secure alternatives rather than weaken administration controls.
+
+### Authentication Layers
+
+Three distinct authentication layers apply:
+
+1. **Traefik access control** — the `TRUSTED_IP` allowlist protects administrative endpoints (dashboard) at the ingress layer.
+2. **9Router client API authentication** — if the pinned release supports JWT or API-key authentication for the `/v1` client endpoint, it SHALL be configured; this is separate from Traefik's IP-based controls. The relationship between `JWT_SECRET` and client API keys MUST be verified from upstream documentation before relying on it.
+3. **Upstream provider credentials** — NVIDIA and OpenCode Free API keys stored in 9Router's provider configuration, never in Git.
 
 ## Operational Requirements
 
@@ -297,6 +313,8 @@ Require:
 
 ## Implementation Validation Gates
 
+ADR acceptance authorises experimental implementation. Operational acceptance (promotion beyond experimental status) requires all 27 gates to pass.
+
 Adoption remains conditional until later implementation demonstrates:
 
 1. a reviewed, pinned 9Router release and image;
@@ -327,7 +345,7 @@ Adoption remains conditional until later implementation demonstrates:
 26. documented upgrade and rollback;
 27. no regression to existing ServiceHub services.
 
-Any test not executed must be `NOT RUN`, never reported as passed.
+Any test not executed MUST be recorded as `NOT RUN`, never reported as passed.
 
 ## Decision Reversal Criteria
 
@@ -347,83 +365,53 @@ Require reassessment if:
 - maintenance activity becomes insufficient;
 - operational burden exceeds the value of central routing.
 
-## Follow-up Work
-
-List, but do not implement:
-
-- Forgejo implementation issue;
-- container and Traefik integration;
-- secret provisioning;
-- OpenCode Free setup;
-- NVIDIA provider setup;
-- NVIDIA rate-control proof of concept;
-- free fallback selection;
-- client configuration documentation;
-- observability integration;
-- backup/restore runbook;
-- security test report;
-- runtime compatibility report;
-- owner ADR review and acceptance;
-- deployment approval.
-
 ## Verified Upstream Facts (9Router)
 
-Based on official 9Router documentation and GitHub repository:
+Based on the official 9Router GitHub repository (`decolua/9router`) and its published documentation as inspected on 2026-11-02. The exact release tag to be pinned is selected during implementation (Gate 1); facts below were verified against upstream `master` documentation and may require re-verification against the pinned tag.
 
-### Release and deployment
-- Current stable releases published to Docker Hub as `decolua/9router:latest` and versioned tags.
-- Docker deployment well-supported with volume persistence and port mapping.
-- SQLite is the application state backend at a verified path (typically `~/.9router` or configured via `DATA_DIR`).
-- Container starts without privilege requirements stated.
+### Release and deployment (verified)
 
-### API and provider routing
-- OpenAI-compatible API `/v1/chat/completions` endpoint.
-- Fallback strategy is reactive: on HTTP 429 or transient errors (502/503/504), 9Router automatically switches to the next model in the configured chain.
-- Provider configuration supports NVIDIA and free-tier models.
-- OpenCode Free provider support: to be validated during implementation (not independently confirmed in upstream release notes as of inspection).
+- Docker images published to Docker Hub under `decolua/9router` with a `latest` tag; versioned-tag availability is confirmed during implementation (Gate 1).
+- Docker deployment documented with volume persistence (`-v "$HOME/.9router:/app/data"`, `DATA_DIR=/app/data`) and native port `20128` (source: upstream `README.md` Docker quick start). ServiceHub exposes 9Router only through Traefik; the native port is not published (Gate 5).
+- SQLite is the application state backend at path configurable via `DATA_DIR` (default `~/.9router`).
+- Container starts without privileged requirements in documented examples.
 
-### Rate limiting and retry
-- HTTP 429 triggering reactive fallback is documented.
-- Bounded retry and backoff are mentioned in troubleshooting guidance.
-- `Retry-After` header support: not explicitly stated in available documentation; implementation must verify.
-- **Proactive RPM enforcement:** 9Router does not document a built-in per-provider or per-model proactive RPM limiter in the reviewed release. This is an implementation validation gate.
+### API and provider routing (verified)
 
-### Authentication and access control
-- JWT secret configuration for API authentication supported.
-- Dashboard access and API authentication separation: to be validated during implementation.
-- Trusted-IP or equivalent access control: to be validated during implementation.
+- OpenAI-compatible `/v1/chat/completions` endpoint documented.
+- Fallback strategy is **reactive**: on HTTP 429 or transient errors (502/503/504), 9Router automatically switches to the next model in the configured chain (source: `gitbook/content/en/features/combos.md`, `gitbook/content/en/features/smart-routing.md`).
+- Provider configuration supports NVIDIA (documented in provider setup examples).
+- OpenCode Free provider support: **NOT independently confirmed** in upstream release notes as of inspection. This is an implementation validation gate (Gate 11).
+
+### Rate limiting and retry (verified vs. unverified)
+
+- HTTP 429 triggering reactive fallback: **documented**.
+- Bounded retry and backoff: **mentioned in troubleshooting guidance**; exact bounds and configuration options not specified in available docs — implementation must verify (Gate 14, 16).
+- `Retry-After` header support: **not explicitly stated** in available documentation; implementation must verify (Gate 17).
+- Proactive per-provider/per-model RPM limiter: **not documented** in the reviewed release. This is an implementation validation gate (Gate 14).
+
+### Authentication and access control (verified vs. unverified)
+
+- `JWT_SECRET` environment variable documented for dashboard/API authentication.
+- Whether `JWT_SECRET` governs client API-key authentication, dashboard session auth, or both: **not explicitly distinguished** in available docs; implementation must verify.
+- Dashboard access and API authentication separation: **to be validated** during implementation (Gate 6).
+- Trusted-IP or equivalent access control at the 9Router application level: **not documented**; Traefik-layer `TRUSTED_IP` is the assumed control (Gate 6).
 
 ### Unverified capabilities (implementation gates)
+
 - Whether proactive per-provider/per-model rate-limit configuration exists.
-- Whether NVIDIA's upstream URL can be redirected to an internal rate-limiting proxy.
+- Whether NVIDIA's upstream base URL can be redirected to an internal rate-limiting proxy.
 - Whether custom rate-limiting middleware integrates with 9Router's routing.
 - Full NVIDIA 429 behaviour and cardinality of error conditions.
 - Specific OpenCode Free availability and routing path.
 - Logging sanitization for requests, responses, and sensitive headers.
 
-### Release information
-- High-reputation upstream source (GitHub `decolua/9router`).
-- Multiple integration examples available (Docker, Kubernetes, standalone).
-
 ## Related Documents
 
 - [ADR-002 Use Traefik as the Single HTTP Ingress](ADR-002-use-traefik-as-ingress.md) — ingress exposure and middleware behaviour.
-- [ADR-005 Use LiteLLM for AI Workload Routing](ADR-005-use-litellm-for-ai-routing.md) — existing LiteLLM routing; 9Router supersedes the gateway decision but not the `aiserv` platform scope.
-- [ADR-008 Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) — service naming, storage, and network conventions applied to 9Router.
-- [ADR-009 Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) — OCI scope (9Router will be OCI-hosted); local `aiserv` scope unaffected.
-
-## Implementation Sequence
-
-1. Create a Forgejo issue to track 9Router implementation.
-2. Draft container and Traefik integration using existing ADR-008 conventions.
-3. Provision OpenCode Free, NVIDIA, and 9Router credentials securely.
-4. Implement rate-control proof of concept (selecting from the decision boundary).
-5. Validate client compatibility (Claude Code, Codex CLI, OpenCode).
-6. Measure and tune NVIDIA RPM behaviour.
-7. Create and test backup/restore procedures.
-8. Document health, observability, and operational procedures.
-9. Perform security test and compile test report.
-10. Obtain owner acceptance and deploy to production.
+- [ADR-005 Use LiteLLM for AI Workload Routing](ADR-005-use-litellm-for-ai-routing.md) — existing LiteLLM routing; **if accepted, ADR-011 will supersede the gateway-selection portion of ADR-005**. ADR-005 remains authoritative for local `aiserv` workload routing while ADR-011 is Proposed.
+- [ADR-008 Standardise Service Naming, Storage Layout, Bind Mounts, and Environment Variables](ADR-008-standardise-service-naming-storage-and-bind-mounts.md) — service naming, storage, and network conventions applied to 9Router during implementation.
+- [ADR-009 Rescope the OCI Deployment, Relocate AI Services to Local Infrastructure, and Harden Platform Boundaries](ADR-009-rescope-oci-deployment-and-harden-platform-boundaries.md) — OCI scope for 9Router gateway; local `aiserv` scope unaffected.
 
 ## Non-Goals
 
@@ -437,28 +425,23 @@ This ADR does not:
 - replace per-client authentication or rate limits with centralised enforcement alone;
 - require use of all 9Router features; only documented, verified capabilities are in scope.
 
-## Related Decisions
-
-This decision:
-
-- **Supersedes** ADR-005's use of LiteLLM as the API gateway. 9Router replaces the gateway function, but LiteLLM remains available for local `aiserv` workloads if needed (ADR-009 scope).
-- **Complements** ADR-009: 9Router is deployed to OCI scope alongside other platform services; local AI services (`aiserv`) remain on local infrastructure.
-- **References** ADR-008 conventions for service naming (`routegareway` or `obsvce9route`), storage (`${APPS_DATA}/obsvce/9router`), networking, and backup tier (Tier 2, experimental classification).
-
 ## Follow-up Actions
 
 | Action | Owner | Due date | Status |
 |---|---|---:|---|
-| Create Forgejo issue to track 9Router implementation | Implementation team | TBD | Proposed |
-| Draft container and Traefik integration | Implementation team | TBD | Proposed |
-| Provision credentials for OpenCode Free, NVIDIA, 9Router | George Li | TBD | Proposed |
-| Implement rate-control proof of concept | Implementation team | TBD | Proposed |
-| Validate Claude Code, Codex CLI, OpenCode compatibility | Implementation team | TBD | Proposed |
-| Measure and tune NVIDIA RPM behaviour | Implementation team | TBD | Proposed |
-| Document health, observability, and operational procedures | Implementation team | TBD | Proposed |
-| Perform security test and compile test report | Implementation team | TBD | Proposed |
-| Obtain owner acceptance and deploy to production | George Li | TBD | Proposed |
+| Create Forgejo issue to track 9Router implementation | Project owner | TBD | Proposed |
+| Draft container and Traefik integration (ADR-008 conventions) | Implementation owner | TBD | Proposed |
+| Provision credentials for OpenCode Free, NVIDIA, 9Router | Project owner | TBD | Proposed |
+| Implement rate-control proof of concept (decision boundary) | Implementation owner | TBD | Proposed |
+| Validate Claude Code, Codex CLI, OpenCode compatibility | Implementation owner | TBD | Proposed |
+| Measure and tune NVIDIA RPM behaviour | Implementation owner | TBD | Proposed |
+| Create and test backup/restore procedures | Implementation owner | TBD | Proposed |
+| Document health, observability, and operational procedures | Implementation owner | TBD | Proposed |
+| Perform security test and compile test report | Implementation owner | TBD | Proposed |
+| Obtain owner acceptance and deploy to production | Project owner | TBD | Proposed |
 
 ---
 
-**Implementation Validation Required Before Acceptance:** All 27 gates listed in the Implementation Validation Gates section must be demonstrated, with results recorded in a final implementation report. Any gate marked `NOT RUN` requires owner review and decision before ADR acceptance.
+**ADR Acceptance vs. Operational Acceptance:**
+- **ADR acceptance** (owner approval of this Proposed ADR) authorises an experimental implementation.
+- **Operational acceptance** (promotion beyond experimental status) requires all 27 Implementation Validation Gates to pass, with results recorded in a final implementation report. Any gate marked `NOT RUN` requires owner review and decision before operational acceptance.
