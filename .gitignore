@@ -268,3 +268,6 @@ shared/traefik/advanced/admin-routers.yml
 
 # Generated runtime state (contains the detected ServiceHub public IPv4)
 runtime/servicehub.env
+# Editor swap files
+*.swp
+*.swo
