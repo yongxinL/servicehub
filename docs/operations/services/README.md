@@ -27,6 +27,7 @@ Project-specific service guides cover build, configuration, and setup. Each guid
 
 ## Documents
 
+- [9Router (niner)](niner.md) — experimental unified AI gateway (ADR-011).
 - [Authentik](authentik.md) — IdP / SSO, LDAP directory, and OIDC provider.
 - [Bulwark Webmail](../../archive/2026-10-mailsv-removal/docs/operations/services/bulwark.md) — JMAP webmail client (archived; OCI blocks port 25).
 - [Confluence](confluence.md) — homepage / CMS (Data Center).

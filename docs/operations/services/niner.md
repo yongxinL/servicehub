@@ -157,21 +157,35 @@ See [9ROUTER-BACKUP-RESTORE.md](../runbooks/9ROUTER-BACKUP-RESTORE.md).
 
 ## Upgrade and Rollback
 
-### Pre-Upgrade
-1. Backup `${APPS_DATA}/route/niner/`
-2. Review release notes for new upstream version
-3. Optionally verify image digest from `docker pull decolua/9router:latest`
+### Upgrade the 9Router image
 
-### Upgrade
-```bash
-# Update compose/route.yml image tag + digest
-docker compose pull routeniner
-docker compose up -d routeniner
-```
+The deployment follows the owner-approved moving `latest` tag policy.
+
+Before an upgrade:
+
+1. Review the upstream 9Router release notes.
+2. Record the currently deployed image ID and repository digest:
+   ```bash
+   docker inspect routeniner --format '{{.Image}}'
+   docker images --digests decolua/9router
+   ```
+3. Create a consistency-safe backup of `${APPS_DATA}/route/niner/` (stop the service first for a consistent SQLite copy).
+4. Pull the new `decolua/9router:latest` image.
+5. Recreate only the `routeniner` service:
+   ```bash
+   docker compose pull routeniner
+   docker compose up -d routeniner
+   ```
+6. Validate dashboard access, `/v1` authentication, provider configuration, Claude Code routing, OpenCode Free, NVIDIA NIM, fallback routing, RTK, and logs.
+7. Roll back to the previously recorded image if validation fails.
+
+> **Risk:** `latest` is mutable. A later pull can deploy different software without changing `compose/route.yml`. Every upgrade must therefore record the resolved image identity and include post-upgrade validation.
 
 ### Rollback
+
 ```bash
-# Revert compose/route.yml to previous digest
+# Re-tag the previously recorded image as latest (or pull it by digest),
+# then recreate the service
 docker compose up -d routeniner
 ```
 
@@ -212,4 +226,4 @@ docker compose up -d routeniner
 
 - [ADR-011: Adopt 9Router as ServiceHub AI Gateway](../../architecture/adr/ADR-011-adopt-9router-as-servicehub-ai-gateway.md)
 - [9ROUTER-BACKUP-RESTORE.md](../runbooks/9ROUTER-BACKUP-RESTORE.md)
-- [Traefik admin routers](../services/traefik.md#admin-routers)
+- [Traefik admin routers](../services/traefik.md#dashboard-basic-auth-and-admin-access-rules)

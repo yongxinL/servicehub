@@ -123,21 +123,28 @@ If the backup is suspected compromised:
 
 ## Upgrade Procedure
 
+The deployment follows the owner-approved moving `latest` tag policy (ADR-011 Stage 4). `compose/route.yml` is not edited on upgrade; the resolved image identity is recorded instead.
+
 ### Pre-Upgrade
-1. Create Tier 2 backup (on-demand): `workflow_dispatch` with `full`
-2. Review upstream release notes for breaking changes
-3. Note new image digest for target version
+1. Review upstream release notes for breaking changes
+2. Record the currently deployed image ID and repository digest:
+   ```bash
+   docker inspect routeniner --format '{{.Image}}'
+   docker images --digests decolua/9router
+   ```
+3. Create Tier 2 backup (on-demand): `workflow_dispatch` with `full` — or stop the service and archive `${APPS_DATA}/route/niner/` directly for a consistency-safe SQLite copy
 
 ### Upgrade
-1. Edit `compose/route.yml`: update image tag and digest
-2. `docker compose pull routeniner`
-3. `docker compose up -d routeniner`
-4. Run post-restore functional test (step 7 above)
+1. `docker compose pull routeniner`
+2. `docker compose up -d routeniner` (recreates only `routeniner`)
+3. Run the validation checklist above
 
 ### Rollback
-1. Revert `compose/route.yml` to previous digest
+1. Re-tag the previously recorded image identity as `decolua/9router:latest` (or run the container from the recorded digest)
 2. `docker compose up -d routeniner`
-3. Run post-restore functional test
+3. Run the validation checklist above
+
+> **Risk:** `latest` is mutable. A later pull can deploy different software without changing `compose/route.yml`. Every upgrade must record the resolved image identity and include post-upgrade validation.
 
 ---
 
@@ -163,6 +170,6 @@ If the backup is suspected compromised:
 ## Related Documents
 
 - [niner.md](../services/niner.md)
-- [BACKUP-RESTORE.md](../BACKUP-RESTORE.md)
+- [BACKUP-RESTORE.md](BACKUP-RESTORE.md)
 - [ADR-007: Dual-Target Backup and Recovery](../../architecture/adr/ADR-007-adopt-dual-target-backup-and-recovery.md)
 - [ADR-011: 9Router AI Gateway](../../architecture/adr/ADR-011-adopt-9router-as-servicehub-ai-gateway.md)
