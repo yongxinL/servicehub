@@ -4,14 +4,14 @@ project_code: SVCHUB
 document_type: ADR
 document_id: ADR-011
 title: Adopt 9Router as the ServiceHub AI Gateway
-version: "1.0"
+version: "1.1"
 status: Accepted
 decision_basis: Owner selection of 9Router for unified AI client routing with OpenCode Free and NVIDIA provider support, conditional on implementation validation
 lifecycle_stage: Design
 owner: project-owner
 maintainer: project-owner
 created: 2026-11-02
-updated: 2026-11-02
+updated: 2026-11-03
 approved_by: project-owner
 approval_mode: owner-self-approval
 approved_on: 2026-11-02
@@ -35,6 +35,8 @@ related_documents:
 # ADR-011: Adopt 9Router as the ServiceHub AI Gateway
 
 <!-- Allowed status: Draft, Proposed, In Review, Accepted, Rejected, Superseded, Deprecated, Archived -->
+
+> **Amendment (2026-11-03):** Owner-approved refinement of the Claude Code model strategy — Claude Code routes through three named 9Router combo models (`hermes`, `athena`, `hyperion`), each initially configured with the Round Robin strategy. See [Claude Code Three-Tier Model Routing](#claude-code-three-tier-model-routing). ADR status remains Accepted; the service remains experimental; Gate 14 remains open.
 
 ## Context
 
@@ -87,6 +89,44 @@ The decision requires:
 - no intentional prompt, response, source-code, authorisation-header, API-key, OAuth-token, cookie, or provider-session logging;
 - experimental and non-critical classification until runtime evidence supports promotion;
 - backup, restore, monitoring, upgrade, rollback, and credential-rotation documentation before operational acceptance.
+
+## Claude Code Three-Tier Model Routing
+
+The owner has approved three named 9Router combo models for Claude Code, exposed through the existing gateway:
+
+| Combo | Claude Code tier | Purpose |
+|---|---|---|
+| `hermes` | Haiku-equivalent | fast and background work |
+| `athena` | Sonnet-equivalent | default daily coding and debugging |
+| `hyperion` | Opus-equivalent | complex reasoning, planning, and architecture |
+
+Each name is a 9Router combo model, not a native provider model. The initial combo strategy for all three is **Round Robin**, to distribute requests across independent free or constrained provider paths rather than sending all traffic to the direct NVIDIA NIM account.
+
+### Round Robin decision
+
+Round Robin is a load-distribution strategy. The implementation SHALL treat it as follows:
+
+- Round Robin rotates the selected combo member across requests to spread load;
+- Round Robin does not understand provider RPM, TPM, RPD, reset windows, quality, or cost;
+- Round Robin does not implement NVIDIA's approximate 40 RPM constraint;
+- Round Robin does not guarantee a fixed percentage under failures, retries, concurrency, unavailable models, or upstream fallback;
+- different turns in one Claude Code conversation may use different models;
+- model changes may reduce provider-side prompt-cache reuse and may produce differences in reasoning, tone, tool behavior, latency, and context limits.
+
+The owner may later change `athena` or `hyperion` to Fallback if conversation consistency is worse than the benefit of load distribution. Such a strategy change is an operational tuning decision unless it materially changes provider, cost, security, or data-handling boundaries.
+
+### Provider and quota boundaries
+
+- Direct NVIDIA NIM models share the owner's current NVIDIA planning constraint of approximately 40 RPM. This is an operating assumption to be measured, not a guaranteed SLA.
+- OpenCode Free, OpenRouter, direct NVIDIA NIM, Gemini, and MiniMax are distinct provider paths, but each has its own availability and quota constraints.
+- Gemini quotas apply independently across RPM, TPM, and RPD. Exhausting any applicable quota can make a Round Robin member unavailable.
+- OpenRouter free endpoints and `openrouter/free` may change availability, selected upstream model, context, or behavior.
+- No paid or subscription-backed provider is approved by this decision.
+- Prompts and source content SHALL NOT be sent to providers outside the approved data-classification scope.
+
+### Gate 14 status
+
+Round Robin distributes traffic but is not a provider-specific NVIDIA rate limiter. No proactive 36/39/40 RPM NVIDIA budget is implemented. Gate 14 remains open pending runtime evidence or a future provider-aware control.
 
 ## Deployment Scope
 

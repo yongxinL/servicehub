@@ -67,11 +67,12 @@
    - OpenCode Free as fallback
 6. **Disable paid/subscription routes** — ensure no paid providers are connected
 7. **Enable built-in RTK** — Settings → Token Saver (RTK)
-8. **Generate client API keys:**
+8. **Create the Claude Code combos** — see [Claude Code Model Tiers and 9Router Combos](#claude-code-model-tiers-and-9router-combos)
+9. **Generate client API keys:**
    - Settings → API Keys → Create
    - Create separate keys for: `claude-code`, `codex-cli`, `opencode`
    - Save keys securely (not in Git)
-9. **Record provider/model choices** (no credentials in docs)
+10. **Record provider/model choices** (no credentials in docs)
 
 ---
 
@@ -83,16 +84,40 @@ https://cerberus.${DOMAIN_NAME}/v1
 ```
 
 ### Authentication
-Each client uses a separate Bearer API key generated in step 8 above.
+Each client uses a separate Bearer API key generated in step 9 above.
 
 ### Claude Code
-```bash
-# ~/.claude/config.json or equivalent
+
+Configure the three combo aliases via environment variables (placeholders only — no real domain, token, or key):
+
+```json
 {
-  "api_base": "https://cerberus.${DOMAIN_NAME}/v1",
-  "api_key": "<CLAUDE_CODE_API_KEY>"
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://cerberus.<servicehub-domain>/v1",
+    "ANTHROPIC_AUTH_TOKEN": "<9router-client-api-key>",
+
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "hermes",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "athena",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "hyperion",
+
+    "ANTHROPIC_SMALL_FAST_MODEL": "hermes",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "athena",
+
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "API_TIMEOUT_MS": "600000"
+  },
+  "model": "sonnet"
 }
 ```
+
+- `model: sonnet` is the default interactive tier.
+- Claude Code's Haiku alias maps to Hermes; Sonnet alias maps to Athena; Opus alias maps to Hyperion.
+- `opusplan` uses Hyperion for planning and Athena for execution where supported by the installed Claude Code version.
+- Do not set `ANTHROPIC_MODEL` to `hermes`, `athena`, or `hyperion` when alias-based selection is desired (it would pin every request to one combo).
+- Client API keys must not be committed to Git.
+- Use separate 9Router client API keys for Claude Code, Codex, and OpenCode if supported by the deployed release.
+
+See [Claude Code Model Tiers and 9Router Combos](#claude-code-model-tiers-and-9router-combos) for the combo membership and strategy.
 
 ### Codex CLI
 ```bash
@@ -122,6 +147,155 @@ Remove gateway config or set client's `api_base` back to native endpoint.
 
 ---
 
+## Claude Code Model Tiers and 9Router Combos
+
+Claude Code routes through three 9Router combo models, each exposed through the gateway at `https://cerberus.${DOMAIN_NAME}/v1`:
+
+| Combo | Claude Code tier | Purpose | Strategy |
+|---|---|---|---|
+| `hermes` | Haiku-equivalent | Fast/background tasks | Round Robin |
+| `athena` | Sonnet-equivalent | Default daily coding and debugging | Round Robin |
+| `hyperion` | Opus-equivalent | Complex reasoning, planning, and architecture | Round Robin |
+
+**Round Robin is a load-distribution strategy, not a quota governor.** It rotates the selected combo member across requests. It does not understand provider RPM, TPM, RPD, reset windows, quality, or cost; it does not implement NVIDIA's 40 RPM constraint; and it does not guarantee a fixed percentage under failures, retries, concurrency, unavailable models, or upstream fallback.
+
+Different turns in one Claude Code conversation may use different models. Model changes may reduce provider-side prompt-cache reuse and may produce differences in reasoning, tone, tool behavior, latency, and context limits.
+
+### Hermes
+
+Purpose:
+
+- Claude Code Haiku-equivalent;
+- fast/background tasks;
+- repository searches;
+- summaries;
+- simple edits;
+- low-latency auxiliary calls.
+
+Strategy: `Round Robin`
+
+Initial members (in order):
+
+```text
+oc/mimo-v2.6-flash-free
+oc/glm-5.3-flash-free
+openrouter/nvidia/nemotron-3.5-lightning:free
+gemini/gemini-3.5-flash-lite
+```
+
+Hermes intentionally contains no direct NVIDIA NIM member in the initial configuration, helping reserve the direct NVIDIA allowance for higher tiers.
+
+### Athena
+
+Purpose:
+
+- Claude Code Sonnet-equivalent;
+- default daily coding;
+- implementation;
+- debugging;
+- code review;
+- routine refactoring;
+- balanced subagent work.
+
+Strategy: `Round Robin`
+
+Initial members (in order):
+
+```text
+oc/deepseek-v4.1-flash-free
+oc/glm-5.3-flash-free
+nvidia/z-ai/glm-5.3-flash
+minimax/MiniMax-M3
+```
+
+One of four members uses direct NVIDIA NIM, so the nominal initial distribution is approximately 25% direct NVIDIA for successful, evenly rotated requests. This is an approximation only, not a guarantee.
+
+### Hyperion
+
+Purpose:
+
+- Claude Code Opus-equivalent;
+- complex reasoning;
+- architecture;
+- difficult debugging;
+- large refactoring;
+- deep repository analysis;
+- Claude Code Plan Mode.
+
+Strategy: `Round Robin`
+
+Initial members (in order):
+
+```text
+nvidia/nvidia/nemotron-3-ultra-550b-a55b
+openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+oc/deepseek-v4.1-flash-free
+minimax/MiniMax-M3
+```
+
+One of four members uses direct NVIDIA NIM, so the nominal initial distribution is approximately 25% direct NVIDIA for successful, evenly rotated requests. This is an approximation only, not a guarantee.
+
+The OpenRouter Nemotron path is separate from the direct NVIDIA NIM credential path, but remains subject to OpenRouter free-endpoint availability.
+
+### Gemini 3.6 Flash — Not in the Initial Hyperion Rotation
+
+Gemini 3.6 Flash is a candidate for later evaluation, not an enabled combo member.
+
+Owner-observed quota:
+
+```text
+5 RPM
+250K TPM
+20 RPD
+```
+
+A 20 RPD limit is too small for an always-rotating high-value combo unless daily Hyperion volume is tightly controlled. It may be tested later as a manually selected specialist route or a low-volume fallback.
+
+### Excluded Specialist Models
+
+These models are not members of the core Hermes/Athena/Hyperion text-coding combos:
+
+```text
+nvidia/nvidia/llama-3.1-nemotron-safety-guard-8b-v3
+nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+oc/nemotron-3.5-super-vl-free
+openrouter/nvidia/nemotron-3.5-super-vl:free
+nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b
+openrouter/openrouter/free
+```
+
+- Safety Guard is a safety/classification model, not a general coding generator.
+- Nano Omni and Super VL models are multimodal/vision specialists. Evaluate them in a future specialist combo (for example `argus`) — future evaluation only, not created here.
+- `openrouter/free` dynamically selects a free model and is not sufficiently deterministic for the initial Claude Code Round Robin tiers. It may be considered later as a last-resort Fallback, not Round Robin.
+
+### Dashboard Procedure
+
+Manual configuration. Not automated by any script.
+
+1. Open the `TRUSTED_IP`-protected 9Router dashboard.
+2. Confirm the approved providers are connected.
+3. Create or edit the `hermes`, `athena`, and `hyperion` combos.
+4. Select Round Robin for each combo.
+5. Add the models in the exact documented order.
+6. Confirm Fusion and Smart Router are not selected for these combos.
+7. Confirm no paid or subscription-backed provider is included.
+8. Enable built-in RTK according to the existing service guide (Settings → Token Saver).
+9. Generate or select the Claude Code client API key.
+10. Configure Claude Code with the three aliases.
+11. Run harmless tests with `/model haiku`, `/model sonnet`, `/model opus`, and `/model opusplan` where supported.
+12. Review provider/model selection, latency, tool-call behavior, errors, and quota events without logging prompt or source content.
+
+### Combo Rollback
+
+- Set Claude Code's default model alias back to the previous known-good route.
+- Change affected combos from Round Robin to Fallback if conversation consistency or prompt-cache behavior is unacceptable.
+- Remove a failing or quota-constrained member from rotation.
+- Do not delete provider credentials or SQLite state without a backup.
+- Preserve the previous combo member lists in the implementation report or change record.
+
+---
+
 ## NVIDIA Rate Controls
 
 | Type | Mechanism |
@@ -131,6 +305,8 @@ Remove gateway config or set client's `api_base` back to native endpoint.
 | **Observed only** | 429 frequency, `Retry-After`, fallback events, RPM via Alloy metrics |
 
 **No proactive 36/40 RPM enforcement.** Gate 14 (ADR-011) remains open pending runtime evidence.
+
+Round Robin combos ([Claude Code Model Tiers and 9Router Combos](#claude-code-model-tiers-and-9router-combos)) distribute traffic but are not a provider-specific NVIDIA rate limiter. No proactive 36/39/40 RPM NVIDIA budget is implemented. Gate 14 remains open pending runtime evidence or a future provider-aware control.
 
 ---
 
