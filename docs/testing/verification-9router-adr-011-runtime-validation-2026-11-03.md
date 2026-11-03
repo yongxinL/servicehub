@@ -349,3 +349,26 @@ text in `README.md` — no new credential in the diff.
   `README.md`.
 - The completion commit records documentation only; no merge, push, or tag
   was performed. The feature branch is retained.
+
+### 12.7 Post-addendum owner actions (2026-11-03, evening)
+
+The owner then executed the outstanding actions and instructed the agent to
+proceed with the merge:
+
+- **Temporary artefacts removed by the owner.** Verified by the agent
+  (name-only existence checks): the restore-drill directory and all listed
+  `/tmp` validation artefacts are gone. Three residual non-secret files
+  remain by owner instruction (`/tmp/nv-ramp.py` — plain test script,
+  `/tmp/served-chain.pem` — certificate chain, no private key;
+  `/tmp/oc-test-repo/` — placeholder README only); pattern scan found no
+  credential material in them.
+- **Combo drift:** the owner instructed the agent to merge regardless. The
+  drift remains present in the deployed dashboard state (re-verified via the
+  gateway model list: one `muse-glimmer`, one `gemini-3.6-flash` entry; the
+  approved-combo definitions in `niner.md` stay authoritative). Removal is
+  owner-maintained: the gateway model list also still shows drift-specific
+  members, so the correction remains outstanding and is recorded, not
+  endorsed. Gate 20/21 dispositions in §12.4 are unchanged by the merge.
+- On that owner instruction, the merge to local `main` proceeded under the
+  repo's no-fast-forward convention. No push, tag, release, or branch
+  deletion was performed.
