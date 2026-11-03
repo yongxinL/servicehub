@@ -1,9 +1,9 @@
 # 9Router Backup and Restore Runbook
 
-**Service:** `routeniner` (Compose: `compose/route.yml`)  
-**ADR-011 experimental** — Tier 2 backup scope  
-**Version:** 1.0  
-**Status:** Draft (runtime validation pending)
+- **Service:** `routeniner` (Compose: `compose/route.yml`)
+- **ADR-011 experimental** — Tier 2 backup scope
+- **Version:** 1.1
+- **Status:** Draft (file-level backup verified; container-level restore, upgrade and rollback not yet executed)
 
 ---
 
@@ -13,7 +13,10 @@
 |-----------|----------------|-------------|
 | `${APPS_DATA}/route/niner/db/data.sqlite` | `/app/data/db/data.sqlite` | Primary SQLite database (providers, API keys, combos, usage, quota) |
 | `${APPS_DATA}/route/niner/db/backups/` | `/app/data/db/backups/` | Automatic SQLite backups (internal rotation) |
-| `${APPS_DATA}/route/niner/data-home/jwt-secret` | `/app/data-home/jwt-secret` (symlinked from `/root/.9router/jwt-secret`) | JWT signing secret (auto-generated if `JWT_SECRET` unset) |
+| `${APPS_DATA}/route/niner/jwt-secret` | `/app/data/jwt-secret` | JWT signing secret (auto-generated if `JWT_SECRET` unset) |
+| `${APPS_DATA}/route/niner/machine-id` | `/app/data/machine-id` | Machine identity (regenerating it changes instance identity) |
+
+> Verified in the deployed container (2026-11-03): `jwt-secret` and `machine-id` live directly in `/app/data` (not under a `data-home/` subdirectory). The container has an empty `/app/data-home` and `/root/.9router -> /app/data-home` symlink, but no secret is materialised there.
 
 **Total backup scope:** `${APPS_DATA}/route/niner/`
 
@@ -71,7 +74,7 @@ None — entire `${APPS_DATA}/route/niner/` included.
 3. **Verify extracted content**
    ```bash
    ls -la /tmp/niner-restore/route/niner/
-   # Should show: db/, data-home/
+   # Should show: db/, jwt-secret, machine-id
    ```
 
 4. **Replace persistent directory**
@@ -82,11 +85,21 @@ None — entire `${APPS_DATA}/route/niner/` included.
    mv /tmp/niner-restore/route/niner ${APPS_DATA}/route/niner
    ```
 
-5. **Fix ownership (container runs as node user, UID 1000)**
+5. **Inspect ownership before changing it**
    ```bash
-   chown -R 1000:1000 ${APPS_DATA}/route/niner
+   # Effective user of the running container (do not assume a fixed UID):
+   docker compose exec routeniner id
+   # Ownership currently on disk:
+   ls -ln ${APPS_DATA}/route/niner/
+   ls -ln ${APPS_DATA}/route/niner/db/
+   ```
+   Only if the restored files are not owned by the user the container actually
+   runs as, align them to the UID/GID observed above:
+   ```bash
+   chown -R <observed-uid>:<observed-gid> ${APPS_DATA}/route/niner
    chmod -R 750 ${APPS_DATA}/route/niner
    ```
+   Skip the `chown` when the observed ownership already matches.
 
 6. **Start the service**
    ```bash
@@ -129,7 +142,7 @@ The deployment follows the owner-approved moving `latest` tag policy (ADR-011 St
 1. Review upstream release notes for breaking changes
 2. Record the currently deployed image ID and repository digest:
    ```bash
-   docker inspect routeniner --format '{{.Image}}'
+   docker compose inspect routeniner --format '{{.Image}}'
    docker images --digests decolua/9router
    ```
 3. Create Tier 2 backup (on-demand): `workflow_dispatch` with `full` — or stop the service and archive `${APPS_DATA}/route/niner/` directly for a consistency-safe SQLite copy
@@ -140,9 +153,14 @@ The deployment follows the owner-approved moving `latest` tag policy (ADR-011 St
 3. Run the validation checklist above
 
 ### Rollback
-1. Re-tag the previously recorded image identity as `decolua/9router:latest` (or run the container from the recorded digest)
+1. Re-tag the previously recorded image identity as `decolua/9router:latest` (or pin the recorded digest in an override file)
 2. `docker compose up -d routeniner`
 3. Run the validation checklist above
+
+> **Version note (2026-11-03):** these steps were reviewed against the deployed
+> container but not executed (no container recreation was authorised during
+> runtime validation). Upgrade and rollback remain NOT RUN; run the
+> verification checklist after every execution.
 
 > **Risk:** `latest` is mutable. A later pull can deploy different software without changing `compose/route.yml`. Every upgrade must record the resolved image identity and include post-upgrade validation.
 
@@ -152,10 +170,10 @@ The deployment follows the owner-approved moving `latest` tag policy (ADR-011 St
 
 | Check | Method | Expected |
 |-------|--------|----------|
-| Container starts | `docker compose ps` | `Up`, healthy |
+| Container starts | `docker compose ps routeniner` | `Up` (no container healthcheck is defined for this service) |
 | Dashboard accessible | Browser from `TRUSTED_IP` | Login page → dashboard |
 | API key valid | `curl /v1/models` with Bearer | JSON model list |
-| Providers connected | Dashboard UI → Providers | NVIDIA + OpenCode Free |
+| Providers connected | Dashboard UI → Providers | All previously connected providers still present |
 | SQLite intact | Dashboard → Usage/Stats | Historical data present |
 
 ---

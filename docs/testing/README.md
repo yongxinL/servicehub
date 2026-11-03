@@ -20,6 +20,7 @@ Test plans: Draft, Approved, Superseded. Verification summaries record a result 
 | Document | Type | Status or result | Updated |
 |---|---|---|---|
 | [TEST-001](TEST-001-platform-baseline-validation.md) | Test plan | Not Executed | 2026-10-08 |
+| [ADR-011 9Router Runtime Validation](verification-9router-adr-011-runtime-validation-2026-11-03.md) | Verification summary | Passed with deviations (agent evidence; owner review pending) | 2026-11-03 |
 
 ## Relationship to other artifacts
 Maps evidence to `SPEC-NNN-AC-NNN` and `SPEC-NNN-NFR-NNN`. Templates: [../templates/test-plan-template.md](../templates/test-plan-template.md), [../templates/verification-summary-template.md](../templates/verification-summary-template.md).

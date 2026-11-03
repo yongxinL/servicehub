@@ -113,7 +113,7 @@ Configure the three combo aliases via environment variables (placeholders only â
 - `model: sonnet` is the default interactive tier.
 - Claude Code's Haiku alias maps to Hermes; Sonnet alias maps to Athena; Opus alias maps to Hyperion.
 - `opusplan` uses Hyperion for planning and Athena for execution where supported by the installed Claude Code version.
-- Do not set `ANTHROPIC_MODEL` to `hermes`, `athena`, or `hyperion` when alias-based selection is desired (it would pin every request to one combo).
+- The intended configuration is `model: sonnet` plus the three `ANTHROPIC_DEFAULT_*_MODEL` alias variables. `ANTHROPIC_MODEL` is not part of the intended configuration; setting it to a combo name pins every request to that combo and defeats alias-based tier selection.
 - Client API keys must not be committed to Git.
 - Use separate 9Router client API keys for Claude Code, Codex, and OpenCode if supported by the deployed release.
 
@@ -236,6 +236,22 @@ minimax/MiniMax-M3
 One of four members uses direct NVIDIA NIM, so the nominal initial distribution is approximately 25% direct NVIDIA for successful, evenly rotated requests. This is an approximation only, not a guarantee.
 
 The OpenRouter Nemotron path is separate from the direct NVIDIA NIM credential path, but remains subject to OpenRouter free-endpoint availability.
+
+### Observed Runtime Drift (2026-11-03)
+
+The deployed dashboard state does not match the approved membership above. Observed
+combo membership read from the live service on 2026-11-03:
+
+| Combo | Deployed members | Difference from the approved list |
+|---|---|---|
+| `hermes` | `oc/mimo-v2.6-flash-free`, `oc/glm-5.3-flash-free`, **`nvidia/meta/muse-glimmer-30b`**, `gemini/gemini-3.5-flash-lite`, `openrouter/nvidia/nemotron-3.5-lightning:free` | Extra direct NVIDIA NIM member `nvidia/meta/muse-glimmer-30b`; contradicts "no direct NVIDIA NIM member" |
+| `athena` | `oc/deepseek-v4.1-flash-free`, `nvidia/z-ai/glm-5.3-flash`, `oc/glm-5.3-flash-free`, `minimax/MiniMax-M3` | Same four approved members, different order |
+| `hyperion` | `nvidia/nvidia/nemotron-3-ultra-550b-a55b`, `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free`, `oc/deepseek-v4.1-flash-free`, `minimax/MiniMax-M3`, **`gemini/gemini-3.6-flash`** | Extra `gemini/gemini-3.6-flash`, which is explicitly excluded below |
+
+The approved definitions in this section remain authoritative. Correcting the
+deployed state requires a separate owner authorisation to modify dashboard state;
+until then this drift is recorded, not endorsed. Details and gate impact are in
+[ADR-011 Runtime Validation](../../testing/verification-9router-adr-011-runtime-validation-2026-11-03.md).
 
 ### Gemini 3.6 Flash â€” Not in the Initial Hyperion Rotation
 
