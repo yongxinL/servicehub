@@ -9,6 +9,11 @@
 | Performed by | AI agent (Claude Code); agent results require owner review |
 | Result | Passed with deviations — service stays experimental; operational acceptance not granted |
 
+> **Addendum 2026-11-03 (owner review of Stage 5–6):** owner-validated evidence,
+> owner actions, and the resulting gate disposition are recorded in
+> [§12 Owner-Action Addendum](#12-owner-action-addendum-2026-11-03). Where this
+> document and the addendum differ, the addendum is later in time and governs.
+
 ## 0. Scope statement: local versus OCI
 
 | Environment | Status | Note |
@@ -153,9 +158,9 @@ recorded and Gate 20 remains PARTIAL.
 
 | Action | Status |
 |---|---|
-| Delete secret-bearing temp files (`/tmp/niner-restore-drill/` et al.) | Owner will do; NOT confirmed |
+| Delete secret-bearing temp files (`/tmp/niner-restore-drill/` et al.) | Owner will do; NOT confirmed — still present at completion phase (see §12.6) |
 | Rotate the Claude Code client API key (transcript exposure) | Owner will do; NOT confirmed |
-| Authorise and perform removal of `nvidia/meta/muse-glimmer-30b` (hermes) and `gemini/gemini-3.6-flash` (hyperion) from deployed dashboard state | Awaiting separate authorisation |
+| Remove `nvidia/meta/muse-glimmer-30b` (hermes) and `gemini/gemini-3.6-flash` (hyperion) from deployed dashboard state | Removal authorised by the owner on 2026-11-03; **not applied** — dashboard-state modification unavailable to the agent (§12.3) |
 
 ## 7. Commands run (Mandatory)
 
@@ -206,3 +211,141 @@ the OCI deployment scope.
 - [niner.md](../operations/services/niner.md)
 - [9Router Backup and Restore Runbook](../operations/runbooks/9ROUTER-BACKUP-RESTORE.md)
 - [TEST-001 Platform Baseline Validation](TEST-001-platform-baseline-validation.md)
+
+## 12. Owner-Action Addendum (2026-11-03)
+
+Recorded after the Project Owner reviewed the Stage 5–6 report. The owner
+authorised implementation completion and merge while the service remains
+**Experimental**. This authorisation does not promote 9Router beyond
+experimental status and does not close the Gate 14 limitation.
+
+### 12.1 Owner-validated PASS evidence (owner-provided; not agent-executed)
+
+1. OpenCode Free works with 9Router (v0.5.112-compatible runtime behaviour).
+2. Hermes, Athena, and Hyperion combos are functional in 9Router.
+3. Claude Code can access 9Router through the configured gateway.
+4. The owner accepts the three-tier Round Robin design documented in ADR-011 v1.1.
+5. The owner accepts local OrbStack runtime evidence for the experimental
+   implementation merge.
+6. The owner accepts that no additional load test, forced quota-exhaustion test,
+   destructive fail-closed test, container recreation test, or full
+   restore/rollback execution is required before the implementation merge.
+7. Remaining unexecuted operational tests do not block implementation merge
+   while the service remains Experimental (they continue to block promotion
+   beyond Experimental per ADR-011).
+
+### 12.2 Owner actions — confirmation status
+
+| Owner action | Status at addendum time |
+|---|---|
+| Temporary validation artefacts removed (incl. `/tmp/niner-restore-drill`) | **Owner-maintained control** — artefacts still present on the validation workstation at addendum time; agent cannot delete them (permission-denied). Must be removed before or at merge; recorded, not claimed done |
+| Claude Code client key rotated (transcript exposure) | **Owner-maintained control** — not confirmed |
+| `~/.claude/settings.json` restrictive local permissions (e.g. `600`) | **Owner-maintained control** — file observed world/group-readable (`644`) at addendum time; not confirmed changed |
+| `ANTHROPIC_MODEL=athena` removed from local client settings (alias-based selection) | **Owner-maintained control** — still present in workstation settings at addendum time |
+| `model: sonnet` retained as settings-level default | Confirmed by agent (live config) |
+| Haiku/Sonnet/Opus aliases map to Hermes/Athena/Hyperion | Confirmed by agent (live config + gateway model list) |
+
+### 12.3 Combo drift correction status
+
+The approved definitions in `niner.md` remain authoritative. Removing
+`nvidia/meta/muse-glimmer-30b` (hermes) and `gemini/gemini-3.6-flash` (hyperion)
+from the deployed dashboard state was authorised, but **dashboard modification
+was not available to the agent** (management API requires a dashboard session;
+client key is rejected on `/api/*`). Re-verified 2026-11-03 (addendum time):
+both drifted members remain present in the live DB.
+
+Final inventories as approved (and documented in `niner.md`):
+
+- **Hermes** (Round Robin, no direct `nvidia/*` member): `oc/mimo-v2.6-flash-free`, `oc/glm-5.3-flash-free`, `openrouter/nvidia/nemotron-3.5-lightning:free`, `gemini/gemini-3.5-flash-lite`
+- **Athena** (Round Robin): `oc/deepseek-v4.1-flash-free`, `oc/glm-5.3-flash-free`, `nvidia/z-ai/glm-5.3-flash`, `minimax/MiniMax-M3`
+- **Hyperion** (Round Robin): `nvidia/nvidia/nemotron-3-ultra-550b-a55b`, `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free`, `oc/deepseek-v4.1-flash-free`, `minimax/MiniMax-M3`
+
+**Deployment-state status: drift correction remains outstanding** — an
+owner-maintained control until the live dashboard membership matches the lists
+above. The historical drift record (§2) is preserved.
+
+### 12.4 Gate disposition after owner review
+
+| Disposition | Gates |
+|---|---|
+| Owner-validated PASS | 8 (Claude Code access + alias routing), 11 (OpenCode Free availability), plus functional combo operation across 12's combo context |
+| Agent-validated PASS | 2, 4, 5, 7, 12, 16, 19, 27 (unchanged from §1) |
+| PARTIAL / OPEN | Gate 14 remains `PARTIAL / OPEN`: Round Robin distributes traffic but does not implement a provider-aware, proactive NVIDIA 36/39/40 RPM limit. Also 1, 6, 15, 17, 18, 20, 21, 23, 24, 25, 26 — unchanged pending drift correction / plan confirmation / execution |
+| NOT RUN / Deferred by owner | 3 (recreation), 9 (Codex binary), 10 (OpenCode binary), 13 (near-limit ramp), 22 (full free-route exhaustion), container-level 25, executed 26, OCI runtime validation |
+
+Gate 20 remains PARTIAL until deployed membership matches the approved lists
+(§12.3). Gate 21 remains PARTIAL until Gemini/MiniMax provider-plan review or
+owner confirmation of free-only plan status.
+
+Totals remain: PASS 8 (agent) + owner-validated PASS items (gates 8, 11
+upgraded to owner-validated PASS) + PARTIAL 14 + NOT RUN/Deferred 5 — the
+27-row matrix in §1 stays the complete record; this addendum overlays
+owner-validated status without rewriting §1 evidence.
+
+### 12.5 Standing after addendum
+
+- Service remains **Experimental**; operational acceptance is **not** declared.
+- Local validation does **not** prove OCI operational readiness; OCI runtime
+  validation is a follow-up before any promotion beyond Experimental.
+- The implementation merge of `feature/9router-ai-gateway` to local `main` is
+  authorised subject to the stop conditions in the owner's completion
+  instruction (secret-bearing temp files and uncorrected live combo drift both
+  still outstanding at addendum time — see §12.2, §12.3).
+- Pre-merge outcome: the merge was **not executed**. Both merge stop
+  conditions (defined in the owner's completion instruction) verified true at
+  merge time (2026-11-03); the full list is reconfirmed in §12.6:
+  1. Secret-bearing temporary artefacts remain on the workstation:
+     `/tmp/niner-restore-drill/` (`data.sqlite`, `data.sqlite-shm`,
+     `data.sqlite-wal`, `jwt-secret`, `machine-id`) plus
+     `/tmp/oc-gateway.json`, `/tmp/oc-test-repo`, `/tmp/served-chain.pem`,
+     `/tmp/nv-ramp.py`, `/tmp/models.json`, `/tmp/cc1-4.json`,
+     `/tmp/bad400.json`, `/tmp/unauth.json`, `/tmp/badkey.json`. The agent
+     cannot delete them (`rm` denied by owner's client permission rules);
+     owner must remove them.
+  2. Live combo drift persists (re-verified against a fresh consistent DB
+     copy at merge time): hermes still contains the unapproved direct
+     `nvidia/meta/muse-glimmer-30b`; hyperion still contains
+     `gemini/gemini-3.6-flash`; athena member order differs (same four
+     approved members). Dashboard modification remains unavailable to the
+     agent (management API requires a dashboard session; client key
+     rejected on `/api/*`).
+
+Pre-merge runtime sanity evidence recorded before the merge decision
+(non-disruptive, read-only): `servicehub-routeniner-1` Up ~9 h, 0 restarts,
+no OOM; `servicehub-routetraefik-1` Up ~9 h healthy; native port 20128 not
+published (connection refused on 127.0.0.1:20128); unauthenticated
+`/v1/models` → 401; dashboard without basic auth → 401. Only 13 files
+differ from `main`; tracked-file secret scan found only the pre-existing
+self-signed TLS pair (`shared/traefik/advanced/selfsigncert/`, documented
+self-managed material, not introduced by this feature) and placeholder
+text in `README.md` — no new credential in the diff.
+
+### 12.6 Completion-phase status (merge decision)
+
+- **Merge not executed.** The owner's stop conditions for the merge were both
+  verified true immediately before the merge step, so the agent stopped before
+  merging per instruction:
+  - Stop condition 1 — secret-bearing temporary artefacts still exist
+    (exact list in §12.5; `rm` is denied by the owner's client permission
+    rules, so the agent cannot remove them).
+  - Stop condition 2 — live combo membership still conflicts with the
+    approved definitions (drift re-verified from a fresh consistent DB copy;
+    §12.3). Dashboard-state modification remains unavailable to the agent.
+- Final documentation state: alias guidance corrected in `niner.md`
+  (`ANTHROPIC_MODEL` excluded from intended config; `model: sonnet` default);
+  runbook v1.1 reflects verified runtime layout; drift recorded, history
+  preserved.
+- Non-disruptive runtime sanity at completion (read-only probes, status codes
+  only): `servicehub-routeniner-1` Up (~9 h), 0 restarts, OOM false;
+  `servicehub-routetraefik-1` Up healthy; native port 20128 not published
+  (127.0.0.1:20128 connection refused); unauthenticated `/v1/models` → 401;
+  dashboard without basic auth → 401; HTTPS gateway reachable.
+- Static validation at completion: `git diff --check` clean;
+  `docker compose config --quiet` passed; 13 files differ from `main`
+  (intended set only); tracked-file secret scan (pattern + count only)
+  found no new credential in the branch diff — the only private-key-pattern
+  matches are the pre-existing, documented self-signed TLS pair
+  (`shared/traefik/advanced/selfsigncert/`) and placeholder literals in
+  `README.md`.
+- The completion commit records documentation only; no merge, push, or tag
+  was performed. The feature branch is retained.

@@ -248,9 +248,11 @@ combo membership read from the live service on 2026-11-03:
 | `athena` | `oc/deepseek-v4.1-flash-free`, `nvidia/z-ai/glm-5.3-flash`, `oc/glm-5.3-flash-free`, `minimax/MiniMax-M3` | Same four approved members, different order |
 | `hyperion` | `nvidia/nvidia/nemotron-3-ultra-550b-a55b`, `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free`, `oc/deepseek-v4.1-flash-free`, `minimax/MiniMax-M3`, **`gemini/gemini-3.6-flash`** | Extra `gemini/gemini-3.6-flash`, which is explicitly excluded below |
 
-The approved definitions in this section remain authoritative. Correcting the
-deployed state requires a separate owner authorisation to modify dashboard state;
-until then this drift is recorded, not endorsed. Details and gate impact are in
+The approved definitions in this section remain authoritative. The owner
+authorised removing the two drifted members on 2026-11-03; that correction is
+**not yet applied** to the live dashboard (dashboard-state modification was not
+available to the validation agent). Until it is applied, this drift stands and
+is recorded, not endorsed. Details and gate impact are in
 [ADR-011 Runtime Validation](../../testing/verification-9router-adr-011-runtime-validation-2026-11-03.md).
 
 ### Gemini 3.6 Flash — Not in the Initial Hyperion Rotation
@@ -335,7 +337,13 @@ See [9ROUTER-BACKUP-RESTORE.md](../runbooks/9ROUTER-BACKUP-RESTORE.md).
 |------|---------|
 | `${APPS_DATA}/route/niner/db/data.sqlite` | Primary SQLite (providers, API keys, combos, usage) |
 | `${APPS_DATA}/route/niner/db/backups/` | Automatic SQLite backups |
-| `${APPS_DATA}/route/niner/data-home/jwt-secret` | Auto-generated JWT signing key |
+| `${APPS_DATA}/route/niner/jwt-secret` | Auto-generated JWT signing key |
+| `${APPS_DATA}/route/niner/machine-id` | Machine identity |
+
+Verified in the deployed container (2026-11-03): `jwt-secret` and `machine-id`
+live directly in `${APPS_DATA}/route/niner/`, not under a `data-home/`
+subdirectory. The container's `/app/data-home` is empty and
+`/root/.9router` symlinks to it.
 
 **Backup tier:** Tier 2 (weekly, ADR-007). Crash-consistent copy.
 
@@ -386,7 +394,7 @@ docker compose up -d routeniner
 ## Security
 
 - No public native port (port 20128 not published on host)
-- Dashboard restricted to `TRUSTED_IP` + JWT session
+- Dashboard restricted at the Traefik layer to `TRUSTED_IP` (ipAllowList) + HTTP basic auth; the app's own JWT session follows on top
 - `/v1` API protected by per-client Bearer keys (`REQUIRE_API_KEY=true`)
 - HTTPS via Traefik (Let's Encrypt)
 - `AUTH_COOKIE_SECURE=true`, `ENABLE_REQUEST_LOGS=false`
