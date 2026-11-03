@@ -95,13 +95,18 @@ def main():
             user[key] = env.get(key, "")
     env.update(user)
     for key in ("TRUSTED_IP", "TRAEFIK_DOMAIN", "EMAIL_HOST", "IDENTITY_DOMAIN",
-                "CERTRESOLVER", "TRAEFIK_BAAUTH"):
+                "CERTRESOLVER", "TRAEFIK_BAAUTH", "CERBERUS_DOMAIN"):
         env[key] = expand(env.get(key, ""), env)
 
     trusted = [r.strip() for r in env["TRUSTED_IP"].split(",") if r.strip()]
     clientip = " || ".join(f"ClientIP(`{r}`)" for r in trusted)
 
     enable_mailsv = env.get("ENABLE_MAILSV", "").lower() == "true"
+
+    # 9Router cerberus domain (ADR-011): derived from DOMAIN_NAME if not overridden
+    cerberus_domain = env.get("CERBERUS_DOMAIN", "")
+    if not cerberus_domain and env.get("DOMAIN_NAME"):
+        cerberus_domain = f"cerberus.{env['DOMAIN_NAME']}"
 
     # DOMAIN_NAME only reaches the output through the derived keys. A literal
     # override (TRAEFIK_DOMAIN=traefik.old.example) never moves with
@@ -139,8 +144,33 @@ def main():
     }
     if enable_mailsv:
         middlewares["mailsvstalwart-login-redirect"] = redirect
+
+    # 9Router API router (PathPrefix(/v1) higher priority than dashboard catch-all)
+    routers["niner-api"] = {
+        "rule": f"Host(`{cerberus_domain}`) && PathPrefix(`/v1`)",
+        "entryPoints": entry,
+        "service": "routeniner@docker",
+        "priority": 200,  # higher than dashboard catch-all (100)
+        "middlewares": [mid_secure],  # only secure-chain, Bearer auth enforced by REQUIRE_API_KEY
+        "tls": tls,
+    }
+
+    # 9Router dashboard router (admin surface, IP-restricted)
+    routers["niner-dashboard"] = {
+        "rule": f"Host(`{cerberus_domain}`)",
+        "entryPoints": entry,
+        "service": "routeniner@docker",
+        "priority": 100,  # lower than /v1 router
+        "middlewares": [mid_secure, "dashboard-whitelist", "dashboard-auth"],
+        "tls": tls,
+    }
+
+    # Admin trust lists and auth middlewares
+    middlewares["dashboard-whitelist"] = whitelist
+    middlewares["dashboard-auth"] = basicauth
+
+    # Original Traefik admin and mail admin (traefik, email)
     if trusted:
-        # Trusted clients reach the admin service; everyone else is redirected.
         routers["dashboard"] = {
             "rule": f"Host(`{env['TRAEFIK_DOMAIN']}`) && ({clientip})",
             "entryPoints": entry,
@@ -159,14 +189,13 @@ def main():
                 "middlewares": [mid_secure, "mailsvstalwart-whitelist"],
                 "tls": tls,
             }
-        middlewares["dashboard-whitelist"] = whitelist
         if enable_mailsv:
             middlewares["mailsvstalwart-whitelist"] = whitelist
-        middlewares["dashboard-auth"] = basicauth
     else:
         print("warning: TRUSTED_IP is empty; admin routers omitted (fail closed)",
               file=sys.stderr)
 
+    # Original dashboard-untrusted and mail-untrusted
     routers["dashboard-untrusted"] = {
         "rule": f"Host(`{env['TRAEFIK_DOMAIN']}`)",
         "entryPoints": entry,
@@ -175,10 +204,6 @@ def main():
         "middlewares": [mid_secure, "dashboard-login-redirect"],
         "tls": tls,
     }
-    # Grafana ingress restriction (ADR-010 Stage 3): the Docker-label router on
-    # obsvcegrafana attaches this by name. TRUSTED_IP is the single source of
-    # truth for administrative ingress, so Grafana shares the same allowlist
-    # as the Traefik dashboard and the other admin interfaces.
     middlewares["grafana-allowlist"] = {"ipAllowList": {"sourceRange": trusted}}
     if enable_mailsv:
         routers["mailsvstalwart-untrusted"] = {

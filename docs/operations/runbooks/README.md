@@ -21,10 +21,11 @@ Draft, Approved, Superseded; record the last-exercised date.
 |---|---|---|---|
 | [RUNBOOK](RUNBOOK.md) | Draft | Not recorded | 2026-10-01 |
 | [BACKUP-RESTORE](BACKUP-RESTORE.md) | Draft | Not recorded | 2026-10-10 |
+| [9ROUTER-BACKUP-RESTORE](9ROUTER-BACKUP-RESTORE.md) | Draft | Not recorded | 2026-11-02 |
 | [DEPLOYMENT](DEPLOYMENT.md) | Active | Not recorded | 2026-10-10 |
 
 ## Relationship to other artifacts
 Referenced by the operational model and release records. Template: [../../templates/runbook-template.md](../../templates/runbook-template.md).
 
 ## Current scaffold state
-Three runbooks are indexed.
+Four runbooks are indexed.

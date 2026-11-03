@@ -44,6 +44,7 @@ inject_secrets() {
     HERMES_WORKSPACE_PASSWD_00=$(openssl rand -base64 24 | tr -d '\n')
     WEBMAIL_SESSION_SECRET=$(openssl rand -base64 32 | tr -d '\n')
     STALWART_ADMIN_PASS=$(openssl rand -base64 24 | tr -d '\n')
+    NINER_INITPASS=$(openssl rand -base64 24 | tr -d '\n')
 
     # Only replace if the current value matches the placeholder (not already set)
     sed -i.bak \
@@ -57,6 +58,7 @@ inject_secrets() {
         -e "s|<YOUR_HERMES_WORKSPACE_PASSWORD_00>|${HERMES_WORKSPACE_PASSWD_00}|g" \
         -e "s|<YOUR_STRONG_WEBMAIL_SESSION_SECRET>|${WEBMAIL_SESSION_SECRET}|g" \
         -e "s|<YOUR_STRONG_STALWART_ADMIN_PASSWORD>|${STALWART_ADMIN_PASS}|g" \
+        -e "s|<YOUR_STRONG_NINER_INITIAL_PASSWORD>|${NINER_INITPASS}|g" \
         "$ENV_FILE" && rm "${ENV_FILE}.bak"
 }
 
